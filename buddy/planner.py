@@ -1,0 +1,458 @@
+"""Planner — turns a reasoned understanding into a concrete sequence of steps."""
+
+import json
+import logging
+from dataclasses import dataclass
+from typing import Protocol
+
+from buddy.llm import LLMMessage, LLMProvider
+from buddy.models import PlanningStep, Understanding
+from buddy.state import BuddyState
+from buddy.think import Reasoning
+
+logger = logging.getLogger(__name__)
+
+
+@dataclass(frozen=True)
+class PlanningRequest:
+    """The inputs available for turning a reasoned understanding into steps.
+
+    A plain, self-contained bundle of everything a ``PlanningStrategy``
+    needs to work from — assembled mechanically from ``BuddyState`` by the
+    Planner stage, so a strategy never has to depend on ``BuddyState``
+    directly.
+
+    Attributes:
+        understanding: The structured understanding produced by Brain.
+        reasoning: The structured reasoning produced by Think.
+        uploaded_files: Files currently available in the workspace.
+        active_file: Reference to the file the user was last focused on,
+            if any, from the working context.
+        user_message: The current turn's raw message from the user. A
+            classified ``understanding.intent`` alone cannot carry
+            compound detail (e.g. "this column") — strategies that need
+            to decompose a request read this field directly, the same
+            way ``UnderstandingRequest`` already does for Brain.
+    """
+
+    understanding: Understanding
+    reasoning: Reasoning
+    uploaded_files: tuple[str, ...]
+    active_file: str | None
+    user_message: str
+
+
+class PlanningStrategy(Protocol):
+    """Produces an ordered sequence of ``PlanningStep``s from a ``PlanningRequest``.
+
+    This is the seam where real planning is plugged in — a rule-based
+    strategy, or one backed by an LLM. The Planner stage itself never
+    decides what to do; it only calls whichever ``PlanningStrategy`` it
+    was given.
+    """
+
+    def __call__(self, request: PlanningRequest) -> tuple[PlanningStep, ...]:
+        """Plan ``request`` and return the resulting steps."""
+        ...
+
+
+class NullPlanner:
+    """A ``PlanningStrategy`` that produces no steps.
+
+    Never invents a plan. Serves as a safe default so ``Planner`` can be
+    constructed and exercised — in tests, or wired into the Engine —
+    before a real strategy is plugged in.
+    """
+
+    def __call__(self, request: PlanningRequest) -> tuple[PlanningStep, ...]:
+        """Return no steps for any request.
+
+        Args:
+            request: The request that would otherwise be planned.
+
+        Returns:
+            An empty tuple — no strategy has been configured.
+        """
+        return ()
+
+
+_INTENT_CAPABILITIES: dict[str, str] = {
+    "remove_duplicate_rows": "spreadsheet.deduplicate",
+}
+
+
+class RuleBasedPlanner:
+    """A ``PlanningStrategy`` that mechanically maps known intents to one step.
+
+    Turns a small, closed set of known intents into a single
+    ``PlanningStep`` requesting the matching capability. This is
+    deliberately not an LLM-backed strategy: translating one already-known
+    intent into one step is mechanical, not a judgment call, so no
+    additional reasoning is needed here. As more intents are added, a
+    richer ``PlanningStrategy`` can be substituted behind this same
+    protocol without changing the Planner stage.
+
+    Produces no steps when: the intent isn't in the known mapping, Think
+    flagged ``clarification_required``, or no file is available to act on
+    — in all three cases, proceeding would mean guessing.
+    """
+
+    def __call__(self, request: PlanningRequest) -> tuple[PlanningStep, ...]:
+        """Plan ``request`` and return the resulting steps.
+
+        Args:
+            request: The request to plan for.
+
+        Returns:
+            A single ``PlanningStep`` if the intent is known, the request
+            isn't flagged as needing clarification, and a target file is
+            available; otherwise an empty tuple.
+        """
+        intent = request.understanding.intent
+        capability = _INTENT_CAPABILITIES.get(intent) if intent else None
+        target_file = request.active_file or (
+            request.uploaded_files[-1] if request.uploaded_files else None
+        )
+
+        if capability is None or request.reasoning.clarification_required or target_file is None:
+            return ()
+
+        return (
+            PlanningStep(
+                id="step-1",
+                description=f"Apply {capability} to {target_file}",
+                capability=capability,
+                priority=0,
+            ),
+        )
+
+
+class CompositePlanner:
+    """A ``PlanningStrategy`` that tries one strategy, falling back to another.
+
+    Tries ``primary`` first; if it produces no steps, tries ``fallback``.
+    Composition happens entirely at this layer — the ``Planner`` stage
+    itself never changes to support this, the same extensibility model
+    ``docs/WORKBUDDY_ARCHITECTURE.md`` Section 18 documents for the
+    Dispatcher's selection strategy. Used to wire a cheap, deterministic
+    strategy (e.g. ``RuleBasedPlanner``) ahead of a more expensive,
+    LLM-backed one (e.g. ``ClaudePlanner``), so the LLM is only ever
+    consulted when the cheap strategy genuinely has nothing to offer. See
+    ``docs/design/multi-step-planner-design.md`` Section 7 for the design.
+    """
+
+    def __init__(self, primary: PlanningStrategy, fallback: PlanningStrategy) -> None:
+        """Initialize the composed strategy.
+
+        Args:
+            primary: The strategy tried first.
+            fallback: The strategy tried only if ``primary`` returns no
+                steps.
+        """
+        self._primary = primary
+        self._fallback = fallback
+
+    def __call__(self, request: PlanningRequest) -> tuple[PlanningStep, ...]:
+        """Plan ``request`` using ``primary``, falling back to ``fallback``.
+
+        Args:
+            request: The request to plan for.
+
+        Returns:
+            ``primary``'s steps if it produced any; otherwise
+            ``fallback``'s steps.
+        """
+        steps = self._primary(request)
+        if steps:
+            return steps
+        return self._fallback(request)
+
+
+class Planner:
+    """The Planner stage of Buddy's cognitive cycle.
+
+    Planner converts Think's reasoning into a concrete, ordered sequence
+    of steps — what Delegate will turn into capability requests for the
+    Dispatcher to route (see ``docs/WORKBUDDY_ARCHITECTURE.md`` Section
+    4). It is not responsible for resolving a step to a specific Skill,
+    for executing anything, or for verifying results — those belong to
+    Delegate, Hands, and Inspector respectively.
+
+    Planner contains no planning logic of its own. All of the actual
+    decision-making — which capability a step requires, how many steps,
+    their ordering — is delegated to an injected ``PlanningStrategy``.
+    Planner's own responsibility is purely mechanical: assemble the
+    strategy's input from ``BuddyState``, call the strategy, and record
+    what it returns. This keeps Planner a stable, swappable framework — a
+    rule-based strategy, an LLM-backed strategy, or anything else
+    conforming to ``PlanningStrategy`` can be substituted without ever
+    changing this stage.
+    """
+
+    def __init__(self, planner: PlanningStrategy | None = None) -> None:
+        """Initialize the stage.
+
+        Args:
+            planner: The strategy to delegate planning to. Defaults to
+                ``NullPlanner``, which produces no steps rather than
+                guessing.
+        """
+        if planner is None:
+            logger.debug("No planning strategy provided; falling back to NullPlanner")
+        self._planner = planner if planner is not None else NullPlanner()
+
+    def __call__(self, state: BuddyState) -> BuddyState:
+        """Plan for ``state`` and record the resulting steps.
+
+        Args:
+            state: The current ``BuddyState`` for this turn.
+
+        Returns:
+            The same state, with the full sequence of ``PlanningStep``s
+            recorded in ``state.planning`` and mirrored as plain-language
+            descriptions in the legacy ``state.plan``.
+        """
+        request = self._build_request(state)
+        steps = self._planner(request)
+        self._apply(state, steps)
+        logger.debug("Planner recorded %d step(s) for session %r", len(steps), state.session_id)
+        return state
+
+    @staticmethod
+    def _build_request(state: BuddyState) -> PlanningRequest:
+        """Assemble the strategy's input from the current state.
+
+        This step is purely mechanical: it gathers what is already
+        present on ``state`` and ``state.context`` into a plain,
+        self-contained bundle. It performs no planning of its own. If
+        Brain or Think have not run yet, empty defaults are used
+        rather than guessing at what they might have contained.
+
+        Args:
+            state: The current ``BuddyState`` for this turn.
+
+        Returns:
+            The request to hand to the configured strategy.
+        """
+        return PlanningRequest(
+            understanding=state.understanding or Understanding(),
+            reasoning=state.reasoning or Reasoning(),
+            uploaded_files=tuple(state.uploaded_files),
+            active_file=state.context.active_file,
+            user_message=state.user_message,
+        )
+
+    @staticmethod
+    def _apply(state: BuddyState, steps: tuple[PlanningStep, ...]) -> None:
+        """Record the strategy's output onto ``state``.
+
+        ``state.planning`` is the source of truth. Plain-language
+        descriptions are additionally mirrored into the legacy
+        ``state.plan`` list, consistent with how Brain/Think keep
+        their legacy fields populated alongside the typed ones.
+
+        Args:
+            state: The state to update.
+            steps: The planned steps to record.
+        """
+        state.planning = steps
+        state.plan = [step.description for step in steps]
+
+
+_SYSTEM_PROMPT = """You are the planning stage for WorkBuddy, an AI coworker.
+
+The user's request has already been classified as describing more than
+one distinct action ("multi_step_request"), and Think has already judged
+it clear enough to proceed. Your job is to decompose it into an ordered
+sequence of concrete steps, each requesting one capability.
+
+You are never shown the contents of any uploaded file — only its name,
+the user's own words, and what Brain/Think already concluded — so never
+assume anything about what data a file contains.
+
+You will be given a list of capabilities that currently have a real
+skill able to perform them. Prefer those exact capability strings when a
+step matches one. If a requested action does not match any capability in
+that list, still include the step — name the most sensible capability
+string for what's being asked, following the same dot-separated
+domain.action pattern already in use (e.g. "spreadsheet.report",
+"spreadsheet.dashboard"). Never omit a requested action just because no
+matching capability is listed; the system already handles telling the
+user a capability isn't supported yet.
+
+Respond with a single JSON object and nothing else, matching this shape:
+{
+  "steps": [
+    {
+      "description": "<plain-language description of this step>",
+      "capability": "<dot-separated capability string>",
+      "depends_on_step_numbers": [<1-based numbers of steps in THIS list that must complete first, or empty>]
+    }
+  ]
+}
+"""
+
+
+class ClaudePlanner:
+    """A ``PlanningStrategy`` backed by a Claude model, for compound requests.
+
+    Decomposes a request classified as ``"multi_step_request"`` into an
+    ordered sequence of ``PlanningStep``s, using the raw
+    ``request.user_message`` — a classified intent alone cannot carry
+    compound detail. Named ``ClaudePlanner`` to match the
+    ``Claude<domain-noun>`` convention already used by
+    ``ClaudeInterpreter``/``ClaudeThinker``, even though — like those two
+    — it works with any ``LLMProvider``, not only Claude specifically.
+
+    Only engages for ``"multi_step_request"``: for any other intent
+    (including the single known ``"remove_duplicate_rows"``, and
+    ``"unclear"``), it returns ``()`` immediately with no LLM call, the
+    same early-return discipline ``RuleBasedPlanner`` already follows.
+    Also respects ``reasoning.clarification_required`` and requires a
+    resolvable target file — the same two gates ``RuleBasedPlanner``
+    uses, since per
+    ``docs/design/multi-step-planner-design.md`` Step 1, every step this
+    strategy produces will end up targeting that one file regardless of
+    what it intended (``MechanicalDelegator`` resolves one shared target
+    for the whole plan, not per step).
+
+    Never invents a capability that isn't real without saying so, and
+    never silently drops a requested action just because no skill exists
+    for it yet — see ``docs/design/multi-step-planner-design.md`` Section
+    3. Never raises: on an LLM failure or a malformed/unexpected reply,
+    logs the failure (never the prompt or reply content — the same
+    logging discipline every other LLM-backed piece in this codebase
+    follows) and returns ``()``, the same "produce nothing rather than
+    guess" contract ``NullPlanner``/``RuleBasedPlanner``'s own refusal
+    paths already use.
+    """
+
+    def __init__(
+        self, provider: LLMProvider, *, known_capabilities: tuple[tuple[str, str], ...]
+    ) -> None:
+        """Initialize the strategy.
+
+        Args:
+            provider: The ``LLMProvider`` used to decompose the request.
+            known_capabilities: ``(capability, description)`` pairs for
+                every capability a currently-registered Skill declares.
+                A static snapshot taken once at wiring time — never a
+                live ``SkillRegistry`` reference (see
+                ``docs/design/multi-step-planner-design.md`` Section 3;
+                ``docs/WORKBUDDY_ARCHITECTURE.md`` Section 10: nothing
+                but the Dispatcher queries the Registry directly).
+        """
+        self._provider = provider
+        self._known_capabilities = known_capabilities
+
+    def __call__(self, request: PlanningRequest) -> tuple[PlanningStep, ...]:
+        """Decompose ``request`` into an ordered sequence of steps.
+
+        Args:
+            request: The request to plan for.
+
+        Returns:
+            The decomposed steps, in intended execution order
+            (``priority`` set to list position), or ``()`` if this
+            strategy doesn't apply, Think flagged clarification is
+            required, no target file is available, or the model call
+            fails or returns something unparseable.
+        """
+        if request.understanding.intent != "multi_step_request":
+            return ()
+        if request.reasoning.clarification_required:
+            return ()
+        target_file = request.active_file or (
+            request.uploaded_files[-1] if request.uploaded_files else None
+        )
+        if target_file is None:
+            return ()
+
+        user_prompt = self._build_user_prompt(request, target_file)
+        try:
+            raw_reply = self._provider.complete(
+                system=_SYSTEM_PROMPT,
+                messages=(LLMMessage(role="user", content=user_prompt),),
+            )
+        except Exception:
+            logger.exception("ClaudePlanner: LLM call failed")
+            return ()
+        return self._parse_reply(raw_reply)
+
+    def _build_user_prompt(self, request: PlanningRequest, target_file: str) -> str:
+        """Build the user-turn prompt from ``request``.
+
+        Only the raw message, classified intent, Think's own conclusion,
+        the target file, and the known-capabilities snapshot are
+        included — never file content.
+
+        Args:
+            request: The request to build a prompt from.
+            target_file: The already-resolved target file.
+
+        Returns:
+            The plain-text user prompt to send to the model.
+        """
+        lines = [
+            f'User message: "{request.user_message}"',
+            f"Classified intent: {request.understanding.intent!r}",
+        ]
+        if request.reasoning.objective:
+            lines.append(f"Objective: {request.reasoning.objective}")
+        if request.reasoning.recommended_strategy:
+            lines.append(f"Recommended strategy: {request.reasoning.recommended_strategy}")
+        lines.append(f"Target file: {target_file}")
+
+        if self._known_capabilities:
+            lines.append("Capabilities with a real skill today:")
+            for capability, description in self._known_capabilities:
+                lines.append(f"  {capability}: {description}")
+        else:
+            lines.append("No capabilities currently have a real skill.")
+
+        return "\n".join(lines)
+
+    @staticmethod
+    def _parse_reply(raw_reply: str) -> tuple[PlanningStep, ...]:
+        """Parse the model's raw JSON reply into an ordered step sequence.
+
+        Args:
+            raw_reply: The model's raw text reply.
+
+        Returns:
+            The parsed steps, or ``()`` if ``raw_reply`` is not valid
+            JSON or doesn't match the expected shape.
+        """
+        try:
+            data = json.loads(raw_reply)
+        except json.JSONDecodeError:
+            logger.warning("ClaudePlanner: reply was not valid JSON: %r", raw_reply)
+            return ()
+
+        try:
+            raw_steps = data.get("steps") or []
+            if not isinstance(raw_steps, list):
+                raise TypeError("'steps' was not a list")
+
+            step_ids = [f"step-{index + 1}" for index in range(len(raw_steps))]
+            steps: list[PlanningStep] = []
+            for index, raw_step in enumerate(raw_steps):
+                depends_on_numbers = raw_step.get("depends_on_step_numbers") or []
+                dependencies = tuple(
+                    step_ids[number - 1]
+                    for number in depends_on_numbers
+                    if isinstance(number, int) and 1 <= number <= len(step_ids)
+                )
+                steps.append(
+                    PlanningStep(
+                        id=step_ids[index],
+                        description=str(raw_step["description"]),
+                        capability=str(raw_step["capability"]),
+                        priority=index,
+                        dependencies=dependencies,
+                    )
+                )
+            return tuple(steps)
+        except (TypeError, KeyError, AttributeError):
+            logger.warning("ClaudePlanner: reply JSON had an unexpected shape: %r", data)
+            return ()

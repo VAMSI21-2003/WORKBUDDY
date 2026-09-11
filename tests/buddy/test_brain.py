@@ -1,0 +1,224 @@
+"""Unit tests for buddy.brain."""
+
+from __future__ import annotations
+
+import json
+
+import pytest
+
+from buddy.brain import Brain, ClaudeInterpreter, NullInterpreter, UnderstandingRequest
+from buddy.llm import LLMMessage
+from buddy.models import Understanding
+from buddy.state import BuddyState
+
+
+class _FakeLLMProvider:
+    """A minimal ``LLMProvider`` stand-in that returns a canned reply."""
+
+    def __init__(self, reply: str | None = None, *, raises: Exception | None = None) -> None:
+        self._reply = reply
+        self._raises = raises
+        self.last_system: str | None = None
+        self.last_messages: tuple[LLMMessage, ...] | None = None
+
+    def complete(
+        self, *, system: str, messages: tuple[LLMMessage, ...], max_tokens: int = 1024
+    ) -> str:
+        self.last_system = system
+        self.last_messages = messages
+        if self._raises is not None:
+            raise self._raises
+        assert self._reply is not None
+        return self._reply
+
+
+def _make_state(user_message: str = "remove duplicate rows") -> BuddyState:
+    state = BuddyState.new(session_id="session-1", workspace_id="workspace-1")
+    state.user_message = user_message
+    state.context.add_uploaded_file("report.xlsx")
+    return state
+
+
+def _empty_request(**overrides: object) -> UnderstandingRequest:
+    fields: dict[str, object] = {
+        "user_message": "remove duplicate rows",
+        "observations": (),
+        "uploaded_files": (),
+        "active_task": None,
+        "active_file": None,
+        "recent_conversation": (),
+    }
+    fields.update(overrides)
+    return UnderstandingRequest(**fields)  # type: ignore[arg-type]
+
+
+# -- Brain stage: dead-field fix ----------------------------------------
+
+
+def test_brain_sets_typed_understanding_field() -> None:
+    state = _make_state()
+    understanding = Understanding(intent="remove_duplicate_rows", confidence=0.9)
+
+    class _FixedInterpreter:
+        def __call__(self, request: UnderstandingRequest) -> Understanding:
+            return understanding
+
+    stage = Brain(interpreter=_FixedInterpreter())
+    stage(state)
+
+    assert state.understanding == understanding
+    assert state.intent == "remove_duplicate_rows"
+    assert state.confidence == 0.9
+
+
+def test_brain_no_longer_writes_metadata_understanding() -> None:
+    state = _make_state()
+    stage = Brain(interpreter=NullInterpreter())
+
+    stage(state)
+
+    assert "understanding" not in state.metadata
+    assert state.understanding is not None  # NullInterpreter still returns a real Understanding
+
+
+def test_null_interpreter_reports_nothing_understood() -> None:
+    state = _make_state()
+    stage = Brain(interpreter=NullInterpreter())
+
+    stage(state)
+
+    assert state.understanding is not None
+    assert state.understanding.intent is None
+    assert state.understanding.confidence == 0.0
+
+
+# -- ClaudeInterpreter --------------------------------------------------------
+
+
+def test_claude_interpreter_parses_valid_json_reply() -> None:
+    reply = json.dumps(
+        {
+            "intent": "remove_duplicate_rows",
+            "confidence": 0.87,
+            "referenced_files": ["report.xlsx"],
+            "referenced_work_items": [],
+            "missing_information": [],
+            "ambiguity_flags": [],
+            "notes": "clear request",
+        }
+    )
+    provider = _FakeLLMProvider(reply=reply)
+    interpreter = ClaudeInterpreter(provider)
+    request = _empty_request(uploaded_files=("report.xlsx",))
+
+    understanding = interpreter(request)
+
+    assert understanding.intent == "remove_duplicate_rows"
+    assert understanding.confidence == pytest.approx(0.87)
+    assert understanding.referenced_files == ("report.xlsx",)
+    assert understanding.notes == "clear request"
+
+
+def test_claude_interpreter_prompt_contains_only_message_and_file_references() -> None:
+    """The prompt must be built solely from the request's fields — never
+    from opening the uploaded file — since ``UnderstandingRequest`` itself
+    has no field capable of carrying cell or row data in the first place.
+    An exact match proves nothing extra (e.g. file content) was added.
+    """
+    provider = _FakeLLMProvider(reply=json.dumps({"intent": "unclear", "confidence": 0.1}))
+    interpreter = ClaudeInterpreter(provider)
+    request = _empty_request(
+        uploaded_files=("report.xlsx",),
+        active_file="report.xlsx",
+    )
+
+    interpreter(request)
+
+    assert provider.last_messages is not None
+    prompt = provider.last_messages[0].content
+    assert prompt == (
+        'User message: "remove duplicate rows"\n'
+        "Uploaded files (names only): report.xlsx\n"
+        "Currently active file: report.xlsx"
+    )
+
+
+def test_claude_interpreter_prompt_reports_no_uploaded_files_when_none() -> None:
+    provider = _FakeLLMProvider(reply=json.dumps({"intent": "unclear", "confidence": 0.1}))
+    interpreter = ClaudeInterpreter(provider)
+    request = _empty_request(uploaded_files=())
+
+    interpreter(request)
+
+    assert provider.last_messages is not None
+    prompt = provider.last_messages[0].content
+    assert "Uploaded files: none" in prompt
+
+
+def test_claude_interpreter_falls_back_on_invalid_json() -> None:
+    provider = _FakeLLMProvider(reply="not json at all")
+    interpreter = ClaudeInterpreter(provider)
+
+    understanding = interpreter(_empty_request())
+
+    assert understanding.intent is None
+    assert understanding.confidence == 0.0
+    assert understanding.missing_information
+
+
+def test_claude_interpreter_falls_back_on_unexpected_shape() -> None:
+    provider = _FakeLLMProvider(reply=json.dumps({"intent": "x", "confidence": "not-a-number"}))
+    interpreter = ClaudeInterpreter(provider)
+
+    understanding = interpreter(_empty_request())
+
+    assert understanding.intent is None
+    assert understanding.confidence == 0.0
+    assert understanding.missing_information
+
+
+def test_claude_interpreter_falls_back_on_provider_failure() -> None:
+    provider = _FakeLLMProvider(raises=RuntimeError("network error"))
+    interpreter = ClaudeInterpreter(provider)
+
+    understanding = interpreter(_empty_request())
+
+    assert understanding.intent is None
+    assert understanding.confidence == 0.0
+    assert understanding.missing_information
+
+
+def test_claude_interpreter_wired_into_brain_stage() -> None:
+    state = _make_state()
+    reply = json.dumps({"intent": "remove_duplicate_rows", "confidence": 0.95})
+    provider = _FakeLLMProvider(reply=reply)
+    stage = Brain(interpreter=ClaudeInterpreter(provider))
+
+    stage(state)
+
+    assert state.understanding is not None
+    assert state.understanding.intent == "remove_duplicate_rows"
+    assert state.intent == "remove_duplicate_rows"
+
+
+def test_claude_interpreter_accepts_multi_step_request_intent() -> None:
+    """"multi_step_request" is a new legal value in the closed vocabulary
+    (see docs/design/multi-step-planner-design.md), added so ClaudePlanner
+    has an explicit signal distinct from "unclear" — confirm it round-trips
+    through parsing exactly like any other intent string, with no special
+    handling needed in ClaudeInterpreter itself.
+    """
+    reply = json.dumps(
+        {
+            "intent": "multi_step_request",
+            "confidence": 0.9,
+            "notes": "describes multiple distinct actions",
+        }
+    )
+    provider = _FakeLLMProvider(reply=reply)
+    interpreter = ClaudeInterpreter(provider)
+
+    understanding = interpreter(_empty_request())
+
+    assert understanding.intent == "multi_step_request"
+    assert understanding.confidence == pytest.approx(0.9)

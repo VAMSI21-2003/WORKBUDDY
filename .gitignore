@@ -1,0 +1,71 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+wheels/
+*.egg-info/
+.installed.cfg
+*.egg
+
+# Virtual environments
+.venv/
+venv/
+env/
+ENV/
+
+# Environment / secrets
+.env
+.env.*
+!.env.example
+
+# Testing / coverage
+.pytest_cache/
+.coverage
+.coverage.*
+htmlcov/
+.mypy_cache/
+.ruff_cache/
+.tox/
+
+# IDE
+.vscode/
+.idea/
+*.swp
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Manual verification scratch space (see scripts/run_dedupe_manually.py)
+scratch/
+
+# WorkBuddy runtime data — keep the folders, ignore their contents
+workspace/uploads/*
+!workspace/uploads/.gitkeep
+workspace/outputs/*
+!workspace/outputs/.gitkeep
+workspace/sessions/*
+!workspace/sessions/.gitkeep
+workspace/memory/*
+!workspace/memory/.gitkeep
+
+# Frontend (reserved for a future sprint)
+frontend/node_modules/
+frontend/dist/
+frontend/build/
+
+# Backend (reserved for a future sprint)
+backend/__pycache__/

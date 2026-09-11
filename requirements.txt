@@ -1,0 +1,23 @@
+# WorkBuddy — Sprint 1 & 2 dependencies
+#
+# Sprint 1 built Buddy's core architecture only (no LLM integration, no
+# Excel/PDF/Word processing, no FastAPI, no React). Sprint 2 introduces the
+# first real vertical slice: LLM-backed Understand/Think (Claude, via
+# buddy/llm.py) and the Excel deduplicate skill. Runtime dependencies for
+# still-unbuilt capabilities (PDF, Word, FastAPI, React) will be added in
+# the sprints that introduce them.
+
+# --- LLM (Understand/Think — see buddy/llm.py) ---
+anthropic>=0.40
+groq>=0.11
+
+# --- Spreadsheet processing (skills/excel — see docs/design/slice-1-dedupe-design.md) ---
+pandas>=2.2
+openpyxl>=3.1
+
+# --- Development & quality tooling ---
+black>=24.0
+ruff>=0.6
+mypy>=1.11
+pytest>=8.0
+pytest-cov>=5.0
