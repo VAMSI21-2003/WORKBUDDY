@@ -59,8 +59,8 @@ understanding of the user's work:
 | **Speak** | Communicates the outcome back to the user |
 
 These aren't utility functions bolted together — they're treated as Buddy's
-internal organs, each with a single responsibility, all coordinated by
-`buddy/brain.py` and run end-to-end by `core/engine.py`.
+internal organs, each with a single responsibility, wired together by
+`buddy/engine_factory.py` and run end-to-end by `core/engine.py`.
 
 ## Project Structure
 
@@ -77,22 +77,22 @@ WorkBuddy/
 ├── frontend/                # Client application (introduced in a later sprint)
 │
 ├── buddy/                  # Buddy's cognitive cycle
-│   ├── brain.py             # Orchestrates the full cycle over BuddyState
+│   ├── engine_factory.py    # Wires the stages into a runnable Engine
 │   ├── state.py              # BuddyState — Buddy's understanding of the work
-│   ├── observe.py
-│   ├── understand.py
+│   ├── eyes.py
+│   ├── brain.py
 │   ├── think.py
-│   ├── plan.py
+│   ├── planner.py
 │   ├── delegate.py
-│   ├── execute.py
-│   ├── verify.py
-│   ├── speak.py
+│   ├── hands.py
+│   ├── inspector.py
+│   ├── voice.py
 │   └── personality.py       # Buddy's tone and conversational style
 │
 ├── core/                   # Engine and infrastructure
 │   ├── engine.py             # Runs the cognitive cycle end-to-end
 │   ├── workflow.py            # Defines and sequences cycle stages
-│   ├── router.py              # Routes work to the right skill
+│   ├── dispatcher.py           # Routes delegated work to the right skill
 │   └── events.py              # Event types exchanged across core
 │
 ├── skills/                 # Pluggable capabilities Buddy can delegate to

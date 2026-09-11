@@ -7,7 +7,7 @@ import logging
 from buddy.brain import Brain, ClaudeInterpreter
 from buddy.delegate import Delegate, MechanicalDelegator
 from buddy.eyes import Eyes
-from buddy.hands import Hands
+from buddy.hands import Hands, NullConfirmationProvider
 from buddy.inspector import Inspector, SpreadsheetDedupeVerifier
 from buddy.llm import ClaudeProvider, LLMProvider
 from buddy.planner import ClaudePlanner, CompositePlanner, Planner, RuleBasedPlanner
@@ -55,7 +55,10 @@ def build_engine(
     LLM-backed multi-step strategy (see
     ``docs/design/multi-step-planner-design.md``), the Delegate stage, a
     Dispatcher backed by a registry containing ``ExcelDeduplicateSkill``,
-    and the independent ``SpreadsheetDedupeVerifier`` — the concrete
+    Hands wired to ``NullConfirmationProvider`` (auto-approves every
+    Write/External-Effect task — there is no user-facing surface to ask
+    through yet; see ``buddy.hands.NullConfirmationProvider``), and the
+    independent ``SpreadsheetDedupeVerifier`` — the concrete
     implementations this vertical slice needs (see
     ``docs/design/slice-1-dedupe-design.md``). All wiring happens here,
     once; every stage above continues to depend only on the protocol it
@@ -95,7 +98,7 @@ def build_engine(
             )
         ),
         delegate=Delegate(delegator=MechanicalDelegator()),
-        hands=Hands(dispatcher=dispatcher),
+        hands=Hands(dispatcher=dispatcher, confirmation_provider=NullConfirmationProvider()),
         inspector=Inspector(verifier=SpreadsheetDedupeVerifier()),
         voice=Voice(speaker=speaker if speaker is not None else TemplateSpeaker()),
     )

@@ -99,12 +99,12 @@ Observe -> Understand -> Think -> Plan -> Delegate -> Execute -> Verify -> Speak
    +--------------------------- next user message ---------------------------+
 ```
 
-**Observe** (`buddy/observe.py`) — Takes in the raw input for this turn:
+**Observe** (`buddy/eyes.py`) — Takes in the raw input for this turn:
 the user's message, any newly uploaded files, and relevant workspace
 state. Observe does not interpret anything; it only records what came in,
 writing to `BuddyState.observations` and `user_message`.
 
-**Understand** (`buddy/understand.py`) — Interprets the observations into
+**Understand** (`buddy/brain.py`) — Interprets the observations into
 a concrete statement of user intent, written to `BuddyState.intent`, along
 with a `confidence` score. This is where "make this ready for tomorrow's
 meeting" becomes a structured understanding of what "ready" means in this
@@ -116,7 +116,7 @@ constraints. Think's reasoning trace is recorded in
 `BuddyState.reasoning`, so the logic behind a decision is inspectable
 after the fact.
 
-**Plan** (`buddy/plan.py`) — Converts Think's conclusion into a concrete,
+**Plan** (`buddy/planner.py`) — Converts Think's conclusion into a concrete,
 ordered sequence of steps, written to `BuddyState.plan`. Plan is where
 "prepare this for a meeting" becomes an explicit list: clean the data,
 summarize it, build a chart, assemble a one-pager.
@@ -128,20 +128,20 @@ specific Skill instance — it hands that resolution to the Dispatcher
 (Section 11), which is the routing authority against the Skill contract
 in `BUDDY_SKILLS.md`.
 
-**Execute** (`buddy/execute.py`) — Asks the Dispatcher to select a capable
+**Execute** (`buddy/hands.py`) — Asks the Dispatcher to select a capable
 Skill for each delegated task, then invokes that Skill itself, tracks the
 one currently running in `BuddyState.active_task`, and collects results
 into `BuddyState.outputs`. Execute is the only stage that crosses out of
 Buddy's core into a Skill — and it only ever does so through a
 Dispatcher-prepared request, never by looking up a Skill on its own.
 
-**Verify** (`buddy/verify.py`) — Independently checks the collected
+**Verify** (`buddy/inspector.py`) — Independently checks the collected
 outputs against the *original* intent captured back in Understand — not
 against what the Skills merely reported. This is the check described in
 `BUDDY_SKILLS.md` Section 9: a Skill's self-reported success is necessary
 but never sufficient.
 
-**Speak** (`buddy/speak.py`) — Converts the verified outcome into the
+**Speak** (`buddy/voice.py`) — Converts the verified outcome into the
 message the user actually sees, written to `BuddyState.reply`, following
 the tone rules in `BUDDY_PERSONALITY.md`. Speak is the only stage that
 produces user-facing language.
