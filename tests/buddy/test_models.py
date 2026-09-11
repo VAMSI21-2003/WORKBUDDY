@@ -3,7 +3,7 @@
 ``Understanding`` and ``Reasoning`` are already exercised incidentally by
 tests/buddy/test_understand.py and tests/buddy/test_think.py — this file
 focuses on the models not otherwise covered: PlanningStep,
-CapabilityRequest, ExecutionResult, VerificationResult.
+CapabilityRequest, ExecutionResult, StepResult, VerificationResult.
 """
 
 from __future__ import annotations
@@ -12,8 +12,13 @@ import dataclasses
 
 import pytest
 
-from buddy.models import CapabilityRequest, ExecutionResult, PlanningStep, VerificationResult
-
+from buddy.models import (
+    CapabilityRequest,
+    ExecutionResult,
+    PlanningStep,
+    StepResult,
+    VerificationResult,
+)
 
 # -- PlanningStep -------------------------------------------------------------------
 
@@ -95,6 +100,7 @@ def test_execution_result_requires_only_success() -> None:
     assert result.warnings == ()
     assert result.errors == ()
     assert result.duration == 0.0
+    assert result.steps == ()
 
 
 def test_execution_result_is_frozen() -> None:
@@ -120,6 +126,53 @@ def test_execution_result_empty_outputs_tuple_is_falsy() -> None:
     result = ExecutionResult(success=True)
 
     assert not result.outputs
+
+
+def test_execution_result_can_carry_a_per_step_breakdown() -> None:
+    step = StepResult(
+        capability="spreadsheet.deduplicate",
+        skill="excel.deduplicate",
+        status="success",
+        outputs=("out.xlsx",),
+        summary="did the thing",
+    )
+    result = ExecutionResult(success=True, outputs=("out.xlsx",), steps=(step,))
+
+    assert result.steps == (step,)
+
+
+# -- StepResult -----------------------------------------------------------------------
+
+
+def _step_result(**overrides: object) -> StepResult:
+    fields: dict[str, object] = {
+        "capability": "spreadsheet.deduplicate",
+        "skill": "excel.deduplicate",
+        "status": "success",
+    }
+    fields.update(overrides)
+    return StepResult(**fields)  # type: ignore[arg-type]
+
+
+def test_step_result_requires_capability_skill_and_status() -> None:
+    step = _step_result()
+
+    assert step.outputs == ()
+    assert step.summary == ""
+
+
+def test_step_result_is_frozen() -> None:
+    step = _step_result()
+
+    with pytest.raises(dataclasses.FrozenInstanceError):
+        step.status = "failure"  # type: ignore[misc]
+
+
+def test_step_result_equality_is_by_value() -> None:
+    a = _step_result()
+    b = _step_result()
+
+    assert a == b
 
 
 # -- VerificationResult ---------------------------------------------------------------

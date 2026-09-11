@@ -87,6 +87,41 @@ class CapabilityRequest:
 
 
 @dataclass(frozen=True)
+class StepResult:
+    """The outcome of executing a single delegated capability request.
+
+    Produced by Hands, one per ``CapabilityRequest`` it actually got far
+    enough to dispatch to a Skill (a request that never reached a Skill —
+    routing failure, declined confirmation — has nothing to report here
+    and is represented purely by an ``ExecutionResult.errors`` entry
+    instead; see ``buddy/hands.py``). This is what lets a Verifier
+    resolve *which* strategy applies to *which* output — something
+    ``ExecutionResult.outputs``, a single flat tuple with every step's
+    outputs concatenated together, cannot express on its own.
+
+    Attributes:
+        capability: The capability this step requested — the same string
+            Delegate produced and the Dispatcher used to select a Skill.
+        skill: The name of the Skill that actually ran this step.
+        status: The Skill's own reported outcome for this step, as the
+            string value of ``skills.base.SkillStatus`` (e.g.
+            ``"success"``, ``"failure"``). Kept as a plain string rather
+            than importing ``SkillStatus`` here so ``buddy/models.py``
+            stays free of a dependency on ``skills/`` — the same
+            domain-agnostic boundary ``docs/BUDDY_SKILLS.md`` Section 2
+            asks Buddy's core to keep.
+        outputs: References to files or data this step produced.
+        summary: Plain-language description of what this step did.
+    """
+
+    capability: str
+    skill: str
+    status: str
+    outputs: tuple[str, ...] = ()
+    summary: str = ""
+
+
+@dataclass(frozen=True)
 class ExecutionResult:
     """The outcome of carrying out one or more capability requests.
 
@@ -96,10 +131,20 @@ class ExecutionResult:
 
     Attributes:
         success: Whether execution completed without a fatal error.
-        outputs: References to files or data produced during execution.
+        outputs: References to files or data produced during execution,
+            across every step, in no particular per-step grouping. Kept
+            as the flat, source-of-truth view existing callers already
+            depend on.
         warnings: Non-fatal issues encountered during execution.
         errors: Fatal issues that prevented execution from succeeding.
         duration: How long execution took, in seconds.
+        steps: Per-step breakdown of what happened, one ``StepResult``
+            per capability request that reached a Skill. This is what a
+            capability-aware ``Verifier`` (see
+            ``buddy.inspector.CompositeVerifier``) or a multi-step reply
+            (see ``buddy.voice.TemplateSpeaker``) should iterate over —
+            ``outputs`` alone cannot say which output belongs to which
+            capability.
     """
 
     success: bool
@@ -107,6 +152,7 @@ class ExecutionResult:
     warnings: tuple[str, ...] = ()
     errors: tuple[str, ...] = ()
     duration: float = 0.0
+    steps: tuple[StepResult, ...] = ()
 
 
 @dataclass(frozen=True)

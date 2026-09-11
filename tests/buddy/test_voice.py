@@ -85,6 +85,65 @@ def test_template_speaker_success_message_mentions_output_file_and_finding() -> 
     assert "0 duplicate row(s)" in reply
 
 
+def test_template_speaker_success_message_covers_every_steps_output_and_finding() -> None:
+    """Regression guard for the single-output/single-finding assumption:
+    a turn covering two delegated steps must mention both output files
+    and both findings, not just the first of each.
+    """
+    request = _request(
+        execution_result=ExecutionResult(
+            success=True,
+            outputs=(
+                "workspace/outputs/workspace-1/report_deduplicated.xlsx",
+                "workspace/outputs/workspace-1/report_no_empty_rows.xlsx",
+            ),
+        ),
+        verification_result=VerificationResult(
+            passed=True,
+            confidence=1.0,
+            findings=(
+                "[spreadsheet.deduplicate] output has 3 row(s), 0 duplicate row(s) remaining",
+                "[spreadsheet.remove_empty_rows] output has 3 row(s), "
+                "0 fully-empty row(s) remaining",
+            ),
+        ),
+    )
+
+    reply = TemplateSpeaker()(request)
+
+    assert "Done" in reply
+    assert "report_deduplicated.xlsx" in reply
+    assert "report_no_empty_rows.xlsx" in reply
+    assert "0 duplicate row(s)" in reply
+    assert "0 fully-empty row(s)" in reply
+
+
+def test_template_speaker_failure_message_covers_every_steps_finding() -> None:
+    request = _request(
+        execution_result=ExecutionResult(success=True, outputs=("a.xlsx", "b.xlsx")),
+        verification_result=VerificationResult(
+            passed=False,
+            confidence=1.0,
+            findings=(
+                "[spreadsheet.deduplicate] output has 3 row(s), 1 duplicate row(s) remaining",
+                "[spreadsheet.remove_empty_rows] output has 4 row(s), "
+                "1 fully-empty row(s) remaining",
+            ),
+            recommendations=(
+                "re-run deduplication; duplicates remain",
+                "re-run empty-row removal; empty rows remain",
+            ),
+        ),
+    )
+
+    reply = TemplateSpeaker()(request)
+
+    assert "1 duplicate row(s)" in reply
+    assert "1 fully-empty row(s)" in reply
+    assert "re-run deduplication" in reply
+    assert "re-run empty-row removal" in reply
+
+
 def test_template_speaker_failure_message_includes_findings_and_recommendations() -> None:
     request = _request(
         execution_result=ExecutionResult(success=True, outputs=("out.xlsx",)),

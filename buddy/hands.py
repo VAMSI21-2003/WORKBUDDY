@@ -3,7 +3,7 @@
 import logging
 from typing import Protocol
 
-from buddy.models import CapabilityRequest, ExecutionResult
+from buddy.models import CapabilityRequest, ExecutionResult, StepResult
 from buddy.state import BuddyState
 from core.dispatcher import Dispatcher, DispatchError
 from skills.base import PermissionTier, SkillStatus, SkillTask
@@ -138,6 +138,7 @@ class Hands:
         warnings: list[str] = []
         errors: list[str] = []
         raw_outputs: list[dict[str, object]] = []
+        step_results: list[StepResult] = []
 
         for index, request in enumerate(requests):
             task = self._build_task(state, request, index)
@@ -215,6 +216,14 @@ class Hands:
                         "summary": result.summary,
                     }
                 )
+                step_results.append(
+                    StepResult(
+                        capability=request.capability,
+                        skill=skill.name,
+                        status=SkillStatus.FAILURE.value,
+                        summary=result.summary,
+                    )
+                )
                 errors.append(
                     f"{skill.name} reported {result.status.value} but failed its own "
                     f"well-formedness check; result discarded"
@@ -230,6 +239,15 @@ class Hands:
                     "summary": result.summary,
                 }
             )
+            step_results.append(
+                StepResult(
+                    capability=request.capability,
+                    skill=skill.name,
+                    status=result.status.value,
+                    outputs=tuple(result.outputs),
+                    summary=result.summary,
+                )
+            )
             outputs.extend(result.outputs)
             warnings.extend(result.warnings)
 
@@ -244,6 +262,7 @@ class Hands:
             outputs=tuple(outputs),
             warnings=tuple(warnings),
             errors=tuple(errors),
+            steps=tuple(step_results),
         )
         self._apply(state, execution_result, raw_outputs)
         logger.debug(

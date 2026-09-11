@@ -8,14 +8,19 @@ from buddy.brain import Brain, ClaudeInterpreter
 from buddy.delegate import Delegate, MechanicalDelegator
 from buddy.eyes import Eyes
 from buddy.hands import Hands, NullConfirmationProvider
-from buddy.inspector import Inspector, SpreadsheetDedupeVerifier
+from buddy.inspector import (
+    CompositeVerifier,
+    Inspector,
+    SpreadsheetDedupeVerifier,
+    SpreadsheetEmptyRowsVerifier,
+)
 from buddy.llm import ClaudeProvider, LLMProvider
 from buddy.planner import ClaudePlanner, CompositePlanner, Planner, RuleBasedPlanner
 from buddy.think import ClaudeThinker, Think
 from buddy.voice import Speaker, TemplateSpeaker, Voice
 from core.dispatcher import Dispatcher
 from core.engine import CognitiveCycle, Engine
-from skills.excel import ExcelDeduplicateSkill
+from skills.excel import ExcelDeduplicateSkill, ExcelRemoveEmptyRowsSkill
 from skills.registry import SkillRegistry
 
 logger = logging.getLogger(__name__)
@@ -54,15 +59,20 @@ def build_engine(
     the rule-based single-step strategy first and falls back to an
     LLM-backed multi-step strategy (see
     ``docs/design/multi-step-planner-design.md``), the Delegate stage, a
-    Dispatcher backed by a registry containing ``ExcelDeduplicateSkill``,
-    Hands wired to ``NullConfirmationProvider`` (auto-approves every
-    Write/External-Effect task — there is no user-facing surface to ask
-    through yet; see ``buddy.hands.NullConfirmationProvider``), and the
-    independent ``SpreadsheetDedupeVerifier`` — the concrete
-    implementations this vertical slice needs (see
-    ``docs/design/slice-1-dedupe-design.md``). All wiring happens here,
-    once; every stage above continues to depend only on the protocol it
-    was already built against, and none of them import this module.
+    Dispatcher backed by a registry containing ``ExcelDeduplicateSkill``
+    and ``ExcelRemoveEmptyRowsSkill``, Hands wired to
+    ``NullConfirmationProvider`` (auto-approves every Write/External-Effect
+    task — there is no user-facing surface to ask through yet; see
+    ``buddy.hands.NullConfirmationProvider``), and a ``CompositeVerifier``
+    dispatching each step to its own independent check —
+    ``SpreadsheetDedupeVerifier`` for ``spreadsheet.deduplicate``,
+    ``SpreadsheetEmptyRowsVerifier`` for ``spreadsheet.remove_empty_rows``,
+    falling back to ``NullVerifier``'s honest "not independently checked"
+    result for any other capability — the concrete implementations this
+    vertical slice needs (see ``docs/design/slice-1-dedupe-design.md``).
+    All wiring happens here, once; every stage above continues to depend
+    only on the protocol it was already built against, and none of them
+    import this module.
 
     Args:
         llm_provider: The ``LLMProvider`` to back Brain/Think with.
@@ -84,8 +94,16 @@ def build_engine(
 
     registry = SkillRegistry()
     registry.register(ExcelDeduplicateSkill())
+    registry.register(ExcelRemoveEmptyRowsSkill())
     dispatcher = Dispatcher(registry)
     known_capabilities = _capability_snapshot(registry)
+
+    verifier = CompositeVerifier(
+        {
+            "spreadsheet.deduplicate": SpreadsheetDedupeVerifier(),
+            "spreadsheet.remove_empty_rows": SpreadsheetEmptyRowsVerifier(),
+        }
+    )
 
     cycle = CognitiveCycle(
         eyes=Eyes(),
@@ -99,7 +117,7 @@ def build_engine(
         ),
         delegate=Delegate(delegator=MechanicalDelegator()),
         hands=Hands(dispatcher=dispatcher, confirmation_provider=NullConfirmationProvider()),
-        inspector=Inspector(verifier=SpreadsheetDedupeVerifier()),
+        inspector=Inspector(verifier=verifier),
         voice=Voice(speaker=speaker if speaker is not None else TemplateSpeaker()),
     )
     logger.debug("build_engine: assembled the CognitiveCycle for the dedupe slice")

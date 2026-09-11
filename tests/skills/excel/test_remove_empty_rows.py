@@ -1,0 +1,204 @@
+"""Unit tests for skills.excel.remove_empty_rows.
+
+Mirrors tests/skills/excel/test_dedupe.py's shape exactly — these tests
+exercise real ``.xlsx`` files on disk via pandas, so they prove the
+skill's read/write behavior against an actual spreadsheet with known
+empty rows, not against an assumption of how pandas behaves.
+"""
+
+from __future__ import annotations
+
+from pathlib import Path
+
+import pandas as pd
+import pytest
+
+from skills.base import PermissionTier, SkillResult, SkillStatus, SkillTask
+from skills.excel.remove_empty_rows import ExcelRemoveEmptyRowsSkill
+
+
+def _write_fixture_with_empty_rows(path: Path) -> pd.DataFrame:
+    """Write a real ``.xlsx`` file to ``path`` with known fully-empty rows.
+
+    4 rows, 1 of which is fully empty, leaving 3 rows after cleaning.
+    """
+    df = pd.DataFrame(
+        {
+            "name": ["Alice", "Bob", None, "Carol"],
+            "amount": [10, 20, None, 30],
+        }
+    )
+    df.to_excel(path, index=False)
+    return df
+
+
+def _make_task(
+    input_path: Path, *, task_id: str = "task-1", workspace_id: str = "workspace-1"
+) -> SkillTask:
+    return SkillTask(
+        task_id=task_id,
+        session_id="session-1",
+        workspace_id=workspace_id,
+        description="remove empty rows",
+        input_references=[str(input_path)],
+        permission=PermissionTier.WRITE,
+    )
+
+
+# -- can_handle ---------------------------------------------------------------
+
+
+def test_can_handle_true_for_single_xlsx_input(tmp_path: Path) -> None:
+    input_path = tmp_path / "report.xlsx"
+    _write_fixture_with_empty_rows(input_path)
+    skill = ExcelRemoveEmptyRowsSkill()
+
+    assert skill.can_handle(_make_task(input_path)) is True
+
+
+def test_can_handle_false_for_multiple_inputs(tmp_path: Path) -> None:
+    input_path = tmp_path / "report.xlsx"
+    _write_fixture_with_empty_rows(input_path)
+    skill = ExcelRemoveEmptyRowsSkill()
+    task = _make_task(input_path)
+    task.input_references.append(str(tmp_path / "other.xlsx"))
+
+    assert skill.can_handle(task) is False
+
+
+def test_can_handle_false_for_unsupported_extension(tmp_path: Path) -> None:
+    input_path = tmp_path / "report.csv"
+    skill = ExcelRemoveEmptyRowsSkill()
+
+    assert skill.can_handle(_make_task(input_path)) is False
+
+
+# -- execute --------------------------------------------------------------------
+
+
+def test_execute_removes_empty_rows_from_real_file(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.chdir(tmp_path)
+    input_path = tmp_path / "uploads" / "report.xlsx"
+    input_path.parent.mkdir(parents=True)
+    original = _write_fixture_with_empty_rows(input_path)
+    skill = ExcelRemoveEmptyRowsSkill()
+    task = _make_task(input_path)
+
+    result = skill.execute(task)
+
+    assert result.status is SkillStatus.SUCCESS
+    assert len(result.outputs) == 1
+    output_path = Path(result.outputs[0])
+    assert output_path.exists()
+
+    # Independent re-read of the real output file on disk — not trusting
+    # the skill's own metadata about what it did.
+    written = pd.read_excel(output_path)
+    assert len(written) == 3
+    assert int(written.isna().all(axis=1).sum()) == 0
+    assert result.metadata["removed_count"] == len(original) - 3
+    assert result.metadata["original_row_count"] == len(original)
+    assert result.metadata["output_row_count"] == 3
+
+
+def test_execute_never_writes_to_input_path(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.chdir(tmp_path)
+    input_path = tmp_path / "uploads" / "report.xlsx"
+    input_path.parent.mkdir(parents=True)
+    _write_fixture_with_empty_rows(input_path)
+    original_bytes = input_path.read_bytes()
+    skill = ExcelRemoveEmptyRowsSkill()
+    task = _make_task(input_path)
+
+    result = skill.execute(task)
+
+    # The upload is byte-for-byte unchanged, and the output landed at a
+    # different path entirely.
+    assert input_path.read_bytes() == original_bytes
+    assert Path(result.outputs[0]) != input_path
+    assert len(pd.read_excel(input_path)) == 4  # still has its original empty row
+
+
+def test_execute_output_path_is_under_workspace_outputs_for_workspace_id(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.chdir(tmp_path)
+    input_path = tmp_path / "uploads" / "report.xlsx"
+    input_path.parent.mkdir(parents=True)
+    _write_fixture_with_empty_rows(input_path)
+    skill = ExcelRemoveEmptyRowsSkill()
+    task = _make_task(input_path, workspace_id="workspace-42")
+
+    result = skill.execute(task)
+
+    # The skill returns a relative path (resolved against cwd for actual
+    # I/O); resolve it here before comparing against the absolute tmp_path.
+    output_path = Path(result.outputs[0]).resolve()
+    expected_dir = (tmp_path / "workspace" / "outputs" / "workspace-42").resolve()
+    assert output_path.is_relative_to(expected_dir)
+
+
+def test_execute_returns_failure_for_unreadable_file(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.chdir(tmp_path)
+    missing_path = tmp_path / "uploads" / "does-not-exist.xlsx"
+    skill = ExcelRemoveEmptyRowsSkill()
+    task = _make_task(missing_path)
+
+    result = skill.execute(task)
+
+    assert result.status is SkillStatus.FAILURE
+    assert result.errors
+
+
+def test_execute_returns_failure_when_task_not_handleable(tmp_path: Path) -> None:
+    input_path = tmp_path / "report.csv"
+    input_path.write_text("a,b\n1,2\n")
+    skill = ExcelRemoveEmptyRowsSkill()
+    task = _make_task(input_path)
+
+    result = skill.execute(task)
+
+    assert result.status is SkillStatus.FAILURE
+    assert result.errors
+
+
+# -- verify -----------------------------------------------------------------------
+
+
+def test_verify_true_for_well_formed_success(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.chdir(tmp_path)
+    input_path = tmp_path / "uploads" / "report.xlsx"
+    input_path.parent.mkdir(parents=True)
+    _write_fixture_with_empty_rows(input_path)
+    skill = ExcelRemoveEmptyRowsSkill()
+    task = _make_task(input_path)
+    result = skill.execute(task)
+
+    assert skill.verify(task, result) is True
+
+
+def test_verify_false_for_failure_status(tmp_path: Path) -> None:
+    skill = ExcelRemoveEmptyRowsSkill()
+    task = _make_task(tmp_path / "report.xlsx")  # file doesn't exist
+    failed_result = skill.execute(task)
+
+    assert failed_result.status is SkillStatus.FAILURE
+    assert skill.verify(task, failed_result) is False
+
+
+def test_verify_false_when_output_file_missing(tmp_path: Path) -> None:
+    skill = ExcelRemoveEmptyRowsSkill()
+    task = _make_task(tmp_path / "report.xlsx")
+    fabricated_result = SkillResult(
+        status=SkillStatus.SUCCESS, outputs=[str(tmp_path / "nonexistent_output.xlsx")]
+    )
+
+    assert skill.verify(task, fabricated_result) is False

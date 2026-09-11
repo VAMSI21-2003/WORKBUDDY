@@ -100,48 +100,61 @@ class TemplateSpeaker:
             return self._describe_without_verification(request.execution_result)
 
         verification_result = request.verification_result
-        finding = verification_result.findings[0] if verification_result.findings else ""
 
         if verification_result.passed:
-            return self._success_message(request.execution_result, finding)
-        return self._failure_message(verification_result, finding)
+            return self._success_message(request.execution_result, verification_result)
+        return self._failure_message(verification_result)
 
     @staticmethod
-    def _success_message(execution_result: ExecutionResult | None, finding: str) -> str:
+    def _success_message(
+        execution_result: ExecutionResult | None, verification_result: VerificationResult
+    ) -> str:
         """Compose the reply for a passed verification.
 
+        Covers every step's outcome, not just the first: every finding
+        Inspector recorded (one turn may cover several delegated steps,
+        each independently verified — see
+        ``buddy.inspector.CompositeVerifier``) and every output file
+        produced are all included, not only index ``0`` of each.
+
         Args:
-            execution_result: The execution result, if any, to pull the
-                output file name from.
-            finding: Inspector's own plain-language finding, if any.
+            execution_result: The execution result, if any, to pull
+                output file names from.
+            verification_result: Inspector's own verdict, covering every
+                step this turn ran.
 
         Returns:
             The reply text.
         """
         parts = ["Done"]
-        if finding:
-            parts.append(f"— {finding}.")
+        if verification_result.findings:
+            parts.append(f"— {'; '.join(verification_result.findings)}.")
         else:
             parts[0] = "Done."
-        output_name = TemplateSpeaker._output_file_name(execution_result)
-        if output_name:
-            parts.append(f"Saved as `{output_name}`.")
+        output_names = TemplateSpeaker._output_file_names(execution_result)
+        if output_names:
+            saved = ", ".join(f"`{name}`" for name in output_names)
+            parts.append(f"Saved as {saved}.")
         return " ".join(parts)
 
     @staticmethod
-    def _failure_message(verification_result: VerificationResult, finding: str) -> str:
+    def _failure_message(verification_result: VerificationResult) -> str:
         """Compose the reply for a failed (or inconclusive) verification.
 
+        Covers every step's findings, not just the first — see
+        ``_success_message``'s docstring for why.
+
         Args:
-            verification_result: The verification result.
-            finding: Inspector's own plain-language finding, if any.
+            verification_result: The verification result, covering every
+                step this turn ran.
 
         Returns:
             The reply text.
         """
         parts = ["I wasn't able to confirm that worked."]
-        if finding:
-            parts.append(finding[0].upper() + finding[1:] + ".")
+        if verification_result.findings:
+            joined = "; ".join(verification_result.findings)
+            parts.append(joined[0].upper() + joined[1:] + ".")
         if verification_result.recommendations:
             parts.append(" ".join(verification_result.recommendations))
         return " ".join(parts)
@@ -164,18 +177,19 @@ class TemplateSpeaker:
         return "I did the work, but wasn't able to confirm the result."
 
     @staticmethod
-    def _output_file_name(execution_result: ExecutionResult | None) -> str | None:
-        """Extract the first output file's name, if any.
+    def _output_file_names(execution_result: ExecutionResult | None) -> tuple[str, ...]:
+        """Extract every output file's name, across every step.
 
         Args:
             execution_result: The execution result, if any.
 
         Returns:
-            The output file's base name, or ``None`` if there isn't one.
+            Each output path's base name, in the order they were
+            produced, or ``()`` if there aren't any.
         """
         if execution_result is None or not execution_result.outputs:
-            return None
-        return Path(execution_result.outputs[0]).name
+            return ()
+        return tuple(Path(output_path).name for output_path in execution_result.outputs)
 
 
 class Voice:

@@ -345,4 +345,86 @@ def test_hands_keeps_a_successful_well_formed_result() -> None:
 
     assert state.execution_result is not None
     assert state.execution_result.success is True
-    assert state.execution_result.outputs == tuple(_DEFAULT_OUTPUTS)
+
+
+# -- ExecutionResult.steps: the per-capability breakdown Verify/Voice need -------
+
+
+def test_hands_records_one_step_result_per_successful_capability_request() -> None:
+    skill = _FakeSkill(capability="spreadsheet.deduplicate")
+    state = _make_state_with_delegation(
+        CapabilityRequest(capability="spreadsheet.deduplicate", target="uploads/report.xlsx")
+    )
+    stage = Hands(dispatcher=_dispatcher_with(skill))
+
+    stage(state)
+
+    assert state.execution_result is not None
+    assert len(state.execution_result.steps) == 1
+    step = state.execution_result.steps[0]
+    assert step.capability == "spreadsheet.deduplicate"
+    assert step.skill == "fake.skill"
+    assert step.status == "success"
+    assert step.outputs == tuple(_DEFAULT_OUTPUTS)
+
+
+def test_hands_records_a_failed_step_result_when_verify_check_fails() -> None:
+    skill = _FakeSkill(status=SkillStatus.SUCCESS, verify_result=False)
+    state = _make_state_with_delegation(
+        CapabilityRequest(capability="spreadsheet.deduplicate", target="uploads/report.xlsx")
+    )
+    stage = Hands(dispatcher=_dispatcher_with(skill))
+
+    stage(state)
+
+    assert state.execution_result is not None
+    assert len(state.execution_result.steps) == 1
+    step = state.execution_result.steps[0]
+    assert step.capability == "spreadsheet.deduplicate"
+    assert step.status == "failure"
+    assert step.outputs == ()
+
+
+def test_hands_records_no_step_result_when_dispatch_fails() -> None:
+    """A request that never reached a Skill has nothing to report as a
+    ``StepResult`` — it's represented purely by an ``errors`` entry.
+    """
+    state = _make_state_with_delegation(
+        CapabilityRequest(capability="some.other.capability", target="uploads/report.xlsx")
+    )
+    stage = Hands(dispatcher=_dispatcher_with(_FakeSkill(capability="spreadsheet.deduplicate")))
+
+    stage(state)
+
+    assert state.execution_result is not None
+    assert state.execution_result.steps == ()
+
+
+def test_hands_records_no_step_result_when_confirmation_is_declined() -> None:
+    skill = _FakeSkill(permission_tier=PermissionTier.WRITE)
+    confirmation = _FakeConfirmationProvider(approve=False)
+    state = _make_state_with_delegation(
+        CapabilityRequest(capability="spreadsheet.deduplicate", target="uploads/report.xlsx")
+    )
+    stage = Hands(dispatcher=_dispatcher_with(skill), confirmation_provider=confirmation)
+
+    stage(state)
+
+    assert state.execution_result is not None
+    assert state.execution_result.steps == ()
+
+
+def test_hands_records_one_step_result_per_step_across_multiple_delegated_requests() -> None:
+    skill = _FakeSkill(capability="spreadsheet.deduplicate")
+    state = _make_state_with_delegation(
+        CapabilityRequest(capability="spreadsheet.deduplicate", target="uploads/report.xlsx"),
+        CapabilityRequest(capability="spreadsheet.deduplicate", target="uploads/report.xlsx"),
+    )
+    stage = Hands(dispatcher=_dispatcher_with(skill))
+
+    stage(state)
+
+    assert state.execution_result is not None
+    steps = state.execution_result.steps
+    assert len(steps) == 2
+    assert all(step.capability == "spreadsheet.deduplicate" for step in steps)

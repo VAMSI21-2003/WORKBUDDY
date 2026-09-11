@@ -249,3 +249,128 @@ def test_full_slice_decomposes_a_compound_request_into_multiple_steps(
     assert state.execution_result is not None
     assert state.execution_result.success is False
     assert len(state.execution_result.errors) == 3
+
+
+def _write_fixture_with_duplicates_and_an_empty_row(path: Path) -> None:
+    """Write a real .xlsx file with both an exact duplicate row and a
+    fully-empty row, so both registered skills each have real work to do
+    on the very same uploaded file (MechanicalDelegator resolves one
+    shared target for the whole plan — see
+    docs/design/multi-step-planner-design.md — so both steps read this
+    same file independently, not chained).
+
+    The empty row sits before the final row, not after it: a trailing
+    all-empty row has no following row to anchor it, so openpyxl's
+    write/read round trip silently drops it rather than preserving it as
+    a blank row (the same reason tests/skills/excel/test_remove_empty_rows.py's
+    own fixture places its empty row mid-file rather than last).
+    """
+    pd.DataFrame(
+        {
+            "name": ["Alice", "Bob", None, "Alice"],
+            "amount": [10, 20, None, 10],
+        }
+    ).to_excel(path, index=False)
+
+
+def test_full_slice_runs_two_real_skills_and_aggregates_verification_and_reply(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """End-to-end proof that CompositeVerifier's per-capability dispatch
+    and TemplateSpeaker's multi-step reply actually work together, not
+    just in isolation: two *real* registered skills
+    (ExcelDeduplicateSkill, ExcelRemoveEmptyRowsSkill) both run against
+    the same real file, each is independently verified by its own real
+    Verifier, and the final reply covers both outcomes.
+    """
+    monkeypatch.chdir(tmp_path)
+    (tmp_path / "uploads").mkdir()
+    input_path = Path("uploads") / "report.xlsx"
+    _write_fixture_with_duplicates_and_an_empty_row(tmp_path / input_path)
+
+    understand_reply = json.dumps(
+        {
+            "intent": "multi_step_request",
+            "confidence": 0.9,
+            "missing_information": [],
+            "ambiguity_flags": [],
+            "notes": "",
+        }
+    )
+    think_reply = json.dumps(
+        {
+            "objective": "Clean up the spreadsheet.",
+            "summary": "The request names two distinct cleanup actions but is clear.",
+            "clarification_required": False,
+            "confidence": 0.85,
+        }
+    )
+    plan_reply = json.dumps(
+        {
+            "steps": [
+                {
+                    "description": "Remove duplicate rows",
+                    "capability": "spreadsheet.deduplicate",
+                    "depends_on_step_numbers": [],
+                },
+                {
+                    "description": "Remove empty rows",
+                    "capability": "spreadsheet.remove_empty_rows",
+                    "depends_on_step_numbers": [],
+                },
+            ]
+        }
+    )
+    provider = _QueuedLLMProvider([understand_reply, think_reply, plan_reply])
+
+    state = BuddyState.new(session_id="session-1", workspace_id="workspace-1")
+    state.user_message = "remove duplicate rows and remove empty rows from this file"
+    state.context.add_uploaded_file(str(input_path))
+    state.context.switch_active_file(str(input_path))
+
+    engine = build_engine(llm_provider=provider)
+    engine.run(state)
+
+    # Both steps reached a real, registered skill and both succeeded.
+    assert state.execution_result is not None
+    assert state.execution_result.success is True
+    assert len(state.execution_result.steps) == 2
+    capabilities = {step.capability for step in state.execution_result.steps}
+    assert capabilities == {"spreadsheet.deduplicate", "spreadsheet.remove_empty_rows"}
+    assert len(state.execution_result.outputs) == 2
+
+    # CompositeVerifier dispatched each output to its own real Verifier and
+    # aggregated both into a single passed verdict.
+    assert state.verification_result is not None
+    assert state.verification_result.passed is True
+    assert any(
+        f.startswith("[spreadsheet.deduplicate]") for f in state.verification_result.findings
+    )
+    assert any(
+        f.startswith("[spreadsheet.remove_empty_rows]")
+        for f in state.verification_result.findings
+    )
+
+    # Independent re-check, in the test itself, of both output files —
+    # not trusting the app's own Inspector stage or either skill's
+    # self-report. Each output is checked against the specific claim its
+    # own capability makes, not an either-or guess.
+    for step in state.execution_result.steps:
+        assert len(step.outputs) == 1
+        written = pd.read_excel(step.outputs[0])
+        if step.capability == "spreadsheet.deduplicate":
+            assert int(written.duplicated().sum()) == 0
+        elif step.capability == "spreadsheet.remove_empty_rows":
+            assert int(written.isna().all(axis=1).sum()) == 0
+        else:
+            raise AssertionError(f"unexpected capability in step results: {step.capability!r}")
+
+    # Voice's reply mentions both output files, not just the first.
+    assert state.reply is not None
+    output_names = {Path(p).name for p in state.execution_result.outputs}
+    for name in output_names:
+        assert name in state.reply
+
+    # The original upload was never modified.
+    original = pd.read_excel(tmp_path / input_path)
+    assert len(original) == 4
