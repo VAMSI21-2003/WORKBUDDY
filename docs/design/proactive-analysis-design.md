@@ -289,15 +289,50 @@ down to one specific, safe, generic check rather than something
 open-ended:
 
 **In scope — grouped-key conflict detection:** group rows by a candidate
-identity column (or a small combination of them — e.g. `email`, or
-`name`+`phone` together when no single column looks like a stable key),
-and flag any group where another column takes on more than one distinct
-non-null value. This is a plain `groupby(...).nunique()` check — no
-domain knowledge of what the spreadsheet "means" is required, just "the
-same identity shouldn't disagree with itself." It catches real messy-data
-problems (someone's phone number updated in one row but not another)
-without needing Splink's fuzzy-matching machinery, since it only fires on
-*exact* key matches.
+identity column, and flag any group where another column takes on more
+than one distinct non-null value. This is a plain `groupby(...).nunique()`
+check — no domain knowledge of what the spreadsheet "means" is required,
+just "the same identity shouldn't disagree with itself." It catches real
+messy-data problems (someone's phone number updated in one row but not
+another) without needing Splink's fuzzy-matching machinery, since it only
+fires on *exact* key matches.
+
+**Implementation note — narrowed from this section's original wording,
+deliberately:** this section originally proposed falling back to a
+combined key (its own example: `name`+`phone` together) "when no single
+column looks like a stable key." The shipped `GroupedKeyConflictAnalyzer`
+(`skills/excel/analyze.py`) drops that fallback and groups only on a
+single email/phone/tel-like column (via `_KEY_COLUMN_PATTERN` —
+`email|phone|tel`), never on `name` alone or in combination. Two reasons,
+found once the code was actually written rather than assumed at design
+time:
+
+- **`name` is never safe as part of a grouping key.** Two different
+  people sharing a name is exactly the scenario `NearDuplicateAnalyzer`
+  (Section 4.3) exists to handle carefully, via Splink, precisely
+  *because* an exact-match key can't tell them apart. Grouping by
+  `name`+`phone` as a composite key would silently reproduce the same
+  "can't tell two different people apart by name" problem for any row
+  where the *other* half of the composite (here, `phone`) happens to
+  differ too — which is the ordinary case, not an edge case.
+- **The `name`+`phone` example doesn't add coverage over `phone` alone.**
+  The doc's own example presupposes a `phone` column exists — but if it
+  does, grouping by `phone` alone (what the shipped analyzer already
+  does) catches every conflict grouping by `name`+`phone` together would,
+  *and more*: two rows with the same phone but a different name are a
+  conflict either way, but the composite key would put them in different
+  groups (different `name` half) and miss it entirely, while single-column
+  `phone` grouping still catches it. The fallback was strictly weaker than
+  the case it was meant to strengthen, once actually worked through.
+
+Net effect: single-column email/phone/tel grouping isn't a reduced
+version of the original proposal — it's a corrected one. The genuinely
+unhandled case (no email/phone/tel column at all, only `name` plus some
+other column with no reliable per-person identifier anywhere in the
+sheet) has no safe exact-match key to fall back to at all, so contributing
+no finding in that case — the same "never guess" scoping Section 4.3
+already applies to `NearDuplicateAnalyzer` — is the right behavior, not a
+gap.
 
 **Explicitly out of scope — arithmetic/derived-column reconciliation**
 (e.g., confirming a `total` column equals the sum of line items, or
@@ -686,6 +721,19 @@ addable later without touching the driver loop.
   checklist to tick off priorities) — that's a future-sprint frontend
   concern; this design only goes as far as the plain-text reply Voice
   already produces today.
+- **Analyzing more than one file per turn.** `Planner._resolve_unanalyzed_spreadsheet_files`
+  (Section 1.2) deliberately narrows analysis to the turn's single
+  resolved target file, even when several unanalyzed spreadsheets sit in
+  `uploaded_files` — a direct consequence of `MechanicalDelegator`
+  resolving one shared target for the whole plan today. A user who
+  uploads several spreadsheets in one turn gets only the one Buddy would
+  have acted on anyway analyzed; the others wait until a later turn makes
+  one of them the active file. Accepted for now, not a silent gap: fixing
+  it properly means teaching `MechanicalDelegator` (or its successor) to
+  resolve a target per step rather than once per turn, which is a
+  multi-step-delegation change well beyond this design's scope — a
+  follow-up for whenever multi-file turns themselves are designed for,
+  not something to special-case inside proactive analysis alone.
 
 ---
 
