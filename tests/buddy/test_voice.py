@@ -6,8 +6,15 @@ import logging
 
 import pytest
 
+import buddy.voice as voice
 from buddy.llm import LLMMessage
-from buddy.models import ExecutionResult, Understanding, VerificationResult
+from buddy.models import (
+    ExecutionResult,
+    StepResult,
+    StepVerification,
+    Understanding,
+    VerificationResult,
+)
 from buddy.state import BuddyState
 from buddy.voice import (
     FOCUS_MODE_PROMPT,
@@ -193,6 +200,154 @@ def test_template_speaker_ignores_mode() -> None:
     focus_reply = TemplateSpeaker()(_request(mode="focus", **base_kwargs))
 
     assert friend_reply == focus_reply
+
+
+# -- TemplateSpeaker: proactive-analysis preface (Section 5.3) ------------------
+
+
+def _analyze_step(**overrides: object) -> StepResult:
+    fields: dict[str, object] = {
+        "capability": "spreadsheet.analyze",
+        "skill": "excel.analyze",
+        "status": "success",
+    }
+    fields.update(overrides)
+    return StepResult(**fields)  # type: ignore[arg-type]
+
+
+def test_template_speaker_leads_with_analysis_findings_before_the_ordinary_message() -> None:
+    request = _request(
+        execution_result=ExecutionResult(success=True, steps=(_analyze_step(),)),
+        verification_result=VerificationResult(
+            passed=True,
+            confidence=1.0,
+            findings=("[spreadsheet.analyze] [outliers] amount: 1 unusually high value",),
+            steps=(StepVerification(capability="spreadsheet.analyze", passed=True),),
+        ),
+    )
+
+    reply = TemplateSpeaker()(request)
+
+    assert reply.startswith("Before anything else, here's what I noticed:")
+    assert "amount: 1 unusually high value" in reply
+    assert "Want me to tackle any of these?" in reply
+
+
+def test_template_speaker_analysis_preface_still_reports_other_steps_outcome() -> None:
+    """The trailing message still covers whatever the user's own request
+    produced this same turn — the analysis preface is additive, not a
+    replacement for the ordinary success/failure report.
+    """
+    request = _request(
+        execution_result=ExecutionResult(
+            success=True, outputs=("report_deduplicated.xlsx",), steps=(_analyze_step(),)
+        ),
+        verification_result=VerificationResult(
+            passed=True,
+            confidence=1.0,
+            findings=(
+                "[spreadsheet.analyze] [outliers] amount: 1 unusually high value",
+                "[spreadsheet.deduplicate] output has 3 row(s), 0 duplicate row(s) remaining",
+            ),
+            steps=(
+                StepVerification(capability="spreadsheet.analyze", passed=True),
+                StepVerification(capability="spreadsheet.deduplicate", passed=True),
+            ),
+        ),
+    )
+
+    reply = TemplateSpeaker()(request)
+
+    assert "amount: 1 unusually high value" in reply
+    assert "report_deduplicated.xlsx" in reply
+    assert "0 duplicate row(s) remaining" in reply
+
+
+def test_template_speaker_skips_the_preface_sentence_when_no_findings_are_open() -> None:
+    request = _request(
+        execution_result=ExecutionResult(success=True, steps=(_analyze_step(),)),
+        verification_result=VerificationResult(
+            passed=True,
+            confidence=1.0,
+            findings=(),
+            steps=(StepVerification(capability="spreadsheet.analyze", passed=True),),
+        ),
+    )
+
+    reply = TemplateSpeaker()(request)
+
+    assert "Before anything else" not in reply
+
+
+def test_template_speaker_does_not_fold_a_near_duplicate_finding_into_an_exact_dedupe_step() -> (
+    None
+):
+    """The specific rule from docs/design/proactive-analysis-design.md
+    Section 5.3: spreadsheet.deduplicate is exact-match only
+    (ExcelDeduplicateSkill.execute() calls drop_duplicates()) and never
+    resolves a fuzzy near-duplicate finding, no matter how related the
+    two capabilities sound. A near-duplicate finding must still appear as
+    an open item even when a spreadsheet.deduplicate step ran and passed
+    in the very same turn.
+    """
+    request = _request(
+        execution_result=ExecutionResult(
+            success=True, outputs=("report_deduplicated.xlsx",), steps=(_analyze_step(),)
+        ),
+        verification_result=VerificationResult(
+            passed=True,
+            confidence=1.0,
+            findings=(
+                "[spreadsheet.analyze] [near_duplicates] Alice Johnson and Alice Johnston "
+                "might be the same (self-reported, not independently re-checked)",
+                "[spreadsheet.deduplicate] output has 3 row(s), 0 duplicate row(s) remaining",
+            ),
+            steps=(
+                StepVerification(capability="spreadsheet.analyze", passed=True),
+                # spreadsheet.deduplicate ran AND passed in this same turn --
+                # the exact condition that must NOT be enough to fold the
+                # near-duplicate finding away.
+                StepVerification(capability="spreadsheet.deduplicate", passed=True),
+            ),
+        ),
+    )
+
+    reply = TemplateSpeaker()(request)
+
+    assert "Alice Johnson and Alice Johnston" in reply
+    assert "Before anything else, here's what I noticed" in reply
+    assert "Want me to tackle any of these?" in reply
+
+
+def test_template_speaker_does_fold_a_finding_once_a_real_matching_capability_passes(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """The mirror-image proof: the fold mechanism itself does work
+    correctly once a real capability is registered as resolving a given
+    finding category — it's specifically "no capability resolves
+    near-duplicates today" that keeps that one open, not a blanket
+    refusal to ever fold anything.
+    """
+    monkeypatch.setattr(
+        voice, "_ANALYSIS_FINDING_FIX_CAPABILITY", {"outliers": "spreadsheet.fix_outliers"}
+    )
+    request = _request(
+        execution_result=ExecutionResult(success=True, steps=(_analyze_step(),)),
+        verification_result=VerificationResult(
+            passed=True,
+            confidence=1.0,
+            findings=("[spreadsheet.analyze] [outliers] amount: 1 unusually high value",),
+            steps=(
+                StepVerification(capability="spreadsheet.analyze", passed=True),
+                StepVerification(capability="spreadsheet.fix_outliers", passed=True),
+            ),
+        ),
+    )
+
+    reply = TemplateSpeaker()(request)
+
+    assert "amount: 1 unusually high value" not in reply
+    assert "Before anything else" not in reply
 
 
 # -- PersonalityVoice ---------------------------------------------------------------

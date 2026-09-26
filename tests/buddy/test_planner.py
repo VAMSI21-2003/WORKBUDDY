@@ -15,6 +15,7 @@ from buddy.planner import (
     NullPlanner,
     Planner,
     PlanningRequest,
+    ProactiveAnalysisPlanner,
     RuleBasedPlanner,
 )
 from buddy.state import BuddyState
@@ -404,6 +405,62 @@ def test_composite_planner_wired_with_rule_based_and_claude_planner() -> None:
     assert steps[0].capability == "spreadsheet.deduplicate"
 
 
+# -- ProactiveAnalysisPlanner ---------------------------------------------------------
+
+
+def test_proactive_analysis_planner_prepends_one_step_per_unanalyzed_file() -> None:
+    inner_steps = (PlanningStep(id="step-1", description="from inner", capability="cap.a"),)
+    planner = ProactiveAnalysisPlanner(inner=lambda request: inner_steps)
+    request = _request(unanalyzed_spreadsheet_files=("uploads/report.xlsx",))
+
+    steps = planner(request)
+
+    assert len(steps) == 2
+    assert steps[0].capability == "spreadsheet.analyze"
+    assert "uploads/report.xlsx" in steps[0].description
+    assert steps[1] == inner_steps[0]
+
+
+def test_proactive_analysis_planner_produces_only_inners_steps_when_nothing_unanalyzed() -> None:
+    inner_steps = (PlanningStep(id="step-1", description="from inner", capability="cap.a"),)
+    planner = ProactiveAnalysisPlanner(inner=lambda request: inner_steps)
+    request = _request(unanalyzed_spreadsheet_files=())
+
+    steps = planner(request)
+
+    assert steps == inner_steps
+
+
+def test_proactive_analysis_planner_runs_unconditionally_even_with_no_inner_steps() -> None:
+    """Analysis is independent of whatever the user's own request produces
+    — even when inner produces nothing at all (e.g. an unclear message),
+    the analysis step still runs. See
+    docs/design/proactive-analysis-design.md Section 1.2.
+    """
+    planner = ProactiveAnalysisPlanner(inner=lambda request: ())
+    request = _request(unanalyzed_spreadsheet_files=("uploads/report.xlsx",))
+
+    steps = planner(request)
+
+    assert len(steps) == 1
+    assert steps[0].capability == "spreadsheet.analyze"
+
+
+def test_proactive_analysis_planner_prepends_a_step_per_entry_given() -> None:
+    """The wrapper itself is general over however many entries it's
+    given — ``Planner._build_request`` is what actually narrows this to
+    at most one in practice (see that method's own tests below).
+    """
+    planner = ProactiveAnalysisPlanner(inner=lambda request: ())
+    request = _request(unanalyzed_spreadsheet_files=("a.xlsx", "b.xlsx"))
+
+    steps = planner(request)
+
+    assert len(steps) == 2
+    assert [s.capability for s in steps] == ["spreadsheet.analyze", "spreadsheet.analyze"]
+    assert steps[0].id != steps[1].id
+
+
 # -- Planner stage -----------------------------------------------------------------
 
 
@@ -420,6 +477,86 @@ def test_planner_sets_typed_planning_field_and_mirrors_legacy_plan() -> None:
     assert len(state.planning) == 1
     assert state.planning[0].capability == "spreadsheet.deduplicate"
     assert state.plan == [state.planning[0].description]
+
+
+# -- Planner._build_request: unanalyzed_spreadsheet_files resolution ------------------
+
+
+def test_planner_build_request_resolves_active_file_as_unanalyzed() -> None:
+    state = _make_state()  # uploads report.xlsx
+    state.context.switch_active_file("report.xlsx")
+    seen: list[PlanningRequest] = []
+
+    class _RecordingStrategy:
+        def __call__(self, request: PlanningRequest) -> tuple[PlanningStep, ...]:
+            seen.append(request)
+            return ()
+
+    Planner(planner=_RecordingStrategy())(state)
+
+    assert seen[0].unanalyzed_spreadsheet_files == ("report.xlsx",)
+
+
+def test_planner_build_request_falls_back_to_most_recent_upload() -> None:
+    state = BuddyState.new(session_id="session-1", workspace_id="workspace-1")
+    state.context.add_uploaded_file("first.xlsx")
+    state.context.add_uploaded_file("second.xlsx")
+    seen: list[PlanningRequest] = []
+
+    class _RecordingStrategy:
+        def __call__(self, request: PlanningRequest) -> tuple[PlanningStep, ...]:
+            seen.append(request)
+            return ()
+
+    Planner(planner=_RecordingStrategy())(state)
+
+    assert seen[0].unanalyzed_spreadsheet_files == ("second.xlsx",)
+
+
+def test_planner_build_request_omits_a_file_already_analyzed() -> None:
+    state = _make_state()
+    state.context.switch_active_file("report.xlsx")
+    state.context.mark_analyzed("report.xlsx")
+    seen: list[PlanningRequest] = []
+
+    class _RecordingStrategy:
+        def __call__(self, request: PlanningRequest) -> tuple[PlanningStep, ...]:
+            seen.append(request)
+            return ()
+
+    Planner(planner=_RecordingStrategy())(state)
+
+    assert seen[0].unanalyzed_spreadsheet_files == ()
+
+
+def test_planner_build_request_omits_a_non_spreadsheet_file() -> None:
+    state = BuddyState.new(session_id="session-1", workspace_id="workspace-1")
+    state.context.add_uploaded_file("report.pdf")
+    state.context.switch_active_file("report.pdf")
+    seen: list[PlanningRequest] = []
+
+    class _RecordingStrategy:
+        def __call__(self, request: PlanningRequest) -> tuple[PlanningStep, ...]:
+            seen.append(request)
+            return ()
+
+    Planner(planner=_RecordingStrategy())(state)
+
+    assert seen[0].unanalyzed_spreadsheet_files == ()
+
+
+def test_planner_build_request_omits_when_no_file_at_all() -> None:
+    state = BuddyState.new(session_id="session-1", workspace_id="workspace-1")
+    seen: list[PlanningRequest] = []
+
+    class _RecordingStrategy:
+        def __call__(self, request: PlanningRequest) -> tuple[PlanningStep, ...]:
+            seen.append(request)
+            return ()
+
+    Planner(planner=_RecordingStrategy())(state)
+
+    assert seen[0].unanalyzed_spreadsheet_files == ()
 
 
 def test_planner_defaults_to_null_planner_when_none_configured() -> None:

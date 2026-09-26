@@ -246,6 +246,7 @@ class Hands:
                     status=result.status.value,
                     outputs=tuple(result.outputs),
                     summary=result.summary,
+                    self_reported_findings=tuple(result.self_reported_findings),
                 )
             )
             outputs.extend(result.outputs)

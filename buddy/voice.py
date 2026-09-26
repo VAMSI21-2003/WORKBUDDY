@@ -1,15 +1,49 @@
 """Voice — communicates results and status back to the user."""
 
+import dataclasses
 import logging
+import re
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Protocol
 
 from buddy.llm import LLMMessage, LLMProvider
-from buddy.models import ExecutionResult, Understanding, VerificationResult
+from buddy.models import ExecutionResult, StepResult, Understanding, VerificationResult
 from buddy.state import BuddyState
 
 logger = logging.getLogger(__name__)
+
+_ANALYZE_CAPABILITY = "spreadsheet.analyze"
+_ANALYSIS_FINDING_PATTERN = re.compile(
+    r"^\[" + re.escape(_ANALYZE_CAPABILITY) + r"\] \[(?P<category>\w+)\] (?P<text>.*)$"
+)
+
+# No spreadsheet.analyze sub-check has a capability that actually resolves
+# it yet -- see docs/design/proactive-analysis-design.md Section 5.3. A
+# finding's category is only ever folded into "already handled" when a
+# real, matching capability is added here AND a step for it ran and passed
+# in the same turn. Deliberately empty today: near-duplicate findings, for
+# instance, are never resolved by spreadsheet.deduplicate (exact-match
+# only) even when it ran and passed in the same turn.
+_ANALYSIS_FINDING_FIX_CAPABILITY: dict[str, str] = {}
+
+
+def _find_step(execution_result: ExecutionResult | None, capability: str) -> StepResult | None:
+    """Return the first step in ``execution_result.steps`` for ``capability``.
+
+    Args:
+        execution_result: The execution result to search, if any.
+        capability: The capability to look for.
+
+    Returns:
+        The matching ``StepResult``, or ``None`` if there isn't one.
+    """
+    if execution_result is None:
+        return None
+    for step in execution_result.steps:
+        if step.capability == capability:
+            return step
+    return None
 
 
 @dataclass(frozen=True)
@@ -101,9 +135,87 @@ class TemplateSpeaker:
 
         verification_result = request.verification_result
 
+        if _find_step(request.execution_result, _ANALYZE_CAPABILITY) is not None:
+            return self._compose_with_analysis_preface(request.execution_result, verification_result)
+
         if verification_result.passed:
             return self._success_message(request.execution_result, verification_result)
         return self._failure_message(verification_result)
+
+    @staticmethod
+    def _compose_with_analysis_preface(
+        execution_result: ExecutionResult | None, verification_result: VerificationResult
+    ) -> str:
+        """Compose a reply that leads with proactive-analysis findings.
+
+        Per ``docs/design/proactive-analysis-design.md`` Section 5.3: this
+        is an unprompted observation, not a pass/fail outcome, so it's
+        never folded into the ordinary success/failure framing. Findings
+        already resolved by another capability's step that ran and passed
+        in this same turn (per ``_ANALYSIS_FINDING_FIX_CAPABILITY`` and
+        ``verification_result.steps``) are silently dropped, not asked
+        about again.
+
+        Args:
+            execution_result: The execution result, if any, to pull
+                output file names from for the trailing message.
+            verification_result: Inspector's own verdict, covering every
+                step this turn ran, including ``spreadsheet.analyze``.
+
+        Returns:
+            The reply text: a leading sentence about open findings (if
+            any), followed by the ordinary success/failure message built
+            from every other step's own findings.
+        """
+        open_findings, other_findings = TemplateSpeaker._partition_analysis_findings(
+            verification_result
+        )
+        parts = []
+        if open_findings:
+            parts.append(
+                "Before anything else, here's what I noticed: "
+                + "; ".join(open_findings)
+                + ". Want me to tackle any of these?"
+            )
+        remaining_result = dataclasses.replace(verification_result, findings=other_findings)
+        if remaining_result.passed:
+            parts.append(TemplateSpeaker._success_message(execution_result, remaining_result))
+        else:
+            parts.append(TemplateSpeaker._failure_message(remaining_result))
+        return " ".join(parts)
+
+    @staticmethod
+    def _partition_analysis_findings(
+        verification_result: VerificationResult,
+    ) -> tuple[tuple[str, ...], tuple[str, ...]]:
+        """Split ``verification_result.findings`` into open vs. everything else.
+
+        Args:
+            verification_result: The verification result to partition.
+
+        Returns:
+            ``(open_findings, other_findings)`` — ``open_findings`` are
+            this turn's ``spreadsheet.analyze`` findings not already
+            resolved by another passed step this turn, with their
+            ``[spreadsheet.analyze] [category]`` prefixes stripped for
+            display; ``other_findings`` are every finding that isn't a
+            ``spreadsheet.analyze`` finding at all, unchanged.
+        """
+        resolved_capabilities = {
+            step.capability for step in verification_result.steps if step.passed
+        }
+        open_findings: list[str] = []
+        other_findings: list[str] = []
+        for finding in verification_result.findings:
+            match = _ANALYSIS_FINDING_PATTERN.match(finding)
+            if match is None:
+                other_findings.append(finding)
+                continue
+            fix_capability = _ANALYSIS_FINDING_FIX_CAPABILITY.get(match.group("category"))
+            if fix_capability is not None and fix_capability in resolved_capabilities:
+                continue  # already handled this turn -- don't ask about it again
+            open_findings.append(match.group("text"))
+        return tuple(open_findings), tuple(other_findings)
 
     @staticmethod
     def _success_message(
@@ -301,6 +413,14 @@ hand, not generic filler:
 These are not templates to reuse verbatim — they're examples of the level
 of specificity and callback humor to aim for, not lines to recycle.
 
+If any of the facts you're given are prefixed "[spreadsheet.analyze]", treat
+them differently from an ordinary outcome: they're something you noticed on
+your own, before being asked to — not a request you're reporting pass/fail
+on. Lead with them, phrase them warmly, and close by asking which one (if
+any) the user wants you to look at first. Don't ask about a finding that's
+already been resolved by something else you did this same turn — only ask
+about the ones still open.
+
 Hard rules:
 - Never invent, omit, or soften a fact you were given. If something
   failed, say it failed. The personality is in HOW you say it, never in
@@ -333,6 +453,10 @@ system log or a formal report. Prefer "Done — 3 rows left, duplicates
 gone" over passive, formal phrasing like "resulting in a 3-row output."
 Say it the way a coworker would say it out loud in five words, not the
 way a status page would print it.
+
+Facts prefixed "[spreadsheet.analyze]" are an unprompted observation, not a
+pass/fail outcome. Lead with them tersely, then ask which one to prioritize —
+skip any already resolved by something else this turn.
 
 Hard rules:
 - Never invent, omit, or soften a fact you were given. If something

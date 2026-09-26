@@ -11,16 +11,23 @@ from buddy.hands import Hands, NullConfirmationProvider
 from buddy.inspector import (
     CompositeVerifier,
     Inspector,
+    SpreadsheetAnalysisVerifier,
     SpreadsheetDedupeVerifier,
     SpreadsheetEmptyRowsVerifier,
 )
 from buddy.llm import ClaudeProvider, LLMProvider
-from buddy.planner import ClaudePlanner, CompositePlanner, Planner, RuleBasedPlanner
+from buddy.planner import (
+    ClaudePlanner,
+    CompositePlanner,
+    Planner,
+    ProactiveAnalysisPlanner,
+    RuleBasedPlanner,
+)
 from buddy.think import ClaudeThinker, Think
 from buddy.voice import Speaker, TemplateSpeaker, Voice
 from core.dispatcher import Dispatcher
 from core.engine import CognitiveCycle, Engine
-from skills.excel import ExcelDeduplicateSkill, ExcelRemoveEmptyRowsSkill
+from skills.excel import ExcelDeduplicateSkill, ExcelRemoveEmptyRowsSkill, SpreadsheetAnalysisSkill
 from skills.registry import SkillRegistry
 
 logger = logging.getLogger(__name__)
@@ -55,24 +62,27 @@ def build_engine(
 ) -> Engine:
     """Build the real, end-to-end Engine for the "remove duplicate rows" slice.
 
-    Wires the real Claude-backed Brain/Think stages, a Planner that tries
-    the rule-based single-step strategy first and falls back to an
+    Wires the real Claude-backed Brain/Think stages, a Planner that
+    unconditionally prepends proactive analysis (``ProactiveAnalysisPlanner``
+    — see ``docs/design/proactive-analysis-design.md``) ahead of the
+    rule-based single-step strategy, which itself falls back to an
     LLM-backed multi-step strategy (see
     ``docs/design/multi-step-planner-design.md``), the Delegate stage, a
-    Dispatcher backed by a registry containing ``ExcelDeduplicateSkill``
-    and ``ExcelRemoveEmptyRowsSkill``, Hands wired to
-    ``NullConfirmationProvider`` (auto-approves every Write/External-Effect
-    task — there is no user-facing surface to ask through yet; see
-    ``buddy.hands.NullConfirmationProvider``), and a ``CompositeVerifier``
-    dispatching each step to its own independent check —
-    ``SpreadsheetDedupeVerifier`` for ``spreadsheet.deduplicate``,
+    Dispatcher backed by a registry containing ``ExcelDeduplicateSkill``,
+    ``ExcelRemoveEmptyRowsSkill``, and ``SpreadsheetAnalysisSkill``, Hands
+    wired to ``NullConfirmationProvider`` (auto-approves every Write/
+    External-Effect task — there is no user-facing surface to ask through
+    yet; see ``buddy.hands.NullConfirmationProvider``), and a
+    ``CompositeVerifier`` dispatching each step to its own independent
+    check — ``SpreadsheetDedupeVerifier`` for ``spreadsheet.deduplicate``,
     ``SpreadsheetEmptyRowsVerifier`` for ``spreadsheet.remove_empty_rows``,
-    falling back to ``NullVerifier``'s honest "not independently checked"
-    result for any other capability — the concrete implementations this
-    vertical slice needs (see ``docs/design/slice-1-dedupe-design.md``).
-    All wiring happens here, once; every stage above continues to depend
-    only on the protocol it was already built against, and none of them
-    import this module.
+    ``SpreadsheetAnalysisVerifier`` for ``spreadsheet.analyze``, falling
+    back to ``NullVerifier``'s honest "not independently checked" result
+    for any other capability — the concrete implementations this vertical
+    slice needs (see ``docs/design/slice-1-dedupe-design.md``). All wiring
+    happens here, once; every stage above continues to depend only on the
+    protocol it was already built against, and none of them import this
+    module.
 
     Args:
         llm_provider: The ``LLMProvider`` to back Brain/Think with.
@@ -95,6 +105,7 @@ def build_engine(
     registry = SkillRegistry()
     registry.register(ExcelDeduplicateSkill())
     registry.register(ExcelRemoveEmptyRowsSkill())
+    registry.register(SpreadsheetAnalysisSkill())
     dispatcher = Dispatcher(registry)
     known_capabilities = _capability_snapshot(registry)
 
@@ -102,6 +113,7 @@ def build_engine(
         {
             "spreadsheet.deduplicate": SpreadsheetDedupeVerifier(),
             "spreadsheet.remove_empty_rows": SpreadsheetEmptyRowsVerifier(),
+            "spreadsheet.analyze": SpreadsheetAnalysisVerifier(),
         }
     )
 
@@ -110,9 +122,11 @@ def build_engine(
         brain=Brain(interpreter=ClaudeInterpreter(provider)),
         think=Think(thinker=ClaudeThinker(provider)),
         planner=Planner(
-            planner=CompositePlanner(
-                RuleBasedPlanner(),
-                ClaudePlanner(provider, known_capabilities=known_capabilities),
+            planner=ProactiveAnalysisPlanner(
+                CompositePlanner(
+                    RuleBasedPlanner(),
+                    ClaudePlanner(provider, known_capabilities=known_capabilities),
+                )
             )
         ),
         delegate=Delegate(delegator=MechanicalDelegator()),

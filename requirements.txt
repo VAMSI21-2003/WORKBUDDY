@@ -15,6 +15,15 @@ groq>=0.11
 pandas>=2.2
 openpyxl>=3.1
 
+# --- Proactive spreadsheet analysis (skills/excel/analyze.py — see
+# docs/design/proactive-analysis-design.md) ---
+# Promoted from the spike-only section below once the design was approved
+# and implemented: ydata-profiling backs missing-value detection,
+# splink backs near-duplicate row detection. See
+# scripts/spike_tools_test.py for the real-tool spike that validated both.
+ydata-profiling>=4.10
+splink>=3.9
+
 # --- Development & quality tooling ---
 black>=24.0
 ruff>=0.6

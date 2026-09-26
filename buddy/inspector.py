@@ -1,13 +1,21 @@
 """Inspector — checks executed work against the user's original intent."""
 
 import logging
+import re
 from collections.abc import Mapping, Sequence
 from dataclasses import dataclass
+from datetime import datetime
 from typing import Protocol
 
 import pandas as pd
 
-from buddy.models import ExecutionResult, StepResult, Understanding, VerificationResult
+from buddy.models import (
+    ExecutionResult,
+    StepResult,
+    StepVerification,
+    Understanding,
+    VerificationResult,
+)
 from buddy.state import BuddyState
 
 logger = logging.getLogger(__name__)
@@ -28,10 +36,19 @@ class VerificationRequest:
             against.
         execution_result: The structured result produced by Hands, if
             it has run yet.
+        active_file: Reference to the file the user was last focused on,
+            if any, from the working context — the same field
+            ``Delegate``/``Planner`` already pull straight from
+            ``state.context``. Existing Verifiers ignore this entirely;
+            ``SpreadsheetAnalysisVerifier`` is the first to read it, since
+            verifying an analysis means re-deriving facts about the
+            *original* upload, not a Skill-produced output file (see
+            ``docs/design/proactive-analysis-design.md`` Section 5.1).
     """
 
     understanding: Understanding
     execution_result: ExecutionResult | None
+    active_file: str | None = None
 
 
 class Verifier(Protocol):
@@ -177,6 +194,226 @@ class SpreadsheetEmptyRowsVerifier:
         )
 
 
+_DATE_FORMATS = (
+    "%Y-%m-%d",
+    "%m/%d/%Y",
+    "%d/%m/%Y",
+    "%Y/%m/%d",
+    "%d-%m-%Y",
+    "%B %d, %Y",
+    "%b %d, %Y",
+    "%b %d %Y",
+)
+_KEY_COLUMN_PATTERN = re.compile(r"email|phone|tel", re.IGNORECASE)
+
+
+def _matched_date_format(value: str) -> str | None:
+    """Return the first of ``_DATE_FORMATS`` that parses ``value`` exactly.
+
+    Args:
+        value: The raw string value to test.
+
+    Returns:
+        The matching format string, or ``None`` if none of the known
+        formats parse ``value``.
+    """
+    for date_format in _DATE_FORMATS:
+        try:
+            datetime.strptime(value, date_format)
+            return date_format
+        except ValueError:
+            continue
+    return None
+
+
+def _independent_missing_value_findings(df: pd.DataFrame) -> tuple[str, ...]:
+    """Recompute missing-value counts directly from ``df``.
+
+    See ``docs/design/proactive-analysis-design.md`` Section 2.
+    """
+    findings: list[str] = []
+    for column in df.columns:
+        missing = int(df[column].isna().sum())
+        if missing == 0:
+            continue
+        percentage = 100 * missing / len(df) if len(df) else 0.0
+        findings.append(f"{column}: {missing} missing value(s) ({percentage:.1f}%)")
+    return tuple(findings)
+
+
+def _independent_outlier_findings(df: pd.DataFrame) -> tuple[str, ...]:
+    """Recompute IQR-based numeric outliers directly from ``df``.
+
+    See ``docs/design/proactive-analysis-design.md`` Section 3.
+    """
+    findings: list[str] = []
+    for column in df.select_dtypes(include="number").columns:
+        series = df[column].dropna()
+        if len(series) < 4:
+            continue
+        first_quartile, third_quartile = series.quantile(0.25), series.quantile(0.75)
+        iqr = third_quartile - first_quartile
+        if iqr == 0:
+            continue
+        low, high = first_quartile - 1.5 * iqr, third_quartile + 1.5 * iqr
+        outliers = series[(series < low) | (series > high)]
+        if len(outliers) == 0:
+            continue
+        examples = ", ".join(f"{value:g}" for value in outliers.head(3).tolist())
+        findings.append(
+            f"{column}: {len(outliers)} unusually high/low value(s) (e.g. {examples})"
+        )
+    return tuple(findings)
+
+
+def _independent_date_format_findings(df: pd.DataFrame) -> tuple[str, ...]:
+    """Recompute date-format-consistency findings directly from ``df``.
+
+    See ``docs/design/proactive-analysis-design.md`` Section 4.1.
+    """
+    findings: list[str] = []
+    for column in df.columns:
+        if pd.api.types.is_datetime64_any_dtype(df[column]):
+            continue
+        values = df[column].dropna().astype(str)
+        if values.empty:
+            continue
+        matched_formats = values.map(_matched_date_format)
+        match_ratio = matched_formats.notna().mean()
+        if match_ratio < 0.5:
+            continue  # not date-like enough to be a date column at all
+        distinct_formats = sorted({fmt for fmt in matched_formats.dropna().unique()})
+        unparseable = int(matched_formats.isna().sum())
+        if len(distinct_formats) <= 1 and unparseable == 0:
+            continue
+        parts = []
+        if distinct_formats:
+            parts.append(f"{len(distinct_formats)} different format(s): {', '.join(distinct_formats)}")
+        if unparseable:
+            parts.append(f"{unparseable} value(s) that don't match a recognized date format")
+        findings.append(f"{column}: " + "; ".join(parts))
+    return tuple(findings)
+
+
+def _independent_grouped_key_conflict_findings(df: pd.DataFrame) -> tuple[str, ...]:
+    """Recompute grouped-key-conflict findings directly from ``df``.
+
+    Deliberately limited to exact-match grouping on an email/phone-like
+    column — never guessing at arithmetic/derived-column relationships.
+    See ``docs/design/proactive-analysis-design.md`` Section 4.2. Grouped
+    just as cheaply as the other three checks above, so it gets the same
+    full-recomputation treatment even though the design doc's Section 5.2
+    enumeration didn't name it explicitly alongside them.
+    """
+    findings: list[str] = []
+    key_columns = [column for column in df.columns if _KEY_COLUMN_PATTERN.search(column)]
+    for key_column in key_columns:
+        grouped = df.dropna(subset=[key_column]).groupby(key_column)
+        for other_column in df.columns:
+            if other_column == key_column:
+                continue
+            conflict_counts = grouped[other_column].nunique(dropna=True)
+            conflicts = conflict_counts[conflict_counts > 1]
+            if len(conflicts) == 0:
+                continue
+            example_key = conflicts.index[0]
+            findings.append(
+                f"{len(conflicts)} value(s) of {key_column!r} are linked to more than one "
+                f"{other_column!r} (e.g. {key_column}={example_key!r})"
+            )
+    return tuple(findings)
+
+
+class SpreadsheetAnalysisVerifier:
+    """Independently confirms ``SpreadsheetAnalysisSkill``'s proactive findings.
+
+    Two different treatments for two different kinds of claim, per
+    ``docs/design/proactive-analysis-design.md`` Section 5.2:
+
+    - **Fully re-derived, independently** (missing values, outliers,
+      date-format consistency, grouped-key conflicts): recomputed from
+      scratch directly against ``request.active_file`` — the *original*
+      upload, opened fresh, exactly the same "deliberately blind to what
+      the Skill said" discipline ``SpreadsheetDedupeVerifier`` already
+      applies. Cheap, dependency-free pandas/``datetime`` logic, so full
+      independent recomputation costs almost nothing.
+    - **Self-reported, not independently re-run** (near-duplicates):
+      Splink's near-duplicate detection is expensive and re-running the
+      identical algorithm a second time would not be independent
+      verification at all. These are passed through from
+      ``StepResult.self_reported_findings`` unmodified, explicitly
+      labeled as self-reported, at a capped confidence.
+    """
+
+    def __call__(self, request: VerificationRequest) -> VerificationResult:
+        """Verify ``request`` by independently re-reading the original upload.
+
+        Args:
+            request: The request to verify.
+
+        Returns:
+            A ``VerificationResult`` combining fully-independent findings
+            with the Skill's own self-reported near-duplicate findings,
+            explicitly labeled as such.
+        """
+        execution_result = request.execution_result
+        if execution_result is None or not execution_result.steps:
+            return VerificationResult(
+                passed=False, confidence=1.0, findings=("no analysis step to verify",)
+            )
+
+        step = execution_result.steps[0]
+        if step.status == "failure":
+            return VerificationResult(
+                passed=False,
+                confidence=1.0,
+                findings=("spreadsheet.analyze reported failure",),
+            )
+
+        if request.active_file is None:
+            return VerificationResult(
+                passed=False,
+                confidence=1.0,
+                findings=("no active file available to independently re-check",),
+            )
+
+        try:
+            df = pd.read_excel(request.active_file)  # fresh, independent read of the ORIGINAL
+        except Exception as exc:  # noqa: BLE001 — surfaced as a finding, not raised
+            logger.exception(
+                "SpreadsheetAnalysisVerifier: failed to read %r", request.active_file
+            )
+            return VerificationResult(
+                passed=False,
+                confidence=1.0,
+                findings=(f"could not independently read {request.active_file!r}: {exc}",),
+            )
+
+        findings: list[str] = []
+        for category, category_findings in (
+            ("missing_values", _independent_missing_value_findings(df)),
+            ("outliers", _independent_outlier_findings(df)),
+            ("date_format", _independent_date_format_findings(df)),
+            ("grouped_key_conflict", _independent_grouped_key_conflict_findings(df)),
+        ):
+            findings.extend(f"[{category}] {finding}" for finding in category_findings)
+
+        self_reported = step.self_reported_findings
+        findings.extend(
+            f"[near_duplicates] {finding} (self-reported, not independently re-checked)"
+            for finding in self_reported
+        )
+
+        if not findings:
+            findings.append("nothing notable found")
+
+        # A run with any self-reported (unverified) content is never as
+        # confident as a run whose every finding was independently
+        # recomputed from scratch.
+        confidence = 0.7 if self_reported else 1.0
+        return VerificationResult(passed=True, confidence=confidence, findings=tuple(findings))
+
+
 def _scoped_execution_result(step: StepResult) -> ExecutionResult:
     """Build a single-step ``ExecutionResult`` so an existing ``Verifier``
     (e.g. ``SpreadsheetDedupeVerifier``, which only ever reads
@@ -211,6 +448,12 @@ def _aggregate_verdicts(per_step: Sequence[tuple[str, VerificationResult]]) -> V
     aggregate stays traceable back to which step said what — rather than
     collapsing multiple steps' evidence into one anonymous list.
 
+    Also builds ``VerificationResult.steps`` — one ``StepVerification``
+    per entry in ``per_step``, alongside (not instead of) the aggregated
+    fields above — so a consumer can ask "did capability X's own step
+    specifically pass?" without parsing prefixed finding strings. See
+    ``docs/design/proactive-analysis-design.md`` Section 5.5.
+
     Args:
         per_step: ``(capability, VerificationResult)`` pairs, one per step
             that was actually verified, in step order.
@@ -233,6 +476,16 @@ def _aggregate_verdicts(per_step: Sequence[tuple[str, VerificationResult]]) -> V
         ),
         recommendations=tuple(
             recommendation for _, result in per_step for recommendation in result.recommendations
+        ),
+        steps=tuple(
+            StepVerification(
+                capability=capability,
+                passed=result.passed,
+                confidence=result.confidence,
+                findings=result.findings,
+                recommendations=result.recommendations,
+            )
+            for capability, result in per_step
         ),
     )
 
@@ -301,6 +554,7 @@ class CompositeVerifier:
             scoped_request = VerificationRequest(
                 understanding=request.understanding,
                 execution_result=_scoped_execution_result(step),
+                active_file=request.active_file,
             )
             per_step.append((step.capability, verifier(scoped_request)))
 
@@ -353,6 +607,7 @@ class Inspector:
         request = self._build_request(state)
         result = self._verifier(request)
         self._apply(state, result)
+        self._mark_analyzed_files(state, result)
         logger.debug(
             "Inspector recorded passed=%s confidence=%.2f for session %r",
             result.passed,
@@ -380,6 +635,7 @@ class Inspector:
         return VerificationRequest(
             understanding=state.understanding or Understanding(),
             execution_result=state.execution_result,
+            active_file=state.context.active_file,
         )
 
     @staticmethod
@@ -391,3 +647,32 @@ class Inspector:
             result: The verification result to record.
         """
         state.verification_result = result
+
+    @staticmethod
+    def _mark_analyzed_files(state: BuddyState, result: VerificationResult) -> None:
+        """Mark this turn's target file as analyzed, once genuinely earned.
+
+        Reads ``result.steps`` — the per-step, unaggregated verdict — not
+        the aggregate ``result.passed``: one other step failing in the
+        same turn must never stop a genuinely-passed ``spreadsheet
+        .analyze`` step from being marked done, and an aggregate pass must
+        never be misread as this specific step having passed. Marking
+        happens only once the analysis has been *independently confirmed*
+        by ``SpreadsheetAnalysisVerifier`` — not merely because the Skill
+        self-reported success — so a check that fails in a way the
+        Skill's own ``verify()`` didn't catch is retried next turn instead
+        of silently never being looked at again. See
+        ``docs/design/proactive-analysis-design.md`` Section 1.2.
+
+        Args:
+            state: The state to update.
+            result: The verification result just computed for this turn.
+        """
+        target_file = state.context.active_file
+        if target_file is None:
+            return
+        analyze_passed = any(
+            step.capability == "spreadsheet.analyze" and step.passed for step in result.steps
+        )
+        if analyze_passed:
+            state.context.mark_analyzed(target_file)

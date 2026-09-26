@@ -190,6 +190,57 @@ def test_add_uploaded_file_tracks_multiple_files_in_order() -> None:
     assert context.uploaded_files == ["a.xlsx", "b.xlsx"]
 
 
+# -- analyzed files -----------------------------------------------------------------
+
+
+def test_analyzed_files_defaults_to_empty() -> None:
+    context = _make_context()
+
+    assert context.analyzed_files == frozenset()
+
+
+def test_mark_analyzed() -> None:
+    context = _make_context()
+
+    context.mark_analyzed("report.xlsx")
+
+    assert context.analyzed_files == frozenset({"report.xlsx"})
+
+
+def test_mark_analyzed_is_idempotent() -> None:
+    context = _make_context()
+    context.mark_analyzed("report.xlsx")
+    before = context.last_updated_at
+
+    context.mark_analyzed("report.xlsx")
+
+    assert context.analyzed_files == frozenset({"report.xlsx"})
+    assert context.last_updated_at == before  # no-op: _touch() not called again
+
+
+def test_mark_analyzed_tracks_multiple_files() -> None:
+    context = _make_context()
+
+    context.mark_analyzed("a.xlsx")
+    context.mark_analyzed("b.xlsx")
+
+    assert context.analyzed_files == frozenset({"a.xlsx", "b.xlsx"})
+
+
+def test_mark_analyzed_is_independent_of_uploaded_files() -> None:
+    """A file can be uploaded without being analyzed yet, and marking one
+    analyzed doesn't remove it from (or require it to be present in)
+    uploaded_files — the two sets are tracked independently.
+    """
+    context = _make_context()
+    context.add_uploaded_file("report.xlsx")
+
+    context.mark_analyzed("report.xlsx")
+
+    assert context.uploaded_files == ["report.xlsx"]
+    assert context.analyzed_files == frozenset({"report.xlsx"})
+
+
 # -- metadata -------------------------------------------------------------------------
 
 

@@ -12,6 +12,8 @@ from buddy.think import Reasoning
 
 logger = logging.getLogger(__name__)
 
+_SUPPORTED_ANALYSIS_EXTENSIONS = (".xlsx", ".xls")
+
 
 @dataclass(frozen=True)
 class PlanningRequest:
@@ -33,6 +35,20 @@ class PlanningRequest:
             compound detail (e.g. "this column") — strategies that need
             to decompose a request read this field directly, the same
             way ``UnderstandingRequest`` already does for Brain.
+        unanalyzed_spreadsheet_files: This turn's resolved target file
+            (``active_file`` or the most recent upload — the same
+            resolution ``RuleBasedPlanner``/``ClaudePlanner``/
+            ``MechanicalDelegator`` already use), as a 0-or-1-element
+            tuple, if that file is a spreadsheet and hasn't already been
+            proactively analyzed this session. Deliberately scoped to at
+            most the one file every step this turn will actually target —
+            not every unanalyzed upload in the workspace — because
+            ``MechanicalDelegator`` resolves one shared target for the
+            whole plan (see ``docs/design/multi-step-planner-design.md``),
+            so a step queued against a *different* file would silently
+            run against this same resolved target instead. Read by
+            ``ProactiveAnalysisPlanner``; every other strategy ignores it.
+            See ``docs/design/proactive-analysis-design.md`` Section 1.2.
     """
 
     understanding: Understanding
@@ -40,6 +56,7 @@ class PlanningRequest:
     uploaded_files: tuple[str, ...]
     active_file: str | None
     user_message: str
+    unanalyzed_spreadsheet_files: tuple[str, ...] = ()
 
 
 class PlanningStrategy(Protocol):
@@ -168,6 +185,59 @@ class CompositePlanner:
         return self._fallback(request)
 
 
+class ProactiveAnalysisPlanner:
+    """A ``PlanningStrategy`` that unconditionally prepends analysis.
+
+    Wraps another ``PlanningStrategy`` rather than replacing it: for every
+    not-yet-analyzed spreadsheet upload this turn resolves as its target
+    (``request.unanalyzed_spreadsheet_files`` — see ``PlanningRequest``),
+    prepends a ``spreadsheet.analyze`` step ahead of whatever ``inner``
+    decides for the user's own stated request. This runs regardless of
+    what the user asked, or whether they asked for anything at all — the
+    entire point, per
+    ``docs/design/proactive-analysis-design.md`` Section 1.2, is that
+    proactive analysis is independent of intent classification.
+
+    Because ``Hands`` executes ``state.delegation`` strictly in list
+    order (``MechanicalDelegator`` drops ``PlanningStep.priority``/
+    ``.dependencies`` when it flattens steps into ``CapabilityRequest``s),
+    prepending here is sufficient on its own to guarantee the analysis
+    step runs first — no dependency-tracking machinery is needed.
+    """
+
+    def __init__(self, inner: PlanningStrategy) -> None:
+        """Initialize the wrapping strategy.
+
+        Args:
+            inner: The strategy to defer to for the user's own stated
+                request, after any analysis step has been prepended.
+        """
+        self._inner = inner
+
+    def __call__(self, request: PlanningRequest) -> tuple[PlanningStep, ...]:
+        """Prepend analysis steps to whatever ``inner`` produces.
+
+        Args:
+            request: The request to plan for.
+
+        Returns:
+            One ``spreadsheet.analyze`` step per entry in
+            ``request.unanalyzed_spreadsheet_files`` (today, at most one —
+            see that field's docstring), followed by ``inner``'s own
+            steps.
+        """
+        analysis_steps = tuple(
+            PlanningStep(
+                id=f"analyze-{index}",
+                description=f"Look over {file_reference} before doing anything else",
+                capability="spreadsheet.analyze",
+                priority=0,
+            )
+            for index, file_reference in enumerate(request.unanalyzed_spreadsheet_files)
+        )
+        return analysis_steps + self._inner(request)
+
+
 class Planner:
     """The Planner stage of Buddy's cognitive cycle.
 
@@ -240,7 +310,37 @@ class Planner:
             uploaded_files=tuple(state.uploaded_files),
             active_file=state.context.active_file,
             user_message=state.user_message,
+            unanalyzed_spreadsheet_files=Planner._resolve_unanalyzed_spreadsheet_files(state),
         )
+
+    @staticmethod
+    def _resolve_unanalyzed_spreadsheet_files(state: BuddyState) -> tuple[str, ...]:
+        """Resolve this turn's target file, if it needs proactive analysis.
+
+        Mirrors the exact ``active_file or uploaded_files[-1]`` resolution
+        ``RuleBasedPlanner``/``ClaudePlanner``/``MechanicalDelegator``
+        already use — see ``PlanningRequest.unanalyzed_spreadsheet_files``
+        for why this must be the *same* file every other step this turn
+        will target, not just any unanalyzed upload.
+
+        Args:
+            state: The current ``BuddyState`` for this turn.
+
+        Returns:
+            A 0-or-1-element tuple containing the resolved target file, if
+            it's a spreadsheet and hasn't already been analyzed this
+            session; otherwise an empty tuple.
+        """
+        target_file = state.context.active_file or (
+            state.uploaded_files[-1] if state.uploaded_files else None
+        )
+        if target_file is None:
+            return ()
+        if not target_file.lower().endswith(_SUPPORTED_ANALYSIS_EXTENSIONS):
+            return ()
+        if target_file in state.context.analyzed_files:
+            return ()
+        return (target_file,)
 
     @staticmethod
     def _apply(state: BuddyState, steps: tuple[PlanningStep, ...]) -> None:

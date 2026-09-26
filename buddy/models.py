@@ -112,6 +112,12 @@ class StepResult:
             asks Buddy's core to keep.
         outputs: References to files or data this step produced.
         summary: Plain-language description of what this step did.
+        self_reported_findings: Mirrors ``skills.base.SkillResult
+            .self_reported_findings`` — copied across unchanged by
+            ``Hands``, the same 1:1 field copy already applied to
+            ``status``/``outputs``/``summary``. Findings a Verifier may
+            relay as-is rather than independently recompute (see
+            ``buddy.inspector.SpreadsheetAnalysisVerifier``).
     """
 
     capability: str
@@ -119,6 +125,7 @@ class StepResult:
     status: str
     outputs: tuple[str, ...] = ()
     summary: str = ""
+    self_reported_findings: tuple[str, ...] = ()
 
 
 @dataclass(frozen=True)
@@ -156,6 +163,39 @@ class ExecutionResult:
 
 
 @dataclass(frozen=True)
+class StepVerification:
+    """One step's own, unaggregated verification verdict.
+
+    ``CompositeVerifier._aggregate_verdicts`` collapses every step's
+    verdict into a single ``passed``/``confidence`` pair on
+    ``VerificationResult`` — necessary for a simple overall answer, but it
+    means no code can ask "did capability X's own step specifically
+    pass?" without parsing ``[capability]``-prefixed finding strings.
+    ``VerificationResult.steps`` exists to answer exactly that question,
+    the same way ``StepResult`` was added to ``ExecutionResult`` to answer
+    "which output belongs to which capability?" (see
+    ``docs/design/hands-verifier-review.md``). Consumed by
+    ``buddy.voice.TemplateSpeaker`` to decide whether a proactive-analysis
+    finding should be presented as already handled by another step in the
+    same turn — see ``docs/design/proactive-analysis-design.md`` Section
+    5.5.
+
+    Attributes:
+        capability: The capability this verdict belongs to.
+        passed: Whether this step, specifically, satisfied its own check.
+        confidence: Confidence in this step's own verdict.
+        findings: This step's own plain-language findings, unprefixed.
+        recommendations: This step's own suggestions for what to do next.
+    """
+
+    capability: str
+    passed: bool
+    confidence: float = 0.0
+    findings: tuple[str, ...] = ()
+    recommendations: tuple[str, ...] = ()
+
+
+@dataclass(frozen=True)
 class VerificationResult:
     """The outcome of checking an execution result against user intent.
 
@@ -169,9 +209,16 @@ class VerificationResult:
         findings: Plain-language observations made while verifying.
         recommendations: Plain-language suggestions for what to do next,
             particularly when ``passed`` is ``False``.
+        steps: Per-step, unaggregated verdicts — one ``StepVerification``
+            per step ``CompositeVerifier`` dispatched, alongside (not
+            instead of) the aggregated ``passed``/``confidence`` above.
+            Empty when verification didn't go through ``CompositeVerifier``
+            at all (e.g. ``NullVerifier``, or a single non-composite
+            ``Verifier`` used directly).
     """
 
     passed: bool
     confidence: float = 0.0
     findings: tuple[str, ...] = ()
     recommendations: tuple[str, ...] = ()
+    steps: tuple[StepVerification, ...] = ()

@@ -100,6 +100,11 @@ class Context:
         active_sheet: Name of the sheet currently open within the active
             file, when the active file is a spreadsheet.
         uploaded_files: Files currently available in this working context.
+        analyzed_files: Files that proactive analysis
+            (``spreadsheet.analyze``) has already been run against and
+            independently confirmed for, this session — so it isn't
+            re-queued every turn the same file remains uploaded. See
+            ``docs/design/proactive-analysis-design.md`` Section 1.2.
         current_topic: Plain-language label for what the conversation is
             currently about.
         mode: Buddy's conversational personality mode — ``"friend"`` or
@@ -120,6 +125,7 @@ class Context:
     active_document: str | None = None
     active_sheet: str | None = None
     uploaded_files: list[str] = field(default_factory=list)
+    analyzed_files: frozenset[str] = field(default_factory=frozenset)
     current_topic: str | None = None
     mode: str = "friend"
     metadata: dict[str, Any] = field(default_factory=dict)
@@ -197,6 +203,23 @@ class Context:
         """
         if file_reference not in self.uploaded_files:
             self.uploaded_files.append(file_reference)
+            self._touch()
+
+    def mark_analyzed(self, file_reference: str) -> None:
+        """Record a file as having been proactively analyzed.
+
+        Only ever called once a Verifier has independently confirmed the
+        analysis actually held up — never merely because a Skill
+        self-reported success (see
+        ``docs/design/proactive-analysis-design.md`` Section 1.2). Once
+        marked, ``ProactiveAnalysisPlanner`` stops queuing a
+        ``spreadsheet.analyze`` step for this file.
+
+        Args:
+            file_reference: Reference to the file to mark as analyzed.
+        """
+        if file_reference not in self.analyzed_files:
+            self.analyzed_files = self.analyzed_files | {file_reference}
             self._touch()
 
     def set_current_topic(self, topic: str | None) -> None:

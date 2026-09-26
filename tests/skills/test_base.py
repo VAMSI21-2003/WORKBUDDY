@@ -75,6 +75,16 @@ def test_skill_result_requires_only_status() -> None:
     assert result.warnings == []
     assert result.errors == []
     assert result.metadata == {}
+    assert result.self_reported_findings == ()
+
+
+def test_skill_result_can_carry_self_reported_findings() -> None:
+    result = SkillResult(
+        status=SkillStatus.SUCCESS,
+        self_reported_findings=("rows 1 and 2 look like the same person",),
+    )
+
+    assert result.self_reported_findings == ("rows 1 and 2 look like the same person",)
 
 
 def test_skill_result_default_lists_and_dicts_are_independent_per_instance() -> None:

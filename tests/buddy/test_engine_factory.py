@@ -178,8 +178,20 @@ def test_full_slice_decomposes_a_compound_request_into_multiple_steps(
     The existing single-step test above needs no such 3rd reply, since
     RuleBasedPlanner handles "remove_duplicate_rows" without ever
     invoking the fallback.
+
+    ``ProactiveAnalysisPlanner`` also prepends a ``spreadsheet.analyze``
+    step unconditionally, ahead of these three — see
+    docs/design/proactive-analysis-design.md — so a real fixture is
+    written at the upload path for it to genuinely succeed against,
+    keeping this test's real point (three *unmapped* capabilities produce
+    three clean per-item errors) undiluted by an unrelated file-not-found
+    error from the new step.
     """
     monkeypatch.chdir(tmp_path)
+    (tmp_path / "uploads").mkdir()
+    pd.DataFrame({"name": ["Alice", "Bob"], "amount": [10, 20]}).to_excel(
+        tmp_path / "uploads" / "report.xlsx", index=False
+    )
 
     understand_reply = json.dumps(
         {
@@ -235,20 +247,29 @@ def test_full_slice_decomposes_a_compound_request_into_multiple_steps(
     assert len(provider.calls) == 3
 
     assert state.planning is not None
-    assert len(state.planning) == 3
+    assert len(state.planning) == 4
     assert [s.capability for s in state.planning] == [
+        "spreadsheet.analyze",
         "spreadsheet.column_check",
         "spreadsheet.remove_column",
         "spreadsheet.report",
     ]
-    assert state.planning[1].dependencies == ("step-1",)
+    assert state.planning[2].dependencies == ("step-1",)
 
-    # None of these capabilities have a registered skill, so Hands
-    # surfaces per-item errors cleanly rather than crashing — exactly the
-    # mechanism this design relies on (Step 1 of the design doc).
+    # None of the three *requested* capabilities have a registered skill,
+    # so Hands surfaces per-item errors cleanly rather than crashing —
+    # exactly the mechanism this design relies on (Step 1 of the design
+    # doc). The prepended spreadsheet.analyze step, by contrast, has a
+    # real registered skill and a real fixture to read, so it succeeds
+    # rather than contributing a fourth error.
     assert state.execution_result is not None
     assert state.execution_result.success is False
     assert len(state.execution_result.errors) == 3
+    analyze_steps = [
+        step for step in state.execution_result.steps if step.capability == "spreadsheet.analyze"
+    ]
+    assert len(analyze_steps) == 1
+    assert analyze_steps[0].status == "success"
 
 
 def _write_fixture_with_duplicates_and_an_empty_row(path: Path) -> None:
@@ -331,16 +352,25 @@ def test_full_slice_runs_two_real_skills_and_aggregates_verification_and_reply(
     engine = build_engine(llm_provider=provider)
     engine.run(state)
 
-    # Both steps reached a real, registered skill and both succeeded.
+    # All three steps reached a real, registered skill and succeeded —
+    # ProactiveAnalysisPlanner's prepended spreadsheet.analyze step,
+    # alongside the two requested capabilities.
     assert state.execution_result is not None
     assert state.execution_result.success is True
-    assert len(state.execution_result.steps) == 2
+    assert len(state.execution_result.steps) == 3
     capabilities = {step.capability for step in state.execution_result.steps}
-    assert capabilities == {"spreadsheet.deduplicate", "spreadsheet.remove_empty_rows"}
+    assert capabilities == {
+        "spreadsheet.analyze",
+        "spreadsheet.deduplicate",
+        "spreadsheet.remove_empty_rows",
+    }
+    # spreadsheet.analyze writes no output file at all (Section 5.2/5.4 of
+    # docs/design/proactive-analysis-design.md) — only the two requested
+    # capabilities' outputs count here.
     assert len(state.execution_result.outputs) == 2
 
     # CompositeVerifier dispatched each output to its own real Verifier and
-    # aggregated both into a single passed verdict.
+    # aggregated all three into a single passed verdict.
     assert state.verification_result is not None
     assert state.verification_result.passed is True
     assert any(
@@ -350,12 +380,23 @@ def test_full_slice_runs_two_real_skills_and_aggregates_verification_and_reply(
         f.startswith("[spreadsheet.remove_empty_rows]")
         for f in state.verification_result.findings
     )
+    # The fixture has a missing value in both "name" and "amount" (the
+    # all-empty row) — SpreadsheetAnalysisVerifier independently recomputes
+    # this straight from the original upload, not from anything the Skill
+    # claimed.
+    assert any(
+        f.startswith("[spreadsheet.analyze] [missing_values]")
+        for f in state.verification_result.findings
+    )
 
-    # Independent re-check, in the test itself, of both output files —
+    # Independent re-check, in the test itself, of both real output files —
     # not trusting the app's own Inspector stage or either skill's
     # self-report. Each output is checked against the specific claim its
     # own capability makes, not an either-or guess.
     for step in state.execution_result.steps:
+        if step.capability == "spreadsheet.analyze":
+            assert step.outputs == ()
+            continue
         assert len(step.outputs) == 1
         written = pd.read_excel(step.outputs[0])
         if step.capability == "spreadsheet.deduplicate":
@@ -365,12 +406,134 @@ def test_full_slice_runs_two_real_skills_and_aggregates_verification_and_reply(
         else:
             raise AssertionError(f"unexpected capability in step results: {step.capability!r}")
 
-    # Voice's reply mentions both output files, not just the first.
+    # Voice's reply leads with the proactive-analysis findings, then still
+    # mentions both output files from the user's own requested steps.
     assert state.reply is not None
+    assert "Before anything else, here's what I noticed" in state.reply
     output_names = {Path(p).name for p in state.execution_result.outputs}
     for name in output_names:
         assert name in state.reply
 
+    # The turn's target file was marked analyzed, so a later turn on the
+    # same file won't re-queue spreadsheet.analyze.
+    assert str(input_path) in state.context.analyzed_files
+
     # The original upload was never modified.
     original = pd.read_excel(tmp_path / input_path)
     assert len(original) == 4
+
+
+# The same (name, phone) rows validated by the real spike
+# (scripts/spike_tools_test.py): true duplicates (spelling variant, same
+# phone) score real match_probability ~0.21-0.28; name collisions (same
+# or near-identical name, different phone) score ~0.0000 -- both well
+# separated by NearDuplicateAnalyzer's threshold (0.15).
+_NEAR_DUPLICATE_AND_COLLISION_ROWS = [
+    ("Alice Johnson", "555-0101"),
+    ("Alice Johnston", "555-0101"),  # true duplicate of row 0 (same phone)
+    ("Robert Smith", "555-0202"),
+    ("Bob Smith", "555-0202"),  # true duplicate of row 2 (same phone)
+    ("Carol Davis", "555-0303"),
+    ("Carol Davies", "555-0303"),  # true duplicate of row 4 (same phone)
+    ("Alice Johnson", "555-0199"),  # name collision with row 0 (different phone)
+    ("Robert Smith", "555-0288"),  # name collision with row 2 (different phone)
+    ("Carol Davis", "555-0377"),  # name collision with row 4 (different phone)
+    ("Frank Nguyen", "555-0505"),
+    ("Grace Kim", "555-0606"),
+    ("Henry Patel", "555-0707"),
+    ("Irene Chao", "555-0808"),
+    ("Jack Turner", "555-0909"),
+    ("Karen Wu", "555-1010"),
+    ("Liam O'Brien", "555-1111"),
+    ("Maria Garcia", "555-1212"),
+    ("Noah Lee", "555-1313"),
+    ("Olivia Brown", "555-1414"),
+    ("Peter Chen", "555-1515"),
+    ("Quinn Adams", "555-1616"),
+    ("Rachel Kim", "555-1717"),
+    ("Sam Park", "555-1818"),
+    ("Tina Ali", "555-1919"),
+    ("Alice Johnson", "555-0101"),  # EXACT duplicate of row 0 -- real work for dedupe
+]
+
+
+def test_full_slice_does_not_fold_a_near_duplicate_finding_into_an_exact_dedupe_step(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """The real, end-to-end proof of the fold-in rule
+    (docs/design/proactive-analysis-design.md Section 5.3): a real
+    Splink-detected near-duplicate finding must still be reported as an
+    open item even though a real ``spreadsheet.deduplicate`` step ran and
+    passed in the exact same turn — proving the rule holds through the
+    whole pipeline (real analyzer, real Verifier, real Voice), not just at
+    ``TemplateSpeaker``'s own unit level (see
+    tests/buddy/test_voice.py::test_template_speaker_does_not_fold_a_near_duplicate_finding_into_an_exact_dedupe_step
+    for that narrower proof).
+    """
+    monkeypatch.chdir(tmp_path)
+    (tmp_path / "uploads").mkdir()
+    input_path = Path("uploads") / "report.xlsx"
+    pd.DataFrame(_NEAR_DUPLICATE_AND_COLLISION_ROWS, columns=["name", "phone"]).to_excel(
+        tmp_path / input_path, index=False
+    )
+
+    understand_reply = json.dumps(
+        {
+            "intent": "remove_duplicate_rows",
+            "confidence": 0.95,
+            "referenced_files": [str(input_path)],
+            "referenced_work_items": [],
+            "missing_information": [],
+            "ambiguity_flags": [],
+            "notes": "",
+        }
+    )
+    think_reply = json.dumps(
+        {
+            "objective": "Remove duplicate rows from the uploaded spreadsheet.",
+            "summary": "The request is clear and a file is available.",
+            "assumptions": [],
+            "constraints": [],
+            "risks": [],
+            "recommended_strategy": "Use the Excel skill to deduplicate rows.",
+            "clarification_required": False,
+            "confidence": 0.9,
+        }
+    )
+    provider = _QueuedLLMProvider([understand_reply, think_reply])
+
+    state = BuddyState.new(session_id="session-1", workspace_id="workspace-1")
+    state.user_message = "remove duplicate rows"
+    state.context.add_uploaded_file(str(input_path))
+    state.context.switch_active_file(str(input_path))
+
+    engine = build_engine(llm_provider=provider)
+    engine.run(state)
+
+    # Both a real spreadsheet.analyze step (Splink included) and a real
+    # spreadsheet.deduplicate step ran, and both passed.
+    assert state.execution_result is not None
+    assert state.execution_result.success is True
+    capabilities = {step.capability for step in state.execution_result.steps}
+    assert capabilities == {"spreadsheet.analyze", "spreadsheet.deduplicate"}
+
+    assert state.verification_result is not None
+    dedupe_verdict = next(
+        sv for sv in state.verification_result.steps if sv.capability == "spreadsheet.deduplicate"
+    )
+    assert dedupe_verdict.passed is True
+
+    # A real near-duplicate finding was actually produced.
+    near_duplicate_findings = [
+        f
+        for f in state.verification_result.findings
+        if f.startswith("[spreadsheet.analyze] [near_duplicates]")
+    ]
+    assert len(near_duplicate_findings) > 0
+
+    # ...and it survived into the final reply as an OPEN item -- never
+    # folded away just because spreadsheet.deduplicate (exact-match only)
+    # also ran and passed in the very same turn.
+    assert state.reply is not None
+    assert "Before anything else, here's what I noticed" in state.reply
+    assert "Want me to tackle any of these?" in state.reply

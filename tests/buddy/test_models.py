@@ -17,6 +17,7 @@ from buddy.models import (
     ExecutionResult,
     PlanningStep,
     StepResult,
+    StepVerification,
     VerificationResult,
 )
 
@@ -159,6 +160,13 @@ def test_step_result_requires_capability_skill_and_status() -> None:
 
     assert step.outputs == ()
     assert step.summary == ""
+    assert step.self_reported_findings == ()
+
+
+def test_step_result_can_carry_self_reported_findings() -> None:
+    step = _step_result(self_reported_findings=("rows 1 and 2 look like the same person",))
+
+    assert step.self_reported_findings == ("rows 1 and 2 look like the same person",)
 
 
 def test_step_result_is_frozen() -> None:
@@ -184,6 +192,7 @@ def test_verification_result_requires_only_passed() -> None:
     assert result.confidence == 0.0
     assert result.findings == ()
     assert result.recommendations == ()
+    assert result.steps == ()
 
 
 def test_verification_result_is_frozen() -> None:
@@ -198,3 +207,33 @@ def test_verification_result_can_represent_a_pass_with_no_findings() -> None:
 
     assert result.findings == ()
     assert result.recommendations == ()
+
+
+# -- StepVerification -----------------------------------------------------------------
+
+
+def test_step_verification_requires_capability_and_passed() -> None:
+    step_verification = StepVerification(capability="spreadsheet.deduplicate", passed=True)
+
+    assert step_verification.confidence == 0.0
+    assert step_verification.findings == ()
+    assert step_verification.recommendations == ()
+
+
+def test_step_verification_is_frozen() -> None:
+    step_verification = StepVerification(capability="spreadsheet.deduplicate", passed=True)
+
+    with pytest.raises(dataclasses.FrozenInstanceError):
+        step_verification.passed = False  # type: ignore[misc]
+
+
+def test_verification_result_can_carry_a_per_step_breakdown() -> None:
+    step_verification = StepVerification(
+        capability="spreadsheet.analyze",
+        passed=True,
+        confidence=1.0,
+        findings=("nothing notable found",),
+    )
+    result = VerificationResult(passed=True, confidence=1.0, steps=(step_verification,))
+
+    assert result.steps == (step_verification,)

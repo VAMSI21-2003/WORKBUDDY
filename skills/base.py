@@ -64,6 +64,16 @@ class SkillResult:
         warnings: Non-fatal issues encountered during execution.
         errors: Fatal issues that prevented the task from succeeding.
         metadata: Auxiliary execution information, such as timing.
+        self_reported_findings: Plain-language findings this skill is
+            reporting as-is, with no independent re-check expected —
+            distinct from ``summary`` in that a Verifier may relay these
+            directly into ``VerificationResult.findings`` (see
+            ``buddy.inspector.SpreadsheetAnalysisVerifier`` and
+            ``docs/design/proactive-analysis-design.md`` Section 5.2 for
+            why some findings get this lighter treatment instead of full
+            independent recomputation). A tuple, unlike this dataclass's
+            other list-typed fields, to mirror the corresponding field on
+            ``buddy.models.StepResult`` it gets copied onto.
     """
 
     status: SkillStatus
@@ -72,6 +82,7 @@ class SkillResult:
     warnings: list[str] = field(default_factory=list)
     errors: list[str] = field(default_factory=list)
     metadata: dict[str, Any] = field(default_factory=dict)
+    self_reported_findings: tuple[str, ...] = ()
 
 
 class Skill(ABC):
