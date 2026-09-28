@@ -8,7 +8,13 @@ from pathlib import Path
 from typing import Protocol
 
 from buddy.llm import LLMMessage, LLMProvider
-from buddy.models import ExecutionResult, StepResult, Understanding, VerificationResult
+from buddy.models import (
+    SKIPPED_STATUS,
+    ExecutionResult,
+    StepResult,
+    Understanding,
+    VerificationResult,
+)
 from buddy.planner import _INTENT_CAPABILITIES
 from buddy.state import BuddyState
 
@@ -95,6 +101,26 @@ def _step_passed(
     return True
 
 
+def _chain_stop_sentence(execution_result: ExecutionResult | None) -> str:
+    """Say, in plain words, which step stopped the chain and what didn't run.
+
+    Returns:
+        ``""`` if the chain didn't stop; otherwise a sentence naming the
+        failed step (never its raw capability id) and every skipped step.
+    """
+    if execution_result is None or execution_result.stopped_at is None:
+        return ""
+    skipped = [
+        _describe_capability(step.capability)
+        for step in execution_result.steps
+        if step.status == SKIPPED_STATUS
+    ]
+    sentence = f"I stopped at the {_describe_capability(execution_result.stopped_at)} step"
+    if skipped:
+        sentence += f", so {', '.join(skipped)} never ran"
+    return sentence + " and no file was handed back; your original file is unchanged."
+
+
 @dataclass(frozen=True)
 class SpeakingRequest:
     """The inputs available for composing Buddy's reply to the user.
@@ -179,17 +205,18 @@ class TemplateSpeaker:
         Returns:
             The reply text.
         """
+        stop_sentence = _chain_stop_sentence(request.execution_result)
         if request.verification_result is None:
-            return self._describe_without_verification(request.execution_result)
-
-        verification_result = request.verification_result
-
-        if _find_step(request.execution_result, _ANALYZE_CAPABILITY) is not None:
-            return self._compose_with_analysis_preface(request.execution_result, verification_result)
-
-        if verification_result.passed:
-            return self._success_message(request.execution_result, verification_result)
-        return self._failure_message(verification_result)
+            reply = self._describe_without_verification(request.execution_result)
+        elif _find_step(request.execution_result, _ANALYZE_CAPABILITY) is not None:
+            reply = self._compose_with_analysis_preface(
+                request.execution_result, request.verification_result
+            )
+        elif request.verification_result.passed:
+            reply = self._success_message(request.execution_result, request.verification_result)
+        else:
+            reply = self._failure_message(request.verification_result)
+        return f"{reply} {stop_sentence}" if stop_sentence else reply
 
     @staticmethod
     def _compose_with_analysis_preface(
@@ -628,15 +655,27 @@ class PersonalityVoice:
         if execution_result is None:
             lines.append("Execution: nothing was executed.")
         else:
-            if steps:
-                ran = ", ".join(
+            ran = [step for step in steps if step.status != SKIPPED_STATUS]
+            skipped = [step for step in steps if step.status == SKIPPED_STATUS]
+            if ran:
+                ran_text = ", ".join(
                     f"{_describe_capability(step.capability)} "
                     f"({'passed' if _step_passed(step, verification_result) else 'did not pass'})"
-                    for step in steps
+                    for step in ran
                 )
-                lines.append(f"Steps that actually ran this turn: {ran}")
+                lines.append(f"Steps that actually ran this turn: {ran_text}")
             else:
                 lines.append("Steps that actually ran this turn: none")
+            if execution_result.stopped_at is not None:
+                lines.append(
+                    "Work stopped at this failed step, so no file was handed back and the "
+                    f"original is unchanged: {_describe_capability(execution_result.stopped_at)}"
+                )
+            if skipped:
+                lines.append(
+                    "Steps that never ran, because an earlier step failed: "
+                    + ", ".join(_describe_capability(step.capability) for step in skipped)
+                )
             lines.append(f"Execution succeeded: {execution_result.success}")
             if execution_result.outputs:
                 output_names = ", ".join(Path(o).name for o in execution_result.outputs)

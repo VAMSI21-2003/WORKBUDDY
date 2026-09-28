@@ -238,7 +238,10 @@ library, or follow manual steps; describe what Buddy will do.
 
 Buddy's available capabilities, and their real limits (each reads only the
 first sheet of an uploaded spreadsheet, writes its result to a new file,
-and never modifies the original):
+and never modifies the original). When a request needs more than one of
+them, they run in the order the user stated, each working on the previous
+one's result, and the user gets one final file; if any step fails, the
+rest don't run:
 - spreadsheet.deduplicate: removes rows that are identical across every
   column, keeping the first occurrence. It cannot choose which columns
   define a duplicate, cannot match near-duplicates or differently-formatted

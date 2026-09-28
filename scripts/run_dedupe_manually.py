@@ -20,6 +20,7 @@ this script makes a real, billed-where-applicable API call.
 """
 
 import argparse
+import hashlib
 import os
 import sys
 from pathlib import Path
@@ -39,18 +40,24 @@ SCRATCH_DIR = Path(__file__).resolve().parent.parent / "scratch"
 
 
 def _write_fixture_with_duplicates(path: Path) -> None:
-    """Write a real .xlsx file with a handful of rows, 2 of which are
-    exact duplicates of earlier rows. Mirrors the fixture shape used by
-    tests/skills/excel/test_dedupe.py's _write_fixture_with_duplicates,
-    so manual runs exercise the same scenario the automated tests do.
+    """Write a real .xlsx file with 6 rows: 2 exact duplicates of earlier
+    rows and 1 fully-empty row, leaving 3 distinct, non-empty rows (Alice,
+    Bob, Carol) once both problems are removed — so a multi-step request
+    ("remove the empty rows and then the duplicates") has real work for
+    every step. The empty row sits mid-file: a trailing empty row doesn't
+    survive openpyxl's write/read round trip.
     """
     path.parent.mkdir(parents=True, exist_ok=True)
     pd.DataFrame(
         {
-            "name": ["Alice", "Bob", "Alice", "Carol", "Bob"],
-            "amount": [10, 20, 10, 30, 20],
+            "name": ["Alice", "Bob", None, "Alice", "Carol", "Bob"],
+            "amount": [10, 20, None, 10, 30, 20],
         }
     ).to_excel(path, index=False)
+
+
+def _sha256(path: Path) -> str:
+    return hashlib.sha256(path.read_bytes()).hexdigest()[:16]
 
 
 def _print_header(title: str) -> None:
@@ -105,7 +112,8 @@ def main() -> None:
 
     input_path = SCRATCH_DIR / "uploads" / "manual_report.xlsx"
     _write_fixture_with_duplicates(input_path)
-    print(f"Wrote fixture with duplicates to: {input_path}")
+    original_before = _sha256(input_path)
+    print(f"Wrote fixture with duplicates and an empty row to: {input_path}")
 
     state = BuddyState.new(session_id="manual-session", workspace_id="manual-workspace")
     state.user_message = args.message
@@ -159,6 +167,12 @@ def main() -> None:
 
     _print_header("ExecutionResult (Hands stage)")
     print(state.execution_result)
+    if state.execution_result is not None:
+        print("chain (each step's input -> output):")
+        for step in state.execution_result.steps:
+            outputs = ", ".join(Path(o).name for o in step.outputs) or "-"
+            source = Path(step.input_reference).name if step.input_reference else "-"
+            print(f"  {step.capability} [{step.status}]: {source} -> {outputs}")
 
     _print_header("VerificationResult (Inspector stage)")
     print(state.verification_result)
@@ -167,17 +181,23 @@ def main() -> None:
     print(state.reply)
 
     _print_header("Independent check of the output file")
-    if state.execution_result is not None and state.execution_result.outputs:
-        output_path = Path(state.execution_result.outputs[0])
+    outputs = state.execution_result.outputs if state.execution_result is not None else ()
+    print(f"files handed back:    {len(outputs)}")
+    if outputs:
+        output_path = Path(outputs[0])
         print(f"output path: {output_path}")
         if output_path.exists():
             written = pd.read_excel(output_path)
             print(f"row count:            {len(written)}")
             print(f"duplicate rows found: {int(written.duplicated().sum())}")
+            print(f"empty rows found:     {int(written.isna().all(axis=1).sum())}")
         else:
             print("output file does not exist on disk")
     else:
         print("no output file was produced")
+    original_after = _sha256(input_path)
+    unchanged = "unchanged" if original_after == original_before else "CHANGED"
+    print(f"original file hash:   {original_before} -> {original_after} ({unchanged})")
 
 
 if __name__ == "__main__":

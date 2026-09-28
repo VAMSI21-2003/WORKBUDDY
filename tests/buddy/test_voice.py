@@ -705,3 +705,84 @@ def test_voice_stage_defaults_to_friend_mode() -> None:
     stage(state)
 
     assert seen[0].mode == "friend"
+
+
+# -- A chain that stopped: say which step failed, in plain words ------------------
+
+
+def _stopped_chain_request(mode: str = "focus") -> SpeakingRequest:
+    return _request(
+        mode=mode,
+        execution_result=ExecutionResult(
+            success=False,
+            errors=(
+                "spreadsheet.deduplicate failed verification: expected 3 non-empty row(s)",
+                "stopped: spreadsheet.deduplicate failed verification; 1 later step(s) were "
+                "skipped and no file was handed back",
+            ),
+            steps=(
+                StepResult(
+                    capability="spreadsheet.deduplicate",
+                    skill="excel.deduplicate",
+                    status="success",
+                    outputs=("out/a.xlsx",),
+                ),
+                StepResult(
+                    capability="spreadsheet.remove_empty_rows",
+                    skill="",
+                    status="skipped",
+                    summary="skipped because spreadsheet.deduplicate failed verification",
+                ),
+            ),
+            stopped_at="spreadsheet.deduplicate",
+        ),
+        verification_result=VerificationResult(
+            passed=False,
+            findings=(
+                "[spreadsheet.deduplicate] output has 2 row(s), 0 duplicate row(s) remaining",
+                "[spreadsheet.deduplicate] expected 3 non-empty row(s) from its 4-row input, "
+                "found 2",
+                "[spreadsheet.remove_empty_rows] skipped because an earlier step failed",
+            ),
+            steps=(
+                StepVerification(capability="spreadsheet.deduplicate", passed=False),
+                StepVerification(capability="spreadsheet.remove_empty_rows", passed=False),
+            ),
+        ),
+    )
+
+
+def test_personality_voice_prompt_says_where_the_chain_stopped_and_what_never_ran() -> None:
+    provider = _FakeLLMProvider(reply="ok")
+
+    PersonalityVoice(provider)(_stopped_chain_request())
+
+    assert provider.last_messages is not None
+    prompt = provider.last_messages[0].content
+    assert "Steps that actually ran this turn: deduplicate (did not pass)" in prompt
+    assert "Steps that never ran, because an earlier step failed: remove empty rows" in prompt
+    assert (
+        "Work stopped at this failed step, so no file was handed back and the original is "
+        "unchanged: deduplicate"
+    ) in prompt
+
+
+def test_template_speaker_names_the_failed_step_and_what_never_ran() -> None:
+    reply = TemplateSpeaker()(_stopped_chain_request())
+
+    assert reply.startswith("I wasn't able to confirm that worked.")
+    assert reply.endswith(
+        "I stopped at the deduplicate step, so remove empty rows never ran and no file was "
+        "handed back; your original file is unchanged."
+    )
+    assert _CAPABILITY_TAG.search(reply) is None
+    assert "spreadsheet." not in reply
+
+
+def test_template_speaker_adds_no_stop_sentence_when_the_chain_completed() -> None:
+    request = _request(
+        execution_result=ExecutionResult(success=True, outputs=("out/final.xlsx",)),
+        verification_result=VerificationResult(passed=True, findings=("ok",)),
+    )
+
+    assert "stopped" not in TemplateSpeaker()(request)

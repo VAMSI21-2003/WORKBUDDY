@@ -461,6 +461,255 @@ def test_proactive_analysis_planner_prepends_a_step_per_entry_given() -> None:
     assert steps[0].id != steps[1].id
 
 
+# -- ProactiveAnalysisPlanner: redundant inner analysis steps -------------------------
+
+
+def _inner_step(step_id: str, capability: str, *dependencies: str) -> PlanningStep:
+    return PlanningStep(
+        id=step_id,
+        description=f"inner {capability}",
+        capability=capability,
+        dependencies=tuple(dependencies),
+    )
+
+
+def test_proactive_analysis_planner_drops_an_inner_analysis_step_it_already_added() -> None:
+    """Live runs showed ClaudePlanner echoing Think's mention of analysis
+    as its own step-1, so analysis ran twice in one turn."""
+    inner_steps = (
+        _inner_step("step-1", "spreadsheet.analyze"),
+        _inner_step("step-2", "spreadsheet.deduplicate"),
+    )
+    planner = ProactiveAnalysisPlanner(inner=lambda request: inner_steps)
+    request = _request(unanalyzed_spreadsheet_files=("uploads/report.xlsx",))
+
+    steps = planner(request)
+
+    assert [s.id for s in steps] == ["analyze-0", "step-2"]
+    assert [s.capability for s in steps].count("spreadsheet.analyze") == 1
+    assert steps[1] == inner_steps[1]
+
+
+def test_proactive_analysis_planner_remaps_dependencies_on_a_dropped_step_to_analyze_0() -> None:
+    inner_steps = (
+        _inner_step("step-1", "spreadsheet.analyze"),
+        _inner_step("step-2", "spreadsheet.remove_empty_rows", "step-1"),
+        _inner_step("step-3", "spreadsheet.deduplicate", "step-1", "step-2"),
+    )
+    planner = ProactiveAnalysisPlanner(inner=lambda request: inner_steps)
+    request = _request(unanalyzed_spreadsheet_files=("uploads/report.xlsx",))
+
+    steps = planner(request)
+
+    assert [s.id for s in steps] == ["analyze-0", "step-2", "step-3"]
+    assert steps[1].dependencies == ("analyze-0",)
+    assert steps[2].dependencies == ("analyze-0", "step-2")
+    all_ids = {s.id for s in steps}
+    assert all(d in all_ids for s in steps for d in s.dependencies)
+
+
+def test_proactive_analysis_planner_does_not_list_analyze_0_twice_when_remapping() -> None:
+    """Two dropped inner analysis steps both remap to analyze-0, which must
+    appear once in the dependent step's dependencies, not twice."""
+    inner_steps = (
+        _inner_step("step-1", "spreadsheet.analyze"),
+        _inner_step("step-2", "spreadsheet.analyze"),
+        _inner_step("step-3", "spreadsheet.deduplicate", "step-1", "step-2"),
+    )
+    planner = ProactiveAnalysisPlanner(inner=lambda request: inner_steps)
+    request = _request(unanalyzed_spreadsheet_files=("uploads/report.xlsx",))
+
+    steps = planner(request)
+
+    assert [s.id for s in steps] == ["analyze-0", "step-3"]
+    assert steps[1].dependencies == ("analyze-0",)
+
+
+def test_proactive_analysis_planner_keeps_a_requested_reanalysis_of_an_analyzed_file() -> None:
+    """When the file was already analyzed earlier this session, nothing is
+    prepended — so an inner analysis step is the user explicitly asking
+    for a re-analysis, and must survive."""
+    inner_steps = (_inner_step("step-1", "spreadsheet.analyze"),)
+    planner = ProactiveAnalysisPlanner(inner=lambda request: inner_steps)
+    request = _request(unanalyzed_spreadsheet_files=())
+
+    steps = planner(request)
+
+    assert steps == inner_steps
+
+
+def test_proactive_analysis_planner_keeps_other_inner_steps_in_order_with_their_ids() -> None:
+    inner_steps = (
+        _inner_step("step-1", "spreadsheet.remove_empty_rows"),
+        _inner_step("step-2", "spreadsheet.analyze"),
+        _inner_step("step-3", "spreadsheet.deduplicate", "step-1"),
+    )
+    planner = ProactiveAnalysisPlanner(inner=lambda request: inner_steps)
+    request = _request(unanalyzed_spreadsheet_files=("uploads/report.xlsx",))
+
+    steps = planner(request)
+
+    assert steps[1:] == (inner_steps[0], inner_steps[2])
+
+
+def test_proactive_analysis_planner_moves_a_requested_reanalysis_to_the_front() -> None:
+    """Analysis reads the original and sits outside the chain, so even a
+    requested re-analysis never runs mid-chain."""
+    inner_steps = (
+        _inner_step("step-1", "spreadsheet.deduplicate"),
+        _inner_step("step-2", "spreadsheet.analyze", "step-1"),
+    )
+    planner = ProactiveAnalysisPlanner(inner=lambda request: inner_steps)
+    request = _request(unanalyzed_spreadsheet_files=())  # nothing prepended: re-analysis kept
+
+    steps = planner(request)
+
+    assert [(s.id, s.capability) for s in steps] == [
+        ("step-2", "spreadsheet.analyze"),
+        ("step-1", "spreadsheet.deduplicate"),
+    ]
+    assert steps[0].dependencies == ()  # no longer runs after anything
+
+
+@pytest.mark.parametrize("unanalyzed", [(), ("uploads/report.xlsx",)])
+def test_proactive_analysis_planner_never_places_analysis_after_a_file_changing_step(
+    unanalyzed: tuple[str, ...],
+) -> None:
+    inner_steps = (
+        _inner_step("step-1", "spreadsheet.remove_empty_rows"),
+        _inner_step("step-2", "spreadsheet.analyze"),
+        _inner_step("step-3", "spreadsheet.deduplicate"),
+        _inner_step("step-4", "spreadsheet.analyze"),
+    )
+    planner = ProactiveAnalysisPlanner(inner=lambda request: inner_steps)
+
+    steps = planner(_request(unanalyzed_spreadsheet_files=unanalyzed))
+
+    capabilities = [s.capability for s in steps]
+    first_change = next(i for i, c in enumerate(capabilities) if c != "spreadsheet.analyze")
+    assert "spreadsheet.analyze" not in capabilities[first_change:]
+
+
+# -- ClaudePlanner: the user's stated order is enforced ------------------------------
+
+
+_CHAIN_MESSAGE = "remove the empty rows and then remove the duplicate rows"
+
+
+def _step_json(capability: str, phrase: str | None, depends_on: list[int] | None = None) -> dict:
+    step: dict[str, object] = {
+        "description": f"do {capability}",
+        "capability": capability,
+        "depends_on_step_numbers": depends_on or [],
+    }
+    if phrase is not None:
+        step["source_phrase"] = phrase
+    return step
+
+
+def _plan(message: str, *steps: dict) -> tuple[PlanningStep, ...]:
+    provider = _FakeLLMProvider(reply=json.dumps({"steps": list(steps)}))
+    planner = ClaudePlanner(provider, known_capabilities=())
+    return planner(_multi_step_request(user_message=message))
+
+
+def test_claude_planner_reorders_steps_to_the_order_the_user_stated() -> None:
+    """The live failure: the model listed dedupe first for a message that
+    asked for empty rows first."""
+    steps = _plan(
+        _CHAIN_MESSAGE,
+        _step_json("spreadsheet.deduplicate", "remove the duplicate rows"),
+        _step_json("spreadsheet.remove_empty_rows", "remove the empty rows"),
+    )
+
+    assert [(s.id, s.capability) for s in steps] == [
+        ("step-1", "spreadsheet.remove_empty_rows"),
+        ("step-2", "spreadsheet.deduplicate"),
+    ]
+    assert [s.priority for s in steps] == [0, 1]
+
+
+def test_claude_planner_matches_source_phrases_case_insensitively() -> None:
+    steps = _plan(
+        "Remove the Empty Rows, then Remove The Duplicate Rows",
+        _step_json("spreadsheet.deduplicate", "remove the duplicate rows"),
+        _step_json("spreadsheet.remove_empty_rows", "remove the empty rows"),
+    )
+
+    assert [s.capability for s in steps] == [
+        "spreadsheet.remove_empty_rows",
+        "spreadsheet.deduplicate",
+    ]
+
+
+def test_claude_planner_remaps_dependencies_after_reordering() -> None:
+    """The model's dedupe (its step 1) is second after reordering; its
+    report step depended on both, which now maps to the new ids, and the
+    empty-rows step's dependency on dedupe (now later) is dropped."""
+    steps = _plan(
+        "remove the empty rows, remove the duplicate rows, and give me a report",
+        _step_json("spreadsheet.deduplicate", "remove the duplicate rows"),
+        _step_json("spreadsheet.remove_empty_rows", "remove the empty rows", [1]),
+        _step_json("spreadsheet.report", "give me a report", [1, 2]),
+    )
+
+    assert [(s.id, s.capability, s.dependencies) for s in steps] == [
+        ("step-1", "spreadsheet.remove_empty_rows", ()),
+        ("step-2", "spreadsheet.deduplicate", ()),
+        ("step-3", "spreadsheet.report", ("step-2", "step-1")),
+    ]
+
+
+_DEDUPE = "spreadsheet.deduplicate"
+_EMPTY = "spreadsheet.remove_empty_rows"
+
+
+@pytest.mark.parametrize(
+    ("message", "model_steps"),
+    [
+        # Each case: sorting by where the phrases appear would give a
+        # *different* order than the model's — so keeping the model's order
+        # proves the check declined to reorder.
+        # A phrase the model paraphrased instead of quoting.
+        (_CHAIN_MESSAGE, ((_DEDUPE, "drop duplicate rows"), (_EMPTY, "remove the empty rows"))),
+        # A missing phrase.
+        (_CHAIN_MESSAGE, ((_DEDUPE, None), (_EMPTY, "remove the empty rows"))),
+        # Order-inverting wording: the model correctly put empty rows first,
+        # though dedupe is mentioned first.
+        (
+            "remove the duplicate rows after you remove the empty rows",
+            ((_EMPTY, "remove the empty rows"), (_DEDUPE, "remove the duplicate rows")),
+        ),
+        (
+            "remove the duplicate rows, but first remove the empty rows",
+            ((_EMPTY, "remove the empty rows"), (_DEDUPE, "remove the duplicate rows")),
+        ),
+        # Overlapping phrases.
+        (
+            _CHAIN_MESSAGE,
+            (
+                (_DEDUPE, "and then remove the duplicate rows"),
+                (_EMPTY, "remove the empty rows and then"),
+            ),
+        ),
+    ],
+    ids=["paraphrased", "missing", "after", "late-first", "overlap"],
+)
+def test_claude_planner_keeps_the_models_order_when_the_stated_order_cant_be_checked(
+    message: str, model_steps: tuple[tuple[str, str | None], ...]
+) -> None:
+    steps = _plan(message, *(_step_json(cap, phrase) for cap, phrase in model_steps))
+
+    assert [s.capability for s in steps] == [cap for cap, _ in model_steps]
+
+
+def test_claude_planner_asks_the_model_for_verbatim_source_phrases() -> None:
+    from buddy.planner import _SYSTEM_PROMPT
+
+    assert '"source_phrase"' in _SYSTEM_PROMPT
+    assert "copied character-for-character" in _SYSTEM_PROMPT
+
+
 # -- Planner stage -----------------------------------------------------------------
 
 

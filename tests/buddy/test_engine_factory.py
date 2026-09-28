@@ -256,29 +256,31 @@ def test_full_slice_decomposes_a_compound_request_into_multiple_steps(
     ]
     assert state.planning[2].dependencies == ("step-1",)
 
-    # None of the three *requested* capabilities have a registered skill,
-    # so Hands surfaces per-item errors cleanly rather than crashing —
-    # exactly the mechanism this design relies on (Step 1 of the design
-    # doc). The prepended spreadsheet.analyze step, by contrast, has a
-    # real registered skill and a real fixture to read, so it succeeds
-    # rather than contributing a fourth error.
+    # None of the three *requested* capabilities have a registered skill.
+    # Steps now form a chain, so the first one that can't run stops it:
+    # the other two are recorded as skipped (never attempted), the error
+    # names the step that stopped the chain, and no file is handed back.
+    # The prepended spreadsheet.analyze step is outside the chain — it
+    # has a real skill and a real fixture, so it still succeeds.
     assert state.execution_result is not None
     assert state.execution_result.success is False
-    assert len(state.execution_result.errors) == 3
-    analyze_steps = [
-        step for step in state.execution_result.steps if step.capability == "spreadsheet.analyze"
+    assert state.execution_result.outputs == ()
+    errors = state.execution_result.errors
+    assert len(errors) == 2
+    assert "spreadsheet.column_check" in errors[0]
+    assert errors[1].startswith("stopped: spreadsheet.column_check could not be run")
+    assert [(s.capability, s.status) for s in state.execution_result.steps] == [
+        ("spreadsheet.analyze", "success"),
+        ("spreadsheet.remove_column", "skipped"),
+        ("spreadsheet.report", "skipped"),
     ]
-    assert len(analyze_steps) == 1
-    assert analyze_steps[0].status == "success"
 
 
 def _write_fixture_with_duplicates_and_an_empty_row(path: Path) -> None:
     """Write a real .xlsx file with both an exact duplicate row and a
     fully-empty row, so both registered skills each have real work to do
-    on the very same uploaded file (MechanicalDelegator resolves one
-    shared target for the whole plan — see
-    docs/design/multi-step-planner-design.md — so both steps read this
-    same file independently, not chained).
+    — and a chained plan's final file must have *neither* (Hands feeds
+    each step the previous step's output; see buddy.hands.Hands).
 
     The empty row sits before the final row, not after it: a trailing
     all-empty row has no following row to anchor it, so openpyxl's
@@ -364,15 +366,27 @@ def test_full_slice_runs_two_real_skills_and_aggregates_verification_and_reply(
         "spreadsheet.deduplicate",
         "spreadsheet.remove_empty_rows",
     }
-    # spreadsheet.analyze writes no output file at all (Section 5.2/5.4 of
-    # docs/design/proactive-analysis-design.md) — only the two requested
-    # capabilities' outputs count here.
-    assert len(state.execution_result.outputs) == 2
+    # The two requested steps chained: remove_empty_rows (step 2) read
+    # deduplicate's (step 1) output, and only its output — the final file
+    # — is handed back. spreadsheet.analyze writes no file and read the
+    # original (Section 5.2/5.4 of docs/design/proactive-analysis-design.md).
+    analyze, dedupe, empty_rows = state.execution_result.steps
+    assert analyze.input_reference == str(input_path)
+    assert dedupe.input_reference == str(input_path)
+    assert empty_rows.input_reference == dedupe.outputs[0]
+    assert state.execution_result.outputs == empty_rows.outputs
 
-    # CompositeVerifier dispatched each output to its own real Verifier and
-    # aggregated all three into a single passed verdict.
+    # CompositeVerifier dispatched each step to its own real Verifier, then
+    # checked the final file against both steps' claims, and aggregated it
+    # all into a single passed verdict.
     assert state.verification_result is not None
     assert state.verification_result.passed is True
+    assert [s.capability for s in state.verification_result.steps] == [
+        "spreadsheet.analyze",
+        "spreadsheet.deduplicate",
+        "spreadsheet.remove_empty_rows",
+        "final_output",
+    ]
     assert any(
         f.startswith("[spreadsheet.deduplicate]") for f in state.verification_result.findings
     )
@@ -406,8 +420,14 @@ def test_full_slice_runs_two_real_skills_and_aggregates_verification_and_reply(
         else:
             raise AssertionError(f"unexpected capability in step results: {step.capability!r}")
 
+    # ...and the one file the user receives has neither problem left.
+    final = pd.read_excel(state.execution_result.outputs[0])
+    assert int(final.duplicated().sum()) == 0
+    assert int(final.isna().all(axis=1).sum()) == 0
+    assert len(final) == 2  # Alice, Bob
+
     # Voice's reply leads with the proactive-analysis findings, then still
-    # mentions both output files from the user's own requested steps.
+    # mentions the final output file.
     assert state.reply is not None
     assert "Before anything else, here's what I noticed" in state.reply
     output_names = {Path(p).name for p in state.execution_result.outputs}
@@ -537,3 +557,240 @@ def test_full_slice_does_not_fold_a_near_duplicate_finding_into_an_exact_dedupe_
     assert state.reply is not None
     assert "Before anything else, here's what I noticed" in state.reply
     assert "Want me to tackle any of these?" in state.reply
+
+
+def test_full_slice_runs_analysis_once_when_the_llm_planner_also_plans_it(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Reproduces the live c2 run: ClaudePlanner echoed Think's mention of
+    analysis back as its own step-1, so spreadsheet.analyze ran twice.
+    ProactiveAnalysisPlanner must drop the inner copy (remapping any
+    dependency on it to analyze-0) so analysis runs exactly once, while the
+    requested steps still run.
+    """
+    monkeypatch.chdir(tmp_path)
+    (tmp_path / "uploads").mkdir()
+    input_path = Path("uploads") / "report.xlsx"
+    _write_fixture_with_duplicates_and_an_empty_row(tmp_path / input_path)
+
+    understand_reply = json.dumps(
+        {
+            "intent": "multi_step_request",
+            "confidence": 0.9,
+            "missing_information": [],
+            "ambiguity_flags": [],
+            "notes": "",
+        }
+    )
+    think_reply = json.dumps(
+        {
+            "objective": "Clean up the spreadsheet.",
+            "summary": "Buddy will run spreadsheet.analyze, then remove empty and duplicate rows.",
+            "clarification_required": False,
+            "confidence": 0.85,
+        }
+    )
+    plan_reply = json.dumps(
+        {
+            "steps": [
+                {
+                    "description": "Analyze the spreadsheet for data quality issues",
+                    "capability": "spreadsheet.analyze",
+                    "depends_on_step_numbers": [],
+                },
+                {
+                    "description": "Remove empty rows",
+                    "capability": "spreadsheet.remove_empty_rows",
+                    "depends_on_step_numbers": [1],
+                },
+                {
+                    "description": "Remove duplicate rows",
+                    "capability": "spreadsheet.deduplicate",
+                    "depends_on_step_numbers": [1, 2],
+                },
+            ]
+        }
+    )
+    provider = _QueuedLLMProvider([understand_reply, think_reply, plan_reply])
+
+    state = BuddyState.new(session_id="session-1", workspace_id="workspace-1")
+    state.user_message = "remove the empty rows and then remove the duplicate rows"
+    state.context.add_uploaded_file(str(input_path))
+    state.context.switch_active_file(str(input_path))
+
+    engine = build_engine(llm_provider=provider)
+    engine.run(state)
+
+    assert state.planning is not None
+    assert [(s.id, s.capability) for s in state.planning] == [
+        ("analyze-0", "spreadsheet.analyze"),
+        ("step-2", "spreadsheet.remove_empty_rows"),
+        ("step-3", "spreadsheet.deduplicate"),
+    ]
+    assert state.planning[1].dependencies == ("analyze-0",)
+    assert state.planning[2].dependencies == ("analyze-0", "step-2")
+
+    assert state.execution_result is not None
+    assert state.execution_result.success is True
+    executed = [step.capability for step in state.execution_result.steps]
+    assert executed.count("spreadsheet.analyze") == 1
+    assert executed == [
+        "spreadsheet.analyze",
+        "spreadsheet.remove_empty_rows",
+        "spreadsheet.deduplicate",
+    ]
+
+
+# -- Chaining, end to end ------------------------------------------------------------
+
+
+def _chain_replies(*planned: tuple[str, str]) -> list[str]:
+    """Brain, Think, and ClaudePlanner replies for a two-step cleanup, with
+    the planner's steps in the given ``(capability, source_phrase)`` order."""
+    understand = json.dumps(
+        {
+            "intent": "multi_step_request",
+            "confidence": 0.9,
+            "missing_information": [],
+            "ambiguity_flags": [],
+            "notes": "",
+        }
+    )
+    think = json.dumps(
+        {
+            "objective": "Clean up the spreadsheet.",
+            "summary": "Two cleanup steps, clear enough to proceed.",
+            "clarification_required": False,
+            "confidence": 0.85,
+        }
+    )
+    plan = json.dumps(
+        {
+            "steps": [
+                {
+                    "description": f"do {capability}",
+                    "capability": capability,
+                    "depends_on_step_numbers": [],
+                    "source_phrase": phrase,
+                }
+                for capability, phrase in planned
+            ]
+        }
+    )
+    return [understand, think, plan]
+
+
+def _run_chain(tmp_path: Path, message: str, replies: list[str]) -> tuple[BuddyState, Path, bytes]:
+    (tmp_path / "uploads").mkdir()
+    input_path = Path("uploads") / "report.xlsx"
+    _write_fixture_with_duplicates_and_an_empty_row(tmp_path / input_path)
+    original_bytes = (tmp_path / input_path).read_bytes()
+
+    state = BuddyState.new(session_id="session-1", workspace_id="workspace-1")
+    state.user_message = message
+    state.context.add_uploaded_file(str(input_path))
+    state.context.switch_active_file(str(input_path))
+    build_engine(llm_provider=_QueuedLLMProvider(replies)).run(state)
+    return state, tmp_path / input_path, original_bytes
+
+
+def test_full_slice_chains_steps_in_the_users_order_into_one_final_file(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """The planner lists dedupe first (as it did in 2 of 5 live runs), but
+    the user asked for empty rows first: the stated order wins, each step
+    reads the previous one's output, and one file comes back with both
+    changes."""
+    monkeypatch.chdir(tmp_path)
+    message = "remove the empty rows and then remove the duplicate rows"
+    replies = _chain_replies(
+        ("spreadsheet.deduplicate", "remove the duplicate rows"),
+        ("spreadsheet.remove_empty_rows", "remove the empty rows"),
+    )
+
+    state, original_path, original_bytes = _run_chain(tmp_path, message, replies)
+
+    assert state.planning is not None
+    assert [s.capability for s in state.planning] == [
+        "spreadsheet.analyze",
+        "spreadsheet.remove_empty_rows",
+        "spreadsheet.deduplicate",
+    ]
+
+    result = state.execution_result
+    assert result is not None
+    assert result.success is True
+    analyze, empty_rows, dedupe = result.steps
+    upload = str(Path("uploads") / "report.xlsx")
+    assert analyze.input_reference == upload  # analysis read the original
+    assert empty_rows.input_reference == upload
+    assert dedupe.input_reference == empty_rows.outputs[0]  # chained
+    assert result.outputs == dedupe.outputs  # one file handed back
+
+    final = pd.read_excel(result.outputs[0])
+    assert int(final.duplicated().sum()) == 0
+    assert int(final.isna().all(axis=1).sum()) == 0
+    assert final["name"].tolist() == ["Alice", "Bob"]
+
+    assert original_path.read_bytes() == original_bytes  # untouched
+
+    assert state.verification_result is not None
+    assert state.verification_result.passed is True
+    assert state.verification_result.steps[-1].capability == "final_output"
+    assert state.verification_result.steps[-1].passed is True
+
+
+def test_full_slice_stops_the_chain_when_a_step_fails_verification(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Dedupe (first) silently drops one row it should have kept. It leaves
+    no duplicates, so an output-only check would pass — but checked against
+    its own input it fails, so the chain stops: empty-row removal never
+    runs, nothing is handed back, and the reply says which step failed."""
+    from skills.excel.dedupe import ExcelDeduplicateSkill
+
+    real_execute = ExcelDeduplicateSkill.execute
+
+    def drops_an_extra_row(self, task):  # type: ignore[no-untyped-def]
+        result = real_execute(self, task)
+        output = result.outputs[0]
+        pd.read_excel(output).iloc[:-1].to_excel(output, index=False)
+        return result
+
+    monkeypatch.setattr(ExcelDeduplicateSkill, "execute", drops_an_extra_row)
+    monkeypatch.chdir(tmp_path)
+    message = "remove the duplicate rows and then remove the empty rows"
+    replies = _chain_replies(
+        ("spreadsheet.deduplicate", "remove the duplicate rows"),
+        ("spreadsheet.remove_empty_rows", "remove the empty rows"),
+    )
+
+    state, original_path, original_bytes = _run_chain(tmp_path, message, replies)
+
+    result = state.execution_result
+    assert result is not None
+    assert result.success is False
+    assert result.stopped_at == "spreadsheet.deduplicate"
+    assert result.outputs == ()
+    assert [(s.capability, s.status) for s in result.steps] == [
+        ("spreadsheet.analyze", "success"),
+        ("spreadsheet.deduplicate", "success"),
+        ("spreadsheet.remove_empty_rows", "skipped"),
+    ]
+    assert any(e.startswith("spreadsheet.deduplicate failed verification") for e in result.errors)
+
+    assert original_path.read_bytes() == original_bytes  # untouched
+
+    # Inspector (the final word) agrees: dedupe failed, empty rows never ran.
+    assert state.verification_result is not None
+    assert state.verification_result.passed is False
+    verdicts = {s.capability: s.passed for s in state.verification_result.steps}
+    assert verdicts["spreadsheet.deduplicate"] is False
+    assert "final_output" not in verdicts
+
+    assert state.reply is not None
+    assert (
+        "I stopped at the deduplicate step, so remove empty rows never ran and no file was "
+        "handed back; your original file is unchanged." in state.reply
+    )
+    assert "spreadsheet." not in state.reply

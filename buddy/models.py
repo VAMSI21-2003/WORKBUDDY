@@ -94,23 +94,29 @@ class StepResult:
     enough to dispatch to a Skill (a request that never reached a Skill —
     routing failure, declined confirmation — has nothing to report here
     and is represented purely by an ``ExecutionResult.errors`` entry
-    instead; see ``buddy/hands.py``). This is what lets a Verifier
+    instead; see ``buddy/hands.py``). The one exception is a step Hands
+    never started because an earlier step in the chain failed: it gets a
+    ``StepResult`` with status ``SKIPPED_STATUS`` and no skill, so the
+    reply can say which steps didn't run. This is what lets a Verifier
     resolve *which* strategy applies to *which* output — something
-    ``ExecutionResult.outputs``, a single flat tuple with every step's
-    outputs concatenated together, cannot express on its own.
+    ``ExecutionResult.outputs`` (only the final file) cannot express on
+    its own.
 
     Attributes:
         capability: The capability this step requested — the same string
             Delegate produced and the Dispatcher used to select a Skill.
-        skill: The name of the Skill that actually ran this step.
+        skill: The name of the Skill that actually ran this step, or
+            ``""`` for a skipped step.
         status: The Skill's own reported outcome for this step, as the
             string value of ``skills.base.SkillStatus`` (e.g.
-            ``"success"``, ``"failure"``). Kept as a plain string rather
-            than importing ``SkillStatus`` here so ``buddy/models.py``
-            stays free of a dependency on ``skills/`` — the same
-            domain-agnostic boundary ``docs/BUDDY_SKILLS.md`` Section 2
-            asks Buddy's core to keep.
-        outputs: References to files or data this step produced.
+            ``"success"``, ``"failure"``), or ``SKIPPED_STATUS`` for a
+            step never started. Kept as a plain string rather than
+            importing ``SkillStatus`` here so ``buddy/models.py`` stays
+            free of a dependency on ``skills/`` — the same domain-agnostic
+            boundary ``docs/BUDDY_SKILLS.md`` Section 2 asks Buddy's core
+            to keep.
+        outputs: References to files or data this step produced —
+            including an intermediate file a later step went on to read.
         summary: Plain-language description of what this step did.
         self_reported_findings: Mirrors ``skills.base.SkillResult
             .self_reported_findings`` — copied across unchanged by
@@ -118,6 +124,10 @@ class StepResult:
             ``status``/``outputs``/``summary``. Findings a Verifier may
             relay as-is rather than independently recompute (see
             ``buddy.inspector.SpreadsheetAnalysisVerifier``).
+        input_reference: The file this step actually read — the original
+            upload for the first step of a chain, the previous step's
+            output after that — or ``""`` if unknown. Lets a Verifier
+            check a step against its own input, not just its output.
     """
 
     capability: str
@@ -126,6 +136,12 @@ class StepResult:
     outputs: tuple[str, ...] = ()
     summary: str = ""
     self_reported_findings: tuple[str, ...] = ()
+    input_reference: str = ""
+
+
+# The ``StepResult.status`` of a step Hands never started because an
+# earlier step in the same chain failed.
+SKIPPED_STATUS = "skipped"
 
 
 @dataclass(frozen=True)
@@ -138,10 +154,11 @@ class ExecutionResult:
 
     Attributes:
         success: Whether execution completed without a fatal error.
-        outputs: References to files or data produced during execution,
-            across every step, in no particular per-step grouping. Kept
-            as the flat, source-of-truth view existing callers already
-            depend on.
+        outputs: The result handed back to the user: the final file of
+            the chain (each step reads the previous step's output — see
+            ``buddy.hands.Hands``), or ``()`` if the chain stopped on a
+            failure or no step produced a file. Intermediate files are
+            not listed here; they stay on each ``StepResult.outputs``.
         warnings: Non-fatal issues encountered during execution.
         errors: Fatal issues that prevented execution from succeeding.
         duration: How long execution took, in seconds.
@@ -152,6 +169,10 @@ class ExecutionResult:
             (see ``buddy.voice.TemplateSpeaker``) should iterate over —
             ``outputs`` alone cannot say which output belongs to which
             capability.
+        stopped_at: The capability of the chain step whose failure
+            stopped the chain (later steps are ``SKIPPED_STATUS``), or
+            ``None`` if the chain didn't stop. Lets the reply say which
+            step failed without parsing error strings.
     """
 
     success: bool
@@ -160,6 +181,7 @@ class ExecutionResult:
     errors: tuple[str, ...] = ()
     duration: float = 0.0
     steps: tuple[StepResult, ...] = ()
+    stopped_at: str | None = None
 
 
 @dataclass(frozen=True)

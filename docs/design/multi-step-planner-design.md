@@ -21,13 +21,24 @@ unfiltered. N steps in, N `CapabilityRequest`s out.
 turn — from `active_file`, falling back to the most recent upload — and
 that same single file is assigned to *every* step in the plan.
 `PlanningStep` has no `target` field; `MechanicalDelegator` is the only
-place a target is ever assigned. For a compound request against one file
-("check this column, remove it, report, dashboard" — all on the same
-spreadsheet) this is a non-issue. It would silently misbehave for a
-hypothetical request spanning multiple files. Flagging as instructed,
-not assuming it away — this design doesn't attempt to fix it, since it's
-outside what was asked (Delegate wasn't scoped for changes here) and the
-example request given doesn't require it.
+place a target is ever assigned. It would silently misbehave for a
+hypothetical request spanning multiple files; that is still unaddressed.
+
+> **Superseded (chaining).** This section originally called the shared
+> target "a non-issue" for a compound request against one file. It
+> wasn't: every file-changing step read the *original* upload and wrote
+> its own separate file, so "remove the empty rows and then the
+> duplicates" produced two files, each with only one change. Steps now
+> **chain** in `Hands` (Delegate can't do it — outputs don't exist until
+> a step runs): each file-changing step (Skill tier above READ) reads the
+> previous one's output, and `ExecutionResult.outputs` holds only the
+> final file; intermediates stay on each `StepResult.outputs`. READ-tier
+> steps (proactive `spreadsheet.analyze`) stay outside the chain and
+> always read the original. `ClaudePlanner` enforces the order the user
+> stated by locating each step's quoted `source_phrase` in the message
+> (falling back to the model's order when that can't be checked).
+> Verification checks each step against its own input, then the final
+> file against every step's claim.
 
 **`Hands` (in `buddy/hands.py`) fully supports multiple steps, with
 correct per-item error isolation.** Its `__call__` loops
@@ -40,6 +51,16 @@ continues to the next step, rather than aborting the turn. This is
 exactly the "no skill for this yet, surfaced cleanly, not a crash"
 mechanism the design goal depends on. **Already correct, no changes
 needed.**
+
+> **Superseded (chaining).** Per-item isolation no longer holds for
+> file-changing steps: since each reads the previous step's output, a
+> step that can't be dispatched, isn't confirmed, fails, or fails
+> verification (checked inside `Hands` via the same `CompositeVerifier`
+> Inspector uses) **stops the chain**. Later steps are recorded as
+> `StepResult(status="skipped")`, an error names the step that stopped
+> it, no file is handed back, and the original upload is untouched. A
+> no-skill step is still surfaced cleanly, not a crash — but it now ends
+> the chain rather than being skipped past.
 
 One aggregation detail relevant to later stages (not this design, but
 worth recording): `ExecutionResult.success = not errors` is a strict AND

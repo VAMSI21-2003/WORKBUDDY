@@ -2,7 +2,8 @@
 
 import json
 import logging
-from dataclasses import dataclass
+import re
+from dataclasses import dataclass, replace
 from typing import Protocol
 
 from buddy.llm import LLMMessage, LLMProvider
@@ -224,18 +225,156 @@ class ProactiveAnalysisPlanner:
             One ``spreadsheet.analyze`` step per entry in
             ``request.unanalyzed_spreadsheet_files`` (today, at most one —
             see that field's docstring), followed by ``inner``'s own
-            steps.
+            steps. When an analysis step was prepended, any
+            ``spreadsheet.analyze`` step ``inner`` also produced is dropped
+            (see ``_drop_redundant_analysis``).
         """
         analysis_steps = tuple(
             PlanningStep(
                 id=f"analyze-{index}",
                 description=f"Look over {file_reference} before doing anything else",
-                capability="spreadsheet.analyze",
+                capability=_ANALYZE_CAPABILITY,
                 priority=0,
             )
             for index, file_reference in enumerate(request.unanalyzed_spreadsheet_files)
         )
-        return analysis_steps + self._inner(request)
+        inner_steps = self._inner(request)
+        if analysis_steps:
+            inner_steps = _drop_redundant_analysis(inner_steps, analysis_steps[0].id)
+        return analysis_steps + _analysis_first(inner_steps)
+
+
+_ANALYZE_CAPABILITY = "spreadsheet.analyze"
+
+
+def _drop_redundant_analysis(
+    steps: tuple[PlanningStep, ...], prepended_analysis_id: str
+) -> tuple[PlanningStep, ...]:
+    """Remove ``spreadsheet.analyze`` steps an inner strategy planned itself.
+
+    Only called when ``ProactiveAnalysisPlanner`` already prepended an
+    analysis step this turn: an LLM-backed inner strategy
+    (``ClaudePlanner``) sometimes echoes Think's mention of analysis back
+    as a step of its own, which would run the same read-only analysis
+    twice. When nothing was prepended — the file was already analyzed
+    earlier this session — an inner analysis step is the user explicitly
+    asking for a re-analysis, so it's kept (the caller doesn't call this).
+
+    A dependency on a dropped step is remapped to
+    ``prepended_analysis_id`` rather than deleted: the step still depends
+    on analysis having run, just the copy that actually remains in the
+    plan.
+
+    Args:
+        steps: The inner strategy's steps, in order.
+        prepended_analysis_id: The id of the analysis step
+            ``ProactiveAnalysisPlanner`` prepended this turn.
+
+    Returns:
+        ``steps`` without any analysis steps, otherwise in the same order
+        with the same ids, and with dependencies on a dropped step
+        pointing at ``prepended_analysis_id`` instead (never listed twice).
+    """
+    dropped_ids = {step.id for step in steps if step.capability == _ANALYZE_CAPABILITY}
+    if not dropped_ids:
+        return steps
+
+    def remap(dependencies: tuple[str, ...]) -> tuple[str, ...]:
+        remapped = (prepended_analysis_id if d in dropped_ids else d for d in dependencies)
+        return tuple(dict.fromkeys(remapped))  # de-duplicate, keeping order
+
+    return tuple(
+        replace(step, dependencies=remap(step.dependencies))
+        for step in steps
+        if step.id not in dropped_ids
+    )
+
+
+def _analysis_first(steps: tuple[PlanningStep, ...]) -> tuple[PlanningStep, ...]:
+    """Move any ``spreadsheet.analyze`` step ahead of every other step.
+
+    Analysis always reads the original upload and sits outside the chain
+    of file-changing steps (see ``buddy.hands.Hands``), so it never runs
+    mid-chain — a requested re-analysis the inner strategy placed later
+    is moved to the front. A moved analysis step's own dependencies are
+    cleared, since it no longer runs after anything. Other steps keep
+    their order.
+
+    Args:
+        steps: The steps to reorder.
+
+    Returns:
+        The analysis steps, then every other step, each group in its
+        original order.
+    """
+    analysis = tuple(
+        replace(step, dependencies=()) for step in steps if step.capability == _ANALYZE_CAPABILITY
+    )
+    if not analysis:
+        return steps
+    return analysis + tuple(step for step in steps if step.capability != _ANALYZE_CAPABILITY)
+
+
+# Words that can put steps in a different order from the one they're
+# mentioned in ("remove duplicates after removing empty rows"). When any
+# appears, the mention order isn't trusted and the model's order stands.
+_ORDER_INVERTING_WORDS = re.compile(
+    r"\b(after|before|once|until|prior to|following|preceding)\b", re.IGNORECASE
+)
+# "first" anywhere but the very start ("…, but first remove empty rows")
+# can also invert the order.
+_LATE_FIRST = re.compile(r"\S.*\bfirst\b", re.IGNORECASE | re.DOTALL)
+
+
+def _order_stated_by_user(raw_steps: list[dict], user_message: str) -> list[int] | None:
+    """Return the order the user stated the steps in, if it can be checked.
+
+    Each step's ``source_phrase`` (the model's verbatim quote of the words
+    asking for it) is located in ``user_message``; steps are ordered by
+    where their phrase appears. This makes the order follow the user's
+    own words, whatever order the model listed the steps in.
+
+    Returns ``None`` — meaning "keep the model's order" — whenever the
+    position can't be trusted: a phrase is missing or not found verbatim
+    (case-insensitive), two phrases overlap, or the message contains a
+    word that can invert the order (``_ORDER_INVERTING_WORDS``, or a
+    "first" that isn't the opening word).
+
+    Args:
+        raw_steps: The model's steps, in the model's order.
+        user_message: The user's own message.
+
+    Returns:
+        Indices into ``raw_steps`` in the user's stated order, or ``None``.
+    """
+    message = user_message.lower()
+    if not message or len(raw_steps) < 2:
+        return None
+    if _ORDER_INVERTING_WORDS.search(message) or _LATE_FIRST.match(message.strip()):
+        logger.info("ClaudePlanner: message may state steps out of order; keeping model's order")
+        return None
+
+    spans: list[tuple[int, int]] = []
+    for raw_step in raw_steps:
+        phrase = raw_step.get("source_phrase")
+        if not isinstance(phrase, str) or not phrase.strip():
+            logger.warning("ClaudePlanner: a step had no source_phrase; keeping model's order")
+            return None
+        needle = phrase.strip().lower()
+        start = message.find(needle)
+        if start < 0:
+            logger.warning(
+                "ClaudePlanner: source_phrase %r isn't in the message; keeping model's order",
+                phrase,
+            )
+            return None
+        spans.append((start, start + len(needle)))
+
+    order = sorted(range(len(spans)), key=lambda i: spans[i][0])
+    if any(spans[b][0] < spans[a][1] for a, b in zip(order, order[1:])):
+        logger.warning("ClaudePlanner: source phrases overlap; keeping model's order")
+        return None
+    return order
 
 
 class Planner:
@@ -386,10 +525,16 @@ Respond with a single JSON object and nothing else, matching this shape:
     {
       "description": "<plain-language description of this step>",
       "capability": "<dot-separated capability string>",
-      "depends_on_step_numbers": [<1-based numbers of steps in THIS list that must complete first, or empty>]
+      "depends_on_step_numbers": [<1-based numbers of steps in THIS list that must complete first, or empty>],
+      "source_phrase": "<the exact words from the user's message that ask for this step, copied verbatim>"
     }
   ]
 }
+
+List the steps in the order the user asked for them. Steps run as a chain —
+each works on the previous step's result — so the order matters.
+"source_phrase" must be copied character-for-character from the user's
+message, not paraphrased.
 """
 
 
@@ -477,7 +622,7 @@ class ClaudePlanner:
         except Exception:
             logger.exception("ClaudePlanner: LLM call failed")
             return ()
-        return self._parse_reply(raw_reply)
+        return self._parse_reply(raw_reply, request.user_message)
 
     def _build_user_prompt(self, request: PlanningRequest, target_file: str) -> str:
         """Build the user-turn prompt from ``request``.
@@ -513,11 +658,17 @@ class ClaudePlanner:
         return "\n".join(lines)
 
     @staticmethod
-    def _parse_reply(raw_reply: str) -> tuple[PlanningStep, ...]:
+    def _parse_reply(raw_reply: str, user_message: str) -> tuple[PlanningStep, ...]:
         """Parse the model's raw JSON reply into an ordered step sequence.
+
+        Steps are put in the order the user stated them whenever that can
+        be checked deterministically (see ``_order_stated_by_user``);
+        otherwise the model's own order stands.
 
         Args:
             raw_reply: The model's raw text reply.
+            user_message: The user's own message, to check the order
+                against.
 
         Returns:
             The parsed steps, or ``()`` if ``raw_reply`` is not valid
@@ -534,14 +685,29 @@ class ClaudePlanner:
             if not isinstance(raw_steps, list):
                 raise TypeError("'steps' was not a list")
 
+            # Enforce the order the user stated, not just the model's order:
+            # steps run as a chain, so order changes the result.
+            order = _order_stated_by_user(raw_steps, user_message)
+            if order is None:
+                order = list(range(len(raw_steps)))
+            elif order != sorted(order):
+                logger.info("ClaudePlanner: reordered steps to match the user's stated order")
+            raw_steps = [raw_steps[i] for i in order]
+            # The model's 1-based step numbers -> positions after reordering.
+            position_of = {old + 1: new for new, old in enumerate(order)}
+
             step_ids = [f"step-{index + 1}" for index in range(len(raw_steps))]
             steps: list[PlanningStep] = []
             for index, raw_step in enumerate(raw_steps):
                 depends_on_numbers = raw_step.get("depends_on_step_numbers") or []
+                # Only earlier steps: a step can't depend on one that runs
+                # after it (possible once the user's order is enforced).
                 dependencies = tuple(
-                    step_ids[number - 1]
+                    step_ids[position_of[number]]
                     for number in depends_on_numbers
-                    if isinstance(number, int) and 1 <= number <= len(step_ids)
+                    if isinstance(number, int)
+                    and number in position_of
+                    and position_of[number] < index
                 )
                 steps.append(
                     PlanningStep(

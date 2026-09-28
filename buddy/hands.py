@@ -1,9 +1,17 @@
 """Hands — carries out delegated work and produces results."""
 
 import logging
+from pathlib import Path
 from typing import Protocol
 
-from buddy.models import CapabilityRequest, ExecutionResult, StepResult
+from buddy.inspector import VerificationRequest, Verifier
+from buddy.models import (
+    SKIPPED_STATUS,
+    CapabilityRequest,
+    ExecutionResult,
+    StepResult,
+    Understanding,
+)
 from buddy.state import BuddyState
 from core.dispatcher import Dispatcher, DispatchError
 from skills.base import PermissionTier, SkillStatus, SkillTask
@@ -89,10 +97,28 @@ class Hands:
     question, not a fixed architectural rule — so it follows the same
     swappable-protocol-plus-``Null*``-default pattern every other stage's
     collaborator does: ``ConfirmationProvider`` / ``NullConfirmationProvider``.
+
+    **Chaining.** Steps whose Skill changes files (any tier above READ)
+    form a chain: each reads the previous chain step's output, so the user
+    gets one file with every change applied, in plan order. A READ-tier
+    step (e.g. proactive ``spreadsheet.analyze``) is outside the chain: it
+    always reads the original upload, never feeds the next step, and its
+    failure doesn't stop the chain. A chain step's output feeds the next
+    step only when it is exactly one file with the same extension as its
+    input. If any chain step fails — it can't be dispatched, isn't
+    confirmed, reports failure, fails its own well-formedness check, or
+    fails the injected ``step_verifier`` — the chain stops: every later
+    step is recorded as skipped and nothing is handed back as a result.
+    Skills never write to their input, so the original upload is untouched
+    either way. ``ExecutionResult.outputs`` holds only the final file;
+    intermediate files stay on disk, listed on each ``StepResult``.
     """
 
     def __init__(
-        self, dispatcher: Dispatcher, confirmation_provider: ConfirmationProvider | None = None
+        self,
+        dispatcher: Dispatcher,
+        confirmation_provider: ConfirmationProvider | None = None,
+        step_verifier: Verifier | None = None,
     ) -> None:
         """Initialize the stage.
 
@@ -105,8 +131,15 @@ class Hands:
                 which approves everything unconditionally — see its
                 docstring for why that's an honest default today, not a
                 real confirmation flow.
+            step_verifier: Checks each chain step's result before the next
+                step may read it, so a step that fails verification stops
+                the chain instead of feeding bad data forward. The same
+                ``Verifier`` Inspector uses; Inspector still re-verifies
+                everything afterwards and remains the final word. ``None``
+                (the default) skips this in-loop check.
         """
         self._dispatcher = dispatcher
+        self._step_verifier = step_verifier
         if confirmation_provider is None:
             logger.debug(
                 "No confirmation provider given; falling back to NullConfirmationProvider"
@@ -134,18 +167,39 @@ class Hands:
             self._apply(state, ExecutionResult(success=True, warnings=("nothing to execute",)), [])
             return state
 
-        outputs: list[str] = []
         warnings: list[str] = []
         errors: list[str] = []
         raw_outputs: list[dict[str, object]] = []
         step_results: list[StepResult] = []
+        # The file the next chain step reads: None until a chain step
+        # produces one, meaning "read the delegated target (the original)".
+        chain_input: str | None = None
+        # Outputs handed back besides the chain's final file: any a step
+        # produced that didn't feed the chain (e.g. a different file type).
+        other_outputs: list[str] = []
+        # Why the chain stopped, e.g. "spreadsheet.deduplicate failed
+        # verification" — set on the first chain-step failure.
+        stopped_because: str | None = None
+        stopped_at: str | None = None
 
         for index, request in enumerate(requests):
-            task = self._build_task(state, request, index)
+            if stopped_because is not None:
+                step_results.append(
+                    StepResult(
+                        capability=request.capability,
+                        skill="",
+                        status=SKIPPED_STATUS,
+                        summary=f"skipped because {stopped_because}",
+                    )
+                )
+                continue
+
+            input_reference = chain_input or request.target
+            task = self._build_task(state, request, index, input_reference)
             state.active_task = {
                 "task_id": task.task_id,
                 "capability": request.capability,
-                "target": request.target,
+                "target": input_reference,
             }
 
             try:
@@ -158,6 +212,8 @@ class Hands:
                     exc,
                 )
                 errors.append(str(exc))
+                stopped_because = f"{request.capability} could not be run"
+                stopped_at = request.capability
                 continue
 
             skill = execution_request.skill
@@ -167,6 +223,14 @@ class Hands:
             # guessing a tier in ``_build_task``) is what makes this the
             # Skill's own declared tier, not a hardcoded one.
             task.permission = skill.permission_tier
+
+            # A READ-tier step changes no file, so it isn't part of the
+            # chain: it always reads the original upload, and its failure
+            # doesn't stop the steps that do change the file.
+            in_chain = task.permission is not PermissionTier.READ
+            if not in_chain:
+                input_reference = request.target
+                task.input_references = [input_reference]
 
             if task.permission in _CONFIRMATION_REQUIRED_TIERS and not (
                 self._confirmation_provider.confirm(task, task.permission)
@@ -182,6 +246,8 @@ class Hands:
                     f"{skill.name} was not confirmed for a {task.permission.value}-tier "
                     f"action; skipped"
                 )
+                stopped_because = f"{request.capability} was not confirmed"
+                stopped_at = request.capability
                 continue
 
             result = skill.execute(task)
@@ -222,12 +288,16 @@ class Hands:
                         skill=skill.name,
                         status=SkillStatus.FAILURE.value,
                         summary=result.summary,
+                        input_reference=input_reference,
                     )
                 )
                 errors.append(
                     f"{skill.name} reported {result.status.value} but failed its own "
                     f"well-formedness check; result discarded"
                 )
+                if in_chain:
+                    stopped_because = f"{request.capability} produced a malformed result"
+                    stopped_at = request.capability
                 continue
 
             raw_outputs.append(
@@ -239,17 +309,16 @@ class Hands:
                     "summary": result.summary,
                 }
             )
-            step_results.append(
-                StepResult(
-                    capability=request.capability,
-                    skill=skill.name,
-                    status=result.status.value,
-                    outputs=tuple(result.outputs),
-                    summary=result.summary,
-                    self_reported_findings=tuple(result.self_reported_findings),
-                )
+            step = StepResult(
+                capability=request.capability,
+                skill=skill.name,
+                status=result.status.value,
+                outputs=tuple(result.outputs),
+                summary=result.summary,
+                self_reported_findings=tuple(result.self_reported_findings),
+                input_reference=input_reference,
             )
-            outputs.extend(result.outputs)
+            step_results.append(step)
             warnings.extend(result.warnings)
 
             task_errors = list(result.errors)
@@ -257,13 +326,47 @@ class Hands:
                 task_errors.append(f"{skill.name} reported failure")
             errors.extend(task_errors)
 
+            if not in_chain:
+                other_outputs.extend(result.outputs)
+                continue
+            if result.status is not SkillStatus.SUCCESS:
+                stopped_because = f"{request.capability} did not complete"
+                stopped_at = request.capability
+                continue
+
+            verification_failure = self._verify_step(state, step)
+            if verification_failure is not None:
+                errors.append(f"{request.capability} failed verification: {verification_failure}")
+                stopped_because = f"{request.capability} failed verification"
+                stopped_at = request.capability
+                continue
+
+            if _feeds_next_step(step.outputs, input_reference):
+                chain_input = step.outputs[0]
+            else:
+                other_outputs.extend(step.outputs)
+
+        final_outputs: list[str] = []
+        if stopped_because is not None:
+            skipped = sum(1 for s in step_results if s.status == SKIPPED_STATUS)
+            if skipped:
+                errors.append(
+                    f"stopped: {stopped_because}; {skipped} later step(s) were skipped "
+                    "and no file was handed back"
+                )
+        else:
+            if chain_input is not None:
+                final_outputs.append(chain_input)
+            final_outputs.extend(other_outputs)
+
         state.active_task = None
         execution_result = ExecutionResult(
             success=not errors,
-            outputs=tuple(outputs),
+            outputs=tuple(final_outputs),
             warnings=tuple(warnings),
             errors=tuple(errors),
             steps=tuple(step_results),
+            stopped_at=stopped_at,
         )
         self._apply(state, execution_result, raw_outputs)
         logger.debug(
@@ -274,8 +377,34 @@ class Hands:
         )
         return state
 
+    def _verify_step(self, state: BuddyState, step: StepResult) -> str | None:
+        """Check one chain step's result before the next step may read it.
+
+        Args:
+            state: The current ``BuddyState`` for this turn.
+            step: The step that just ran successfully.
+
+        Returns:
+            ``None`` if the step passed (or no ``step_verifier`` is
+            configured); otherwise a plain-language reason it failed.
+        """
+        if self._step_verifier is None:
+            return None
+        verdict = self._step_verifier(
+            VerificationRequest(
+                understanding=state.understanding or Understanding(),
+                execution_result=ExecutionResult(success=True, outputs=step.outputs, steps=(step,)),
+                active_file=state.context.active_file,
+            )
+        )
+        if verdict.passed:
+            return None
+        return "; ".join(verdict.findings) or "no reason given"
+
     @staticmethod
-    def _build_task(state: BuddyState, request: CapabilityRequest, index: int) -> SkillTask:
+    def _build_task(
+        state: BuddyState, request: CapabilityRequest, index: int, input_reference: str
+    ) -> SkillTask:
         """Build the ``SkillTask`` to hand to the Dispatcher for one request.
 
         The task's ``permission`` is left at ``SkillTask``'s own default
@@ -292,6 +421,8 @@ class Hands:
             index: This request's position among this turn's delegated
                 requests, used to give each task a unique, deterministic
                 id within the turn.
+            input_reference: The file this step reads — the delegated
+                target, or the previous chain step's output.
 
         Returns:
             The ``SkillTask`` to dispatch.
@@ -300,8 +431,8 @@ class Hands:
             task_id=f"{state.session_id}-task-{index}",
             session_id=state.session_id,
             workspace_id=state.workspace_id,
-            description=f"Apply {request.capability} to {request.target}",
-            input_references=[request.target],
+            description=f"Apply {request.capability} to {input_reference}",
+            input_references=[input_reference],
             parameters=dict(request.parameters),
         )
 
@@ -326,3 +457,17 @@ class Hands:
         """
         state.execution_result = execution_result
         state.outputs = raw_outputs
+
+
+def _feeds_next_step(outputs: tuple[str, ...], input_reference: str) -> bool:
+    """Return whether a chain step's outputs become the next step's input.
+
+    Only a single output of the same file type as the step's own input
+    carries the chain forward — a report or chart a future skill writes
+    alongside (or instead of) the spreadsheet must never be handed to the
+    next spreadsheet step.
+    """
+    return (
+        len(outputs) == 1
+        and Path(outputs[0]).suffix.lower() == Path(input_reference).suffix.lower()
+    )

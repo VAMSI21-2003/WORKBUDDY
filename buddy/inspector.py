@@ -2,14 +2,15 @@
 
 import logging
 import re
-from collections.abc import Mapping, Sequence
-from dataclasses import dataclass
+from collections.abc import Callable, Mapping, Sequence
+from dataclasses import dataclass, replace
 from datetime import datetime
 from typing import Protocol
 
 import pandas as pd
 
 from buddy.models import (
+    SKIPPED_STATUS,
     ExecutionResult,
     StepResult,
     StepVerification,
@@ -131,14 +132,29 @@ class SpreadsheetDedupeVerifier:
             )
 
         duplicate_count = int(written.duplicated().sum())  # recomputed from scratch
-        passed = duplicate_count == 0
+        findings = [
+            f"output has {len(written)} row(s), {duplicate_count} duplicate row(s) remaining"
+        ]
+        if duplicate_count:
+            return VerificationResult(
+                passed=False,
+                confidence=1.0,
+                findings=tuple(findings),
+                recommendations=("re-run deduplication; duplicates remain",),
+            )
+
+        problem = _check_against_input(
+            written,
+            _step_input(execution_result),
+            lambda original: len(original) - int(original.duplicated().sum()),
+        )
+        if problem is not None:
+            findings.append(problem)
         return VerificationResult(
-            passed=passed,
+            passed=problem is None,
             confidence=1.0,
-            findings=(
-                f"output has {len(written)} row(s), {duplicate_count} duplicate row(s) remaining",
-            ),
-            recommendations=() if passed else ("re-run deduplication; duplicates remain",),
+            findings=tuple(findings),
+            recommendations=() if problem is None else ("re-run deduplication on the original",),
         )
 
 
@@ -182,16 +198,95 @@ class SpreadsheetEmptyRowsVerifier:
             )
 
         empty_row_count = int(written.isna().all(axis=1).sum())  # recomputed from scratch
-        passed = empty_row_count == 0
-        return VerificationResult(
-            passed=passed,
-            confidence=1.0,
-            findings=(
-                f"output has {len(written)} row(s), "
-                f"{empty_row_count} fully-empty row(s) remaining",
-            ),
-            recommendations=() if passed else ("re-run empty-row removal; empty rows remain",),
+        findings = [
+            f"output has {len(written)} row(s), {empty_row_count} fully-empty row(s) remaining"
+        ]
+        if empty_row_count:
+            return VerificationResult(
+                passed=False,
+                confidence=1.0,
+                findings=tuple(findings),
+                recommendations=("re-run empty-row removal; empty rows remain",),
+            )
+
+        problem = _check_against_input(
+            written,
+            _step_input(execution_result),
+            lambda original: len(original) - int(original.isna().all(axis=1).sum()),
         )
+        if problem is not None:
+            findings.append(problem)
+        return VerificationResult(
+            passed=problem is None,
+            confidence=1.0,
+            findings=tuple(findings),
+            recommendations=() if problem is None else ("re-run empty-row removal on the original",),
+        )
+
+
+def _step_input(execution_result: ExecutionResult) -> str:
+    """Return the file the (single, scoped) step actually read, or ``""``."""
+    return execution_result.steps[0].input_reference if execution_result.steps else ""
+
+
+def _without_empty_rows(df: pd.DataFrame) -> pd.DataFrame:
+    """``df`` without its fully-empty rows."""
+    return df[~df.isna().all(axis=1)]
+
+
+def _row_set(df: pd.DataFrame) -> set[tuple[object, ...]]:
+    """Every row of ``df`` as a hashable tuple, with missing values as ``None``."""
+    return set(df.astype(object).where(df.notna(), None).itertuples(index=False, name=None))
+
+
+def _check_against_input(
+    written: pd.DataFrame,
+    input_path: str,
+    expected_row_count: Callable[[pd.DataFrame], int],
+) -> str | None:
+    """Check an output against the step's own input, not just on its own.
+
+    An output-only check ("no duplicates left") would still pass for a step
+    that removed rows it shouldn't have. This re-reads the input fresh and
+    confirms the output has exactly the rows the capability should have
+    kept: the expected row count, and no row that wasn't in the input.
+
+    Args:
+        written: The step's output, already read fresh.
+        input_path: The file the step read, or ``""`` if unknown — in which
+            case only the output-only postcondition applies (the check a
+            final file gets, since it isn't any single step's direct output).
+        expected_row_count: Recomputes, from the input, how many rows the
+            output should have.
+
+    Returns:
+        ``None`` if the output is consistent with its input (or there is no
+        input to check against); otherwise a plain-language problem.
+    """
+    if not input_path:
+        return None
+    try:
+        original = pd.read_excel(input_path)  # fresh, independent read of the step's input
+    except Exception as exc:  # noqa: BLE001 — surfaced as a finding, not raised
+        logger.exception("Inspector: failed to read step input %r", input_path)
+        return f"could not independently read its input {input_path!r}: {exc}"
+
+    # Fully-empty rows are left out on both sides: an .xlsx can't hold a
+    # trailing empty row (openpyxl drops it on the write/read round trip),
+    # so whether one survives depends on where it ended up, not on what the
+    # step did. Every other row must match exactly.
+    original = _without_empty_rows(original)
+    written = _without_empty_rows(written)
+    expected = expected_row_count(original)
+    if len(written) != expected:
+        return (
+            f"expected {expected} non-empty row(s) from its {len(original)}-row input, "
+            f"found {len(written)}"
+        )
+    unexpected = _row_set(written) - _row_set(original)
+    if unexpected:
+        return f"{len(unexpected)} output row(s) don't appear in its input"
+    return None
 
 
 _DATE_FORMATS = (
@@ -370,7 +465,10 @@ class SpreadsheetAnalysisVerifier:
                 findings=("spreadsheet.analyze reported failure",),
             )
 
-        if request.active_file is None:
+        # The exact file the Skill analyzed; the active file (the original
+        # upload) only for results recorded before steps carried their input.
+        analyzed_file = step.input_reference or request.active_file
+        if not analyzed_file:
             return VerificationResult(
                 passed=False,
                 confidence=1.0,
@@ -378,15 +476,13 @@ class SpreadsheetAnalysisVerifier:
             )
 
         try:
-            df = pd.read_excel(request.active_file)  # fresh, independent read of the ORIGINAL
+            df = pd.read_excel(analyzed_file)  # fresh, independent read of the ORIGINAL
         except Exception as exc:  # noqa: BLE001 — surfaced as a finding, not raised
-            logger.exception(
-                "SpreadsheetAnalysisVerifier: failed to read %r", request.active_file
-            )
+            logger.exception("SpreadsheetAnalysisVerifier: failed to read %r", analyzed_file)
             return VerificationResult(
                 passed=False,
                 confidence=1.0,
-                findings=(f"could not independently read {request.active_file!r}: {exc}",),
+                findings=(f"could not independently read {analyzed_file!r}: {exc}",),
             )
 
         findings: list[str] = []
@@ -550,15 +646,84 @@ class CompositeVerifier:
 
         per_step: list[tuple[str, VerificationResult]] = []
         for step in execution_result.steps:
+            if step.status == SKIPPED_STATUS:
+                # Never ran, so there's nothing to check — and running a
+                # verifier would only report a confusing "no output file".
+                per_step.append(
+                    (
+                        step.capability,
+                        VerificationResult(
+                            passed=False, findings=("skipped because an earlier step failed",)
+                        ),
+                    )
+                )
+                continue
             verifier = self._verifiers_by_capability.get(step.capability, self._fallback)
-            scoped_request = VerificationRequest(
-                understanding=request.understanding,
-                execution_result=_scoped_execution_result(step),
-                active_file=request.active_file,
-            )
-            per_step.append((step.capability, verifier(scoped_request)))
+            per_step.append((step.capability, verifier(self._scoped_request(request, step))))
+
+        final_check = self._verify_final_file(request)
+        if final_check is not None:
+            per_step.append((FINAL_OUTPUT_CAPABILITY, final_check))
 
         return _aggregate_verdicts(per_step)
+
+    @staticmethod
+    def _scoped_request(request: VerificationRequest, step: StepResult) -> VerificationRequest:
+        """A request covering just ``step``, for a single-step ``Verifier``."""
+        return VerificationRequest(
+            understanding=request.understanding,
+            execution_result=_scoped_execution_result(step),
+            active_file=request.active_file,
+        )
+
+    def _verify_final_file(self, request: VerificationRequest) -> VerificationResult | None:
+        """Check the file the user receives against every chained step's claim.
+
+        Each step is verified against its own input, but only the final
+        file is handed back — so it must satisfy *every* file-changing
+        step's postcondition at once (e.g. no duplicates *and* no empty
+        rows). Re-runs each such step's verifier against the final file,
+        with no input reference, so only the output postcondition applies.
+
+        Returns:
+            ``None`` when there's no chain to check — fewer than two
+            file-changing steps, steps that didn't actually read each
+            other's output, or no final file because the chain stopped;
+            otherwise the combined verdict for the final file.
+        """
+        execution_result = request.execution_result
+        if execution_result is None or not execution_result.outputs:
+            return None
+        final_file = execution_result.outputs[0]
+        chained = [
+            step
+            for step in execution_result.steps
+            if step.status == "success" and step.outputs
+        ]
+        if len(chained) < 2 or chained[-1].outputs[0] != final_file:
+            return None
+        if any(
+            later.input_reference != earlier.outputs[0]
+            for earlier, later in zip(chained, chained[1:])
+        ):
+            return None
+
+        verdicts = []
+        for step in chained:
+            verifier = self._verifiers_by_capability.get(step.capability, self._fallback)
+            final_step = replace(step, outputs=(final_file,), input_reference="")
+            verdicts.append(verifier(self._scoped_request(request, final_step)))
+        return VerificationResult(
+            passed=all(v.passed for v in verdicts),
+            confidence=min(v.confidence for v in verdicts),
+            findings=tuple(f"final file: {f}" for v in verdicts for f in v.findings),
+            recommendations=tuple(r for v in verdicts for r in v.recommendations),
+        )
+
+
+# The ``StepVerification.capability`` recorded for the final-file check —
+# not a real capability, just the label for "the file the user receives".
+FINAL_OUTPUT_CAPABILITY = "final_output"
 
 
 class Inspector:

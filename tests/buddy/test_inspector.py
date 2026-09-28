@@ -12,6 +12,7 @@ from buddy.inspector import (
     NullVerifier,
     SpreadsheetAnalysisVerifier,
     SpreadsheetDedupeVerifier,
+    SpreadsheetEmptyRowsVerifier,
     VerificationRequest,
 )
 from buddy.models import (
@@ -658,3 +659,252 @@ def test_inspector_does_not_mark_analyzed_when_no_analyze_step_ran_at_all() -> N
     Inspector(verifier=_FakeVerifier(result))(state)
 
     assert "report.xlsx" not in state.context.analyzed_files
+
+
+# -- Each step against its own input (chaining) -----------------------------------
+
+
+def _xlsx(path: Path, rows: dict[str, list[object]]) -> str:
+    pd.DataFrame(rows).to_excel(path, index=False)
+    return str(path)
+
+
+def _step_request(
+    capability: str, output: str, input_reference: str = ""
+) -> VerificationRequest:
+    step = StepResult(
+        capability=capability,
+        skill="some.skill",
+        status="success",
+        outputs=(output,),
+        input_reference=input_reference,
+    )
+    return _request(execution_result=ExecutionResult(success=True, outputs=(output,), steps=(step,)))
+
+
+_WITH_DUPES = {"name": ["Alice", "Bob", "Alice", "Carol"], "amount": [10, 20, 10, 30]}
+
+
+def test_dedupe_verifier_passes_an_output_consistent_with_its_input(tmp_path: Path) -> None:
+    source = _xlsx(tmp_path / "in.xlsx", _WITH_DUPES)
+    output = _xlsx(tmp_path / "out.xlsx", {"name": ["Alice", "Bob", "Carol"], "amount": [10, 20, 30]})
+
+    result = SpreadsheetDedupeVerifier()(_step_request("spreadsheet.deduplicate", output, source))
+
+    assert result.passed is True
+    assert result.findings == ("output has 3 row(s), 0 duplicate row(s) remaining",)
+
+
+def test_dedupe_verifier_fails_an_output_that_removed_a_row_it_should_have_kept(
+    tmp_path: Path,
+) -> None:
+    """No duplicates left — an output-only check passes — but Carol, who
+    was never a duplicate, is gone too."""
+    source = _xlsx(tmp_path / "in.xlsx", _WITH_DUPES)
+    output = _xlsx(tmp_path / "out.xlsx", {"name": ["Alice", "Bob"], "amount": [10, 20]})
+
+    result = SpreadsheetDedupeVerifier()(_step_request("spreadsheet.deduplicate", output, source))
+
+    assert result.passed is False
+    assert "expected 3 non-empty row(s) from its 4-row input, found 2" in result.findings[1]
+    assert result.recommendations
+
+
+def test_dedupe_verifier_fails_an_output_with_a_row_not_in_its_input(tmp_path: Path) -> None:
+    source = _xlsx(tmp_path / "in.xlsx", _WITH_DUPES)
+    output = _xlsx(tmp_path / "out.xlsx", {"name": ["Alice", "Bob", "Dave"], "amount": [10, 20, 40]})
+
+    result = SpreadsheetDedupeVerifier()(_step_request("spreadsheet.deduplicate", output, source))
+
+    assert result.passed is False
+    assert "1 output row(s) don't appear in its input" in result.findings[1]
+
+
+def test_dedupe_verifier_checks_only_the_output_when_it_has_no_input(tmp_path: Path) -> None:
+    """The final-file check has no single input; only the postcondition applies."""
+    output = _xlsx(tmp_path / "out.xlsx", {"name": ["Alice", "Bob"], "amount": [10, 20]})
+
+    result = SpreadsheetDedupeVerifier()(_step_request("spreadsheet.deduplicate", output))
+
+    assert result.passed is True
+
+
+def test_dedupe_verifier_tolerates_losing_a_fully_empty_row(tmp_path: Path) -> None:
+    """An .xlsx can't hold a trailing empty row, so one that ends up last
+    after deduplication disappears on write — not the step's fault."""
+    source = _xlsx(tmp_path / "in.xlsx", {"name": ["Alice", None, "Alice"], "amount": [10, None, 10]})
+    output = _xlsx(tmp_path / "out.xlsx", {"name": ["Alice"], "amount": [10]})
+
+    result = SpreadsheetDedupeVerifier()(_step_request("spreadsheet.deduplicate", output, source))
+
+    assert result.passed is True
+
+
+def test_empty_rows_verifier_passes_an_output_consistent_with_its_input(tmp_path: Path) -> None:
+    source = _xlsx(tmp_path / "in.xlsx", {"name": ["Alice", None, "Bob"], "amount": [10, None, 20]})
+    output = _xlsx(tmp_path / "out.xlsx", {"name": ["Alice", "Bob"], "amount": [10, 20]})
+
+    result = SpreadsheetEmptyRowsVerifier()(
+        _step_request("spreadsheet.remove_empty_rows", output, source)
+    )
+
+    assert result.passed is True
+
+
+def test_empty_rows_verifier_fails_an_output_that_removed_a_non_empty_row(tmp_path: Path) -> None:
+    source = _xlsx(tmp_path / "in.xlsx", {"name": ["Alice", None, "Bob"], "amount": [10, None, 20]})
+    output = _xlsx(tmp_path / "out.xlsx", {"name": ["Alice"], "amount": [10]})
+
+    result = SpreadsheetEmptyRowsVerifier()(
+        _step_request("spreadsheet.remove_empty_rows", output, source)
+    )
+
+    assert result.passed is False
+    assert "expected 2 non-empty row(s)" in result.findings[1]
+
+
+def test_analysis_verifier_reads_the_steps_own_input_over_the_active_file(
+    tmp_path: Path,
+) -> None:
+    analyzed = _xlsx(tmp_path / "analyzed.xlsx", {"amount": [10, 20, 30, 40, 50]})
+    request = _analysis_request("does-not-exist.xlsx", _analysis_step(input_reference=analyzed))
+
+    result = SpreadsheetAnalysisVerifier()(request)
+
+    assert result.passed is True
+    assert result.findings == ("nothing notable found",)
+
+
+# -- CompositeVerifier: skipped steps and the final file --------------------------
+
+
+def test_composite_verifier_checks_the_final_file_against_every_chained_steps_claim(
+    tmp_path: Path,
+) -> None:
+    source = _xlsx(
+        tmp_path / "in.xlsx",
+        {"name": ["Alice", "Bob", None, "Alice"], "amount": [10, 20, None, 10]},
+    )
+    first_out = _xlsx(tmp_path / "a.xlsx", {"name": ["Alice", "Bob", None], "amount": [10, 20, None]})
+    final = _xlsx(tmp_path / "b.xlsx", {"name": ["Alice", "Bob"], "amount": [10, 20]})
+    steps = (
+        StepResult(
+            capability="spreadsheet.deduplicate",
+            skill="excel.deduplicate",
+            status="success",
+            outputs=(first_out,),
+            input_reference=source,
+        ),
+        StepResult(
+            capability="spreadsheet.remove_empty_rows",
+            skill="excel.remove_empty_rows",
+            status="success",
+            outputs=(final,),
+            input_reference=first_out,
+        ),
+    )
+    composite = CompositeVerifier(
+        {
+            "spreadsheet.deduplicate": SpreadsheetDedupeVerifier(),
+            "spreadsheet.remove_empty_rows": SpreadsheetEmptyRowsVerifier(),
+        }
+    )
+
+    result = composite(
+        _request(execution_result=ExecutionResult(success=True, outputs=(final,), steps=steps))
+    )
+
+    assert result.passed is True
+    assert [s.capability for s in result.steps] == [
+        "spreadsheet.deduplicate",
+        "spreadsheet.remove_empty_rows",
+        "final_output",
+    ]
+    assert result.steps[-1].findings == (
+        "final file: output has 2 row(s), 0 duplicate row(s) remaining",
+        "final file: output has 2 row(s), 0 fully-empty row(s) remaining",
+    )
+
+
+def test_composite_verifier_fails_a_final_file_that_breaks_an_earlier_steps_claim(
+    tmp_path: Path,
+) -> None:
+    """Each step passed its own check, but the second step (a stand-in for
+    e.g. a future whitespace-trimming skill) made two rows identical, so
+    the file the user receives has a duplicate again."""
+    source = _xlsx(tmp_path / "in.xlsx", {"name": ["Alice", "Alice "], "amount": [10, 10]})
+    first_out = _xlsx(tmp_path / "a.xlsx", {"name": ["Alice", "Alice "], "amount": [10, 10]})
+    final = _xlsx(tmp_path / "b.xlsx", {"name": ["Alice", "Alice"], "amount": [10, 10]})
+    steps = (
+        StepResult(
+            capability="spreadsheet.deduplicate",
+            skill="excel.deduplicate",
+            status="success",
+            outputs=(first_out,),
+            input_reference=source,
+        ),
+        StepResult(
+            capability="spreadsheet.trim",
+            skill="excel.trim",
+            status="success",
+            outputs=(final,),
+            input_reference=first_out,
+        ),
+    )
+    composite = CompositeVerifier(
+        {
+            "spreadsheet.deduplicate": SpreadsheetDedupeVerifier(),
+            "spreadsheet.trim": _FakeVerifier(VerificationResult(passed=True, confidence=1.0)),
+        }
+    )
+
+    result = composite(
+        _request(execution_result=ExecutionResult(success=True, outputs=(final,), steps=steps))
+    )
+
+    assert [(s.capability, s.passed) for s in result.steps] == [
+        ("spreadsheet.deduplicate", True),
+        ("spreadsheet.trim", True),
+        ("final_output", False),
+    ]
+    assert result.passed is False
+    assert (
+        "[final_output] final file: output has 2 row(s), 1 duplicate row(s) remaining"
+        in result.findings
+    )
+
+
+def test_composite_verifier_skips_the_final_check_when_steps_did_not_chain() -> None:
+    """Two steps that each read the original (the pre-chaining shape) have
+    no single final file to check."""
+    verifier = _FakeVerifier(VerificationResult(passed=True))
+    steps = (
+        StepResult(capability="cap.a", skill="a", status="success", outputs=("a.xlsx",)),
+        StepResult(capability="cap.b", skill="b", status="success", outputs=("b.xlsx",)),
+    )
+    composite = CompositeVerifier({"cap.a": verifier, "cap.b": verifier})
+
+    result = composite(
+        _request(execution_result=ExecutionResult(success=True, outputs=("b.xlsx",), steps=steps))
+    )
+
+    assert [s.capability for s in result.steps] == ["cap.a", "cap.b"]
+
+
+def test_composite_verifier_reports_a_skipped_step_without_verifying_it() -> None:
+    verifier = _FakeVerifier(VerificationResult(passed=True))
+    steps = (
+        StepResult(capability="cap.a", skill="a", status="failure"),
+        StepResult(capability="cap.b", skill="", status="skipped", summary="skipped because x"),
+    )
+    composite = CompositeVerifier({"cap.a": verifier, "cap.b": verifier})
+
+    result = composite(
+        _request(execution_result=ExecutionResult(success=False, steps=steps, stopped_at="cap.a"))
+    )
+
+    assert len(verifier.received_requests) == 1  # only cap.a was actually verified
+    skipped = result.steps[1]
+    assert (skipped.capability, skipped.passed) == ("cap.b", False)
+    assert skipped.findings == ("skipped because an earlier step failed",)
+    assert result.passed is False
