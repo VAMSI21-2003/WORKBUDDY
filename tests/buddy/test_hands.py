@@ -529,7 +529,13 @@ def test_hands_keeps_read_tier_steps_outside_the_chain_on_the_original() -> None
 
     Hands(dispatcher=_chain_dispatcher(a, b, reader))(state)
 
-    assert [t.input_references for t in reader.received_tasks] == [[_ORIGINAL], [_ORIGINAL]]
+    # Both planned reads saw the original; after the chain completed, the
+    # read-only check ran once more — on the final file.
+    assert [t.input_references for t in reader.received_tasks] == [
+        [_ORIGINAL],
+        [_ORIGINAL],
+        ["out/b.xlsx"],
+    ]
     assert b.received_tasks[0].input_references == ["out/a.xlsx"]
     assert state.execution_result is not None
     assert state.execution_result.outputs == ("out/b.xlsx",)
@@ -657,3 +663,49 @@ def test_hands_does_not_stop_the_chain_when_a_read_tier_step_fails() -> None:
     assert result.stopped_at is None
     assert result.outputs == ("out/b.xlsx",)
     assert "analysis failed" in result.errors  # still reported, just not a chain stop
+
+
+def test_hands_does_not_re_check_a_final_file_when_the_chain_stopped() -> None:
+    reader = _reader()
+    a = _NamedSkill(
+        "skill.a", capability="cap.a", status=SkillStatus.FAILURE, outputs=[], errors=["boom"]
+    )
+    state = _requests("cap.read", "cap.a", "cap.b")
+
+    Hands(dispatcher=_chain_dispatcher(reader, a, _step_b()))(state)
+
+    assert [t.input_references for t in reader.received_tasks] == [[_ORIGINAL]]  # no re-check
+
+
+class _FailsOnSecondRun(_NamedSkill):
+    """A READ-tier skill that succeeds on the original, then fails."""
+
+    def execute(self, task: SkillTask) -> SkillResult:
+        result = super().execute(task)
+        if len(self.received_tasks) > 1:
+            return SkillResult(status=SkillStatus.FAILURE, errors=["could not read it"])
+        return result
+
+
+def test_hands_records_a_failed_final_file_re_check_as_a_warning_not_an_error() -> None:
+    """The re-check is outside the chain: its failure never costs the user
+    the file they asked for."""
+    reader = _FailsOnSecondRun(
+        "skill.read", capability="cap.read", outputs=[], permission_tier=PermissionTier.READ
+    )
+    state = _requests("cap.read", "cap.a", "cap.b")
+
+    Hands(dispatcher=_chain_dispatcher(reader, _step_a(), _step_b()))(state)
+
+    result = state.execution_result
+    assert result is not None
+    assert result.success is True
+    assert result.errors == ()
+    assert result.outputs == ("out/b.xlsx",)
+    assert result.warnings == ("could not re-check the final file with cap.read",)
+    recheck = result.steps[-1]
+    assert (recheck.capability, recheck.status, recheck.input_reference) == (
+        "cap.read",
+        "failure",
+        "out/b.xlsx",
+    )

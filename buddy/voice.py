@@ -101,6 +101,129 @@ def _step_passed(
     return True
 
 
+_ACTION_TIERS = ("write", "external_effect")
+
+NO_CHANGES_SENTENCE = "No changes were made to any file this turn."
+
+# Wording that claims work was carried out. When nothing was delivered this
+# turn, a model reply containing any of it is discarded for the factual
+# TemplateSpeaker reply. Deliberately broad: an honest reply that happens to
+# match ("nothing was removed") is replaced by an equally honest one, never
+# by a false claim.
+_COMPLETION_CLAIM = re.compile(
+    r"\b(done|complet(e|ed|ely|ion)|finish(ed)?|succeed(ed)?|success(ful|fully)?|"
+    r"removed|deleted|clean(ed)?|cleared|dedup(ed|licated)?|saved|fixed|ready|"
+    r"handled|taken care)\b",
+    re.IGNORECASE,
+)
+
+
+def _is_action_step(step: StepResult) -> bool:
+    """Whether ``step`` ran a Skill that changes files (tier above READ).
+
+    Results recorded before steps carried their tier count as actions only
+    if they produced a file.
+    """
+    if step.status == SKIPPED_STATUS:
+        return False
+    if step.permission_tier:
+        return step.permission_tier in _ACTION_TIERS
+    return bool(step.outputs)
+
+
+def _action_passed_verification(
+    execution_result: ExecutionResult | None, verification_result: VerificationResult | None
+) -> bool:
+    """Whether any action step succeeded *and* Inspector passed it this turn."""
+    if execution_result is None or verification_result is None:
+        return False
+    if not execution_result.steps:
+        # A result with no per-step breakdown: judge it by its output alone.
+        return bool(execution_result.outputs) and verification_result.passed
+    for step in execution_result.steps:
+        if not _is_action_step(step) or step.status != "success":
+            continue
+        if not verification_result.steps:
+            if verification_result.passed:
+                return True
+        elif any(
+            v.capability == step.capability and v.passed for v in verification_result.steps
+        ):
+            return True
+    return False
+
+
+def _no_changes_made(
+    execution_result: ExecutionResult | None, verification_result: VerificationResult | None
+) -> bool:
+    """Whether to tell the user no file was changed this turn.
+
+    True when no action step passed verification — e.g. Think asked for
+    clarification, so only read-only analysis ran. When Inspector didn't
+    run at all but an action step did, this is ``False``: the file may have
+    changed, just unverified, and the reply says that instead.
+    """
+    if verification_result is None:
+        steps = execution_result.steps if execution_result is not None else ()
+        return not any(_is_action_step(s) and s.status == "success" for s in steps) and not (
+            execution_result is not None and execution_result.outputs
+        )
+    return not _action_passed_verification(execution_result, verification_result)
+
+
+def _nothing_delivered(request: "SpeakingRequest") -> bool:
+    """Whether this turn handed the user no verified result at all."""
+    execution_result = request.execution_result
+    return (
+        _no_changes_made(execution_result, request.verification_result)
+        or execution_result is None
+        or not execution_result.outputs
+        or execution_result.stopped_at is not None
+    )
+
+
+def _delivered_file_name(request: "SpeakingRequest") -> str | None:
+    """The name of the user's original file, if a changed copy was handed back.
+
+    The generated output name is never shown to the user (see the mode
+    prompts); the reply refers to it as a cleaned copy of the original.
+    """
+    if _nothing_delivered(request):
+        return None
+    assert request.execution_result is not None
+    for step in request.execution_result.steps:
+        if _is_action_step(step) and step.input_reference:
+            return Path(step.input_reference).name
+    return Path(request.execution_result.outputs[0]).name
+
+
+def _mentions_file(reply: str, file_name: str) -> bool:
+    stem = Path(file_name).stem.lower()
+    text = reply.lower()
+    return stem in text or stem.replace("_", " ") in text
+
+
+def _findings_for_reply(verification_result: VerificationResult) -> tuple[str, ...]:
+    """The findings a reply should report, with analysis of the right file.
+
+    When analysis ran more than once this turn — on the original, then
+    re-run on the final file after the chain changed it — only the latest
+    run describes the file the user receives, so the original's analysis
+    findings are replaced by it.
+    """
+    analyses = [s for s in verification_result.steps if s.capability == _ANALYZE_CAPABILITY]
+    if len(analyses) < 2:
+        return verification_result.findings
+    others = tuple(f for f in verification_result.findings if not _is_analysis_finding(f))
+    return others + tuple(f"[{_ANALYZE_CAPABILITY}] {f}" for f in analyses[-1].findings)
+
+
+def _analysis_describes_final_file(verification_result: VerificationResult | None) -> bool:
+    if verification_result is None:
+        return False
+    return sum(s.capability == _ANALYZE_CAPABILITY for s in verification_result.steps) >= 2
+
+
 def _chain_stop_sentence(execution_result: ExecutionResult | None) -> str:
     """Say, in plain words, which step stopped the chain and what didn't run.
 
@@ -205,18 +328,61 @@ class TemplateSpeaker:
         Returns:
             The reply text.
         """
-        stop_sentence = _chain_stop_sentence(request.execution_result)
-        if request.verification_result is None:
-            reply = self._describe_without_verification(request.execution_result)
-        elif _find_step(request.execution_result, _ANALYZE_CAPABILITY) is not None:
-            reply = self._compose_with_analysis_preface(
-                request.execution_result, request.verification_result
-            )
-        elif request.verification_result.passed:
-            reply = self._success_message(request.execution_result, request.verification_result)
+        execution_result = request.execution_result
+        verification_result = request.verification_result
+        stop_sentence = _chain_stop_sentence(execution_result)
+        if verification_result is None:
+            reply = self._describe_without_verification(execution_result)
+        elif _no_changes_made(execution_result, verification_result):
+            reply = self._no_changes_message(execution_result, verification_result, stop_sentence)
+        elif _find_step(execution_result, _ANALYZE_CAPABILITY) is not None:
+            reply = self._compose_with_analysis_preface(execution_result, verification_result)
+        elif verification_result.passed:
+            reply = self._success_message(execution_result, verification_result)
         else:
-            reply = self._failure_message(request.verification_result)
+            reply = self._failure_message(verification_result)
         return f"{reply} {stop_sentence}" if stop_sentence else reply
+
+    @staticmethod
+    def _no_changes_message(
+        execution_result: ExecutionResult | None,
+        verification_result: VerificationResult,
+        stop_sentence: str,
+    ) -> str:
+        """Compose the reply for a turn in which no file was changed.
+
+        Never says "Done": nothing the user asked for was carried out (e.g.
+        Think asked for clarification, so only read-only analysis ran).
+        Still reports what was noticed, and why things failed if they did.
+
+        Args:
+            execution_result: The execution result, if any.
+            verification_result: Inspector's verdict for this turn.
+            stop_sentence: The chain-stop sentence, if the chain stopped —
+                which already says the original is unchanged.
+
+        Returns:
+            The reply text, without the stop sentence itself.
+        """
+        open_findings, other_findings = TemplateSpeaker._partition_analysis_findings(
+            verification_result
+        )
+        parts = []
+        if open_findings:
+            parts.append(
+                "Before anything else, here's what I noticed: "
+                + "; ".join(open_findings)
+                + ". Want me to tackle any of these?"
+            )
+        remaining = dataclasses.replace(verification_result, findings=other_findings)
+        if not remaining.passed:
+            parts.append(TemplateSpeaker._failure_message(remaining))
+        elif other_findings:
+            joined = "; ".join(_strip_finding_tags(f) for f in other_findings)
+            parts.append(joined[0].upper() + joined[1:] + ".")
+        if not stop_sentence:
+            parts.append(NO_CHANGES_SENTENCE)
+        return " ".join(parts)
 
     @staticmethod
     def _compose_with_analysis_preface(
@@ -282,7 +448,7 @@ class TemplateSpeaker:
         }
         open_findings: list[str] = []
         other_findings: list[str] = []
-        for finding in verification_result.findings:
+        for finding in _findings_for_reply(verification_result):
             match = _ANALYSIS_FINDING_PATTERN.match(finding)
             if match is None:
                 other_findings.append(finding)
@@ -502,6 +668,11 @@ Hard rules:
 - Never invent, omit, or soften a fact you were given. If something
   failed, say it failed. The personality is in HOW you say it, never in
   WHAT you say.
+- If you're told no changes were made to any file this turn, say so
+  plainly, and never say or imply that anything was done, completed,
+  removed, cleaned, or saved.
+- If you're told a file was handed back, mention it — by its plain
+  original name, as a cleaned copy.
 - Never recite a full file path or a generated filename verbatim — no
   folder separators, no system-generated suffixes like
   "_manual-session-task-0". Refer to the file the way a person would:
@@ -542,6 +713,11 @@ skip any already resolved by something else this turn.
 Hard rules:
 - Never invent, omit, or soften a fact you were given. If something
   failed, say it failed.
+- If you're told no changes were made to any file this turn, say so, and
+  never say or imply that anything was done, completed, removed, cleaned,
+  or saved.
+- If you're told a file was handed back, mention it by its plain original
+  name.
 - Never repeat internal labels: no bracketed tags like "[something]", no
   dotted system names like "spreadsheet.deduplicate", and none of the
   field labels from the facts you were given.
@@ -604,6 +780,22 @@ class PersonalityVoice:
         if not reply:
             logger.warning("PersonalityVoice: LLM reply was empty")
             return self._fallback_reply(request)
+
+        # The prompt tells the model what happened, but a model can still
+        # say "all done" for a turn that changed nothing — so check the
+        # reply itself. When nothing was delivered, any completion wording
+        # means the factual TemplateSpeaker reply is used instead.
+        if _nothing_delivered(request) and _COMPLETION_CLAIM.search(reply):
+            logger.warning(
+                "PersonalityVoice: reply claimed completion but nothing was delivered; "
+                "using the factual fallback"
+            )
+            return self._fallback_reply(request)
+
+        # A file was handed back: the reply must say so.
+        file_name = _delivered_file_name(request)
+        if file_name is not None and not _mentions_file(reply, file_name):
+            reply = f"{reply} Your cleaned copy of {file_name} is ready."
         return reply
 
     @staticmethod
@@ -636,6 +828,14 @@ class PersonalityVoice:
         execution_result = request.execution_result
         verification_result = request.verification_result
         steps = execution_result.steps if execution_result is not None else ()
+
+        # Stated first and unconditionally when true, from the steps alone —
+        # not from which intent the request was classified as.
+        if _no_changes_made(execution_result, verification_result):
+            lines.append(
+                f"{NO_CHANGES_SENTENCE} Nothing the user asked for was carried out; "
+                "do not say or imply that anything was done, completed, removed, or saved."
+            )
 
         intent = request.understanding.intent
         if intent:
@@ -677,9 +877,12 @@ class PersonalityVoice:
                     + ", ".join(_describe_capability(step.capability) for step in skipped)
                 )
             lines.append(f"Execution succeeded: {execution_result.success}")
-            if execution_result.outputs:
-                output_names = ", ".join(Path(o).name for o in execution_result.outputs)
-                lines.append(f"Output file(s): {output_names}")
+            file_name = _delivered_file_name(request)
+            if file_name is not None:
+                lines.append(
+                    f"File handed back to the user (mention it in your reply): a cleaned copy "
+                    f"of {file_name}, with every change above applied"
+                )
             if execution_result.warnings:
                 lines.append("Execution warnings: " + "; ".join(execution_result.warnings))
             if execution_result.errors:
@@ -689,16 +892,16 @@ class PersonalityVoice:
             lines.append("Verification: not performed.")
         else:
             lines.append(f"Verification passed: {verification_result.passed}")
-            noticed = [
-                _strip_finding_tags(f) for f in verification_result.findings if _is_analysis_finding(f)
-            ]
-            findings = [
-                _strip_finding_tags(f)
-                for f in verification_result.findings
-                if not _is_analysis_finding(f)
-            ]
+            reported = _findings_for_reply(verification_result)
+            noticed = [_strip_finding_tags(f) for f in reported if _is_analysis_finding(f)]
+            findings = [_strip_finding_tags(f) for f in reported if not _is_analysis_finding(f)]
             if noticed:
-                lines.append("Noticed on your own, unprompted: " + "; ".join(noticed))
+                about = (
+                    " (in the cleaned file handed back, after the changes)"
+                    if _analysis_describes_final_file(verification_result)
+                    else ""
+                )
+                lines.append(f"Noticed on your own, unprompted{about}: " + "; ".join(noticed))
             if findings:
                 lines.append("Verification findings: " + "; ".join(findings))
             if verification_result.recommendations:

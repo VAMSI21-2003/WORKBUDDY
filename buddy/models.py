@@ -128,6 +128,11 @@ class StepResult:
             upload for the first step of a chain, the previous step's
             output after that — or ``""`` if unknown. Lets a Verifier
             check a step against its own input, not just its output.
+        permission_tier: The permission tier of the Skill that ran this
+            step, as the string value of ``skills.base.PermissionTier``
+            (``"read"``, ``"write"``, ``"external_effect"``), or ``""`` if
+            unknown (e.g. a skipped step). Anything above ``"read"`` is an
+            action step — one that changes a file.
     """
 
     capability: str
@@ -137,6 +142,7 @@ class StepResult:
     summary: str = ""
     self_reported_findings: tuple[str, ...] = ()
     input_reference: str = ""
+    permission_tier: str = ""
 
 
 # The ``StepResult.status`` of a step Hands never started because an

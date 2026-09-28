@@ -217,6 +217,19 @@ def _analyze_step(**overrides: object) -> StepResult:
     return StepResult(**fields)  # type: ignore[arg-type]
 
 
+def _dedupe_step(**overrides: object) -> StepResult:
+    fields: dict[str, object] = {
+        "capability": "spreadsheet.deduplicate",
+        "skill": "excel.deduplicate",
+        "status": "success",
+        "outputs": ("report_deduplicated.xlsx",),
+        "input_reference": "uploads/report.xlsx",
+        "permission_tier": "write",
+    }
+    fields.update(overrides)
+    return StepResult(**fields)  # type: ignore[arg-type]
+
+
 def test_template_speaker_leads_with_analysis_findings_before_the_ordinary_message() -> None:
     request = _request(
         execution_result=ExecutionResult(success=True, steps=(_analyze_step(),)),
@@ -242,7 +255,9 @@ def test_template_speaker_analysis_preface_still_reports_other_steps_outcome() -
     """
     request = _request(
         execution_result=ExecutionResult(
-            success=True, outputs=("report_deduplicated.xlsx",), steps=(_analyze_step(),)
+            success=True,
+            outputs=("report_deduplicated.xlsx",),
+            steps=(_analyze_step(), _dedupe_step()),
         ),
         verification_result=VerificationResult(
             passed=True,
@@ -294,7 +309,9 @@ def test_template_speaker_does_not_fold_a_near_duplicate_finding_into_an_exact_d
     """
     request = _request(
         execution_result=ExecutionResult(
-            success=True, outputs=("report_deduplicated.xlsx",), steps=(_analyze_step(),)
+            success=True,
+            outputs=("report_deduplicated.xlsx",),
+            steps=(_analyze_step(), _dedupe_step()),
         ),
         verification_result=VerificationResult(
             passed=True,
@@ -374,12 +391,12 @@ def test_personality_voice_uses_focus_mode_prompt() -> None:
 
 
 def test_personality_voice_returns_the_models_reply_verbatim_when_successful() -> None:
-    provider = _FakeLLMProvider(reply="  All clean, nothing left to do here.  ")
+    provider = _FakeLLMProvider(reply="  Here's where things stand.  ")
     speaker = PersonalityVoice(provider)
 
     reply = speaker(_request())
 
-    assert reply == "All clean, nothing left to do here."
+    assert reply == "Here's where things stand."
 
 
 def test_personality_voice_prompt_contains_only_understanding_execution_and_verification_facts() -> (
@@ -395,13 +412,9 @@ def test_personality_voice_prompt_contains_only_understanding_execution_and_veri
         understanding=Understanding(intent="remove_duplicate_rows"),
         execution_result=ExecutionResult(
             success=True,
-            outputs=("uploads/report_deduped.xlsx",),
+            outputs=("workspace/outputs/report_deduplicated_task-1.xlsx",),
             steps=(
-                StepResult(
-                    capability="spreadsheet.deduplicate",
-                    skill="excel.deduplicate",
-                    status="success",
-                ),
+                _dedupe_step(outputs=("workspace/outputs/report_deduplicated_task-1.xlsx",)),
             ),
         ),
         verification_result=VerificationResult(
@@ -416,8 +429,12 @@ def test_personality_voice_prompt_contains_only_understanding_execution_and_veri
     assert "remove duplicate rows" in prompt
     assert "deduplicate (passed)" in prompt
     assert "NOT performed" not in prompt
+    assert "No changes were made" not in prompt
     assert "Execution succeeded: True" in prompt
-    assert "report_deduped.xlsx" in prompt
+    # The file is named as a cleaned copy of the original, never by its
+    # generated name.
+    assert "a cleaned copy of report.xlsx" in prompt
+    assert "report_deduplicated_task-1" not in prompt
     assert "Verification passed: True" in prompt
     assert "0 duplicate row(s) remaining" in prompt
 
@@ -786,3 +803,224 @@ def test_template_speaker_adds_no_stop_sentence_when_the_chain_completed() -> No
     )
 
     assert "stopped" not in TemplateSpeaker()(request)
+
+
+# -- 1. No false completion claims -------------------------------------------------
+
+
+def _b4_request(mode: str = "focus") -> SpeakingRequest:
+    """Live run B4 exactly: a multi-step request, Think asked for
+    clarification, so only read-only analysis ran (on the original) and it
+    passed. No file was changed or handed back."""
+    return _request(
+        mode=mode,
+        understanding=Understanding(intent="multi_step_request"),
+        execution_result=ExecutionResult(
+            success=True,
+            steps=(_analyze_step(input_reference="uploads/report.xlsx", permission_tier="read"),),
+        ),
+        verification_result=VerificationResult(
+            passed=True,
+            confidence=1.0,
+            findings=(
+                "[spreadsheet.analyze] [missing_values] name: 1 missing (16.7%)",
+                "[spreadsheet.analyze] [missing_values] amount: 1 missing (16.7%)",
+            ),
+            steps=(StepVerification(capability="spreadsheet.analyze", passed=True),),
+        ),
+    )
+
+
+_B4_LIVE_REPLY = (
+    "All steps completed successfully. name missing 1 (16.7%); amount missing 1 (16.7%). "
+    "Which to prioritize?"
+)
+
+
+@pytest.mark.parametrize("mode", ["friend", "focus"])
+def test_personality_voice_prompt_states_no_changes_when_only_analysis_ran(mode: str) -> None:
+    provider = _FakeLLMProvider(reply="ok")
+
+    PersonalityVoice(provider)(_b4_request(mode))
+
+    assert provider.last_messages is not None
+    prompt = provider.last_messages[0].content
+    assert prompt.startswith("No changes were made to any file this turn.")
+    assert "File handed back" not in prompt
+
+
+@pytest.mark.parametrize("mode", ["friend", "focus"])
+def test_personality_voice_discards_the_live_b4_false_completion_claim(mode: str) -> None:
+    """The model said "All steps completed successfully." for a turn that
+    changed nothing; that reply must never reach the user."""
+    provider = _FakeLLMProvider(reply=_B4_LIVE_REPLY)
+
+    reply = PersonalityVoice(provider)(_b4_request(mode))
+
+    assert reply == TemplateSpeaker()(_b4_request(mode))
+    assert "completed" not in reply.lower()
+    assert "No changes were made to any file this turn." in reply
+
+
+def test_personality_voice_keeps_an_honest_reply_when_nothing_was_changed() -> None:
+    honest = "Name and amount each have one missing value. Which should I look at first?"
+    provider = _FakeLLMProvider(reply=honest)
+
+    assert PersonalityVoice(provider)(_b4_request()) == honest
+
+
+@pytest.mark.parametrize(
+    "claim",
+    [
+        "Done.",
+        "Duplicates removed.",
+        "All cleaned up!",
+        "Deduped and saved.",
+        "Your file is ready.",
+        "Finished — 3 rows left.",
+    ],
+)
+def test_personality_voice_discards_any_completion_claim_when_the_chain_stopped(
+    claim: str,
+) -> None:
+    request = _stopped_chain_request()
+    provider = _FakeLLMProvider(reply=claim)
+
+    reply = PersonalityVoice(provider)(request)
+
+    assert reply == TemplateSpeaker()(request)
+
+
+def test_template_speaker_never_says_done_when_only_analysis_ran() -> None:
+    reply = TemplateSpeaker()(_b4_request())
+
+    assert "Done" not in reply
+    assert reply.endswith("No changes were made to any file this turn.")
+    assert "name: 1 missing" in reply  # what was noticed is still reported
+
+
+# -- 2. A produced file is always mentioned ----------------------------------------
+
+
+def _delivered_request(mode: str) -> SpeakingRequest:
+    first_out = "workspace/outputs/report_no_empty_rows_s-task-1.xlsx"
+    final = "workspace/outputs/report_no_empty_rows_s-task-1_deduplicated_s-task-2.xlsx"
+    return _request(
+        mode=mode,
+        understanding=Understanding(intent="multi_step_request"),
+        execution_result=ExecutionResult(
+            success=True,
+            outputs=(final,),
+            steps=(
+                _analyze_step(input_reference="uploads/report.xlsx", permission_tier="read"),
+                StepResult(
+                    capability="spreadsheet.remove_empty_rows",
+                    skill="excel.remove_empty_rows",
+                    status="success",
+                    outputs=(first_out,),
+                    input_reference="uploads/report.xlsx",
+                    permission_tier="write",
+                ),
+                _dedupe_step(outputs=(final,), input_reference=first_out),
+                _analyze_step(input_reference=final, permission_tier="read"),
+            ),
+        ),
+        verification_result=VerificationResult(
+            passed=True,
+            confidence=1.0,
+            findings=(
+                "[spreadsheet.analyze] [missing_values] name: 1 missing (16.7%)",
+                "[spreadsheet.remove_empty_rows] output has 5 row(s), 0 fully-empty row(s) remaining",
+                "[spreadsheet.deduplicate] output has 3 row(s), 0 duplicate row(s) remaining",
+                "[spreadsheet.analyze] nothing notable found",
+                "[final_output] final file: output has 3 row(s), 0 duplicate row(s) remaining",
+            ),
+            steps=(
+                StepVerification(
+                    capability="spreadsheet.analyze",
+                    passed=True,
+                    findings=("[missing_values] name: 1 missing (16.7%)",),
+                ),
+                StepVerification(capability="spreadsheet.remove_empty_rows", passed=True),
+                StepVerification(capability="spreadsheet.deduplicate", passed=True),
+                StepVerification(
+                    capability="spreadsheet.analyze",
+                    passed=True,
+                    findings=("nothing notable found",),
+                ),
+                StepVerification(capability="final_output", passed=True),
+            ),
+        ),
+    )
+
+
+@pytest.mark.parametrize("mode", ["friend", "focus"])
+def test_personality_voice_prompt_states_the_file_handed_back(mode: str) -> None:
+    provider = _FakeLLMProvider(reply="ok")
+
+    PersonalityVoice(provider)(_delivered_request(mode))
+
+    assert provider.last_messages is not None
+    prompt = provider.last_messages[0].content
+    assert (
+        "File handed back to the user (mention it in your reply): a cleaned copy of "
+        "report.xlsx, with every change above applied"
+    ) in prompt
+    assert "No changes were made" not in prompt
+    assert "deduplicated_s-task-2" not in prompt  # never the generated name
+
+
+@pytest.mark.parametrize("mode", ["friend", "focus"])
+def test_personality_voice_reply_always_mentions_the_file_handed_back(mode: str) -> None:
+    provider = _FakeLLMProvider(reply="Done — 3 rows left, no empties or duplicates.")
+
+    reply = PersonalityVoice(provider)(_delivered_request(mode))
+
+    assert reply == (
+        "Done — 3 rows left, no empties or duplicates. "
+        "Your cleaned copy of report.xlsx is ready."
+    )
+
+
+@pytest.mark.parametrize("mode", ["friend", "focus"])
+def test_personality_voice_leaves_a_reply_that_already_names_the_file(mode: str) -> None:
+    named = "Your report is cleaned up: 3 rows, no empties or duplicates."
+    provider = _FakeLLMProvider(reply=named)
+
+    assert PersonalityVoice(provider)(_delivered_request(mode)) == named
+
+
+# -- 3. Findings describe the file the user receives --------------------------------
+
+
+def test_personality_voice_reports_analysis_of_the_final_file_not_the_original() -> None:
+    provider = _FakeLLMProvider(reply="ok")
+
+    PersonalityVoice(provider)(_delivered_request("focus"))
+
+    assert provider.last_messages is not None
+    prompt = provider.last_messages[0].content
+    assert (
+        "Noticed on your own, unprompted (in the cleaned file handed back, after the changes): "
+        "nothing notable found"
+    ) in prompt
+    assert "missing" not in prompt  # the original's stale finding
+
+
+def test_template_speaker_reports_analysis_of_the_final_file_not_the_original() -> None:
+    reply = TemplateSpeaker()(_delivered_request("focus"))
+
+    assert "missing" not in reply
+    assert "Before anything else" not in reply
+    assert "nothing notable found" in reply
+
+
+def test_voice_reports_the_originals_analysis_when_nothing_was_re_analyzed() -> None:
+    """No chain completed (B4): the user's file is unchanged, so its
+    analysis is still current and is reported."""
+    provider = _FakeLLMProvider(reply="ok")
+
+    PersonalityVoice(provider)(_b4_request())
+
+    assert provider.last_messages is not None
+    assert "name: 1 missing (16.7%)" in provider.last_messages[0].content

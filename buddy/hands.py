@@ -177,6 +177,9 @@ class Hands:
         # Outputs handed back besides the chain's final file: any a step
         # produced that didn't feed the chain (e.g. a different file type).
         other_outputs: list[str] = []
+        # READ-tier requests that ran on the original, re-run on the final
+        # file once the chain completes.
+        read_requests: list[CapabilityRequest] = []
         # Why the chain stopped, e.g. "spreadsheet.deduplicate failed
         # verification" — set on the first chain-step failure.
         stopped_because: str | None = None
@@ -289,6 +292,7 @@ class Hands:
                         status=SkillStatus.FAILURE.value,
                         summary=result.summary,
                         input_reference=input_reference,
+                        permission_tier=task.permission.value,
                     )
                 )
                 errors.append(
@@ -317,6 +321,7 @@ class Hands:
                 summary=result.summary,
                 self_reported_findings=tuple(result.self_reported_findings),
                 input_reference=input_reference,
+                permission_tier=task.permission.value,
             )
             step_results.append(step)
             warnings.extend(result.warnings)
@@ -328,6 +333,7 @@ class Hands:
 
             if not in_chain:
                 other_outputs.extend(result.outputs)
+                read_requests.append(request)
                 continue
             if result.status is not SkillStatus.SUCCESS:
                 stopped_because = f"{request.capability} did not complete"
@@ -357,6 +363,13 @@ class Hands:
         else:
             if chain_input is not None:
                 final_outputs.append(chain_input)
+                # Findings about the original no longer describe the file
+                # the user receives, so re-run each read-only check on it.
+                step_results.extend(
+                    self._recheck_final_file(
+                        state, read_requests, chain_input, len(requests), warnings
+                    )
+                )
             final_outputs.extend(other_outputs)
 
         state.active_task = None
@@ -376,6 +389,65 @@ class Hands:
             state.session_id,
         )
         return state
+
+    def _recheck_final_file(
+        self,
+        state: BuddyState,
+        read_requests: list[CapabilityRequest],
+        final_file: str,
+        first_index: int,
+        warnings: list[str],
+    ) -> list[StepResult]:
+        """Re-run each read-only step of this turn against the final file.
+
+        The read-only steps (proactive analysis) ran on the original upload;
+        once the chain has changed the file, their findings describe a file
+        the user no longer receives. Re-running them here gives Voice
+        findings about the file actually handed back. These re-checks stay
+        outside the chain: they never feed or stop it, and a failure is
+        recorded as a warning, not an error.
+
+        Args:
+            state: The current ``BuddyState`` for this turn.
+            read_requests: The READ-tier requests that ran this turn.
+            final_file: The chain's final output.
+            first_index: Task index to number the re-checks from, so their
+                task ids never collide with the chain's.
+            warnings: This turn's warnings, appended to on failure.
+
+        Returns:
+            One ``StepResult`` per distinct capability re-checked, with
+            ``input_reference`` set to ``final_file``.
+        """
+        rechecked: list[StepResult] = []
+        distinct = {request.capability: request for request in read_requests}.values()
+        for offset, request in enumerate(distinct):
+            task = self._build_task(state, request, first_index + offset, final_file)
+            try:
+                skill = self._dispatcher.dispatch(task, input_type=request.capability).skill
+            except DispatchError as exc:
+                warnings.append(f"could not re-check the final file with {request.capability}: {exc}")
+                continue
+            task.permission = skill.permission_tier
+            if task.permission is not PermissionTier.READ:
+                continue  # never let a re-check change a file
+            result = skill.execute(task)
+            ok = result.status is SkillStatus.SUCCESS and skill.verify(task, result)
+            if not ok:
+                warnings.append(f"could not re-check the final file with {request.capability}")
+            rechecked.append(
+                StepResult(
+                    capability=request.capability,
+                    skill=skill.name,
+                    status=result.status.value if ok else SkillStatus.FAILURE.value,
+                    outputs=tuple(result.outputs) if ok else (),
+                    summary=result.summary,
+                    self_reported_findings=tuple(result.self_reported_findings) if ok else (),
+                    input_reference=final_file,
+                    permission_tier=task.permission.value,
+                )
+            )
+        return rechecked
 
     def _verify_step(self, state: BuddyState, step: StepResult) -> str | None:
         """Check one chain step's result before the next step may read it.

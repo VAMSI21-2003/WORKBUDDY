@@ -359,7 +359,7 @@ def test_full_slice_runs_two_real_skills_and_aggregates_verification_and_reply(
     # alongside the two requested capabilities.
     assert state.execution_result is not None
     assert state.execution_result.success is True
-    assert len(state.execution_result.steps) == 3
+    assert len(state.execution_result.steps) == 4  # incl. the final-file re-check
     capabilities = {step.capability for step in state.execution_result.steps}
     assert capabilities == {
         "spreadsheet.analyze",
@@ -370,11 +370,15 @@ def test_full_slice_runs_two_real_skills_and_aggregates_verification_and_reply(
     # deduplicate's (step 1) output, and only its output — the final file
     # — is handed back. spreadsheet.analyze writes no file and read the
     # original (Section 5.2/5.4 of docs/design/proactive-analysis-design.md).
-    analyze, dedupe, empty_rows = state.execution_result.steps
+    # After the chain, analysis re-ran read-only on the final file, so the
+    # reply's findings describe the file the user actually receives.
+    analyze, dedupe, empty_rows, final_analysis = state.execution_result.steps
     assert analyze.input_reference == str(input_path)
     assert dedupe.input_reference == str(input_path)
     assert empty_rows.input_reference == dedupe.outputs[0]
     assert state.execution_result.outputs == empty_rows.outputs
+    assert final_analysis.capability == "spreadsheet.analyze"
+    assert final_analysis.input_reference == empty_rows.outputs[0]
 
     # CompositeVerifier dispatched each step to its own real Verifier, then
     # checked the final file against both steps' claims, and aggregated it
@@ -385,6 +389,7 @@ def test_full_slice_runs_two_real_skills_and_aggregates_verification_and_reply(
         "spreadsheet.analyze",
         "spreadsheet.deduplicate",
         "spreadsheet.remove_empty_rows",
+        "spreadsheet.analyze",
         "final_output",
     ]
     assert any(
@@ -426,10 +431,14 @@ def test_full_slice_runs_two_real_skills_and_aggregates_verification_and_reply(
     assert int(final.isna().all(axis=1).sum()) == 0
     assert len(final) == 2  # Alice, Bob
 
-    # Voice's reply leads with the proactive-analysis findings, then still
-    # mentions the final output file.
+    # The original's missing values (the empty row) are stale: the chain
+    # removed that row, and analysis re-run on the final file found nothing.
+    # Inspector still records the original's findings, but the reply
+    # reports the file the user actually receives — and names it.
     assert state.reply is not None
-    assert "Before anything else, here's what I noticed" in state.reply
+    assert "Before anything else, here's what I noticed" not in state.reply
+    assert "missing" not in state.reply.lower()
+    assert "nothing notable found" in state.reply
     output_names = {Path(p).name for p in state.execution_result.outputs}
     for name in output_names:
         assert name in state.reply
@@ -632,13 +641,17 @@ def test_full_slice_runs_analysis_once_when_the_llm_planner_also_plans_it(
 
     assert state.execution_result is not None
     assert state.execution_result.success is True
-    executed = [step.capability for step in state.execution_result.steps]
-    assert executed.count("spreadsheet.analyze") == 1
+    # Analysis ran once on the original (the planner's duplicate was
+    # dropped), plus the single read-only re-check of the final file.
+    executed = [(s.capability, s.input_reference) for s in state.execution_result.steps]
+    final_file = state.execution_result.outputs[0]
     assert executed == [
-        "spreadsheet.analyze",
-        "spreadsheet.remove_empty_rows",
-        "spreadsheet.deduplicate",
+        ("spreadsheet.analyze", str(input_path)),
+        ("spreadsheet.remove_empty_rows", str(input_path)),
+        ("spreadsheet.deduplicate", executed[2][1]),
+        ("spreadsheet.analyze", final_file),
     ]
+    assert executed[2][1] != str(input_path)  # dedupe read the chained file
 
 
 # -- Chaining, end to end ------------------------------------------------------------
@@ -720,7 +733,8 @@ def test_full_slice_chains_steps_in_the_users_order_into_one_final_file(
     result = state.execution_result
     assert result is not None
     assert result.success is True
-    analyze, empty_rows, dedupe = result.steps
+    analyze, empty_rows, dedupe, final_analysis = result.steps
+    assert final_analysis.input_reference == result.outputs[0]
     upload = str(Path("uploads") / "report.xlsx")
     assert analyze.input_reference == upload  # analysis read the original
     assert empty_rows.input_reference == upload
