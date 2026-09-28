@@ -97,6 +97,10 @@ def _parse_args() -> argparse.Namespace:
 
 
 def main() -> None:
+    if hasattr(sys.stdout, "reconfigure"):
+        sys.stdout.reconfigure(encoding="utf-8", errors="replace")
+    if hasattr(sys.stderr, "reconfigure"):
+        sys.stderr.reconfigure(encoding="utf-8", errors="replace")
     args = _parse_args()
 
     input_path = SCRATCH_DIR / "uploads" / "manual_report.xlsx"
