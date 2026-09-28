@@ -57,6 +57,23 @@ def _capability_snapshot(registry: SkillRegistry) -> tuple[tuple[str, str], ...]
     )
 
 
+def _build_registry() -> SkillRegistry:
+    """Build the registry of every Skill this Engine can dispatch to.
+
+    Kept separate from ``build_engine`` so tests can check other wiring —
+    notably the capability list hardcoded in ``buddy.think._SYSTEM_PROMPT``
+    — against the real set of registered Skills.
+
+    Returns:
+        A registry with every Skill registered.
+    """
+    registry = SkillRegistry()
+    registry.register(ExcelDeduplicateSkill())
+    registry.register(ExcelRemoveEmptyRowsSkill())
+    registry.register(SpreadsheetAnalysisSkill())
+    return registry
+
+
 def build_engine(
     *, llm_provider: LLMProvider | None = None, speaker: Speaker | None = None
 ) -> Engine:
@@ -102,10 +119,7 @@ def build_engine(
     """
     provider = llm_provider if llm_provider is not None else ClaudeProvider()
 
-    registry = SkillRegistry()
-    registry.register(ExcelDeduplicateSkill())
-    registry.register(ExcelRemoveEmptyRowsSkill())
-    registry.register(SpreadsheetAnalysisSkill())
+    registry = _build_registry()
     dispatcher = Dispatcher(registry)
     known_capabilities = _capability_snapshot(registry)
 

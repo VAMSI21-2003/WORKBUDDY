@@ -235,3 +235,48 @@ def test_claude_thinker_wired_into_think_stage() -> None:
 
     assert state.reasoning is not None
     assert state.reasoning.objective == "dedupe"
+
+
+# -- System prompt: capability list stays in sync with the registry -----------
+
+
+def test_system_prompt_names_every_registered_capability() -> None:
+    """``_SYSTEM_PROMPT`` hardcodes Buddy's capabilities and their limits,
+    because each Skill's own ``description`` doesn't carry those limits.
+    This fails if a Skill is registered without the prompt being updated,
+    so Think can't silently fall behind what Buddy can actually do.
+    """
+    from buddy.engine_factory import _build_registry
+    from buddy.think import _SYSTEM_PROMPT
+
+    registered = {
+        capability
+        for skill in _build_registry().available_skills()
+        for capability in skill.supported_inputs
+    }
+
+    assert registered  # guard against a vacuous pass
+    missing = sorted(c for c in registered if f"- {c}:" not in _SYSTEM_PROMPT)
+    assert missing == [], f"capabilities missing from Think's system prompt: {missing}"
+
+
+def test_system_prompt_keeps_never_shown_contents_rule() -> None:
+    from buddy.think import _SYSTEM_PROMPT
+
+    assert "You are never shown the contents of any uploaded file" in _SYSTEM_PROMPT
+
+
+def test_system_prompt_forbids_telling_the_user_to_run_code() -> None:
+    from buddy.think import _SYSTEM_PROMPT
+
+    assert "never tell the user to run code, write a script" in _SYSTEM_PROMPT
+
+
+def test_system_prompt_forbids_clarifying_on_fixed_capability_behavior() -> None:
+    """Live runs showed Think asking "which columns define a duplicate?" —
+    a question no capability can act on. The prompt must rule it out."""
+    from buddy.think import _SYSTEM_PROMPT
+
+    assert "which columns define a duplicate, which occurrence to keep" in _SYSTEM_PROMPT
+    assert "what counts as an empty row" in _SYSTEM_PROMPT
+    assert "don't ask\n  for confirmation" in _SYSTEM_PROMPT
