@@ -14,7 +14,11 @@ import groq
 logger = logging.getLogger(__name__)
 
 DEFAULT_MODEL = "claude-sonnet-5"
-DEFAULT_GROQ_MODEL = "llama-3.3-70b-versatile"
+# Groq periodically retires models on a schedule of its own — this exact
+# default has already rotted once (llama-3.3-70b-versatile was retired
+# 2026-08-16). Check https://console.groq.com/docs/deprecations before
+# trusting this value; it's whatever Groq recommended as of 2026-09.
+DEFAULT_GROQ_MODEL = "openai/gpt-oss-120b"
 
 
 @dataclass(frozen=True)

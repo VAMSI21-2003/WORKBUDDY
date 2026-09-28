@@ -7,7 +7,13 @@ from typing import Any
 
 import pytest
 
-from buddy.llm import ClaudeProvider, GroqProvider, LLMConfigurationError, LLMMessage
+from buddy.llm import (
+    DEFAULT_GROQ_MODEL,
+    ClaudeProvider,
+    GroqProvider,
+    LLMConfigurationError,
+    LLMMessage,
+)
 
 
 class _FakeTextBlock:
@@ -240,13 +246,19 @@ def test_groq_provider_accepts_explicit_key_override(monkeypatch: pytest.MonkeyP
     GroqProvider(api_key="gsk-test-explicit")
 
 
-def test_groq_provider_defaults_to_llama_3_3_70b_versatile() -> None:
+def test_groq_provider_defaults_to_the_current_recommended_groq_model() -> None:
+    """Asserts against ``DEFAULT_GROQ_MODEL`` itself, not a hardcoded
+    literal — Groq periodically retires models (see the comment beside
+    ``DEFAULT_GROQ_MODEL`` in ``buddy/llm.py``), and a hardcoded string
+    here would silently stop testing anything the moment that constant is
+    next updated.
+    """
     provider, fake_client = _groq_provider_with_fake_client(response_text="ok")
 
     provider.complete(system="s", messages=(LLMMessage(role="user", content="u"),))
 
     assert fake_client.chat.completions.last_kwargs is not None
-    assert fake_client.chat.completions.last_kwargs["model"] == "llama-3.3-70b-versatile"
+    assert fake_client.chat.completions.last_kwargs["model"] == DEFAULT_GROQ_MODEL
 
 
 def test_groq_complete_sends_system_as_first_message_and_returns_text() -> None:
