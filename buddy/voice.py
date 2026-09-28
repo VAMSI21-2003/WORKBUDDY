@@ -9,6 +9,7 @@ from typing import Protocol
 
 from buddy.llm import LLMMessage, LLMProvider
 from buddy.models import ExecutionResult, StepResult, Understanding, VerificationResult
+from buddy.planner import _INTENT_CAPABILITIES
 from buddy.state import BuddyState
 
 logger = logging.getLogger(__name__)
@@ -27,6 +28,28 @@ _ANALYSIS_FINDING_PATTERN = re.compile(
 # only) even when it ran and passed in the same turn.
 _ANALYSIS_FINDING_FIX_CAPABILITY: dict[str, str] = {}
 
+# Inspector prefixes each finding with its capability (and, for analysis
+# findings, a category) -- "[spreadsheet.deduplicate] ..." or
+# "[spreadsheet.analyze] [outliers] ...". Those tags are internal routing
+# labels and must never reach the user, so they're stripped before a
+# finding is rendered into a reply or handed to the model.
+_FINDING_TAG_PREFIX = re.compile(r"^(?:\[[\w.]+\]\s*)+")
+
+
+def _strip_finding_tags(finding: str) -> str:
+    """Return ``finding`` without its leading ``[capability]``/``[category]`` tags."""
+    return _FINDING_TAG_PREFIX.sub("", finding)
+
+
+def _is_analysis_finding(finding: str) -> bool:
+    """Return whether ``finding`` came from the proactive ``spreadsheet.analyze`` step."""
+    return finding.startswith(f"[{_ANALYZE_CAPABILITY}]")
+
+
+def _describe_capability(capability: str) -> str:
+    """Turn a capability id into plain words, e.g. ``"spreadsheet.deduplicate"`` -> ``"deduplicate"``."""
+    return capability.rsplit(".", 1)[-1].replace("_", " ")
+
 
 def _find_step(execution_result: ExecutionResult | None, capability: str) -> StepResult | None:
     """Return the first step in ``execution_result.steps`` for ``capability``.
@@ -44,6 +67,32 @@ def _find_step(execution_result: ExecutionResult | None, capability: str) -> Ste
         if step.capability == capability:
             return step
     return None
+
+
+def _step_passed(
+    step: StepResult, verification_result: VerificationResult | None
+) -> bool:
+    """Return whether ``step`` actually ran successfully this turn.
+
+    A step counts as passed only if its Skill reported ``"success"`` and
+    Inspector didn't independently fail that same capability (when
+    ``verification_result.steps`` carries a per-step verdict for it).
+
+    Args:
+        step: The step to check.
+        verification_result: Inspector's verdict, if it ran.
+
+    Returns:
+        ``True`` if the step both ran successfully and wasn't failed by
+        verification.
+    """
+    if step.status != "success":
+        return False
+    if verification_result is not None:
+        for step_verification in verification_result.steps:
+            if step_verification.capability == step.capability and not step_verification.passed:
+                return False
+    return True
 
 
 @dataclass(frozen=True)
@@ -240,7 +289,8 @@ class TemplateSpeaker:
         """
         parts = ["Done"]
         if verification_result.findings:
-            parts.append(f"— {'; '.join(verification_result.findings)}.")
+            findings = "; ".join(_strip_finding_tags(f) for f in verification_result.findings)
+            parts.append(f"— {findings}.")
         else:
             parts[0] = "Done."
         output_names = TemplateSpeaker._output_file_names(execution_result)
@@ -265,7 +315,7 @@ class TemplateSpeaker:
         """
         parts = ["I wasn't able to confirm that worked."]
         if verification_result.findings:
-            joined = "; ".join(verification_result.findings)
+            joined = "; ".join(_strip_finding_tags(f) for f in verification_result.findings)
             parts.append(joined[0].upper() + joined[1:] + ".")
         if verification_result.recommendations:
             parts.append(" ".join(verification_result.recommendations))
@@ -413,10 +463,10 @@ hand, not generic filler:
 These are not templates to reuse verbatim — they're examples of the level
 of specificity and callback humor to aim for, not lines to recycle.
 
-If any of the facts you're given are prefixed "[spreadsheet.analyze]", treat
-them differently from an ordinary outcome: they're something you noticed on
-your own, before being asked to — not a request you're reporting pass/fail
-on. Lead with them, phrase them warmly, and close by asking which one (if
+If any of the facts you're given are listed under "Noticed on your own,
+unprompted", treat them differently from an ordinary outcome: they're
+something you noticed on your own, before being asked to — not a request
+you're reporting pass/fail on. Lead with them, phrase them warmly, and close by asking which one (if
 any) the user wants you to look at first. Don't ask about a finding that's
 already been resolved by something else you did this same turn — only ask
 about the ones still open.
@@ -430,6 +480,10 @@ Hard rules:
   "_manual-session-task-0". Refer to the file the way a person would:
   "the file," "your spreadsheet," or its plain original name with the
   generated suffix dropped.
+- Never repeat internal labels: no bracketed tags like "[something]", no
+  dotted system names like "spreadsheet.deduplicate", and none of the
+  field labels from the facts you were given. Describe what happened in
+  plain words.
 - Keep it short: 1-3 sentences. This is a quick status update, not an
   essay.
 - Respond with the reply text only — no preamble, no quotation marks, no
@@ -454,13 +508,16 @@ gone" over passive, formal phrasing like "resulting in a 3-row output."
 Say it the way a coworker would say it out loud in five words, not the
 way a status page would print it.
 
-Facts prefixed "[spreadsheet.analyze]" are an unprompted observation, not a
-pass/fail outcome. Lead with them tersely, then ask which one to prioritize —
+Facts listed under "Noticed on your own, unprompted" are an unprompted
+observation, not a pass/fail outcome. Lead with them tersely, then ask which one to prioritize —
 skip any already resolved by something else this turn.
 
 Hard rules:
 - Never invent, omit, or soften a fact you were given. If something
   failed, say it failed.
+- Never repeat internal labels: no bracketed tags like "[something]", no
+  dotted system names like "spreadsheet.deduplicate", and none of the
+  field labels from the facts you were given.
 - Prefer a single short sentence. Two only if truly necessary.
 - Respond with the reply text only — no preamble, no quotation marks, no
   markdown headers.
@@ -530,6 +587,18 @@ class PersonalityVoice:
         ``understanding.intent``, ``execution_result``, and
         ``verification_result`` — are included.
 
+        ``understanding.intent`` is what the user *asked for*, not what
+        happened: Think can flag ``clarification_required`` (or the
+        planner can otherwise produce no step), leaving the intent's
+        capability unrun while other steps — e.g. proactive
+        ``spreadsheet.analyze`` — still succeed. So the intent is labelled
+        as a request, every step that actually ran is listed with its
+        status, and when the intent's capability has no passing step this
+        turn the prompt says explicitly that the action was not
+        performed. Otherwise "classified as remove_duplicate_rows" plus
+        "Execution succeeded: True" reads to the model as "duplicates
+        removed".
+
         Args:
             request: The request to build a prompt from.
 
@@ -537,13 +606,37 @@ class PersonalityVoice:
             The plain-text user prompt to send to the model.
         """
         lines: list[str] = []
-        if request.understanding.intent:
-            lines.append(f"User's request was classified as: {request.understanding.intent}")
-
         execution_result = request.execution_result
+        verification_result = request.verification_result
+        steps = execution_result.steps if execution_result is not None else ()
+
+        intent = request.understanding.intent
+        if intent:
+            lines.append(
+                "What the user asked for (a request, not an outcome): " + intent.replace("_", " ")
+            )
+            capability = _INTENT_CAPABILITIES.get(intent)
+            if capability is not None and not any(
+                step.capability == capability and _step_passed(step, verification_result)
+                for step in steps
+            ):
+                lines.append(
+                    f"The requested action ({_describe_capability(capability)}) was NOT "
+                    "performed this turn. Do not say or imply that it was done."
+                )
+
         if execution_result is None:
             lines.append("Execution: nothing was executed.")
         else:
+            if steps:
+                ran = ", ".join(
+                    f"{_describe_capability(step.capability)} "
+                    f"({'passed' if _step_passed(step, verification_result) else 'did not pass'})"
+                    for step in steps
+                )
+                lines.append(f"Steps that actually ran this turn: {ran}")
+            else:
+                lines.append("Steps that actually ran this turn: none")
             lines.append(f"Execution succeeded: {execution_result.success}")
             if execution_result.outputs:
                 output_names = ", ".join(Path(o).name for o in execution_result.outputs)
@@ -553,15 +646,22 @@ class PersonalityVoice:
             if execution_result.errors:
                 lines.append("Execution errors: " + "; ".join(execution_result.errors))
 
-        verification_result = request.verification_result
         if verification_result is None:
             lines.append("Verification: not performed.")
         else:
             lines.append(f"Verification passed: {verification_result.passed}")
-            if verification_result.findings:
-                lines.append(
-                    "Verification findings: " + "; ".join(verification_result.findings)
-                )
+            noticed = [
+                _strip_finding_tags(f) for f in verification_result.findings if _is_analysis_finding(f)
+            ]
+            findings = [
+                _strip_finding_tags(f)
+                for f in verification_result.findings
+                if not _is_analysis_finding(f)
+            ]
+            if noticed:
+                lines.append("Noticed on your own, unprompted: " + "; ".join(noticed))
+            if findings:
+                lines.append("Verification findings: " + "; ".join(findings))
             if verification_result.recommendations:
                 lines.append(
                     "Verification recommendations: "
