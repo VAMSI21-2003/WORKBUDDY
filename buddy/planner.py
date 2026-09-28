@@ -315,31 +315,50 @@ def _analysis_first(steps: tuple[PlanningStep, ...]) -> tuple[PlanningStep, ...]
     return analysis + tuple(step for step in steps if step.capability != _ANALYZE_CAPABILITY)
 
 
-# Words that can put steps in a different order from the one they're
-# mentioned in ("remove duplicates after removing empty rows"). When any
-# appears, the mention order isn't trusted and the model's order stands.
-_ORDER_INVERTING_WORDS = re.compile(
-    r"\b(after|before|once|until|prior to|following|preceding)\b", re.IGNORECASE
+# The only wording that may join two consecutive steps for their order to
+# be read from where they're mentioned. Compared after lowercasing, turning
+# punctuation into spaces and collapsing whitespace, so ", then" and
+# "; then" both count as "then". Anything else between two steps — "and",
+# "last, and", ", but do", "after you" — isn't understood, and the model's
+# order stands.
+_FORWARD_CONNECTORS = frozenset({"then", "and then", "after that", "followed by", "next"})
+# Order-related wording. Outside the connectors above, any of it — before
+# the first step, after the last, or inside a quoted phrase — means the
+# message may state the order some other way ("… last", "… second",
+# "… ahead of that"), so the model's order stands. The one exception is a
+# lone "first" before the first step ("first X, then Y").
+_ORDER_WORDS = re.compile(
+    r"\b(first|second|third|fourth|last|lastly|finally|then|next|after|afterwards|"
+    r"before|beforehand|prior|following|followed|preceding|once|until|ahead|earlier|"
+    r"later|start|begin|end|meanwhile|previously|subsequently)\b"
 )
-# "first" anywhere but the very start ("…, but first remove empty rows")
-# can also invert the order.
-_LATE_FIRST = re.compile(r"\S.*\bfirst\b", re.IGNORECASE | re.DOTALL)
+_PUNCTUATION = re.compile(r"[^\w\s]")
+
+
+def _normalize_connector(text: str) -> str:
+    """``text`` lowercased, punctuation removed, whitespace collapsed."""
+    return " ".join(_PUNCTUATION.sub(" ", text.lower()).split())
 
 
 def _order_stated_by_user(raw_steps: list[dict], user_message: str) -> list[int] | None:
     """Return the order the user stated the steps in, if it can be checked.
 
     Each step's ``source_phrase`` (the model's verbatim quote of the words
-    asking for it) is located in ``user_message``; steps are ordered by
-    where their phrase appears. This makes the order follow the user's
-    own words, whatever order the model listed the steps in.
+    asking for it) is located in ``user_message``. The steps are put in
+    the order their phrases appear **only** when that order is stated in
+    wording this check recognises (an allowlist, not a list of exceptions):
 
-    Returns ``None`` — meaning "keep the model's order" — whenever the
-    position can't be trusted: a phrase is missing, not found verbatim
-    (case-insensitive), or found more than once (a short or generic quote
-    like "rows" can't say *which* mention it meant), two phrases overlap,
-    or the message contains a word that can invert the order
-    (``_ORDER_INVERTING_WORDS``, or a "first" that isn't the opening word).
+    - every phrase appears exactly once (case-insensitive), with no two
+      phrases overlapping;
+    - consecutive phrases are joined by nothing but a forward connector
+      (``_FORWARD_CONNECTORS``: "then", "and then", ", then", "after
+      that", "followed by", "next");
+    - no other order-related word (``_ORDER_WORDS``) appears anywhere
+      else — before the first phrase (except a lone "first", for "first X,
+      then Y"), after the last, or inside a phrase.
+
+    Otherwise it returns ``None``, meaning "keep the model's order", and
+    logs why.
 
     Args:
         raw_steps: The model's steps, in the model's order.
@@ -350,9 +369,6 @@ def _order_stated_by_user(raw_steps: list[dict], user_message: str) -> list[int]
     """
     message = user_message.lower()
     if not message or len(raw_steps) < 2:
-        return None
-    if _ORDER_INVERTING_WORDS.search(message) or _LATE_FIRST.match(message.strip()):
-        logger.info("ClaudePlanner: message may state steps out of order; keeping model's order")
         return None
 
     spans: list[tuple[int, int]] = []
@@ -371,12 +387,40 @@ def _order_stated_by_user(raw_steps: list[dict], user_message: str) -> list[int]
                 occurrences,
             )
             return None
+        if _ORDER_WORDS.search(needle):
+            logger.info(
+                "ClaudePlanner: source_phrase %r contains order wording; keeping model's order",
+                phrase,
+            )
+            return None
         start = message.find(needle)
         spans.append((start, start + len(needle)))
 
     order = sorted(range(len(spans)), key=lambda i: spans[i][0])
-    if any(spans[b][0] < spans[a][1] for a, b in zip(order, order[1:])):
+    if any(spans[b][0] < spans[a][1] for a, b in zip(order, order[1:], strict=False)):
         logger.warning("ClaudePlanner: source phrases overlap; keeping model's order")
+        return None
+
+    gaps = [
+        _normalize_connector(message[spans[a][1] : spans[b][0]])
+        for a, b in zip(order, order[1:], strict=False)
+    ]
+    unrecognised = [gap for gap in gaps if gap not in _FORWARD_CONNECTORS]
+    if unrecognised:
+        logger.info(
+            "ClaudePlanner: steps joined by unrecognised wording %r; keeping model's order",
+            unrecognised,
+        )
+        return None
+    lead = _normalize_connector(message[: spans[order[0]][0]])
+    tail = message[spans[order[-1]][1] :]
+    if (_ORDER_WORDS.search(lead) and lead != "first") or _ORDER_WORDS.search(tail):
+        logger.info(
+            "ClaudePlanner: order wording outside the connectors (%r / %r); "
+            "keeping model's order",
+            lead,
+            _normalize_connector(tail),
+        )
         return None
     return order
 

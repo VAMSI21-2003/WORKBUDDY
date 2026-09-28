@@ -481,11 +481,20 @@ re-check never marks the original as analyzed (only an analysis whose
   and that the original is unchanged.
 - One rule for "passed" (`_step_passed`): a step passed only if its Skill
   reported success *and* Inspector has a passing verdict for that step.
-- `PersonalityVoice` checks the model's reply: when nothing was
-  delivered, a reply with completion wording is replaced by
-  `TemplateSpeaker`'s factual reply. When a file was delivered, the reply
-  must mention it, or a sentence naming it is appended.
-- A failed final-file re-check is said in plain words, and the delivered
+- `PersonalityVoice` lets the model phrase only two kinds of turn: a
+  plain conversation turn (no action requested or attempted), and a turn
+  where a file was delivered *and* Inspector ran and passed it. Every
+  other action turn gets `TemplateSpeaker`'s factual reply, with no model
+  call (`_model_may_describe_outcome`). "Action requested" means Brain's
+  intent is `multi_step_request` or one the rule-based planner maps to a
+  capability. "Attempted" means a step that isn't READ tier was planned
+  (including one never dispatched or never started), or the chain
+  stopped. The completion-wording check remains as an extra layer. When a
+  file was delivered, the reply must mention it, or a sentence naming it
+  is appended.
+- A failed final-file re-check, and a failed read-only step on the
+  original (e.g. the initial analysis), are said in plain words. Neither
+  fails the turn unless it was the only thing verified, and the delivered
   file is still named.
 - No raw capability id (`spreadsheet.analyze`, and any other id in a
   known domain) reaches a reply: leading `[tag]`s are stripped and ids

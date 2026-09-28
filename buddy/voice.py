@@ -278,6 +278,76 @@ RECHECK_FAILED_SENTENCE = (
 )
 
 
+# Intents that ask Buddy to change a file: every intent the rule-based
+# planner maps to a capability (all of them file-changing today), plus a
+# compound request, which ClaudePlanner decomposes into steps that may
+# change files. "unclear" and a missing intent are not action requests.
+_ACTION_INTENTS = frozenset({*_INTENT_CAPABILITIES, "multi_step_request"})
+
+
+def _action_requested_or_attempted(request: "SpeakingRequest") -> bool:
+    """Whether this turn asked for, or tried, a change to a file.
+
+    Requested: Brain classified the message as an action intent
+    (``_ACTION_INTENTS``) — even if Think then asked for clarification and
+    only read-only analysis ran. Attempted: any step that isn't known to
+    be read-only was planned this turn — a step that ran above READ tier,
+    or one with no recorded tier because it was never dispatched or never
+    started — or the chain stopped. Proactive analysis and its re-check
+    are READ tier, so on their own they're neither.
+    """
+    if request.understanding.intent in _ACTION_INTENTS:
+        return True
+    execution_result = request.execution_result
+    if execution_result is None:
+        return False
+    return execution_result.stopped_at is not None or any(
+        step.permission_tier != "read" for step in execution_result.steps
+    )
+
+
+def _model_may_describe_outcome(request: "SpeakingRequest") -> bool:
+    """Whether ``PersonalityVoice`` may let the model phrase this turn.
+
+    Only two kinds of turn:
+    - no action was requested or attempted (plain conversation, possibly
+      with proactive read-only analysis); or
+    - a verified file was delivered: something was handed back and
+      Inspector ran and passed the turn.
+
+    Every other action turn — the chain stopped, nothing was delivered,
+    only read-only steps ran for an action request, a delivered file
+    failed verification, or verification is missing — is described by
+    ``TemplateSpeaker``'s factual reply, with no model call. A model can
+    phrase a false completion claim in words no check anticipates, so
+    for those turns it's never given the chance.
+    """
+    if not _action_requested_or_attempted(request):
+        return True
+    verification_result = request.verification_result
+    return (
+        not _nothing_delivered(request)
+        and verification_result is not None
+        and verification_result.passed
+    )
+
+
+INITIAL_ANALYSIS_FAILED_SENTENCE = "The initial analysis of your original file couldn't run."
+
+
+def _initial_analysis_failed(verification_result: VerificationResult | None) -> bool:
+    """Whether a read-only step on the original (not a re-check) failed.
+
+    Non-blocking, like a failed re-check: it never fails the turn, but the
+    reply says so in plain words.
+    """
+    if verification_result is None:
+        return False
+    return any(
+        s.read_only and not s.recheck and not s.passed for s in verification_result.steps
+    )
+
+
 def _recheck_failed(verification_result: VerificationResult | None) -> bool:
     """Whether a re-check of the delivered file failed (non-blocking)."""
     if verification_result is None:
@@ -410,6 +480,8 @@ class TemplateSpeaker:
                 reply = self._success_message(execution_result, verification_result)
             else:
                 reply = self._failure_message(verification_result)
+            if _initial_analysis_failed(verification_result):
+                reply = f"{reply} {INITIAL_ANALYSIS_FAILED_SENTENCE}"
             if _recheck_failed(verification_result):
                 reply = f"{reply} {RECHECK_FAILED_SENTENCE}"
         return _plain_words(reply)
@@ -874,9 +946,21 @@ class PersonalityVoice:
             request: The request to compose a reply for.
 
         Returns:
-            The composed reply text, or a factual fallback if the model
-            call fails or returns an empty reply.
+            The composed reply text; ``TemplateSpeaker``'s factual reply
+            when the model may not describe this turn's outcome (see
+            ``_model_may_describe_outcome``), or when the model call fails
+            or returns an empty reply.
         """
+        # Structural guard, checked before any model call: for an action
+        # turn that didn't end in a verified, delivered file, the outcome
+        # is stated only by TemplateSpeaker.
+        if not _model_may_describe_outcome(request):
+            logger.info(
+                "PersonalityVoice: no verified file was delivered for an action turn; "
+                "using the factual reply without a model call"
+            )
+            return self._fallback_reply(request)
+
         system_prompt = FOCUS_MODE_PROMPT if request.mode == "focus" else FRIEND_MODE_PROMPT
         user_prompt = self._build_user_prompt(request)
         try:
@@ -893,10 +977,10 @@ class PersonalityVoice:
             logger.warning("PersonalityVoice: LLM reply was empty")
             return self._fallback_reply(request)
 
-        # The prompt tells the model what happened, but a model can still
-        # say "all done" for a turn that changed nothing — so check the
-        # reply itself. When nothing was delivered, any completion wording
-        # means the factual TemplateSpeaker reply is used instead.
+        # An extra layer only: the structural guard above already keeps the
+        # model away from every action turn that delivered nothing. What
+        # can reach here with nothing delivered is a plain conversation
+        # turn, where any completion wording is still replaced.
         if _nothing_delivered(request) and _COMPLETION_CLAIM.search(reply):
             logger.warning(
                 "PersonalityVoice: reply claimed completion but nothing was delivered; "
@@ -1024,6 +1108,11 @@ class PersonalityVoice:
                 lines.append(f"Noticed on your own, unprompted{about}: " + "; ".join(noticed))
             if findings:
                 lines.append("Verification findings: " + "; ".join(findings))
+            if _initial_analysis_failed(verification_result):
+                lines.append(
+                    "The initial analysis of the original file couldn't run. Say so plainly; "
+                    "it doesn't affect the file handed back, which was verified."
+                )
             if _recheck_failed(verification_result):
                 lines.append(
                     "The cleaned file handed back could not be re-checked for other problems "

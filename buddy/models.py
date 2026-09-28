@@ -237,6 +237,10 @@ class StepVerification:
         recheck: Mirrors ``StepResult.recheck``: this verdict is for a
             re-check of the final file, and its failure didn't count
             against ``VerificationResult.passed``.
+        read_only: The verified step ran at READ tier (e.g. proactive
+            analysis of the original). Outside the chain, so its failure
+            doesn't count against ``VerificationResult.passed`` either —
+            unless every step this turn was read-only.
     """
 
     capability: str
@@ -246,6 +250,7 @@ class StepVerification:
     recommendations: tuple[str, ...] = ()
     input_reference: str = ""
     recheck: bool = False
+    read_only: bool = False
 
 
 @dataclass(frozen=True)

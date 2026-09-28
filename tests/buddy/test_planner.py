@@ -647,7 +647,7 @@ def test_claude_planner_remaps_dependencies_after_reordering() -> None:
     report step depended on both, which now maps to the new ids, and the
     empty-rows step's dependency on dedupe (now later) is dropped."""
     steps = _plan(
-        "remove the empty rows, remove the duplicate rows, and give me a report",
+        "remove the empty rows, then remove the duplicate rows, then give me a report",
         _step_json("spreadsheet.deduplicate", "remove the duplicate rows"),
         _step_json("spreadsheet.remove_empty_rows", "remove the empty rows", [1]),
         _step_json("spreadsheet.report", "give me a report", [1, 2]),
@@ -841,3 +841,87 @@ def test_planner_passes_raw_user_message_through_to_the_strategy() -> None:
     stage(state)
 
     assert seen[0].user_message == "check if this column exists, remove it, and give me a report"
+
+
+# -- R2: the order is read from the message only through an allowlist ---------------
+
+
+@pytest.mark.parametrize(
+    ("message", "model_steps"),
+    [
+        # The four messages from the re-review (R2). The model's order is
+        # correct (empty rows first); reading positions would reverse it.
+        (
+            "remove the duplicate rows last, and remove the empty rows",
+            ((_EMPTY, "remove the empty rows"), (_DEDUPE, "remove the duplicate rows")),
+        ),
+        (
+            "remove the duplicate rows second and remove the empty rows",
+            ((_EMPTY, "remove the empty rows"), (_DEDUPE, "remove the duplicate rows")),
+        ),
+        (
+            "remove the duplicate rows, but do the empty rows ahead of that",
+            ((_EMPTY, "the empty rows"), (_DEDUPE, "remove the duplicate rows")),
+        ),
+        (
+            "remove the duplicate rows; before that, remove the empty rows",
+            ((_EMPTY, "remove the empty rows"), (_DEDUPE, "remove the duplicate rows")),
+        ),
+        # Plain "and" isn't a recognised forward connector either.
+        (
+            "remove the duplicate rows and remove the empty rows",
+            ((_EMPTY, "remove the empty rows"), (_DEDUPE, "remove the duplicate rows")),
+        ),
+        # Order wording after the last step.
+        (
+            "remove the duplicate rows then remove the empty rows first",
+            ((_EMPTY, "remove the empty rows"), (_DEDUPE, "remove the duplicate rows")),
+        ),
+        # Order wording inside a quoted phrase.
+        (
+            "remove the duplicate rows then remove the empty rows",
+            ((_EMPTY, "then remove the empty rows"), (_DEDUPE, "remove the duplicate rows")),
+        ),
+    ],
+    ids=[
+        "last",
+        "second",
+        "ahead-of-that",
+        "before-that",
+        "plain-and",
+        "trailing-first",
+        "in-phrase",
+    ],
+)
+def test_claude_planner_keeps_the_models_order_unless_a_forward_connector_states_it(
+    message: str, model_steps: tuple[tuple[str, str], ...]
+) -> None:
+    steps = _plan(message, *(_step_json(cap, phrase) for cap, phrase in model_steps))
+
+    assert [s.capability for s in steps] == [cap for cap, _ in model_steps]
+
+
+@pytest.mark.parametrize(
+    ("message", "stated"),
+    [
+        ("remove the empty rows and then remove the duplicate rows", [_EMPTY, _DEDUPE]),
+        ("remove the duplicate rows and then remove the empty rows", [_DEDUPE, _EMPTY]),
+        ("remove the empty rows, then remove the duplicate rows", [_EMPTY, _DEDUPE]),
+        ("remove the empty rows then remove the duplicate rows", [_EMPTY, _DEDUPE]),
+        ("remove the empty rows; after that, remove the duplicate rows", [_EMPTY, _DEDUPE]),
+        ("remove the empty rows followed by remove the duplicate rows", [_EMPTY, _DEDUPE]),
+        ("remove the empty rows, next remove the duplicate rows", [_EMPTY, _DEDUPE]),
+        ("first remove the empty rows, then remove the duplicate rows", [_EMPTY, _DEDUPE]),
+        ("please remove the empty rows and then remove the duplicate rows.", [_EMPTY, _DEDUPE]),
+    ],
+)
+@pytest.mark.parametrize("model_order", ["same", "reversed"])
+def test_claude_planner_follows_the_stated_order_with_a_forward_connector(
+    message: str, stated: list[str], model_order: str
+) -> None:
+    phrases = {_EMPTY: "remove the empty rows", _DEDUPE: "remove the duplicate rows"}
+    listed = stated if model_order == "same" else list(reversed(stated))
+
+    steps = _plan(message, *(_step_json(cap, phrases[cap]) for cap in listed))
+
+    assert [s.capability for s in steps] == stated

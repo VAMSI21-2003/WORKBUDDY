@@ -1033,3 +1033,52 @@ def test_composite_verifier_records_each_steps_input_reference() -> None:
     )
 
     assert result.steps[0].input_reference == "in.xlsx"
+
+
+
+def test_composite_verifier_does_not_fail_the_turn_on_a_failed_read_only_step() -> None:
+    """R4: a READ-tier step on the original (proactive analysis) is outside
+    the chain. Its failure is recorded but doesn't fail the turn."""
+    passing = _FakeVerifier(VerificationResult(passed=True, confidence=1.0))
+    failing = _FakeVerifier(VerificationResult(passed=False, confidence=1.0, findings=("x",)))
+    steps = (
+        StepResult(
+            capability="cap.read",
+            skill="r",
+            status="failure",
+            input_reference="orig.xlsx",
+            permission_tier="read",
+        ),
+        StepResult(
+            capability="cap.a",
+            skill="a",
+            status="success",
+            outputs=("final.xlsx",),
+            input_reference="orig.xlsx",
+            permission_tier="write",
+        ),
+    )
+
+    result = CompositeVerifier({"cap.a": passing, "cap.read": failing})(
+        _request(
+            execution_result=ExecutionResult(success=False, outputs=("final.xlsx",), steps=steps)
+        )
+    )
+
+    assert result.passed is True
+    assert (result.steps[0].passed, result.steps[0].read_only) == (False, True)
+
+
+def test_composite_verifier_still_fails_a_turn_whose_only_step_is_a_failed_read() -> None:
+    """When the read-only step is all there was (e.g. the user asked for an
+    analysis), its failure is the turn's failure."""
+    failing = _FakeVerifier(VerificationResult(passed=False, confidence=1.0, findings=("x",)))
+    step = StepResult(
+        capability="cap.read", skill="r", status="failure", permission_tier="read"
+    )
+
+    result = CompositeVerifier({"cap.read": failing})(
+        _request(execution_result=ExecutionResult(success=False, steps=(step,)))
+    )
+
+    assert result.passed is False

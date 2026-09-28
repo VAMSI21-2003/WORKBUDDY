@@ -540,6 +540,9 @@ class _Verdict(NamedTuple):
     input_reference: str = ""
     # A re-check of the final file: its failure doesn't fail the turn.
     recheck: bool = False
+    # A READ-tier step (e.g. analysis of the original): outside the chain,
+    # so its failure doesn't fail the turn either.
+    read_only: bool = False
 
 
 # The finding recorded for a step that never ran because an earlier one failed.
@@ -555,11 +558,13 @@ def _aggregate_verdicts(per_step: Sequence[_Verdict]) -> VerificationResult:
 
     ``passed`` iff every step passed — one unverified or failed step means
     the turn as a whole isn't verified, the same all-or-nothing standard
-    ``ExecutionResult.success`` already applies via ``not errors``. The one
-    exception is a re-check of the final file (``recheck``): it only adds
-    findings about a file that was already delivered and verified, so its
-    failure is recorded on its own ``StepVerification`` but never fails the
-    turn.
+    ``ExecutionResult.success`` already applies via ``not errors``. The
+    exceptions are read-only steps outside the chain: a re-check of the
+    final file (``recheck``) and a READ-tier step on the original
+    (``read_only``, e.g. proactive analysis). They only add findings, so
+    their failure is recorded on their own ``StepVerification`` but never
+    fails the turn — unless nothing else was verified, as in a turn whose
+    only step is an analysis the user asked for.
     ``confidence`` is the minimum across steps, since an aggregate claim is
     only ever as confident as its least confident component. ``findings``
     and ``recommendations`` are the concatenation of every step's own,
@@ -585,7 +590,9 @@ def _aggregate_verdicts(per_step: Sequence[_Verdict]) -> VerificationResult:
         return VerificationResult(
             passed=False, confidence=0.0, findings=("no steps were verified",)
         )
-    blocking = [v.result for v in per_step if not v.recheck] or [v.result for v in per_step]
+    blocking = [v.result for v in per_step if not (v.recheck or v.read_only)] or [
+        v.result for v in per_step
+    ]
     return VerificationResult(
         passed=all(result.passed for result in blocking),
         confidence=min(result.confidence for result in blocking),
@@ -604,6 +611,7 @@ def _aggregate_verdicts(per_step: Sequence[_Verdict]) -> VerificationResult:
                 recommendations=v.result.recommendations,
                 input_reference=v.input_reference,
                 recheck=v.recheck,
+                read_only=v.read_only,
             )
             for v in per_step
         ),
@@ -674,6 +682,7 @@ class CompositeVerifier:
                 self._verify_step(request, step),
                 step.input_reference,
                 step.recheck,
+                step.permission_tier == "read",
             )
             for step in execution_result.steps
         ]

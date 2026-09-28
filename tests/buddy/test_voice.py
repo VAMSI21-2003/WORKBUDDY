@@ -493,8 +493,10 @@ def test_personality_voice_does_not_present_an_unrun_intent_as_done(mode: str) -
 
     speaker(_clarification_turn_request(mode))
 
-    assert provider.last_messages is not None
-    prompt = provider.last_messages[0].content
+    # An action turn with no verified file: the model is never called; the
+    # prompt builder is checked directly (it still serves verified turns).
+    assert provider.last_messages is None
+    prompt = PersonalityVoice._build_user_prompt(_clarification_turn_request(mode))
     assert "(deduplicate) was NOT performed this turn" in prompt
     assert "Do not say or imply that it was done." in prompt
     assert "Steps that actually ran this turn: analyze (passed)" in prompt
@@ -542,8 +544,10 @@ def test_personality_voice_flags_a_dedupe_step_that_ran_but_failed_verification(
 
     speaker(request)
 
-    assert provider.last_messages is not None
-    prompt = provider.last_messages[0].content
+    # An action turn with no verified file: the model is never called; the
+    # prompt builder is checked directly (it still serves verified turns).
+    assert provider.last_messages is None
+    prompt = PersonalityVoice._build_user_prompt(request)
     assert "deduplicate (did not pass)" in prompt
     assert "(deduplicate) was NOT performed this turn" in prompt
 
@@ -594,8 +598,10 @@ def test_personality_voice_prompt_carries_no_capability_tags_or_ids(mode: str) -
 
     PersonalityVoice(provider)(_tagged_findings_request(mode))
 
-    assert provider.last_messages is not None
-    prompt = provider.last_messages[0].content
+    # An action turn with no verified file: the model is never called; the
+    # prompt builder is checked directly (it still serves verified turns).
+    assert provider.last_messages is None
+    prompt = PersonalityVoice._build_user_prompt(_tagged_findings_request(mode))
     assert _CAPABILITY_TAG.search(prompt) is None
     assert "spreadsheet." not in prompt
     # The facts themselves still arrive, just without their labels -- and
@@ -776,8 +782,10 @@ def test_personality_voice_prompt_says_where_the_chain_stopped_and_what_never_ra
 
     PersonalityVoice(provider)(_stopped_chain_request())
 
-    assert provider.last_messages is not None
-    prompt = provider.last_messages[0].content
+    # An action turn with no verified file: the model is never called; the
+    # prompt builder is checked directly (it still serves verified turns).
+    assert provider.last_messages is None
+    prompt = PersonalityVoice._build_user_prompt(_stopped_chain_request())
     assert "Steps that actually ran this turn: deduplicate (did not pass)" in prompt
     assert "Steps that never ran, because an earlier step failed: remove empty rows" in prompt
     assert (
@@ -846,8 +854,10 @@ def test_personality_voice_prompt_states_no_changes_when_only_analysis_ran(mode:
 
     PersonalityVoice(provider)(_b4_request(mode))
 
-    assert provider.last_messages is not None
-    prompt = provider.last_messages[0].content
+    # An action turn with no verified file: the model is never called; the
+    # prompt builder is checked directly (it still serves verified turns).
+    assert provider.last_messages is None
+    prompt = PersonalityVoice._build_user_prompt(_b4_request(mode))
     assert prompt.startswith("No changes were made to any file this turn.")
     assert "File handed back" not in prompt
 
@@ -865,11 +875,18 @@ def test_personality_voice_discards_the_live_b4_false_completion_claim(mode: str
     assert "No changes were made to any file this turn." in reply
 
 
-def test_personality_voice_keeps_an_honest_reply_when_nothing_was_changed() -> None:
+def test_personality_voice_uses_the_factual_reply_even_when_the_model_would_be_honest() -> None:
+    """R1: an action was requested and nothing was delivered, so the model
+    isn't asked at all — even a reply that would have been honest isn't
+    used. The factual reply still reports what was noticed."""
     honest = "Name and amount each have one missing value. Which should I look at first?"
     provider = _FakeLLMProvider(reply=honest)
 
-    assert PersonalityVoice(provider)(_b4_request()) == honest
+    reply = PersonalityVoice(provider)(_b4_request())
+
+    assert provider.last_messages is None
+    assert reply == TemplateSpeaker()(_b4_request())
+    assert "name: 1 missing" in reply
 
 
 @pytest.mark.parametrize(
@@ -1025,10 +1042,10 @@ def test_voice_reports_the_originals_analysis_when_nothing_was_re_analyzed() -> 
     analysis is still current and is reported."""
     provider = _FakeLLMProvider(reply="ok")
 
-    PersonalityVoice(provider)(_b4_request())
+    reply = PersonalityVoice(provider)(_b4_request())
 
-    assert provider.last_messages is not None
-    assert "name: 1 missing (16.7%)" in provider.last_messages[0].content
+    assert "name: 1 missing (16.7%)" in reply
+    assert "name: 1 missing (16.7%)" in PersonalityVoice._build_user_prompt(_b4_request())
 
 
 # -- B1: a chain that stopped after an earlier step passed never says "Done" -------
@@ -1157,8 +1174,12 @@ def test_personality_voice_prompt_says_nothing_was_delivered_when_the_last_step_
 
     PersonalityVoice(provider)(_passed_then_stopped_request(_undispatchable_report()))
 
-    assert provider.last_messages is not None
-    prompt = provider.last_messages[0].content
+    # An action turn with no verified file: the model is never called; the
+    # prompt builder is checked directly (it still serves verified turns).
+    assert provider.last_messages is None
+    prompt = PersonalityVoice._build_user_prompt(
+        _passed_then_stopped_request(_undispatchable_report())
+    )
     assert "File handed back" not in prompt
     assert "report (did not pass)" in prompt
     assert "spreadsheet." not in prompt  # the error's capability id is in plain words
@@ -1342,3 +1363,247 @@ def test_the_original_analysis_and_its_re_check_are_judged_separately() -> None:
 
     assert voice._step_passed(original, verification) is True
     assert voice._step_passed(recheck, verification) is False
+
+
+# -- R1/R3: the model never describes an action turn without a verified file ---------
+
+
+_R1_LEAKED_REPLIES = [
+    "Duplicates are gone and your sheet is down to 3 rows.",
+    "All set! I took care of the duplicate rows.",
+    "Your spreadsheet now has 3 rows with the duplicates stripped out.",
+]
+
+
+@pytest.mark.parametrize("leaked", _R1_LEAKED_REPLIES)
+@pytest.mark.parametrize(
+    "request_factory",
+    [
+        lambda: _passed_then_stopped_request(_undispatchable_report()),
+        lambda: _passed_then_stopped_request(_declined_empty_rows()),
+        _stopped_chain_request,
+        _b4_request,
+    ],
+    ids=["stopped-dispatch", "stopped-declined", "stopped-verification", "read-only-for-action"],
+)
+def test_personality_voice_never_lets_the_model_describe_an_undelivered_action(
+    leaked: str, request_factory
+) -> None:
+    """The three replies that leaked past the word list in the re-review
+    (R1). The model isn't called at all, so none can reach the user."""
+    provider = _FakeLLMProvider(reply=leaked)
+    request = request_factory()
+
+    reply = PersonalityVoice(provider)(request)
+
+    assert provider.last_messages is None
+    assert reply == TemplateSpeaker()(request)
+    assert leaked not in reply
+    assert voice._COMPLETION_CLAIM.search(reply) is None
+
+
+def _final_file_failed_request(verification_passed: bool | None) -> SpeakingRequest:
+    """R3: a file was handed back and every step passed, but the final
+    file failed its check (or, with ``None``, Inspector never ran)."""
+    mid, final = "out/mid.xlsx", "out/final.xlsx"
+    execution = ExecutionResult(
+        success=True,
+        outputs=(final,),
+        steps=(
+            _dedupe_step(outputs=(mid,), input_reference="uploads/report.xlsx"),
+            StepResult(
+                capability="spreadsheet.remove_empty_rows",
+                skill="excel.remove_empty_rows",
+                status="success",
+                outputs=(final,),
+                input_reference=mid,
+                permission_tier="write",
+            ),
+        ),
+    )
+    verification = None
+    if verification_passed is not None:
+        verification = VerificationResult(
+            passed=verification_passed,
+            findings=(
+                "[final_output] final file: output has 4 row(s), 1 duplicate row(s) remaining",
+            ),
+            steps=(
+                StepVerification(
+                    capability="spreadsheet.deduplicate",
+                    passed=True,
+                    input_reference="uploads/report.xlsx",
+                ),
+                StepVerification(
+                    capability="spreadsheet.remove_empty_rows", passed=True, input_reference=mid
+                ),
+                StepVerification(
+                    capability="final_output",
+                    passed=verification_passed,
+                    findings=("final file: output has 4 row(s), 1 duplicate row(s) remaining",),
+                ),
+            ),
+        )
+    return _request(
+        understanding=Understanding(intent="multi_step_request"),
+        execution_result=execution,
+        verification_result=verification,
+    )
+
+
+@pytest.mark.parametrize("verification_passed", [False, None], ids=["failed", "missing"])
+def test_personality_voice_never_lets_the_model_describe_an_unverified_delivered_file(
+    verification_passed: bool | None,
+) -> None:
+    request = _final_file_failed_request(verification_passed)
+    provider = _FakeLLMProvider(reply="All done — duplicates and empty rows removed.")
+
+    reply = PersonalityVoice(provider)(request)
+
+    assert provider.last_messages is None
+    assert reply == TemplateSpeaker()(request)
+    assert "All done" not in reply
+    assert "is ready" not in reply
+
+
+def test_template_speaker_reports_an_unverified_delivered_file_honestly() -> None:
+    assert TemplateSpeaker()(_final_file_failed_request(False)).startswith(
+        "I wasn't able to confirm that worked."
+    )
+    assert TemplateSpeaker()(_final_file_failed_request(None)) == (
+        "I made the changes, but wasn't able to confirm the result."
+    )
+
+
+@pytest.mark.parametrize("mode", ["friend", "focus"])
+def test_personality_voice_uses_the_models_reply_for_a_verified_delivered_turn(mode: str) -> None:
+    provider = _FakeLLMProvider(reply="Both cleanups went through; report is down to 3 rows.")
+
+    reply = PersonalityVoice(provider)(_delivered_request(mode))
+
+    assert provider.last_messages is not None
+    assert reply == "Both cleanups went through; report is down to 3 rows."
+
+
+@pytest.mark.parametrize(
+    "execution_result",
+    [
+        None,
+        ExecutionResult(success=True, warnings=("nothing to execute",)),
+        ExecutionResult(
+            success=True,
+            steps=(_analyze_step(input_reference="uploads/report.xlsx", permission_tier="read"),),
+        ),
+    ],
+    ids=["nothing-executed", "nothing-delegated", "only-proactive-analysis"],
+)
+@pytest.mark.parametrize("intent", [None, "unclear"])
+def test_personality_voice_uses_the_models_reply_for_a_plain_conversation_turn(
+    execution_result: ExecutionResult | None, intent: str | None
+) -> None:
+    """No action was requested or attempted: the model phrases the reply."""
+    provider = _FakeLLMProvider(reply="Hey! Send over a file whenever you like.")
+    request = _request(
+        understanding=Understanding(intent=intent),
+        execution_result=execution_result,
+        verification_result=VerificationResult(
+            passed=True, steps=(StepVerification(capability="spreadsheet.analyze", passed=True),)
+        )
+        if execution_result is not None and execution_result.steps
+        else None,
+    )
+
+    reply = PersonalityVoice(provider)(request)
+
+    assert provider.last_messages is not None
+    assert reply == "Hey! Send over a file whenever you like."
+
+
+def test_the_regex_layer_still_catches_a_claim_in_a_plain_conversation_turn() -> None:
+    provider = _FakeLLMProvider(reply="Done — all cleaned up!")
+    request = _request(understanding=Understanding(intent="unclear"))
+
+    reply = PersonalityVoice(provider)(request)
+
+    assert provider.last_messages is not None  # the model was asked
+    assert reply == TemplateSpeaker()(request)  # but its claim was replaced
+
+
+@pytest.mark.parametrize(
+    ("intent", "steps", "expected"),
+    [
+        ("remove_duplicate_rows", (), True),
+        ("multi_step_request", (), True),
+        ("unclear", (), False),
+        (None, (), False),
+        (None, ("read",), False),
+        (None, ("write",), True),
+        (None, ("",), True),  # never dispatched or never started: tier unknown
+    ],
+)
+def test_action_requested_or_attempted(intent, steps, expected) -> None:
+    execution = ExecutionResult(
+        success=True,
+        steps=tuple(
+            StepResult(capability="spreadsheet.x", skill="s", status="success", permission_tier=t)
+            for t in steps
+        ),
+    )
+    request = _request(understanding=Understanding(intent=intent), execution_result=execution)
+
+    assert voice._action_requested_or_attempted(request) is expected
+
+
+# -- R4: analysis of the original failed; the delivered file is still named ----------
+
+
+def test_voice_names_the_delivered_file_when_the_initial_analysis_failed() -> None:
+    final = "workspace/outputs/report_deduplicated.xlsx"
+    request = _request(
+        understanding=Understanding(intent="remove_duplicate_rows"),
+        execution_result=ExecutionResult(
+            success=False,
+            outputs=(final,),
+            errors=("could not read it",),
+            steps=(
+                _analyze_step(
+                    status="failure", input_reference="uploads/report.xlsx", permission_tier="read"
+                ),
+                _dedupe_step(outputs=(final,), input_reference="uploads/report.xlsx"),
+            ),
+        ),
+        verification_result=VerificationResult(
+            passed=True,
+            findings=(
+                "[spreadsheet.analyze] the analysis reported failure",
+                "[spreadsheet.deduplicate] output has 3 row(s), 0 duplicate row(s) remaining",
+            ),
+            steps=(
+                StepVerification(
+                    capability="spreadsheet.analyze",
+                    passed=False,
+                    findings=("the analysis reported failure",),
+                    input_reference="uploads/report.xlsx",
+                    read_only=True,
+                ),
+                StepVerification(
+                    capability="spreadsheet.deduplicate",
+                    passed=True,
+                    input_reference="uploads/report.xlsx",
+                ),
+            ),
+        ),
+    )
+
+    reply = TemplateSpeaker()(request)
+    assert "Saved as `report_deduplicated.xlsx`." in reply
+    assert voice.INITIAL_ANALYSIS_FAILED_SENTENCE in reply
+    assert "wasn't able to confirm" not in reply
+
+    provider = _FakeLLMProvider(reply="Dedupe went through, 3 rows left.")
+    personality = PersonalityVoice(provider)(request)
+    assert provider.last_messages is not None  # verified delivery: the model may phrase it
+    assert "couldn't run" in provider.last_messages[0].content
+    assert personality == (
+        "Dedupe went through, 3 rows left. Your cleaned copy of report.xlsx is ready."
+    )

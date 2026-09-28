@@ -991,3 +991,96 @@ def test_full_slice_personality_voice_mentions_the_file_when_the_re_check_fails(
     prompt = speaker._provider.calls[0][1][0].content  # type: ignore[attr-defined]
     assert "could not be re-checked for other problems" in prompt
     assert "spreadsheet." not in prompt
+
+
+
+# -- Re-review R4, end to end: analysis of the original fails ---------------------------
+
+
+def test_full_slice_names_the_delivered_file_when_the_initial_analysis_fails(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Analysis fails on the original (its first call) and passes on the
+    re-check. The chain completed and was verified, so the turn passes, the
+    reply names the delivered file, and says the initial analysis couldn't
+    run. The original isn't marked analyzed."""
+    from skills.base import SkillResult, SkillStatus
+    from skills.excel.analyze import SpreadsheetAnalysisSkill
+
+    real_execute = SpreadsheetAnalysisSkill.execute
+    calls: list[str] = []
+
+    def fails_on_first_call(self, task):  # type: ignore[no-untyped-def]
+        calls.append(task.input_references[0])
+        if len(calls) == 1:
+            return SkillResult(status=SkillStatus.FAILURE, errors=["could not read it"])
+        return real_execute(self, task)
+
+    monkeypatch.setattr(SpreadsheetAnalysisSkill, "execute", fails_on_first_call)
+    monkeypatch.chdir(tmp_path)
+    replies = _chain_replies(
+        ("spreadsheet.remove_empty_rows", "remove the empty rows"),
+        ("spreadsheet.deduplicate", "remove the duplicate rows"),
+    )
+
+    state, original_path, original_bytes = _run_chain(
+        tmp_path, "remove the empty rows and then remove the duplicate rows", replies
+    )
+
+    result = state.execution_result
+    assert result is not None
+    assert len(result.outputs) == 1
+    assert original_path.read_bytes() == original_bytes
+    verification = state.verification_result
+    assert verification is not None
+    assert verification.passed is True
+    assert (verification.steps[0].capability, verification.steps[0].passed) == (
+        "spreadsheet.analyze",
+        False,
+    )
+    assert state.context.analyzed_files == frozenset()  # L5: only a passing analysis marks it
+
+    reply = state.reply
+    assert reply is not None
+    assert reply.startswith("Done")
+    assert f"Saved as `{Path(result.outputs[0]).name}`." in reply
+    assert "The initial analysis of your original file couldn't run." in reply
+    assert "wasn't able to confirm" not in reply
+    assert "spreadsheet." not in reply
+
+
+@pytest.mark.parametrize(
+    "leaked",
+    [
+        "Duplicates are gone and your sheet is down to 3 rows.",
+        "All set! I took care of the duplicate rows.",
+        "Your spreadsheet now has 3 rows with the duplicates stripped out.",
+    ],
+)
+def test_full_slice_personality_voice_never_describes_a_three_step_chain_stopped_midway(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, leaked: str
+) -> None:
+    """R1, end to end: the re-review's three-step chain that stops at its
+    middle step. The model is never asked; the factual reply is used."""
+    monkeypatch.chdir(tmp_path)
+    speaker = _RecordingPersonalityVoice(leaked)
+    replies = _chain_replies(
+        ("spreadsheet.deduplicate", "remove the duplicate rows"),
+        ("spreadsheet.report", "give me a report"),
+        ("spreadsheet.remove_empty_rows", "remove the empty rows"),
+    )
+
+    state, original_path, original_bytes = _run_chain(
+        tmp_path,
+        "remove the duplicate rows, then give me a report, then remove the empty rows",
+        replies,
+        speaker,
+    )
+
+    assert state.execution_result is not None
+    assert state.execution_result.stopped_at == "spreadsheet.report"
+    assert speaker._provider.calls == []  # type: ignore[attr-defined]
+    assert state.reply == TemplateSpeaker()(speaker.requests[0])
+    assert leaked not in state.reply
+    assert "I stopped at the report step, so remove empty rows never ran" in state.reply
+    assert original_path.read_bytes() == original_bytes
