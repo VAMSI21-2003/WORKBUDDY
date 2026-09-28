@@ -390,7 +390,9 @@ def test_personality_voice_uses_focus_mode_prompt() -> None:
     assert provider.last_system == FOCUS_MODE_PROMPT
 
 
-def test_personality_voice_returns_the_models_reply_verbatim_when_successful() -> None:
+def test_personality_voice_returns_the_models_reply_stripped_when_it_claims_nothing() -> None:
+    """Nothing was delivered, but the reply makes no completion claim, so
+    it's used as-is (only surrounding whitespace removed)."""
     provider = _FakeLLMProvider(reply="  Here's where things stand.  ")
     speaker = PersonalityVoice(provider)
 
@@ -787,7 +789,8 @@ def test_personality_voice_prompt_says_where_the_chain_stopped_and_what_never_ra
 def test_template_speaker_names_the_failed_step_and_what_never_ran() -> None:
     reply = TemplateSpeaker()(_stopped_chain_request())
 
-    assert reply.startswith("I wasn't able to confirm that worked.")
+    assert reply.startswith("I ran into a problem partway through.")
+    assert "Done" not in reply
     assert reply.endswith(
         "I stopped at the deduplicate step, so remove empty rows never ran and no file was "
         "handed back; your original file is unchanged."
@@ -922,7 +925,7 @@ def _delivered_request(mode: str) -> SpeakingRequest:
                     permission_tier="write",
                 ),
                 _dedupe_step(outputs=(final,), input_reference=first_out),
-                _analyze_step(input_reference=final, permission_tier="read"),
+                _analyze_step(input_reference=final, permission_tier="read", recheck=True),
             ),
         ),
         verification_result=VerificationResult(
@@ -947,6 +950,8 @@ def _delivered_request(mode: str) -> SpeakingRequest:
                     capability="spreadsheet.analyze",
                     passed=True,
                     findings=("nothing notable found",),
+                    input_reference=final,
+                    recheck=True,
                 ),
                 StepVerification(capability="final_output", passed=True),
             ),
@@ -1024,3 +1029,316 @@ def test_voice_reports_the_originals_analysis_when_nothing_was_re_analyzed() -> 
 
     assert provider.last_messages is not None
     assert "name: 1 missing (16.7%)" in provider.last_messages[0].content
+
+
+# -- B1: a chain that stopped after an earlier step passed never says "Done" -------
+
+
+def _passed_then_stopped_request(last: StepResult, mode: str = "friend") -> SpeakingRequest:
+    """Dedupe passed (and Inspector confirmed it); the last step then failed
+    without running — the exact shape of review item B1. Shaped the way
+    Hands and Inspector now record it: the failing step has a StepResult
+    with a failure_reason, and Inspector fails it with that reason."""
+    first = _dedupe_step(
+        outputs=("out/dedupe.xlsx",),
+        input_reference="uploads/report.xlsx",
+        permission_tier="write",
+    )
+    return _request(
+        mode=mode,
+        understanding=Understanding(intent="multi_step_request"),
+        execution_result=ExecutionResult(
+            success=False,
+            errors=(f"No registered skill declares support for '{last.capability}'.",),
+            steps=(first, last),
+            stopped_at=last.capability,
+        ),
+        verification_result=VerificationResult(
+            passed=False,
+            confidence=1.0,
+            findings=(
+                "[spreadsheet.deduplicate] output has 2 row(s), 0 duplicate row(s) remaining",
+                f"[{last.capability}] {last.failure_reason}",
+            ),
+            steps=(
+                StepVerification(
+                    capability="spreadsheet.deduplicate",
+                    passed=True,
+                    findings=("output has 2 row(s), 0 duplicate row(s) remaining",),
+                    input_reference="uploads/report.xlsx",
+                ),
+                StepVerification(
+                    capability=last.capability,
+                    passed=False,
+                    findings=(last.failure_reason,),
+                    input_reference="out/dedupe.xlsx",
+                ),
+            ),
+        ),
+    )
+
+
+def _undispatchable_report() -> StepResult:
+    return StepResult(
+        capability="spreadsheet.report",
+        skill="",
+        status="failure",
+        input_reference="out/dedupe.xlsx",
+        failure_reason="couldn't be run because no available skill can do it",
+    )
+
+
+def _declined_empty_rows() -> StepResult:
+    return StepResult(
+        capability="spreadsheet.remove_empty_rows",
+        skill="excel.remove_empty_rows",
+        status="declined",
+        input_reference="out/dedupe.xlsx",
+        permission_tier="write",
+        failure_reason="wasn't confirmed, so it didn't run",
+    )
+
+
+def _assert_no_completion_claim(reply: str, stopped_step: str) -> None:
+    assert voice._COMPLETION_CLAIM.search(reply) is None, reply
+    assert "Done" not in reply
+    assert f"I stopped at the {stopped_step} step" in reply
+    assert "no file was handed back; your original file is unchanged." in reply
+    assert "spreadsheet." not in reply
+
+
+@pytest.mark.parametrize(
+    ("last", "stopped_step", "reason"),
+    [
+        (_undispatchable_report(), "report", "couldn't be run"),
+        (_declined_empty_rows(), "remove empty rows", "wasn't confirmed"),
+    ],
+    ids=["dispatch-failure", "declined"],
+)
+def test_template_speaker_never_says_done_when_the_last_step_stopped_the_chain(
+    last: StepResult, stopped_step: str, reason: str
+) -> None:
+    reply = TemplateSpeaker()(_passed_then_stopped_request(last))
+
+    assert reply.startswith("I ran into a problem partway through.")
+    assert reason in reply
+    _assert_no_completion_claim(reply, stopped_step)
+    # The earlier step's findings describe a file that was never handed back.
+    assert "0 duplicate row(s) remaining" not in reply
+
+
+@pytest.mark.parametrize(
+    ("last", "stopped_step"),
+    [(_undispatchable_report(), "report"), (_declined_empty_rows(), "remove empty rows")],
+    ids=["dispatch-failure", "declined"],
+)
+@pytest.mark.parametrize(
+    "provider",
+    [
+        _FakeLLMProvider(reply="All done — duplicates removed."),
+        _FakeLLMProvider(reply="   "),
+        _FakeLLMProvider(raises=RuntimeError("boom")),
+    ],
+    ids=["completion-claim", "empty-reply", "model-failure"],
+)
+def test_personality_voice_fallback_never_says_done_when_the_last_step_stopped_the_chain(
+    last: StepResult, stopped_step: str, provider: _FakeLLMProvider
+) -> None:
+    request = _passed_then_stopped_request(last)
+
+    reply = PersonalityVoice(provider)(request)
+
+    assert reply == TemplateSpeaker()(request)
+    _assert_no_completion_claim(reply, stopped_step)
+
+
+def test_personality_voice_prompt_says_nothing_was_delivered_when_the_last_step_stopped() -> None:
+    provider = _FakeLLMProvider(reply="ok")
+
+    PersonalityVoice(provider)(_passed_then_stopped_request(_undispatchable_report()))
+
+    assert provider.last_messages is not None
+    prompt = provider.last_messages[0].content
+    assert "File handed back" not in prompt
+    assert "report (did not pass)" in prompt
+    assert "spreadsheet." not in prompt  # the error's capability id is in plain words
+
+
+# -- M1: a failed re-check of the final file is reported, not a failure ------------
+
+
+def _recheck_failed_request(mode: str = "friend") -> SpeakingRequest:
+    final = "workspace/outputs/report_no_empty_rows_deduplicated.xlsx"
+    return _request(
+        mode=mode,
+        understanding=Understanding(intent="multi_step_request"),
+        execution_result=ExecutionResult(
+            success=True,
+            outputs=(final,),
+            warnings=("could not re-check the final file with spreadsheet.analyze",),
+            steps=(
+                _analyze_step(input_reference="uploads/report.xlsx", permission_tier="read"),
+                _dedupe_step(
+                    outputs=(final,),
+                    input_reference="uploads/report.xlsx",
+                    permission_tier="write",
+                ),
+                StepResult(
+                    capability="spreadsheet.analyze",
+                    skill="excel.analyze",
+                    status="failure",
+                    input_reference=final,
+                    permission_tier="read",
+                    recheck=True,
+                ),
+            ),
+        ),
+        verification_result=VerificationResult(
+            passed=True,
+            confidence=1.0,
+            findings=(
+                "[spreadsheet.analyze] [missing_values] name: 1 missing (16.7%)",
+                "[spreadsheet.deduplicate] output has 3 row(s), 0 duplicate row(s) remaining",
+                "[spreadsheet.analyze] the final file couldn't be re-checked after the changes",
+            ),
+            steps=(
+                StepVerification(
+                    capability="spreadsheet.analyze",
+                    passed=True,
+                    findings=("[missing_values] name: 1 missing (16.7%)",),
+                    input_reference="uploads/report.xlsx",
+                ),
+                StepVerification(
+                    capability="spreadsheet.deduplicate",
+                    passed=True,
+                    input_reference="uploads/report.xlsx",
+                ),
+                StepVerification(
+                    capability="spreadsheet.analyze",
+                    passed=False,
+                    findings=("the final file couldn't be re-checked after the changes",),
+                    input_reference=final,
+                    recheck=True,
+                ),
+            ),
+        ),
+    )
+
+
+def test_template_speaker_reports_a_failed_re_check_and_still_names_the_file() -> None:
+    reply = TemplateSpeaker()(_recheck_failed_request())
+
+    assert reply.startswith("Done")
+    assert "Saved as `report_no_empty_rows_deduplicated.xlsx`." in reply
+    assert voice.RECHECK_FAILED_SENTENCE in reply
+    assert "missing" not in reply  # the original's findings no longer describe the file
+    assert "wasn't able to confirm" not in reply
+    assert "spreadsheet." not in reply
+
+
+def test_personality_voice_prompt_reports_a_failed_re_check_and_the_file() -> None:
+    provider = _FakeLLMProvider(reply="ok")
+
+    reply = PersonalityVoice(provider)(_recheck_failed_request())
+
+    assert provider.last_messages is not None
+    prompt = provider.last_messages[0].content
+    assert "could not be re-checked for other problems" in prompt
+    assert "a cleaned copy of report.xlsx" in prompt
+    assert "analyze re-check of the final file (did not pass)" in prompt
+    assert "spreadsheet." not in prompt
+    assert "missing" not in prompt
+    assert reply == "ok Your cleaned copy of report.xlsx is ready."
+
+
+# -- No raw capability id anywhere in a reply -----------------------------------------
+
+
+def test_plain_words_replaces_capability_ids_anywhere_but_leaves_file_names() -> None:
+    assert voice._strip_finding_tags(
+        "[spreadsheet.analyze] spreadsheet.analyze reported failure on 'spreadsheet.report'"
+    ) == "analyze reported failure on 'report'"
+    assert voice._plain_words("saved as spreadsheet.xlsx") == "saved as spreadsheet.xlsx"
+
+
+def test_template_speaker_scrubs_a_capability_id_inside_a_finding() -> None:
+    request = _request(
+        execution_result=ExecutionResult(
+            success=True,
+            outputs=("out/final.xlsx",),
+            steps=(_dedupe_step(outputs=("out/final.xlsx",)),),
+        ),
+        verification_result=VerificationResult(
+            passed=False,
+            findings=("[spreadsheet.deduplicate] spreadsheet.deduplicate left 1 row behind",),
+        ),
+    )
+
+    reply = TemplateSpeaker()(request)
+
+    assert "spreadsheet." not in reply
+    assert "deduplicate left 1 row behind" in reply.lower()
+
+
+# -- L2: no verification, only read-only steps -------------------------------------
+
+
+def test_template_speaker_never_claims_work_without_verification_when_only_reads_ran() -> None:
+    request = _request(
+        execution_result=ExecutionResult(
+            success=True,
+            steps=(_analyze_step(input_reference="uploads/report.xlsx", permission_tier="read"),),
+        ),
+        verification_result=None,
+    )
+
+    reply = TemplateSpeaker()(request)
+
+    assert "I did the work" not in reply
+    assert voice._COMPLETION_CLAIM.search(reply) is None
+    assert reply.endswith("No changes were made to any file this turn.")
+
+
+# -- One rule for "passed" ----------------------------------------------------------
+
+
+def test_a_step_inspector_never_checked_does_not_count_as_passed() -> None:
+    """Strict semantics: passed means the Skill succeeded AND Inspector has a
+    passing verdict for that step. No verdict for it is not a pass."""
+    step = _dedupe_step(outputs=("out/a.xlsx",), permission_tier="write")
+    unchecked = VerificationResult(
+        passed=True, steps=(StepVerification(capability="spreadsheet.analyze", passed=True),)
+    )
+    confirmed = VerificationResult(
+        passed=True, steps=(StepVerification(capability="spreadsheet.deduplicate", passed=True),)
+    )
+
+    assert voice._step_passed(step, unchecked) is False
+    assert voice._step_passed(step, confirmed) is True
+    assert voice._step_passed(step, None) is False
+    execution = ExecutionResult(success=True, outputs=("out/a.xlsx",), steps=(step,))
+    # The prompt label and the no-changes rule now agree.
+    assert voice._action_passed_verification(execution, unchecked) is False
+    assert voice._action_passed_verification(execution, confirmed) is True
+
+
+def test_the_original_analysis_and_its_re_check_are_judged_separately() -> None:
+    original = _analyze_step(input_reference="uploads/report.xlsx", permission_tier="read")
+    recheck = _analyze_step(input_reference="out/final.xlsx", permission_tier="read", recheck=True)
+    verification = VerificationResult(
+        passed=True,
+        steps=(
+            StepVerification(
+                capability="spreadsheet.analyze", passed=True, input_reference="uploads/report.xlsx"
+            ),
+            StepVerification(
+                capability="spreadsheet.analyze",
+                passed=False,
+                input_reference="out/final.xlsx",
+                recheck=True,
+            ),
+        ),
+    )
+
+    assert voice._step_passed(original, verification) is True
+    assert voice._step_passed(recheck, verification) is False

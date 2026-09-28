@@ -7,11 +7,13 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Protocol
 
+from buddy.inspector import FINAL_OUTPUT_CAPABILITY, SKIPPED_FINDING
 from buddy.llm import LLMMessage, LLMProvider
 from buddy.models import (
     SKIPPED_STATUS,
     ExecutionResult,
     StepResult,
+    StepVerification,
     Understanding,
     VerificationResult,
 )
@@ -41,10 +43,28 @@ _ANALYSIS_FINDING_FIX_CAPABILITY: dict[str, str] = {}
 # finding is rendered into a reply or handed to the model.
 _FINDING_TAG_PREFIX = re.compile(r"^(?:\[[\w.]+\]\s*)+")
 
+# A raw capability id anywhere in a text, e.g. the "spreadsheet.report" in
+# "No registered skill declares support for 'spreadsheet.report'." Matches
+# any id in a known capability domain, so an id with no registered skill is
+# caught too — but not a file name such as "spreadsheet.xlsx".
+_CAPABILITY_DOMAINS = sorted(
+    {c.split(".", 1)[0] for c in (*_INTENT_CAPABILITIES.values(), "spreadsheet.analyze")}
+)
+_CAPABILITY_ID = re.compile(
+    r"\b(?:" + "|".join(map(re.escape, _CAPABILITY_DOMAINS)) + r")\.(?!(?:xlsx|xlsm|xls|csv)\b)"
+    r"[a-z_]+\b"
+)
+
+
+def _plain_words(text: str) -> str:
+    """Replace every raw capability id in ``text`` with plain words."""
+    return _CAPABILITY_ID.sub(lambda match: _describe_capability(match.group(0)), text)
+
 
 def _strip_finding_tags(finding: str) -> str:
-    """Return ``finding`` without its leading ``[capability]``/``[category]`` tags."""
-    return _FINDING_TAG_PREFIX.sub("", finding)
+    """Return ``finding`` without its leading ``[capability]``/``[category]``
+    tags, and with any capability id inside it in plain words."""
+    return _plain_words(_FINDING_TAG_PREFIX.sub("", finding))
 
 
 def _is_analysis_finding(finding: str) -> bool:
@@ -78,27 +98,52 @@ def _find_step(execution_result: ExecutionResult | None, capability: str) -> Ste
 def _step_passed(
     step: StepResult, verification_result: VerificationResult | None
 ) -> bool:
-    """Return whether ``step`` actually ran successfully this turn.
+    """Return whether ``step`` ran *and Inspector confirmed it* this turn.
 
-    A step counts as passed only if its Skill reported ``"success"`` and
-    Inspector didn't independently fail that same capability (when
-    ``verification_result.steps`` carries a per-step verdict for it).
+    The one rule for "passed" everywhere in Voice — the prompt's
+    "(passed)" labels, the "requested action was NOT performed" line, and
+    whether any change was delivered. It's the strict reading: a step
+    passes only when its Skill reported ``"success"`` *and* Inspector has
+    a passing verdict for that same step. A step Inspector never checked
+    (no verdict for it, or no Inspector at all) does not pass — never
+    "passed unless contradicted", since that reading is what let an
+    unchecked step count as done.
+
+    When Inspector gave no per-step breakdown (``NullVerifier``, or a
+    single non-composite ``Verifier``), its overall ``passed`` is the only
+    verdict there is, so it's used for every step.
 
     Args:
         step: The step to check.
         verification_result: Inspector's verdict, if it ran.
 
     Returns:
-        ``True`` if the step both ran successfully and wasn't failed by
-        verification.
+        ``True`` if the step ran successfully and verification confirmed it.
     """
-    if step.status != "success":
+    if step.status != "success" or verification_result is None:
         return False
-    if verification_result is not None:
-        for step_verification in verification_result.steps:
-            if step_verification.capability == step.capability and not step_verification.passed:
-                return False
-    return True
+    if not verification_result.steps:
+        return verification_result.passed
+    return any(
+        _verdict_is_for(verdict, step) and verdict.passed for verdict in verification_result.steps
+    )
+
+
+def _verdict_is_for(verdict: StepVerification, step: StepResult) -> bool:
+    """Whether Inspector's ``verdict`` is about ``step``.
+
+    Matched on capability, on whether it's a re-check of the final file,
+    and — when both sides recorded one — on the file the step read, so the
+    analysis of the original and its re-check on the final file are never
+    mixed up.
+    """
+    if verdict.capability != step.capability or verdict.recheck != step.recheck:
+        return False
+    return (
+        not verdict.input_reference
+        or not step.input_reference
+        or verdict.input_reference == step.input_reference
+    )
 
 
 _ACTION_TIERS = ("write", "external_effect")
@@ -134,23 +179,16 @@ def _is_action_step(step: StepResult) -> bool:
 def _action_passed_verification(
     execution_result: ExecutionResult | None, verification_result: VerificationResult | None
 ) -> bool:
-    """Whether any action step succeeded *and* Inspector passed it this turn."""
+    """Whether any action step passed this turn, by ``_step_passed``'s rule."""
     if execution_result is None or verification_result is None:
         return False
     if not execution_result.steps:
         # A result with no per-step breakdown: judge it by its output alone.
         return bool(execution_result.outputs) and verification_result.passed
-    for step in execution_result.steps:
-        if not _is_action_step(step) or step.status != "success":
-            continue
-        if not verification_result.steps:
-            if verification_result.passed:
-                return True
-        elif any(
-            v.capability == step.capability and v.passed for v in verification_result.steps
-        ):
-            return True
-    return False
+    return any(
+        _is_action_step(step) and _step_passed(step, verification_result)
+        for step in execution_result.steps
+    )
 
 
 def _no_changes_made(
@@ -206,22 +244,45 @@ def _mentions_file(reply: str, file_name: str) -> bool:
 def _findings_for_reply(verification_result: VerificationResult) -> tuple[str, ...]:
     """The findings a reply should report, with analysis of the right file.
 
-    When analysis ran more than once this turn — on the original, then
-    re-run on the final file after the chain changed it — only the latest
-    run describes the file the user receives, so the original's analysis
-    findings are replaced by it.
+    When analysis was re-run on the final file after the chain changed it
+    (a ``recheck`` verdict), the original's analysis findings no longer
+    describe the file the user receives, so they're dropped. The re-check's
+    own findings replace them if it passed; if it failed there's nothing
+    current to report, and the reply says the file couldn't be re-checked
+    instead (``_recheck_failed``).
     """
-    analyses = [s for s in verification_result.steps if s.capability == _ANALYZE_CAPABILITY]
-    if len(analyses) < 2:
+    rechecks = [
+        s
+        for s in verification_result.steps
+        if s.capability == _ANALYZE_CAPABILITY and s.recheck
+    ]
+    if not rechecks:
         return verification_result.findings
     others = tuple(f for f in verification_result.findings if not _is_analysis_finding(f))
-    return others + tuple(f"[{_ANALYZE_CAPABILITY}] {f}" for f in analyses[-1].findings)
+    return others + tuple(
+        f"[{_ANALYZE_CAPABILITY}] {f}" for s in rechecks if s.passed for f in s.findings
+    )
 
 
 def _analysis_describes_final_file(verification_result: VerificationResult | None) -> bool:
     if verification_result is None:
         return False
-    return sum(s.capability == _ANALYZE_CAPABILITY for s in verification_result.steps) >= 2
+    return any(
+        s.capability == _ANALYZE_CAPABILITY and s.recheck and s.passed
+        for s in verification_result.steps
+    )
+
+
+RECHECK_FAILED_SENTENCE = (
+    "I couldn't re-check the final file for anything else worth flagging after the changes."
+)
+
+
+def _recheck_failed(verification_result: VerificationResult | None) -> bool:
+    """Whether a re-check of the delivered file failed (non-blocking)."""
+    if verification_result is None:
+        return False
+    return any(s.recheck and not s.passed for s in verification_result.steps)
 
 
 def _chain_stop_sentence(execution_result: ExecutionResult | None) -> str:
@@ -330,39 +391,108 @@ class TemplateSpeaker:
         """
         execution_result = request.execution_result
         verification_result = request.verification_result
-        stop_sentence = _chain_stop_sentence(execution_result)
-        if verification_result is None:
-            reply = self._describe_without_verification(execution_result)
-        elif _no_changes_made(execution_result, verification_result):
-            reply = self._no_changes_message(execution_result, verification_result, stop_sentence)
-        elif _find_step(execution_result, _ANALYZE_CAPABILITY) is not None:
-            reply = self._compose_with_analysis_preface(execution_result, verification_result)
-        elif verification_result.passed:
-            reply = self._success_message(execution_result, verification_result)
+        # Routed on "was anything delivered?" first: when the chain stopped
+        # or no verified file came back, no later branch may run — they
+        # can say "Done" because an earlier step passed.
+        if _nothing_delivered(request):
+            if execution_result is not None and execution_result.stopped_at is not None:
+                reply = self._stopped_message(execution_result, verification_result)
+            elif verification_result is None:
+                reply = self._nothing_confirmed_message(execution_result)
+            else:
+                reply = self._no_changes_message(execution_result, verification_result)
+        elif verification_result is None:
+            reply = "I made the changes, but wasn't able to confirm the result."
         else:
-            reply = self._failure_message(verification_result)
-        return f"{reply} {stop_sentence}" if stop_sentence else reply
+            if _find_step(execution_result, _ANALYZE_CAPABILITY) is not None:
+                reply = self._compose_with_analysis_preface(execution_result, verification_result)
+            elif verification_result.passed:
+                reply = self._success_message(execution_result, verification_result)
+            else:
+                reply = self._failure_message(verification_result)
+            if _recheck_failed(verification_result):
+                reply = f"{reply} {RECHECK_FAILED_SENTENCE}"
+        return _plain_words(reply)
+
+    @staticmethod
+    def _stopped_message(
+        execution_result: ExecutionResult, verification_result: VerificationResult | None
+    ) -> str:
+        """Compose the reply for a chain that stopped: nothing was delivered.
+
+        Never says "Done" or reports an earlier step's success as if it
+        counted: the file that step produced was never handed back. Says
+        what was noticed on the (unchanged) original, why the work stopped,
+        and which step stopped it.
+        """
+        parts = []
+        reasons: list[str] = []
+        if verification_result is not None:
+            open_findings, _ = TemplateSpeaker._partition_analysis_findings(verification_result)
+            if open_findings:
+                parts.append(
+                    "Before anything else, here's what I noticed: "
+                    + "; ".join(open_findings)
+                    + ". Want me to tackle any of these?"
+                )
+            for verdict in verification_result.steps:
+                findings = [f for f in verdict.findings if f != SKIPPED_FINDING]
+                if (
+                    verdict.passed
+                    or verdict.capability in (_ANALYZE_CAPABILITY, FINAL_OUTPUT_CAPABILITY)
+                    or not findings
+                ):
+                    continue
+                reasons.append(
+                    f"The {_describe_capability(verdict.capability)} step: "
+                    + "; ".join(_strip_finding_tags(f) for f in findings)
+                )
+        if not reasons:
+            reasons = [
+                _plain_words(error).rstrip(".")
+                for error in execution_result.errors
+                if not error.startswith("stopped:")
+            ]
+        sentence = "I ran into a problem partway through."
+        if reasons:
+            sentence += " " + ". ".join(reasons) + "."
+        parts.append(sentence)
+        parts.append(_chain_stop_sentence(execution_result))
+        return " ".join(parts)
+
+    @staticmethod
+    def _nothing_confirmed_message(execution_result: ExecutionResult | None) -> str:
+        """Compose the reply when nothing was delivered and Inspector didn't run.
+
+        Never says the work was done: with no verification and no file
+        handed back — e.g. only read-only steps ran — nothing the user
+        asked for can be claimed.
+        """
+        if execution_result is None:
+            return "I wasn't able to find anything to do with that request."
+        if execution_result.errors:
+            errors = "; ".join(_plain_words(e).rstrip(".") for e in execution_result.errors)
+            return f"I ran into a problem: {errors}. {NO_CHANGES_SENTENCE}"
+        return f"I wasn't able to confirm any result. {NO_CHANGES_SENTENCE}"
 
     @staticmethod
     def _no_changes_message(
         execution_result: ExecutionResult | None,
         verification_result: VerificationResult,
-        stop_sentence: str,
     ) -> str:
         """Compose the reply for a turn in which no file was changed.
 
         Never says "Done": nothing the user asked for was carried out (e.g.
         Think asked for clarification, so only read-only analysis ran).
         Still reports what was noticed, and why things failed if they did.
+        A chain that stopped is ``_stopped_message``'s job, not this one's.
 
         Args:
             execution_result: The execution result, if any.
             verification_result: Inspector's verdict for this turn.
-            stop_sentence: The chain-stop sentence, if the chain stopped —
-                which already says the original is unchanged.
 
         Returns:
-            The reply text, without the stop sentence itself.
+            The reply text.
         """
         open_findings, other_findings = TemplateSpeaker._partition_analysis_findings(
             verification_result
@@ -380,8 +510,7 @@ class TemplateSpeaker:
         elif other_findings:
             joined = "; ".join(_strip_finding_tags(f) for f in other_findings)
             parts.append(joined[0].upper() + joined[1:] + ".")
-        if not stop_sentence:
-            parts.append(NO_CHANGES_SENTENCE)
+        parts.append(NO_CHANGES_SENTENCE)
         return " ".join(parts)
 
     @staticmethod
@@ -513,23 +642,6 @@ class TemplateSpeaker:
         if verification_result.recommendations:
             parts.append(" ".join(verification_result.recommendations))
         return " ".join(parts)
-
-    @staticmethod
-    def _describe_without_verification(execution_result: ExecutionResult | None) -> str:
-        """Compose a reply when Inspector hasn't run at all.
-
-        Args:
-            execution_result: The execution result, if any.
-
-        Returns:
-            The reply text.
-        """
-        if execution_result is None:
-            return "I wasn't able to find anything to do with that request."
-        if not execution_result.success:
-            errors = "; ".join(execution_result.errors) or "an unknown error occurred"
-            return f"I ran into a problem: {errors}"
-        return "I did the work, but wasn't able to confirm the result."
 
     @staticmethod
     def _output_file_names(execution_result: ExecutionResult | None) -> tuple[str, ...]:
@@ -792,6 +904,7 @@ class PersonalityVoice:
             )
             return self._fallback_reply(request)
 
+        reply = _plain_words(reply)
         # A file was handed back: the reply must say so.
         file_name = _delivered_file_name(request)
         if file_name is not None and not _mentions_file(reply, file_name):
@@ -859,7 +972,8 @@ class PersonalityVoice:
             skipped = [step for step in steps if step.status == SKIPPED_STATUS]
             if ran:
                 ran_text = ", ".join(
-                    f"{_describe_capability(step.capability)} "
+                    f"{_describe_capability(step.capability)}"
+                    f"{' re-check of the final file' if step.recheck else ''} "
                     f"({'passed' if _step_passed(step, verification_result) else 'did not pass'})"
                     for step in ran
                 )
@@ -884,9 +998,15 @@ class PersonalityVoice:
                     f"of {file_name}, with every change above applied"
                 )
             if execution_result.warnings:
-                lines.append("Execution warnings: " + "; ".join(execution_result.warnings))
+                lines.append(
+                    "Execution warnings: "
+                    + "; ".join(_plain_words(w) for w in execution_result.warnings)
+                )
             if execution_result.errors:
-                lines.append("Execution errors: " + "; ".join(execution_result.errors))
+                lines.append(
+                    "Execution errors: "
+                    + "; ".join(_plain_words(e) for e in execution_result.errors)
+                )
 
         if verification_result is None:
             lines.append("Verification: not performed.")
@@ -904,10 +1024,16 @@ class PersonalityVoice:
                 lines.append(f"Noticed on your own, unprompted{about}: " + "; ".join(noticed))
             if findings:
                 lines.append("Verification findings: " + "; ".join(findings))
+            if _recheck_failed(verification_result):
+                lines.append(
+                    "The cleaned file handed back could not be re-checked for other problems "
+                    "after the changes. Say so plainly; the file itself was still verified and "
+                    "handed back."
+                )
             if verification_result.recommendations:
                 lines.append(
                     "Verification recommendations: "
-                    + "; ".join(verification_result.recommendations)
+                    + "; ".join(_plain_words(r) for r in verification_result.recommendations)
                 )
 
         return "\n".join(lines)

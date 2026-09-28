@@ -433,7 +433,12 @@ claim, stated explicitly:**
   all three checks are cheap, dependency-free pandas/`datetime` logic
   (Sections 2–4.1 are deliberately built that way), so full independent
   recomputation costs almost nothing and gives a genuine second opinion,
-  not a token one. The Skill's own copy of these three checks still runs
+  not a token one. *(Superseded (chaining): the verifier now reads the
+  file the step actually analyzed, `StepResult.input_reference`, falling
+  back to `active_file` only for older results. That's the original for
+  the proactive step and the final file for its re-check; see
+  `docs/design/multi-step-planner-design.md`, "In-loop verification, the
+  final-file re-check, and the Voice safeguards".)* The Skill's own copy of these three checks still runs
   (it needs *something* to build `SkillResult.summary` and its own
   `verify()` self-check from), but nothing the Skill says about them
   reaches `VerificationResult.findings` directly — only the Verifier's
@@ -734,6 +739,12 @@ addable later without touching the driver loop.
   multi-step-delegation change well beyond this design's scope — a
   follow-up for whenever multi-file turns themselves are designed for,
   not something to special-case inside proactive analysis alone.
+
+  > **Superseded (chaining), in part.** `MechanicalDelegator` still
+  > resolves one target per turn, but steps no longer all *read* it:
+  > file-changing steps chain, each reading the previous step's output,
+  > and read-only analysis reads the original and is re-run on the final
+  > file. Analyzing several uploaded files per turn is still unaddressed.
 
 ---
 

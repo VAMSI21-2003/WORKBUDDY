@@ -1,11 +1,13 @@
 """Hands — carries out delegated work and produces results."""
 
 import logging
+from dataclasses import replace
 from pathlib import Path
 from typing import Protocol
 
 from buddy.inspector import VerificationRequest, Verifier
 from buddy.models import (
+    DECLINED_STATUS,
     SKIPPED_STATUS,
     CapabilityRequest,
     ExecutionResult,
@@ -106,9 +108,11 @@ class Hands:
     failure doesn't stop the chain. A chain step's output feeds the next
     step only when it is exactly one file with the same extension as its
     input. If any chain step fails — it can't be dispatched, isn't
-    confirmed, reports failure, fails its own well-formedness check, or
-    fails the injected ``step_verifier`` — the chain stops: every later
-    step is recorded as skipped and nothing is handed back as a result.
+    confirmed, reports failure, fails its own well-formedness check,
+    fails the injected ``step_verifier``, or its output can't feed the
+    chain — the chain stops: the failing step is recorded with a failing
+    status (so Inspector sees it), every later step is recorded as
+    skipped, and nothing is handed back as a result.
     Skills never write to their input, so the original upload is untouched
     either way. ``ExecutionResult.outputs`` holds only the final file;
     intermediate files stay on disk, listed on each ``StepResult``.
@@ -174,8 +178,9 @@ class Hands:
         # The file the next chain step reads: None until a chain step
         # produces one, meaning "read the delegated target (the original)".
         chain_input: str | None = None
-        # Outputs handed back besides the chain's final file: any a step
-        # produced that didn't feed the chain (e.g. a different file type).
+        # Outputs handed back besides the chain's final file: any a
+        # read-only step produced (a chain step's output always feeds the
+        # chain, or the chain stops).
         other_outputs: list[str] = []
         # READ-tier requests that ran on the original, re-run on the final
         # file once the chain completes.
@@ -215,6 +220,16 @@ class Hands:
                     exc,
                 )
                 errors.append(str(exc))
+                step_results.append(
+                    StepResult(
+                        capability=request.capability,
+                        skill="",
+                        status=SkillStatus.FAILURE.value,
+                        summary=str(exc),
+                        input_reference=input_reference,
+                        failure_reason="couldn't be run because no available skill can do it",
+                    )
+                )
                 stopped_because = f"{request.capability} could not be run"
                 stopped_at = request.capability
                 continue
@@ -248,6 +263,17 @@ class Hands:
                 errors.append(
                     f"{skill.name} was not confirmed for a {task.permission.value}-tier "
                     f"action; skipped"
+                )
+                step_results.append(
+                    StepResult(
+                        capability=request.capability,
+                        skill=skill.name,
+                        status=DECLINED_STATUS,
+                        summary="confirmation was declined",
+                        input_reference=input_reference,
+                        permission_tier=task.permission.value,
+                        failure_reason="wasn't confirmed, so it didn't run",
+                    )
                 )
                 stopped_because = f"{request.capability} was not confirmed"
                 stopped_at = request.capability
@@ -347,10 +373,22 @@ class Hands:
                 stopped_at = request.capability
                 continue
 
-            if _feeds_next_step(step.outputs, input_reference):
-                chain_input = step.outputs[0]
-            else:
-                other_outputs.extend(step.outputs)
+            if not _feeds_next_step(step.outputs, input_reference):
+                # Continuing from the old input would silently leave this
+                # step's change out of the final file, so stop instead.
+                reason = (
+                    f"produced {len(step.outputs)} file(s) instead of one "
+                    f"{Path(input_reference).suffix or 'file'}, so its result couldn't be "
+                    "carried forward"
+                )
+                step_results[-1] = replace(
+                    step, status=SkillStatus.FAILURE.value, failure_reason=reason
+                )
+                errors.append(f"{request.capability} {reason}")
+                stopped_because = f"{request.capability}'s output couldn't be carried forward"
+                stopped_at = request.capability
+                continue
+            chain_input = step.outputs[0]
 
         final_outputs: list[str] = []
         if stopped_because is not None:
@@ -445,6 +483,7 @@ class Hands:
                     self_reported_findings=tuple(result.self_reported_findings) if ok else (),
                     input_reference=final_file,
                     permission_tier=task.permission.value,
+                    recheck=True,
                 )
             )
         return rechecked

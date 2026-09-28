@@ -335,10 +335,11 @@ def _order_stated_by_user(raw_steps: list[dict], user_message: str) -> list[int]
     own words, whatever order the model listed the steps in.
 
     Returns ``None`` — meaning "keep the model's order" — whenever the
-    position can't be trusted: a phrase is missing or not found verbatim
-    (case-insensitive), two phrases overlap, or the message contains a
-    word that can invert the order (``_ORDER_INVERTING_WORDS``, or a
-    "first" that isn't the opening word).
+    position can't be trusted: a phrase is missing, not found verbatim
+    (case-insensitive), or found more than once (a short or generic quote
+    like "rows" can't say *which* mention it meant), two phrases overlap,
+    or the message contains a word that can invert the order
+    (``_ORDER_INVERTING_WORDS``, or a "first" that isn't the opening word).
 
     Args:
         raw_steps: The model's steps, in the model's order.
@@ -361,13 +362,16 @@ def _order_stated_by_user(raw_steps: list[dict], user_message: str) -> list[int]
             logger.warning("ClaudePlanner: a step had no source_phrase; keeping model's order")
             return None
         needle = phrase.strip().lower()
-        start = message.find(needle)
-        if start < 0:
+        occurrences = message.count(needle)
+        if occurrences != 1:
             logger.warning(
-                "ClaudePlanner: source_phrase %r isn't in the message; keeping model's order",
+                "ClaudePlanner: source_phrase %r appears %d times in the message, not exactly "
+                "once; keeping model's order",
                 phrase,
+                occurrences,
             )
             return None
+        start = message.find(needle)
         spans.append((start, start + len(needle)))
 
     order = sorted(range(len(spans)), key=lambda i: spans[i][0])

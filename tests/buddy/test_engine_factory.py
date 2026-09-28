@@ -18,6 +18,14 @@ import pytest
 from buddy.engine_factory import build_engine
 from buddy.llm import LLMMessage
 from buddy.state import BuddyState
+from buddy.voice import (
+    _COMPLETION_CLAIM,
+    RECHECK_FAILED_SENTENCE,
+    PersonalityVoice,
+    Speaker,
+    SpeakingRequest,
+    TemplateSpeaker,
+)
 
 
 class _QueuedLLMProvider:
@@ -269,8 +277,11 @@ def test_full_slice_decomposes_a_compound_request_into_multiple_steps(
     assert len(errors) == 2
     assert "spreadsheet.column_check" in errors[0]
     assert errors[1].startswith("stopped: spreadsheet.column_check could not be run")
+    # The step that stopped the chain is recorded as failed, so Inspector
+    # sees it (review item B1).
     assert [(s.capability, s.status) for s in state.execution_result.steps] == [
         ("spreadsheet.analyze", "success"),
+        ("spreadsheet.column_check", "failure"),
         ("spreadsheet.remove_column", "skipped"),
         ("spreadsheet.report", "skipped"),
     ]
@@ -693,7 +704,9 @@ def _chain_replies(*planned: tuple[str, str]) -> list[str]:
     return [understand, think, plan]
 
 
-def _run_chain(tmp_path: Path, message: str, replies: list[str]) -> tuple[BuddyState, Path, bytes]:
+def _run_chain(
+    tmp_path: Path, message: str, replies: list[str], speaker: Speaker | None = None
+) -> tuple[BuddyState, Path, bytes]:
     (tmp_path / "uploads").mkdir()
     input_path = Path("uploads") / "report.xlsx"
     _write_fixture_with_duplicates_and_an_empty_row(tmp_path / input_path)
@@ -703,7 +716,7 @@ def _run_chain(tmp_path: Path, message: str, replies: list[str]) -> tuple[BuddyS
     state.user_message = message
     state.context.add_uploaded_file(str(input_path))
     state.context.switch_active_file(str(input_path))
-    build_engine(llm_provider=_QueuedLLMProvider(replies)).run(state)
+    build_engine(llm_provider=_QueuedLLMProvider(replies), speaker=speaker).run(state)
     return state, tmp_path / input_path, original_bytes
 
 
@@ -808,3 +821,173 @@ def test_full_slice_stops_the_chain_when_a_step_fails_verification(
         "handed back; your original file is unchanged." in state.reply
     )
     assert "spreadsheet." not in state.reply
+
+
+# -- Review item B1, end to end: the last step can't run after an earlier one passed --
+
+
+_B1_MESSAGE = "remove the duplicate rows and then give me a report"
+
+
+def _b1_replies() -> list[str]:
+    return _chain_replies(
+        ("spreadsheet.deduplicate", "remove the duplicate rows"),
+        ("spreadsheet.report", "give me a report"),
+    )
+
+
+class _RecordingPersonalityVoice(PersonalityVoice):
+    """A ``PersonalityVoice`` that also records the request it spoke for."""
+
+    def __init__(self, reply: str) -> None:
+        super().__init__(_QueuedLLMProvider([reply]))
+        self.requests: list[SpeakingRequest] = []
+
+    def __call__(self, request: SpeakingRequest) -> str:
+        self.requests.append(request)
+        return super().__call__(request)
+
+
+def test_full_slice_never_says_done_when_the_last_step_cant_be_run(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """The exact scenario from the review: dedupe runs and passes, then the
+    report step has no skill. Nothing is handed back, Inspector sees the
+    failing step, and the reply never claims completion."""
+    monkeypatch.chdir(tmp_path)
+
+    state, original_path, original_bytes = _run_chain(tmp_path, _B1_MESSAGE, _b1_replies())
+
+    result = state.execution_result
+    assert result is not None
+    assert result.outputs == ()
+    assert result.stopped_at == "spreadsheet.report"
+    assert [(s.capability, s.status) for s in result.steps] == [
+        ("spreadsheet.analyze", "success"),
+        ("spreadsheet.deduplicate", "success"),
+        ("spreadsheet.report", "failure"),
+    ]
+    assert original_path.read_bytes() == original_bytes  # untouched
+
+    verification = state.verification_result
+    assert verification is not None
+    assert verification.passed is False
+    verdicts = {v.capability: v.passed for v in verification.steps}
+    assert verdicts["spreadsheet.report"] is False
+
+    reply = state.reply
+    assert reply is not None
+    assert "Done" not in reply
+    assert _COMPLETION_CLAIM.search(reply) is None, reply
+    assert "I stopped at the report step and no file was handed back" in reply
+    assert "spreadsheet." not in reply
+
+
+@pytest.mark.parametrize(
+    "model_reply", ["All done — duplicates removed.", "Your report is ready and saved."]
+)
+def test_full_slice_personality_voice_falls_back_honestly_when_the_last_step_cant_be_run(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, model_reply: str
+) -> None:
+    monkeypatch.chdir(tmp_path)
+    speaker = _RecordingPersonalityVoice(model_reply)
+
+    state, _, _ = _run_chain(tmp_path, _B1_MESSAGE, _b1_replies(), speaker=speaker)
+
+    assert state.reply == TemplateSpeaker()(speaker.requests[0])
+    assert "Done" not in state.reply
+    assert _COMPLETION_CLAIM.search(state.reply) is None
+
+
+# -- Review item M1, end to end: the re-check of the final file fails ------------------
+
+
+def test_full_slice_reports_a_failed_re_check_without_failing_the_delivered_file(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Analysis succeeds on the original, then fails only when re-run on the
+    final file. The file was delivered and verified: the turn passes, the
+    reply names the file, and says in plain words it couldn't be re-checked."""
+    from skills.base import SkillResult, SkillStatus
+    from skills.excel.analyze import SpreadsheetAnalysisSkill
+
+    real_execute = SpreadsheetAnalysisSkill.execute
+    calls: list[str] = []
+
+    def fails_on_second_call(self, task):  # type: ignore[no-untyped-def]
+        calls.append(task.input_references[0])
+        if len(calls) > 1:
+            return SkillResult(status=SkillStatus.FAILURE, errors=["could not read it"])
+        return real_execute(self, task)
+
+    monkeypatch.setattr(SpreadsheetAnalysisSkill, "execute", fails_on_second_call)
+    monkeypatch.chdir(tmp_path)
+    message = "remove the empty rows and then remove the duplicate rows"
+    replies = _chain_replies(
+        ("spreadsheet.remove_empty_rows", "remove the empty rows"),
+        ("spreadsheet.deduplicate", "remove the duplicate rows"),
+    )
+
+    state, original_path, original_bytes = _run_chain(tmp_path, message, replies)
+
+    result = state.execution_result
+    assert result is not None
+    assert len(calls) == 2  # the original, then the final file
+    assert result.success is True
+    assert len(result.outputs) == 1
+    assert result.steps[-1].recheck is True
+    assert original_path.read_bytes() == original_bytes
+
+    verification = state.verification_result
+    assert verification is not None
+    assert verification.passed is True
+    recheck = verification.steps[-2]  # the final_output check comes last
+    assert (recheck.capability, recheck.recheck, recheck.passed) == (
+        "spreadsheet.analyze",
+        True,
+        False,
+    )
+    # The original's own analysis passed, so it is still marked analyzed.
+    assert str(Path("uploads") / "report.xlsx") in state.context.analyzed_files
+
+    reply = state.reply
+    assert reply is not None
+    assert reply.startswith("Done")
+    assert RECHECK_FAILED_SENTENCE in reply
+    assert f"Saved as `{Path(result.outputs[0]).name}`." in reply
+    assert "wasn't able to confirm" not in reply
+    assert "spreadsheet." not in reply
+    assert "[" not in reply
+
+
+def test_full_slice_personality_voice_mentions_the_file_when_the_re_check_fails(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    from skills.base import SkillResult, SkillStatus
+    from skills.excel.analyze import SpreadsheetAnalysisSkill
+
+    real_execute = SpreadsheetAnalysisSkill.execute
+    calls: list[str] = []
+
+    def fails_on_second_call(self, task):  # type: ignore[no-untyped-def]
+        calls.append(task.input_references[0])
+        if len(calls) > 1:
+            return SkillResult(status=SkillStatus.FAILURE, errors=["could not read it"])
+        return real_execute(self, task)
+
+    monkeypatch.setattr(SpreadsheetAnalysisSkill, "execute", fails_on_second_call)
+    monkeypatch.chdir(tmp_path)
+    speaker = _RecordingPersonalityVoice("Both cleanups went through.")
+    replies = _chain_replies(
+        ("spreadsheet.remove_empty_rows", "remove the empty rows"),
+        ("spreadsheet.deduplicate", "remove the duplicate rows"),
+    )
+
+    state, _, _ = _run_chain(
+        tmp_path, "remove the empty rows and then remove the duplicate rows", replies, speaker
+    )
+
+    assert state.reply == "Both cleanups went through. Your cleaned copy of report.xlsx is ready."
+    prompt = speaker._provider.calls[0][1][0].content  # type: ignore[attr-defined]
+    assert "could not be re-checked for other problems" in prompt
+    assert "spreadsheet." not in prompt

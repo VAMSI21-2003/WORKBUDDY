@@ -612,13 +612,56 @@ def test_inspector_marks_analyzed_from_the_steps_own_verdict_even_when_the_aggre
         passed=False,  # the turn overall failed — some OTHER step failed
         confidence=0.5,
         steps=(
-            StepVerification(capability="spreadsheet.analyze", passed=True, confidence=1.0),
+            StepVerification(
+                capability="spreadsheet.analyze",
+                passed=True,
+                confidence=1.0,
+                input_reference="report.xlsx",
+            ),
             StepVerification(capability="spreadsheet.deduplicate", passed=False, confidence=1.0),
         ),
     )
     Inspector(verifier=_FakeVerifier(result))(state)
 
     assert "report.xlsx" in state.context.analyzed_files
+
+
+def test_inspector_does_not_mark_the_original_analyzed_from_a_re_check_of_the_final_file() -> (
+    None
+):
+    """L5: analysis of the original failed; only the re-check of the final
+    file passed. That's a check of a different file, so the original stays
+    unanalyzed and is analyzed again next turn."""
+    state = BuddyState.new(session_id="session-1", workspace_id="workspace-1")
+    state.context.switch_active_file("report.xlsx")
+    result = VerificationResult(
+        passed=True,
+        steps=(
+            StepVerification(
+                capability="spreadsheet.analyze", passed=False, input_reference="report.xlsx"
+            ),
+            StepVerification(
+                capability="spreadsheet.analyze",
+                passed=True,
+                input_reference="out/final.xlsx",
+                recheck=True,
+            ),
+        ),
+    )
+    Inspector(verifier=_FakeVerifier(result))(state)
+
+    assert "report.xlsx" not in state.context.analyzed_files
+
+
+def test_inspector_does_not_mark_analyzed_from_a_verdict_with_no_input_reference() -> None:
+    state = BuddyState.new(session_id="session-1", workspace_id="workspace-1")
+    state.context.switch_active_file("report.xlsx")
+    result = VerificationResult(
+        passed=True, steps=(StepVerification(capability="spreadsheet.analyze", passed=True),)
+    )
+    Inspector(verifier=_FakeVerifier(result))(state)
+
+    assert "report.xlsx" not in state.context.analyzed_files
 
 
 def test_inspector_does_not_mark_analyzed_from_an_aggregate_pass_when_the_step_itself_failed() -> (
@@ -908,3 +951,85 @@ def test_composite_verifier_reports_a_skipped_step_without_verifying_it() -> Non
     assert (skipped.capability, skipped.passed) == ("cap.b", False)
     assert skipped.findings == ("skipped because an earlier step failed",)
     assert result.passed is False
+
+
+# -- Steps Hands failed itself, and re-checks of the final file -------------------
+
+
+def test_composite_verifier_relays_a_steps_failure_reason_without_verifying_it() -> None:
+    """A step no Skill could run (or that wasn't confirmed) has no result to
+    check: Inspector fails it with Hands' plain-words reason."""
+    verifier = _FakeVerifier(VerificationResult(passed=True, findings=("ok",)))
+    steps = (
+        StepResult(capability="cap.a", skill="a", status="success", outputs=("a.xlsx",)),
+        StepResult(
+            capability="cap.b",
+            skill="",
+            status="failure",
+            failure_reason="couldn't be run because no available skill can do it",
+        ),
+    )
+    composite = CompositeVerifier({"cap.a": verifier, "cap.b": verifier})
+
+    result = composite(
+        _request(execution_result=ExecutionResult(success=False, steps=steps, stopped_at="cap.b"))
+    )
+
+    assert len(verifier.received_requests) == 1  # only cap.a
+    assert result.passed is False
+    assert (result.steps[1].capability, result.steps[1].passed) == ("cap.b", False)
+    assert result.steps[1].findings == ("couldn't be run because no available skill can do it",)
+
+
+def test_composite_verifier_does_not_fail_the_turn_on_a_failed_re_check() -> None:
+    """M1: the chain's steps and the final file passed; only the re-check of
+    the final file failed. The delivered file is still verified."""
+    passing = _FakeVerifier(VerificationResult(passed=True, confidence=1.0, findings=("ok",)))
+    failing = _FakeVerifier(
+        VerificationResult(
+            passed=False, confidence=1.0, findings=("the analysis reported failure",)
+        )
+    )
+    steps = (
+        StepResult(
+            capability="cap.a",
+            skill="a",
+            status="success",
+            outputs=("final.xlsx",),
+            input_reference="orig.xlsx",
+        ),
+        StepResult(
+            capability="cap.read",
+            skill="r",
+            status="failure",
+            input_reference="final.xlsx",
+            recheck=True,
+        ),
+    )
+    composite = CompositeVerifier({"cap.a": passing, "cap.read": failing})
+
+    result = composite(
+        _request(
+            execution_result=ExecutionResult(success=True, outputs=("final.xlsx",), steps=steps)
+        )
+    )
+
+    assert result.passed is True
+    recheck = result.steps[1]
+    assert (recheck.passed, recheck.recheck, recheck.input_reference) == (
+        False,
+        True,
+        "final.xlsx",
+    )
+    assert recheck.findings == ("the final file couldn't be re-checked after the changes",)
+
+
+def test_composite_verifier_records_each_steps_input_reference() -> None:
+    verifier = _FakeVerifier(VerificationResult(passed=True))
+    step = StepResult(capability="cap.a", skill="a", status="success", input_reference="in.xlsx")
+
+    result = CompositeVerifier({"cap.a": verifier})(
+        _request(execution_result=ExecutionResult(success=True, steps=(step,)))
+    )
+
+    assert result.steps[0].input_reference == "in.xlsx"

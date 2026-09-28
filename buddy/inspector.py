@@ -5,7 +5,7 @@ import re
 from collections.abc import Callable, Mapping, Sequence
 from dataclasses import dataclass, replace
 from datetime import datetime
-from typing import Protocol
+from typing import NamedTuple, Protocol
 
 import pandas as pd
 
@@ -462,7 +462,7 @@ class SpreadsheetAnalysisVerifier:
             return VerificationResult(
                 passed=False,
                 confidence=1.0,
-                findings=("spreadsheet.analyze reported failure",),
+                findings=("the analysis reported failure",),
             )
 
         # The exact file the Skill analyzed; the active file (the original
@@ -531,12 +531,35 @@ def _scoped_execution_result(step: StepResult) -> ExecutionResult:
     )
 
 
-def _aggregate_verdicts(per_step: Sequence[tuple[str, VerificationResult]]) -> VerificationResult:
+class _Verdict(NamedTuple):
+    """One entry for ``_aggregate_verdicts``: a step's own verdict, and
+    which file it was about."""
+
+    capability: str
+    result: VerificationResult
+    input_reference: str = ""
+    # A re-check of the final file: its failure doesn't fail the turn.
+    recheck: bool = False
+
+
+# The finding recorded for a step that never ran because an earlier one failed.
+SKIPPED_FINDING = "skipped because an earlier step failed"
+
+# The finding recorded when the re-check of the final file fails. Plain
+# words, no capability id: it reaches the user as-is.
+RECHECK_FAILED_FINDING = "the final file couldn't be re-checked after the changes"
+
+
+def _aggregate_verdicts(per_step: Sequence[_Verdict]) -> VerificationResult:
     """Combine one ``VerificationResult`` per step into a single verdict.
 
     ``passed`` iff every step passed — one unverified or failed step means
     the turn as a whole isn't verified, the same all-or-nothing standard
-    ``ExecutionResult.success`` already applies via ``not errors``.
+    ``ExecutionResult.success`` already applies via ``not errors``. The one
+    exception is a re-check of the final file (``recheck``): it only adds
+    findings about a file that was already delivered and verified, so its
+    failure is recorded on its own ``StepVerification`` but never fails the
+    turn.
     ``confidence`` is the minimum across steps, since an aggregate claim is
     only ever as confident as its least confident component. ``findings``
     and ``recommendations`` are the concatenation of every step's own,
@@ -551,8 +574,8 @@ def _aggregate_verdicts(per_step: Sequence[tuple[str, VerificationResult]]) -> V
     ``docs/design/proactive-analysis-design.md`` Section 5.5.
 
     Args:
-        per_step: ``(capability, VerificationResult)`` pairs, one per step
-            that was actually verified, in step order.
+        per_step: One ``_Verdict`` per step that was actually verified, in
+            step order.
 
     Returns:
         The aggregated ``VerificationResult``, or an honest "nothing was
@@ -562,26 +585,27 @@ def _aggregate_verdicts(per_step: Sequence[tuple[str, VerificationResult]]) -> V
         return VerificationResult(
             passed=False, confidence=0.0, findings=("no steps were verified",)
         )
+    blocking = [v.result for v in per_step if not v.recheck] or [v.result for v in per_step]
     return VerificationResult(
-        passed=all(result.passed for _, result in per_step),
-        confidence=min(result.confidence for _, result in per_step),
+        passed=all(result.passed for result in blocking),
+        confidence=min(result.confidence for result in blocking),
         findings=tuple(
-            f"[{capability}] {finding}"
-            for capability, result in per_step
-            for finding in result.findings
+            f"[{v.capability}] {finding}" for v in per_step for finding in v.result.findings
         ),
         recommendations=tuple(
-            recommendation for _, result in per_step for recommendation in result.recommendations
+            recommendation for v in per_step for recommendation in v.result.recommendations
         ),
         steps=tuple(
             StepVerification(
-                capability=capability,
-                passed=result.passed,
-                confidence=result.confidence,
-                findings=result.findings,
-                recommendations=result.recommendations,
+                capability=v.capability,
+                passed=v.result.passed,
+                confidence=v.result.confidence,
+                findings=v.result.findings,
+                recommendations=v.result.recommendations,
+                input_reference=v.input_reference,
+                recheck=v.recheck,
             )
-            for capability, result in per_step
+            for v in per_step
         ),
     )
 
@@ -644,28 +668,43 @@ class CompositeVerifier:
         if execution_result is None or not execution_result.steps:
             return self._fallback(request)
 
-        per_step: list[tuple[str, VerificationResult]] = []
-        for step in execution_result.steps:
-            if step.status == SKIPPED_STATUS:
-                # Never ran, so there's nothing to check — and running a
-                # verifier would only report a confusing "no output file".
-                per_step.append(
-                    (
-                        step.capability,
-                        VerificationResult(
-                            passed=False, findings=("skipped because an earlier step failed",)
-                        ),
-                    )
-                )
-                continue
-            verifier = self._verifiers_by_capability.get(step.capability, self._fallback)
-            per_step.append((step.capability, verifier(self._scoped_request(request, step))))
+        per_step = [
+            _Verdict(
+                step.capability,
+                self._verify_step(request, step),
+                step.input_reference,
+                step.recheck,
+            )
+            for step in execution_result.steps
+        ]
 
         final_check = self._verify_final_file(request)
         if final_check is not None:
-            per_step.append((FINAL_OUTPUT_CAPABILITY, final_check))
+            per_step.append(_Verdict(FINAL_OUTPUT_CAPABILITY, final_check))
 
         return _aggregate_verdicts(per_step)
+
+    def _verify_step(self, request: VerificationRequest, step: StepResult) -> VerificationResult:
+        """Verify one step with its own strategy, or say why it can't be.
+
+        A skipped step never ran, and a step Hands failed itself
+        (``failure_reason``: no Skill could run it, it wasn't confirmed, or
+        its output couldn't be used) has no result worth checking — running
+        a verifier would only report a confusing "no output file". Those
+        get a failing verdict with the reason instead. A failed re-check of
+        the final file gets a plain-words finding.
+        """
+        if step.status == SKIPPED_STATUS:
+            return VerificationResult(passed=False, findings=(SKIPPED_FINDING,))
+        if step.failure_reason:
+            return VerificationResult(passed=False, confidence=1.0, findings=(step.failure_reason,))
+        verifier = self._verifiers_by_capability.get(step.capability, self._fallback)
+        result = verifier(self._scoped_request(request, step))
+        if step.recheck and not result.passed:
+            return VerificationResult(
+                passed=False, confidence=result.confidence, findings=(RECHECK_FAILED_FINDING,)
+            )
+        return result
 
     @staticmethod
     def _scoped_request(request: VerificationRequest, step: StepResult) -> VerificationRequest:
@@ -698,7 +737,7 @@ class CompositeVerifier:
         chained = [
             step
             for step in execution_result.steps
-            if step.status == "success" and step.outputs
+            if step.status == "success" and step.outputs and not step.recheck
         ]
         if len(chained) < 2 or chained[-1].outputs[0] != final_file:
             return None
@@ -817,6 +856,10 @@ class Inspector:
     def _mark_analyzed_files(state: BuddyState, result: VerificationResult) -> None:
         """Mark this turn's target file as analyzed, once genuinely earned.
 
+        Only an analysis of *this* file counts: the verdict's
+        ``input_reference`` must be the active file, so a passing re-check
+        of the chain's final file never marks the original as analyzed.
+
         Reads ``result.steps`` — the per-step, unaggregated verdict — not
         the aggregate ``result.passed``: one other step failing in the
         same turn must never stop a genuinely-passed ``spreadsheet
@@ -837,7 +880,10 @@ class Inspector:
         if target_file is None:
             return
         analyze_passed = any(
-            step.capability == "spreadsheet.analyze" and step.passed for step in result.steps
+            step.capability == "spreadsheet.analyze"
+            and step.passed
+            and step.input_reference == target_file
+            for step in result.steps
         )
         if analyze_passed:
             state.context.mark_analyzed(target_file)

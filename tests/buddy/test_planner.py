@@ -692,8 +692,16 @@ _EMPTY = "spreadsheet.remove_empty_rows"
                 (_EMPTY, "remove the empty rows and then"),
             ),
         ),
+        # Review item M2: the model's order is right, but it quoted only
+        # "rows" for the empty-rows step. "rows" first appears in "sales
+        # rows", so sorting by first appearance would wrongly put empty
+        # rows first. A phrase that appears more than once can't be placed.
+        (
+            "for the sales rows, remove duplicates, then drop the empty rows",
+            ((_DEDUPE, "remove duplicates"), (_EMPTY, "rows")),
+        ),
     ],
-    ids=["paraphrased", "missing", "after", "late-first", "overlap"],
+    ids=["paraphrased", "missing", "after", "late-first", "overlap", "ambiguous-phrase"],
 )
 def test_claude_planner_keeps_the_models_order_when_the_stated_order_cant_be_checked(
     message: str, model_steps: tuple[tuple[str, str | None], ...]

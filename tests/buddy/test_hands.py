@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import pytest
+
 from buddy.hands import ConfirmationProvider, Hands, NullConfirmationProvider
 from buddy.inspector import VerificationRequest
 from buddy.models import CapabilityRequest, ExecutionResult, VerificationResult
@@ -386,10 +388,9 @@ def test_hands_records_a_failed_step_result_when_verify_check_fails() -> None:
     assert step.outputs == ()
 
 
-def test_hands_records_no_step_result_when_dispatch_fails() -> None:
-    """A request that never reached a Skill has nothing to report as a
-    ``StepResult`` — it's represented purely by an ``errors`` entry.
-    """
+def test_hands_records_a_failed_step_result_when_dispatch_fails() -> None:
+    """A request that never reached a Skill is still recorded as a failed
+    step, so Inspector sees the step that stopped the chain."""
     state = _make_state_with_delegation(
         CapabilityRequest(capability="some.other.capability", target="uploads/report.xlsx")
     )
@@ -398,10 +399,13 @@ def test_hands_records_no_step_result_when_dispatch_fails() -> None:
     stage(state)
 
     assert state.execution_result is not None
-    assert state.execution_result.steps == ()
+    (step,) = state.execution_result.steps
+    assert (step.capability, step.skill, step.status) == ("some.other.capability", "", "failure")
+    assert step.failure_reason
+    assert "some.other" not in step.failure_reason  # plain words, no capability id
 
 
-def test_hands_records_no_step_result_when_confirmation_is_declined() -> None:
+def test_hands_records_a_declined_step_result_when_confirmation_is_declined() -> None:
     skill = _FakeSkill(permission_tier=PermissionTier.WRITE)
     confirmation = _FakeConfirmationProvider(approve=False)
     state = _make_state_with_delegation(
@@ -412,7 +416,13 @@ def test_hands_records_no_step_result_when_confirmation_is_declined() -> None:
     stage(state)
 
     assert state.execution_result is not None
-    assert state.execution_result.steps == ()
+    (step,) = state.execution_result.steps
+    assert (step.capability, step.status, step.permission_tier) == (
+        "spreadsheet.deduplicate",
+        "declined",
+        "write",
+    )
+    assert step.failure_reason
 
 
 def test_hands_records_one_step_result_per_step_across_multiple_delegated_requests() -> None:
@@ -541,19 +551,49 @@ def test_hands_keeps_read_tier_steps_outside_the_chain_on_the_original() -> None
     assert state.execution_result.outputs == ("out/b.xlsx",)
 
 
-def test_hands_does_not_chain_an_output_of_a_different_file_type() -> None:
-    a = _NamedSkill("skill.a", capability="cap.a", outputs=["out/chart.png"])
+@pytest.mark.parametrize(
+    "outputs",
+    [["out/chart.png"], [], ["out/a1.xlsx", "out/a2.xlsx"]],
+    ids=["different-type", "none", "two"],
+)
+def test_hands_stops_the_chain_when_a_steps_output_cant_feed_the_next_step(
+    outputs: list[str],
+) -> None:
+    """Continuing from the old input would silently drop this step's change
+    from the final file, so the chain stops with a clear error instead."""
+    a = _NamedSkill("skill.a", capability="cap.a", outputs=outputs)
     b = _step_b()
     state = _requests("cap.a", "cap.b")
 
     Hands(dispatcher=_chain_dispatcher(a, b))(state)
 
-    assert b.received_tasks[0].input_references == [_ORIGINAL]
+    _assert_stopped_at_first_step(state, b, "'s output couldn't be carried forward")
     assert state.execution_result is not None
-    assert state.execution_result.outputs == ("out/b.xlsx", "out/chart.png")
+    failed = state.execution_result.steps[0]
+    assert (failed.capability, failed.status) == ("cap.a", "failure")
+    assert "couldn't be carried forward" in failed.failure_reason
+    errors = state.execution_result.errors
+    assert any(e.startswith(f"cap.a produced {len(outputs)} file(s)") for e in errors)
+
+
+def test_hands_stops_when_the_last_chain_steps_output_cant_be_handed_back() -> None:
+    """Even for the last step: handing back the previous step's file would
+    claim a change that isn't in it."""
+    b = _NamedSkill("skill.b", capability="cap.b", outputs=["out/b.xlsx", "out/b.png"])
+    state = _requests("cap.a", "cap.b")
+
+    Hands(dispatcher=_chain_dispatcher(_step_a(), b))(state)
+
+    result = state.execution_result
+    assert result is not None
+    assert result.success is False
+    assert result.stopped_at == "cap.b"
+    assert result.outputs == ()
 
 
 def _assert_stopped_at_first_step(state: BuddyState, b: _NamedSkill, reason: str) -> None:
+    # "reason" follows the capability directly, e.g. "cap.a did not complete"
+    # or "cap.a's output couldn't be carried forward".
     assert b.received_tasks == []  # the second step never ran
     result = state.execution_result
     assert result is not None
@@ -561,9 +601,12 @@ def _assert_stopped_at_first_step(state: BuddyState, b: _NamedSkill, reason: str
     assert result.outputs == ()  # nothing handed back
     assert result.stopped_at == "cap.a"
     assert (result.steps[-1].capability, result.steps[-1].status) == ("cap.b", "skipped")
+    sep = "" if reason.startswith("'") else " "
     assert result.errors[-1] == (
-        f"stopped: cap.a {reason}; 1 later step(s) were skipped and no file was handed back"
+        f"stopped: cap.a{sep}{reason}; 1 later step(s) were skipped and no file was handed back"
     )
+    # The step that stopped the chain is always recorded, so Inspector sees it.
+    assert result.steps[0].capability == "cap.a"
 
 
 def test_hands_stops_the_chain_when_a_step_reports_failure() -> None:
@@ -601,6 +644,8 @@ def test_hands_stops_the_chain_when_confirmation_is_declined() -> None:
 
     assert a.received_tasks == []
     _assert_stopped_at_first_step(state, b, "was not confirmed")
+    assert state.execution_result is not None
+    assert state.execution_result.steps[0].status == "declined"
 
 
 def test_hands_stops_the_chain_when_a_step_cant_be_dispatched() -> None:
@@ -610,6 +655,46 @@ def test_hands_stops_the_chain_when_a_step_cant_be_dispatched() -> None:
     Hands(dispatcher=_chain_dispatcher(b))(state)
 
     _assert_stopped_at_first_step(state, b, "could not be run")
+    assert state.execution_result is not None
+    assert state.execution_result.steps[0].status == "failure"
+
+
+def test_hands_records_the_failing_last_step_after_an_earlier_step_passed() -> None:
+    """The B1 shape: step 1 passes, the last step can't be dispatched. The
+    last step must still be recorded, or Inspector only sees passing steps."""
+    state = _requests("cap.a", "cap.b")  # nothing registered for cap.b
+
+    Hands(dispatcher=_chain_dispatcher(_step_a()))(state)
+
+    result = state.execution_result
+    assert result is not None
+    assert result.outputs == ()
+    assert result.stopped_at == "cap.b"
+    assert [(s.capability, s.status) for s in result.steps] == [
+        ("cap.a", "success"),
+        ("cap.b", "failure"),
+    ]
+
+
+def test_hands_records_a_declined_last_step_after_an_earlier_step_passed() -> None:
+    class _DeclineB:
+        def confirm(self, task: SkillTask, tier: PermissionTier) -> bool:
+            return "cap.b" not in task.description
+
+    state = _requests("cap.a", "cap.b")
+
+    Hands(dispatcher=_chain_dispatcher(_step_a(), _step_b()), confirmation_provider=_DeclineB())(
+        state
+    )
+
+    result = state.execution_result
+    assert result is not None
+    assert result.outputs == ()
+    assert result.stopped_at == "cap.b"
+    assert [(s.capability, s.status) for s in result.steps] == [
+        ("cap.a", "success"),
+        ("cap.b", "declined"),
+    ]
 
 
 def test_hands_stops_the_chain_when_a_step_fails_verification() -> None:
@@ -704,8 +789,10 @@ def test_hands_records_a_failed_final_file_re_check_as_a_warning_not_an_error() 
     assert result.outputs == ("out/b.xlsx",)
     assert result.warnings == ("could not re-check the final file with cap.read",)
     recheck = result.steps[-1]
-    assert (recheck.capability, recheck.status, recheck.input_reference) == (
+    assert (recheck.capability, recheck.status, recheck.input_reference, recheck.recheck) == (
         "cap.read",
         "failure",
         "out/b.xlsx",
+        True,
     )
+    assert not any(s.recheck for s in result.steps[:-1])

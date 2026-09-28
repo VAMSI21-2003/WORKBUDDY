@@ -334,6 +334,15 @@ class CompositeVerifier:
 
 Including its fixture helper, since the test depends on it directly.
 
+> **Superseded (chaining).** This section and the code in Section 4 are
+> a snapshot from before chaining. The two steps no longer read the same
+> file independently: the second reads the first one's output, and the
+> fixture docstring's "not chained" no longer holds. `CompositeVerifier`
+> also verifies the final file, and treats a failed re-check of the final
+> file as non-blocking. See `docs/design/multi-step-planner-design.md`,
+> "In-loop verification, the final-file re-check, and the Voice
+> safeguards".
+
 ```python
 def _write_fixture_with_duplicates_and_an_empty_row(path: Path) -> None:
     """Write a real .xlsx file with both an exact duplicate row and a

@@ -94,6 +94,14 @@ necessary follow-up work, but it's outside "Planner needs a new
 strategy," so it's not part of this design's file list. Recording it
 here so it isn't mistaken for solved.
 
+> **Superseded (chaining).** Nothing keys off `outputs[0]` as "the"
+> result of a multi-step turn any more. `ExecutionResult.outputs` holds
+> only the chain's final file; each step's own output is on its
+> `StepResult`, `CompositeVerifier` verifies every step separately plus
+> the final file (`final_output`), and Voice reads the per-step
+> breakdown. See "In-loop verification, the final-file re-check, and the
+> Voice safeguards" at the end of this document.
+
 ---
 
 ## Step 2 — Design
@@ -228,6 +236,13 @@ an unmatched capability into a clean, per-item, non-fatal
 strategy's job is just to be honest about what was asked, and let that
 existing mechanism do its job. No new "capability unavailable" concept
 needs inventing.
+
+> **Superseded (chaining).** An unmatched capability is no longer a
+> per-item, non-fatal error: it **stops the chain**. `Hands` records it
+> as a `StepResult` with `status="failure"`, no skill, and a
+> plain-words `failure_reason`, so Inspector fails that step; later
+> steps are skipped and no file is handed back. Still a clean message,
+> not a crash.
 
 ### 4. Keeping `RuleBasedPlanner`/`NullPlanner` untouched, while actually using the new strategy
 
@@ -420,3 +435,58 @@ strategy"); `scripts/run_dedupe_manually.py` (not part of this ask).
 Pending sign-off, Step 3 would implement one file at a time per the table
 above, showing each file plus its tests before moving to the next, per
 the project's established implementation rule.
+
+---
+
+## In-loop verification, the final-file re-check, and the Voice safeguards
+
+Added with step chaining; see also `docs/reviews/chaining-wip-review.md`
+and `docs/reviews/chaining-wip-fixes.md`.
+
+**In-loop verification (`Hands`).** `build_engine` gives `Hands` the same
+`CompositeVerifier` Inspector uses, as `step_verifier`. After each
+file-changing step succeeds, `Hands` verifies that step against its own
+input before the next step may read its output. A failure stops the
+chain. So does a step that can't be dispatched, isn't confirmed, reports
+failure, fails its own well-formedness check, or whose output can't feed
+the next step (anything but exactly one file of the input's type). The
+step that stopped the chain is always recorded as a `StepResult`
+(`"failure"`, or `"declined"` for a declined confirmation) with a
+plain-words `failure_reason` when there's no Skill result to check, so
+Inspector sees a failing step. Later steps are `"skipped"`, and
+`ExecutionResult.outputs` is `()`. Inspector still re-verifies everything
+afterwards and is the final word.
+
+**Final-file checks (`CompositeVerifier._verify_final_file`).** When at
+least two file-changing steps chained into the delivered file, every
+step's verifier is re-run on that final file with no input reference, so
+the file the user receives satisfies every step's claim at once. It's
+recorded as the `final_output` verdict.
+
+**Final-file re-check (`Hands._recheck_final_file`).** Read-only steps
+(proactive `spreadsheet.analyze`) run on the original upload, outside the
+chain. Once the chain completes, each is re-run on the final file, so the
+findings the reply reports describe the file actually handed back. These
+steps are marked `recheck=True`. A failed re-check is a Hands warning,
+never an error, and Inspector records it as a non-blocking finding: it
+never fails the turn, since the delivered file was already verified. A
+re-check never marks the original as analyzed (only an analysis whose
+`input_reference` is the active file does).
+
+**Voice safeguards.**
+- Replies route on "was anything delivered?" first
+  (`_nothing_delivered`: the chain stopped, no output, or no action step
+  passed). When nothing was delivered, the reply never says "Done" or
+  implies completion. A stopped chain says which step stopped it and why,
+  and that the original is unchanged.
+- One rule for "passed" (`_step_passed`): a step passed only if its Skill
+  reported success *and* Inspector has a passing verdict for that step.
+- `PersonalityVoice` checks the model's reply: when nothing was
+  delivered, a reply with completion wording is replaced by
+  `TemplateSpeaker`'s factual reply. When a file was delivered, the reply
+  must mention it, or a sentence naming it is appended.
+- A failed final-file re-check is said in plain words, and the delivered
+  file is still named.
+- No raw capability id (`spreadsheet.analyze`, and any other id in a
+  known domain) reaches a reply: leading `[tag]`s are stripped and ids
+  anywhere in findings, warnings and errors are replaced with plain words.

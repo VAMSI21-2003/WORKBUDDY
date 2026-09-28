@@ -90,14 +90,14 @@ class CapabilityRequest:
 class StepResult:
     """The outcome of executing a single delegated capability request.
 
-    Produced by Hands, one per ``CapabilityRequest`` it actually got far
-    enough to dispatch to a Skill (a request that never reached a Skill —
-    routing failure, declined confirmation — has nothing to report here
-    and is represented purely by an ``ExecutionResult.errors`` entry
-    instead; see ``buddy/hands.py``). The one exception is a step Hands
-    never started because an earlier step in the chain failed: it gets a
-    ``StepResult`` with status ``SKIPPED_STATUS`` and no skill, so the
-    reply can say which steps didn't run. This is what lets a Verifier
+    Produced by Hands, one per ``CapabilityRequest`` it handled — including
+    one that never reached a Skill: a request no Skill could be dispatched
+    for is recorded with status ``"failure"`` and no skill, and one whose
+    confirmation was declined with status ``DECLINED_STATUS``, each with a
+    ``failure_reason``, so Inspector sees the step that stopped the chain.
+    A step Hands never started because an earlier step in the chain failed
+    gets status ``SKIPPED_STATUS`` and no skill, so the reply can say which
+    steps didn't run. This is what lets a Verifier
     resolve *which* strategy applies to *which* output — something
     ``ExecutionResult.outputs`` (only the final file) cannot express on
     its own.
@@ -109,8 +109,9 @@ class StepResult:
             ``""`` for a skipped step.
         status: The Skill's own reported outcome for this step, as the
             string value of ``skills.base.SkillStatus`` (e.g.
-            ``"success"``, ``"failure"``), or ``SKIPPED_STATUS`` for a
-            step never started. Kept as a plain string rather than
+            ``"success"``, ``"failure"``), ``SKIPPED_STATUS`` for a step
+            never started, or ``DECLINED_STATUS`` for a step whose
+            confirmation was declined. Kept as a plain string rather than
             importing ``SkillStatus`` here so ``buddy/models.py`` stays
             free of a dependency on ``skills/`` — the same domain-agnostic
             boundary ``docs/BUDDY_SKILLS.md`` Section 2 asks Buddy's core
@@ -133,6 +134,16 @@ class StepResult:
             (``"read"``, ``"write"``, ``"external_effect"``), or ``""`` if
             unknown (e.g. a skipped step). Anything above ``"read"`` is an
             action step — one that changes a file.
+        failure_reason: Why Hands itself failed this step, in plain words
+            with no capability id — set when there is no Skill result for
+            a Verifier to check (no Skill could run it, confirmation was
+            declined) or when the result couldn't be used (its output
+            couldn't feed the chain). ``""`` otherwise. Inspector relays it
+            as the step's finding instead of running a Verifier.
+        recheck: ``True`` for a read-only step Hands re-ran on the chain's
+            final file after the chain completed (see
+            ``Hands._recheck_final_file``). Its failure is a non-blocking
+            finding: it never fails the turn.
     """
 
     capability: str
@@ -143,11 +154,16 @@ class StepResult:
     self_reported_findings: tuple[str, ...] = ()
     input_reference: str = ""
     permission_tier: str = ""
+    failure_reason: str = ""
+    recheck: bool = False
 
 
 # The ``StepResult.status`` of a step Hands never started because an
 # earlier step in the same chain failed.
 SKIPPED_STATUS = "skipped"
+
+# The ``StepResult.status`` of a step whose confirmation was declined.
+DECLINED_STATUS = "declined"
 
 
 @dataclass(frozen=True)
@@ -214,6 +230,13 @@ class StepVerification:
         confidence: Confidence in this step's own verdict.
         findings: This step's own plain-language findings, unprefixed.
         recommendations: This step's own suggestions for what to do next.
+        input_reference: The file the verified step read (its
+            ``StepResult.input_reference``), or ``""`` if unknown or not a
+            step (e.g. the final-file check). Lets a consumer tell which
+            file a verdict is about when one capability ran more than once.
+        recheck: Mirrors ``StepResult.recheck``: this verdict is for a
+            re-check of the final file, and its failure didn't count
+            against ``VerificationResult.passed``.
     """
 
     capability: str
@@ -221,6 +244,8 @@ class StepVerification:
     confidence: float = 0.0
     findings: tuple[str, ...] = ()
     recommendations: tuple[str, ...] = ()
+    input_reference: str = ""
+    recheck: bool = False
 
 
 @dataclass(frozen=True)
