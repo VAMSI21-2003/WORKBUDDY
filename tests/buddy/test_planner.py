@@ -974,3 +974,45 @@ def test_claude_planner_confirms_a_single_step_plan() -> None:
     steps = _plan("remove the empty rows", _step_json(_EMPTY, "not in the message"))
 
     assert [s.order_confirmed for s in steps] == [True]
+
+
+# -- Live-run L-2: a step quoting nothing the user said doesn't run ----------------------
+
+
+def test_claude_planner_drops_a_step_whose_source_phrase_is_empty(
+    caplog: pytest.LogCaptureFixture,
+) -> None:
+    """Run 7's plan: the model added empty-row removal with source_phrase ""."""
+    with caplog.at_level(logging.WARNING, logger="buddy.planner"):
+        steps = _plan(
+            "remove the duplicate rows and then give me a report",
+            _step_json(_DEDUPE, "remove the duplicate rows"),
+            _step_json(_EMPTY, "", depends_on=[1]),
+            _step_json("spreadsheet.analyze", "then give me a report", depends_on=[2]),
+        )
+
+    assert [(s.id, s.capability, s.dependencies) for s in steps] == [
+        ("step-1", _DEDUPE, ()),
+        ("step-2", "spreadsheet.analyze", ()),  # its dependency was the dropped step
+    ]
+    assert any("source_phrase is empty" in r.getMessage() for r in caplog.records)
+
+
+@pytest.mark.parametrize("phrase", ["", "   "], ids=["empty", "whitespace"])
+def test_claude_planner_drops_every_step_quoting_nothing(phrase: str) -> None:
+    assert _plan("remove the empty rows", _step_json(_EMPTY, phrase)) == ()
+
+
+@pytest.mark.parametrize(
+    "phrase", [None, "drop the blank rows"], ids=["missing", "paraphrased"]
+)
+def test_claude_planner_keeps_a_step_whose_phrase_is_missing_or_paraphrased(
+    phrase: str | None,
+) -> None:
+    steps = _plan(
+        "remove the duplicate rows then remove the empty rows",
+        _step_json(_DEDUPE, "remove the duplicate rows"),
+        _step_json(_EMPTY, phrase),
+    )
+
+    assert [s.capability for s in steps] == [_DEDUPE, _EMPTY]

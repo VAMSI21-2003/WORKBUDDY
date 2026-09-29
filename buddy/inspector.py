@@ -52,6 +52,10 @@ class VerificationRequest:
     active_file: str | None = None
 
 
+# What the analysis reports when none of its checks found anything.
+NO_ANALYSIS_FINDINGS = "none of the issues I check for were found"
+
+
 class Verifier(Protocol):
     """Produces a ``VerificationResult`` from a ``VerificationRequest``.
 
@@ -501,7 +505,9 @@ class SpreadsheetAnalysisVerifier:
         )
 
         if not findings:
-            findings.append("nothing notable found")
+            # Not "nothing notable": the analysis doesn't check everything
+            # (e.g. exact duplicate rows), so it must not read as "clean".
+            findings.append(NO_ANALYSIS_FINDINGS)
 
         # A run with any self-reported (unverified) content is never as
         # confident as a run whose every finding was independently

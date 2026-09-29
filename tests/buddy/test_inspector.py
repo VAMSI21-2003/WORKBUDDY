@@ -194,7 +194,7 @@ def test_spreadsheet_analysis_verifier_reports_nothing_notable_for_a_clean_file(
 
     assert result.passed is True
     assert result.confidence == 1.0
-    assert result.findings == ("nothing notable found",)
+    assert result.findings == ("none of the issues I check for were found",)
 
 
 def test_spreadsheet_analysis_verifier_independently_recomputes_missing_values(
@@ -815,7 +815,7 @@ def test_analysis_verifier_reads_the_steps_own_input_over_the_active_file(
     result = SpreadsheetAnalysisVerifier()(request)
 
     assert result.passed is True
-    assert result.findings == ("nothing notable found",)
+    assert result.findings == ("none of the issues I check for were found",)
 
 
 # -- CompositeVerifier: skipped steps and the final file --------------------------

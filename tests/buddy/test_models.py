@@ -232,7 +232,7 @@ def test_verification_result_can_carry_a_per_step_breakdown() -> None:
         capability="spreadsheet.analyze",
         passed=True,
         confidence=1.0,
-        findings=("nothing notable found",),
+        findings=("none of the issues I check for were found",),
     )
     result = VerificationResult(passed=True, confidence=1.0, steps=(step_verification,))
 

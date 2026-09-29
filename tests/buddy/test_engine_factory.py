@@ -450,7 +450,7 @@ def test_full_slice_runs_two_real_skills_and_aggregates_verification_and_reply(
     assert state.reply is not None
     assert "Before anything else, here's what I noticed" not in state.reply
     assert "missing" not in state.reply.lower()
-    assert "nothing notable found" in state.reply
+    assert "none of the issues I check for were found" in state.reply
     output_names = {Path(p).name for p in state.execution_result.outputs}
     for name in output_names:
         assert name in state.reply
@@ -1348,3 +1348,33 @@ def test_full_slice_states_the_order_used_when_it_couldnt_be_confirmed(
     else:
         assert state.reply is not None
         assert state.reply.endswith(expected)
+
+
+# -- Live-run L-2, end to end: run 7's plan ---------------------------------------------
+
+
+def test_full_slice_does_not_run_a_step_the_user_never_asked_for(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """The planner added empty-row removal with source_phrase "". Only the
+    dedupe the user asked for runs. (This fixture's empty row ends up last
+    after dedupe, where the xlsx round trip drops it, so the check is on
+    the steps that ran, not on the empty row.)"""
+    monkeypatch.chdir(tmp_path)
+    replies = _chain_replies(
+        ("spreadsheet.deduplicate", "remove the duplicate rows"),
+        ("spreadsheet.remove_empty_rows", ""),
+        ("spreadsheet.analyze", "then give me a report"),
+    )
+
+    state, original_path, original_bytes = _run_chain(
+        tmp_path, "remove the duplicate rows and then give me a report", replies
+    )
+
+    assert _action_order(state) == ["spreadsheet.deduplicate"]
+    result = state.execution_result
+    assert result is not None
+    assert result.stopped_at is None
+    assert "spreadsheet.remove_empty_rows" not in [s.capability for s in result.steps]
+    assert int(pd.read_excel(result.outputs[0]).duplicated().sum()) == 0
+    assert original_path.read_bytes() == original_bytes

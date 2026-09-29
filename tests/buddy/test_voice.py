@@ -581,7 +581,7 @@ def _tagged_findings_request(mode: str = "friend") -> SpeakingRequest:
             passed=True,
             confidence=1.0,
             findings=(
-                "[spreadsheet.analyze] nothing notable found",
+                "[spreadsheet.analyze] none of the issues I check for were found",
                 "[spreadsheet.analyze] [outliers] amount: 1 unusually high value",
                 "[spreadsheet.deduplicate] output has 3 row(s), 0 duplicate row(s) remaining",
             ),
@@ -607,7 +607,10 @@ def test_personality_voice_prompt_carries_no_capability_tags_or_ids(mode: str) -
     assert "spreadsheet." not in prompt
     # The facts themselves still arrive, just without their labels -- and
     # analysis findings stay distinguishable as unprompted observations.
-    assert "Noticed on your own, unprompted: nothing notable found; amount: 1 unusually high value" in prompt
+    assert (
+        "Noticed on your own, unprompted: none of the issues I check for were found; "
+        "amount: 1 unusually high value"
+    ) in prompt
     assert "Verification findings: output has 3 row(s), 0 duplicate row(s) remaining" in prompt
 
 
@@ -953,7 +956,7 @@ def _delivered_request(mode: str) -> SpeakingRequest:
                 "[spreadsheet.analyze] [missing_values] name: 1 missing (16.7%)",
                 "[spreadsheet.remove_empty_rows] output has 5 row(s), 0 fully-empty row(s) remaining",
                 "[spreadsheet.deduplicate] output has 3 row(s), 0 duplicate row(s) remaining",
-                "[spreadsheet.analyze] nothing notable found",
+                "[spreadsheet.analyze] none of the issues I check for were found",
                 "[final_output] final file: output has 3 row(s), 0 duplicate row(s) remaining",
             ),
             steps=(
@@ -967,7 +970,7 @@ def _delivered_request(mode: str) -> SpeakingRequest:
                 StepVerification(
                     capability="spreadsheet.analyze",
                     passed=True,
-                    findings=("nothing notable found",),
+                    findings=("none of the issues I check for were found",),
                     input_reference=final,
                     recheck=True,
                 ),
@@ -1025,7 +1028,7 @@ def test_personality_voice_reports_analysis_of_the_final_file_not_the_original()
     prompt = provider.last_messages[0].content
     assert (
         "Noticed on your own, unprompted (in the cleaned file handed back, after the changes): "
-        "nothing notable found"
+        "none of the issues I check for were found"
     ) in prompt
     assert "missing" not in prompt  # the original's stale finding
 
@@ -1035,7 +1038,7 @@ def test_template_speaker_reports_analysis_of_the_final_file_not_the_original() 
 
     assert "missing" not in reply
     assert "Before anything else" not in reply
-    assert "nothing notable found" in reply
+    assert "none of the issues I check for were found" in reply
 
 
 def test_voice_reports_the_originals_analysis_when_nothing_was_re_analyzed() -> None:

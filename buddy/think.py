@@ -30,6 +30,9 @@ class ThinkingRequest:
         active_task: Identifier of the task the user was last focused on,
             if any, from the working context.
         recent_conversation: Recent conversation turns, oldest first.
+        user_message: The current turn's message, in the user's own
+            words. The classified intent alone doesn't say which actions a
+            compound request asks for.
     """
 
     understanding: Understanding
@@ -37,6 +40,7 @@ class ThinkingRequest:
     uploaded_files: tuple[str, ...]
     active_task: str | None
     recent_conversation: tuple[ConversationTurn, ...]
+    user_message: str = ""
 
 
 @dataclass(frozen=True)
@@ -193,6 +197,7 @@ class Think:
             uploaded_files=tuple(state.uploaded_files),
             active_task=context.active_task,
             recent_conversation=tuple(context.recent_conversation()),
+            user_message=state.user_message or "",
         )
 
     @staticmethod
@@ -227,9 +232,11 @@ any risks, a recommended strategy, whether the request is clear enough to
 proceed without asking the user something first, and your confidence in
 that recommendation.
 
-You are never shown the contents of any uploaded file — only its name and
-the already-classified intent — so never assume anything about what data a
-file contains.
+You are shown the user's own message, the already-classified intent, and
+the names of uploaded files.
+You are never shown the contents of any uploaded file, so never assume
+anything about what data a file contains. Work out which actions the user
+asked for from their own message.
 
 Buddy carries out the work itself, through its skills — it opens the file,
 changes it, and hands back the result. The user never runs anything.
@@ -294,8 +301,9 @@ class ClaudeThinker:
 
     Builds a prompt from the ``ThinkingRequest``'s already-classified
     ``Understanding`` and asks the model to reason about how to approach
-    the request. Only the classified intent, file *references* (never file
-    contents), and recent conversation text are ever sent to the model —
+    the request. Only the user's own message, the classified intent, file
+    *references* (never file contents), and recent conversation text are
+    ever sent to the model —
     this stage never opens an uploaded file, so no cell or row data can
     appear in any prompt it builds.
 
@@ -342,8 +350,9 @@ class ClaudeThinker:
     def _build_user_prompt(request: ThinkingRequest) -> str:
         """Build the user-turn prompt from ``request``.
 
-        Only the classified intent, file *references* (never file
-        contents), and recent conversation text are included.
+        Only the user's own message, the classified intent, file
+        *references* (never file contents), and recent conversation text
+        are included — the same message ``ClaudePlanner`` already sees.
 
         Args:
             request: The request to build a prompt from.
@@ -352,10 +361,13 @@ class ClaudeThinker:
             The plain-text user prompt to send to the model.
         """
         understanding = request.understanding
-        lines = [
+        lines = []
+        if request.user_message:
+            lines.append(f"The user's own words: \"{request.user_message}\"")
+        lines.append(
             f"Classified intent: {understanding.intent!r} "
             f"(confidence={understanding.confidence:.2f})"
-        ]
+        )
         if understanding.referenced_files:
             lines.append(
                 "Referenced files: " + ", ".join(understanding.referenced_files)
