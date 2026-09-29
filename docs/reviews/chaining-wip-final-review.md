@@ -273,3 +273,188 @@ Review only: no code was changed. This section was added after the review above.
 The follow-up (`docs/reviews/chaining-wip-fixes-3.md`) fixed F1, F3 and the cheap part of F4. F2 was left alone: it's being checked on `main` separately (see "F2 on main" above). This remains open:
 
 - **F5 (Low, exists on `main`).** Output names are `{stem}_{op}_{session}-task-{index}.xlsx`, unique within a turn but not across turns. A later turn in the same session can silently overwrite a file already handed back (the original upload is never touched). Chaining now also writes intermediates under the same scheme. Suggested fix: add a per-turn id to the name, or refuse to overwrite an existing path. It isn't introduced by this branch, so it belongs in a fix on `main`.
+
+---
+
+## Verification of fixes-3
+
+Review only. No code was changed. This section is the only change to the repository.
+
+> **Reviewer independence.** I have no memory of writing or reviewing this code. My auto-memory index has a one-line pointer to an earlier session's notes on this branch's chaining rules; I didn't rely on it. I read `chaining-wip-fixes-3.md` for the list of claims, and checked every claim below by running code.
+
+**Method.**
+- **Harness.** The harness is in the session scratchpad, not in the repo. It uses the real `build_engine`, the real registered skills (`ExcelDeduplicateSkill`, `ExcelRemoveEmptyRowsSkill`, `SpreadsheetAnalysisSkill`), the real verifiers, and real `.xlsx`/`.xls` files written to a fresh temp directory for every run.
+- **Fake LLM.** Only the LLM is faked. The fake provider routes on each stage's system prompt: "intent classifier" goes to Brain, "reasoning stage" to Think, "planning stage" to the Planner, and "voice of WorkBuddy" to Voice. It records every call.
+- **Fixture.** The fixture has 6 rows: 2 exact duplicates and 1 fully empty row that is not the last row.
+- **Import check.** Each run asserts that `buddy` is imported from the tree under test.
+- **Other trees.** `main` (`9bb03bc`) and `570e271` (the pre-fix commit, for comparison) were run from temporary git worktrees, which were removed afterwards.
+
+### V0. Repository state
+
+```
+$ git status
+On branch chaining-wip
+nothing to commit, working tree clean
+
+$ git log --oneline -5
+7ad6cd3 fix: address chaining-wip final review (F1 delivered-only Voice rule, F3 .xls chains, F4 connectors + order stated)
+570e271 fix: address chaining-wip re-review (R1/R3 structural Voice guard, R2 allowlist, R4)
+71ec26d fix: address chaining-wip review (B1, M1, L2, M2/M3 guards, L5, one "passed" rule)
+ed08226 fix: no false completion claims, produced file always named, findings describe the final file
+53db0b3 wip: step chaining + duplicate-analyze filter (not ready: false completion claim in Voice)
+```
+
+The fixes are committed in `7ad6cd3`.
+
+### V1. F1: scenarios A, A2, A3
+
+**Setup.**
+- Message: "remove the duplicate rows please". `PersonalityVoice`.
+- Model replies (all three from the review):
+  - (a) "All done — duplicates removed."
+  - (b) "Duplicates are gone and your sheet is spotless now."
+  - (c) "Got rid of those pesky dupes for you — enjoy the tidy sheet!"
+- Every Brain outcome from the review's intent table, plus five extra malformed shapes.
+- Each combination was run with Think's `clarification_required` set to both `true` and `false`. The review didn't pin Think down; the fixes-3 tests use only `true`.
+- 72 runs in total.
+
+| Brain outcome | Intent recorded | Think clarify=true: ran / delivered / model called / false claim reached user | Think clarify=false: same columns |
+|---|---|---|---|
+| `unclear` | `unclear` | analyze only / no / no / **no** (0 of 3) | analyze only / no / no / **no** (0 of 3) |
+| provider raises (A2, "429") | `None` | same, **no** | same, **no** |
+| non-JSON "sure! remove_duplicate_rows" (A3) | `None` | same, **no** | same, **no** |
+| `Remove_Duplicate_Rows` | `unclear` | same, **no** | same, **no** |
+| `deduplicate` | `unclear` | same, **no** | same, **no** |
+| `remove_duplicates` | `unclear` | same, **no** | same, **no** |
+| `""` (extra) | `unclear` | same, **no** | same, **no** |
+| `null` (extra) | `unclear` | same, **no** | same, **no** |
+| key missing (extra) | `unclear` | same, **no** | same, **no** |
+| `["remove_duplicate_rows"]` (extra) | `None` | same, **no** | same, **no** |
+| top-level JSON list (extra) | `None` | same, **no** | same, **no** |
+| **`remove_empty_rows`** | `remove_empty_rows` | analyze only / no / no / **no** | **empty-rows skill ran / yes, verified / yes / YES (3 of 3)** |
+
+**Undelivered turns.** Every one of them got the same reply: "Before anything else, here's what I noticed: name: 1 missing value(s) (16.7%); amount: 1 missing value(s) (16.7%). Want me to tackle any of these? No changes were made to any file this turn." The Voice model was never called.
+
+**F1 as the review defined it is fixed.** That route is "nothing was delivered, and the model phrases the turn". In 70 of 70 undelivered runs the model wasn't called and no claim reached the user. That includes the paraphrases (b) and (c), which reached the user on `570e271`.
+
+**The exception is the review's own table row `remove_empty_rows`, when Think proceeds.** Fixes-3 made it a real intent, so a dedupe request that Brain misclassifies now runs the empty-rows skill. The file is verified and delivered, and the model's reply is used unchecked. All three false claims reached the user, **including the literal "All done — duplicates removed."** The delivered file still has 2 duplicate rows.
+
+The fixes doc says this case is "F2 territory". That's accurate about the mechanism, but it means the review's A table isn't fully closed. See V5, N1.
+
+### V2. F4: scenario D
+
+**Setup.**
+- The planner returns the steps reversed (empty rows first), with exact `source_phrase`s unless the row says otherwise.
+- Each message asks for dedupe first.
+- Each message was run through both `TemplateSpeaker` and `PersonalityVoice`. The model reply for `PersonalityVoice` was "Done, both cleanups are finished.", which says nothing about order.
+
+| Message | Executed order | `order_confirmed` | Template reply states order | PV prompt has the order sentence | PV reply states order |
+|---|---|---|---|---|---|
+| "remove duplicates then remove empty rows" | dedupe → empty (corrected) | true | n/a | n/a | n/a |
+| "remove duplicates. Then remove empty rows" | corrected | true | n/a | n/a | n/a |
+| "remove duplicates, and after that remove empty rows" | **corrected** | true | n/a | n/a | n/a |
+| "remove duplicates; once that's done remove empty rows" (`'`) | **corrected** | true | n/a | n/a | n/a |
+| same with `’` | **corrected** | true | n/a | n/a | n/a |
+| "remove duplicates, afterwards remove empty rows" | **corrected** | true | n/a | n/a | n/a |
+| "Remove duplicates -> remove empty rows" | **corrected** | true | n/a | n/a | n/a |
+| "Before you remove empty rows, remove duplicates" | empty → dedupe (model's order) | false | **yes** | yes | **no** |
+| "remove duplicates and remove empty rows" | empty → dedupe | false | **yes** | yes | **no** |
+| "remove duplicates then remove empty rows", paraphrased phrases ("delete the duplicate rows" / "drop blank rows") | empty → dedupe | false | **yes** | yes | **no** |
+
+- Every row matches the fixes-3 table.
+- **`TemplateSpeaker` always states the order when it couldn't be confirmed.** The sentence it appends is "I couldn't tell for sure from your message what order you wanted, so the steps ran in this order: remove empty rows, then deduplicate."
+- **`PersonalityVoice` only instructs the model.** A model that ignores the instruction gives a reply that doesn't mention the order, and nothing appends it. Fixes-3 says this openly ("the model's own reply isn't checked for the sentence"). It's a residual gap, not a false statement in the fixes doc.
+- **Data impact today: none.** Both orders gave 3 final rows in every run.
+
+### V3. F3: scenario F
+
+The `.xls` files hold workbook data, which pandas reads by content, as in the review. `xlrd` isn't installed, so a genuine BIFF `.xls` wasn't tested on either branch.
+
+| Scenario | `main` (`9bb03bc`) | `chaining-wip` (`7ad6cd3`) |
+|---|---|---|
+| Single-step dedupe on `report.xls` | Delivered `report_deduplicated_S-task-1.xlsx`, verified; 4 rows, 0 dups; "Done — …" | **Delivered** `report_deduplicated_S-task-1.xlsx`, verified; 4 rows, 0 dups; "Done — output has 4 row(s), 0 duplicate row(s) remaining…" |
+| Two-step chain from `.xls` (dedupe then empty rows) | Two separate files, and neither has both changes | **One final file**, `report_deduplicated_S-task-1_no_empty_rows_S-task-2.xlsx`: 3 rows, 0 dups, 0 empty; verified |
+| Two-step chain from `.xls` (empty rows first) | Two separate files | One final file: 3 rows, 0 dups, 0 empty; verified |
+| Single-step "remove the empty rows" on `.xls` (new intent) | Only analysis ran, and the reply said **"Done."** (a false claim on `main`) | Delivered: 5 rows, 0 empty; verified; "Done — output has 5 row(s), 0 fully-empty row(s) remaining…" |
+
+**F3 is fixed.** The `.xls` regression against `main` is gone, and `.xls` → `.xlsx` chains correctly.
+
+### V4. F2: scenarios C1–C3, on `main` and `chaining-wip`
+
+**Setup.**
+- The fixture has an empty row that dedupe doesn't remove, so a delivered dedupe-only file keeps it.
+- C1/C2: the planner returns only the dedupe step for "remove duplicates then remove empty rows".
+- C3: Brain classifies "remove duplicates and also delete the empty rows" as `remove_duplicate_rows`.
+
+| Scenario | `main` (`9bb03bc`) | `chaining-wip` (`7ad6cd3`) |
+|---|---|---|
+| **C1** (`TemplateSpeaker`) | Delivered, verified; file has 4 rows, **1 empty**. Reply: "…Done — output has 4 row(s), 0 duplicate row(s) remaining. Saved as `report_deduplicated_S-task-1.xlsx`." | Same "Done" reply; same file (4 rows, 1 empty) |
+| **C2** (`PersonalityVoice`, model says "Done — duplicates and empty rows are gone from report.") | Model called; the false claim reached the user **verbatim** | Model called; the false claim reached the user **verbatim** |
+| **C3** (`TemplateSpeaker`) | "…Done — output has 4 row(s), 0 duplicate row(s) remaining…"; file has 4 rows, 1 empty | Same |
+
+**F2 is pre-existing on `main`.** It reproduces identically on both branches. The only difference is the analysis preface: 16.7% missing on `main`, which describes the original, and 25.0% on the branch, which describes the delivered file. That confirms the earlier "F2 on main" section.
+
+### V5. New attempts to break F1
+
+These are scenarios the fixes-3 tests don't cover. "Reached" means the model's false claim appeared in the user-facing reply.
+
+| # | Scenario | `main` | `570e271` | `7ad6cd3` |
+|---|---|---|---|---|
+| **N1** | Dedupe request, Brain misclassifies it as `remove_empty_rows`, Think proceeds. Model replies (a)/(b)/(c). | Nothing ran; all 3 claims **reached** | Nothing ran; (a) caught by the word list, (b)/(c) **reached** | Empty-rows file delivered and verified (still 2 dups); all 3 claims **reached**, including (a) |
+| **N2** | Correct classification and plan. Dedupe on a file with **no** duplicates. Model: "Removed 3 duplicate rows — your sheet is clean." | **Reached** | **Reached** | **Reached** (0 rows were removed) |
+| N3 | Two turns on one `BuddyState`: turn 1 delivers; turn 2 "now remove the empty rows" with Brain raising. Model: "Empty rows are gone too, all tidy!" Run with and without `reset_transient()`. | **Reached** (both) | not run | **Not reached**: the model wasn't called, and no stale state leaked |
+| N5 | Planner turns "remove empty rows" into `spreadsheet.analyze` + dedupe. Model: "Both done: empty rows and duplicates are gone." | **Reached** | not run | **Reached** (file still has 1 empty row) |
+| N6 | "remove duplicates then email it to Bob": dedupe, then an unknown `email.send` step. Model: "Deduped and emailed to Bob!" | **Reached** | not run | **Not reached**: the chain stopped, and the factual reply was used |
+| N7 | Think's provider raises; Brain is certain of `remove_duplicate_rows`. Model: reply (b). | **Reached** | not run | **Not reached**: only analysis ran; "No changes were made…" |
+
+**Conclusion.**
+- **I couldn't break F1's route.** No turn that delivered nothing let the model speak (N3, N6, N7, and all 70 undelivered A runs).
+- **Every break I found goes through the verified-delivery route (F2's class):** N1, N2 and N5. On that route, the model's reply is used without any check against what was requested or what the verifier measured.
+- **N2 is the important one.** It needs only one error, the Voice model overstating. The classification, the plan and the skill are all correct. It exists on `main` too.
+- **N1 is newly reachable through the added intent.** It needs a Brain misclassification. Before, the same misclassification went through F1's route instead, so the net exposure is similar. But the literal (a) is now no longer caught.
+
+**Side observation (Low, not a rule-1 breach).** In N3's second turn on the branch, the reply is "I wasn't able to confirm that worked. No verifier has been configured. No changes were made to any file this turn."
+- Nothing was attempted, so "that worked" is misleading.
+- "No verifier has been configured" is internal wording reaching the user.
+- It happens when the file was already analyzed earlier in the session and no step is planned.
+
+### V6. Rule 2: the original file
+
+- 154 runs across `chaining-wip` and `main` compared the original upload's SHA-256 before and after, plus 5 more on `570e271`.
+- **All 159 were unchanged.**
+- That includes delivered chains, stopped chains, `.xls` inputs, and both multi-turn sessions.
+
+### V7. Test suite
+
+```
+$ python -m pytest -q
+585 passed, 16 warnings in 145.62s
+```
+
+That matches the 585 that fixes-3 reports.
+
+### V8. Summary
+
+| Finding | fixes-3 claim | Verified status |
+|---|---|---|
+| F1 | Fixed | **Fixed for the undelivered route** (70/70 runs, model never called). A table row (`remove_empty_rows` + Think proceeds) still delivers a false claim, now through F2's route (N1). |
+| F2 | Not changed; pre-existing | **Confirmed pre-existing on `main`** (C1–C3 identical). N2 shows it needs only one model error, not two. |
+| F3 | Fixed | **Fixed.** Single-step and two-step `.xls` runs both work. |
+| F4 (cheap part) | Connectors added; order stated | **Fixed for `TemplateSpeaker`.** The new connectors all corrected the order. With `PersonalityVoice` the order is only requested in the prompt, and isn't enforced. |
+| F5 | Deferred | Not re-tested. |
+| Rule 2 | Holds | **Held in 159/159 runs.** |
+| Suite | 585 passed | **585 passed.** |
+
+### Verdict: **MERGE**, with conditions stated
+
+**Reasons to merge:**
+1. **The blocking findings are resolved.** F1 (the undelivered route) and F3 were the two blockers named in the final verdict, and both are fixed and verified end to end. The structural rule, that the model is called only for a verified delivery, held in every undelivered run I could build, including multi-turn and Think failure.
+2. **Every false claim I could still produce also happens on `main`.** In each case `main` is equal or worse: N1, N2, C1–C3 and N5 all reproduce on `main`, and `main` additionally leaks claims in N3, N6 and N7, which the branch blocks. Merging strictly reduces rule-1 exposure against `main`.
+3. **Rule 2 held in all 159 runs**, and the suite passes (585).
+
+**Conditions, which must be tracked and not dropped:**
+- **F2, widened by N1 and N2.** On a verified delivery, the Voice model's reply is used without any check. It should be the next fix, on `main`. For example: compare the reply against the requested intents and the verifier's numbers, or put the outcome in a fixed template sentence and let the model phrase only around it. It's pre-existing, so it doesn't block this branch, but it's the one open rule-1 breach and needs only a single model error (N2).
+- **F4 with `PersonalityVoice`.** Append `_order_used_sentence` when the model's reply omits it, as is already done for the file name.
+- **F5**, and the Low N3 wording ("No verifier has been configured"), stay in Deferred.
+
+If the team's bar is "no known rule-1 breach reachable on this branch", regardless of whether `main` has it too, the verdict becomes DON'T MERGE until F2/N2 is fixed. By this branch's own stated scope (F2 deferred to `main`), it's MERGE.
