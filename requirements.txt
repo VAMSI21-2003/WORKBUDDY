@@ -22,7 +22,7 @@ openpyxl>=3.1
 # splink backs near-duplicate row detection. See
 # scripts/spike_tools_test.py for the real-tool spike that validated both.
 ydata-profiling>=4.10
-splink>=3.9
+splink>=4,<5
 
 # --- Development & quality tooling ---
 black>=24.0
