@@ -355,6 +355,18 @@ def _normalize_connector(text: str) -> str:
     return " ".join(_PUNCTUATION.sub(" ", text.lower()).split())
 
 
+def _quotes_nothing(raw_step: object) -> bool:
+    """Whether a model step's ``source_phrase`` is present but empty.
+
+    A missing phrase isn't treated this way: it says nothing about what
+    the user asked for, only that the model left the field out.
+    """
+    if not isinstance(raw_step, dict):
+        return False
+    phrase = raw_step.get("source_phrase")
+    return isinstance(phrase, str) and not phrase.strip()
+
+
 def _order_stated_by_user(raw_steps: list[dict], user_message: str) -> list[int] | None:
     """Return the order the user stated the steps in, if it can be checked.
 
@@ -751,19 +763,36 @@ class ClaudePlanner:
             if not isinstance(raw_steps, list):
                 raise TypeError("'steps' was not a list")
 
+            # A step quoting an empty source_phrase quotes nothing the user
+            # said: the user never asked for it, so it doesn't run. (A
+            # non-empty phrase that can't be found is kept: it may be a
+            # paraphrase of a real request.)
+            asked_for = [i for i, raw_step in enumerate(raw_steps) if not _quotes_nothing(raw_step)]
+            for i in range(len(raw_steps)):
+                if i not in asked_for:
+                    logger.warning(
+                        "ClaudePlanner: dropped step %d (%r): its source_phrase is empty, so the "
+                        "user never asked for it",
+                        i + 1,
+                        raw_steps[i].get("capability"),
+                    )
+            kept_steps = [raw_steps[i] for i in asked_for]
+
             # Enforce the order the user stated, not just the model's order:
             # steps run as a chain, so order changes the result.
-            order = _order_stated_by_user(raw_steps, user_message)
+            order = _order_stated_by_user(kept_steps, user_message)
             # With two or more steps, an order that couldn't be checked is
             # flagged, so the reply can say which order was used.
-            order_confirmed = order is not None or len(raw_steps) < 2
+            order_confirmed = order is not None or len(kept_steps) < 2
             if order is None:
-                order = list(range(len(raw_steps)))
+                order = list(range(len(kept_steps)))
             elif order != sorted(order):
                 logger.info("ClaudePlanner: reordered steps to match the user's stated order")
-            raw_steps = [raw_steps[i] for i in order]
-            # The model's 1-based step numbers -> positions after reordering.
-            position_of = {old + 1: new for new, old in enumerate(order)}
+            raw_steps = [kept_steps[i] for i in order]
+            # The model's 1-based step numbers -> positions after dropping
+            # and reordering. A dropped step has no position, so a
+            # dependency on it is dropped too.
+            position_of = {asked_for[old] + 1: new for new, old in enumerate(order)}
 
             step_ids = [f"step-{index + 1}" for index in range(len(raw_steps))]
             steps: list[PlanningStep] = []

@@ -168,6 +168,37 @@ def test_claude_thinker_prompt_contains_only_intent_and_file_references() -> Non
     )
 
 
+def test_claude_thinker_prompt_includes_the_users_own_words() -> None:
+    """Live-run L-1: with only the intent "multi_step_request", Think
+    couldn't tell which actions were asked for and asked for clarification
+    on a clear request."""
+    provider = _FakeLLMProvider(
+        reply=json.dumps({"objective": "", "confidence": 0.0, "clarification_required": True})
+    )
+    message = "remove the duplicate rows and then remove the empty rows"
+    request = _empty_request(
+        understanding=Understanding(intent="multi_step_request", confidence=0.9),
+        uploaded_files=("report.xlsx",),
+        user_message=message,
+    )
+
+    ClaudeThinker(provider)(request)
+
+    assert provider.last_messages is not None
+    assert provider.last_messages[0].content == (
+        f"The user's own words: \"{message}\"\n"
+        "Classified intent: 'multi_step_request' (confidence=0.90)\n"
+        "Uploaded files (names only): report.xlsx"
+    )
+
+
+def test_think_stage_passes_the_users_message_to_the_thinker() -> None:
+    state = _make_state()
+    state.user_message = "remove the duplicate rows and then remove the empty rows"
+
+    assert Think._build_request(state).user_message == state.user_message
+
+
 def test_claude_thinker_prompt_includes_recent_conversation_text_only() -> None:
     provider = _FakeLLMProvider(
         reply=json.dumps({"objective": "", "confidence": 0.0, "clarification_required": True})
