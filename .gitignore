@@ -52,6 +52,10 @@ Thumbs.db
 # Manual verification scratch space (see scripts/run_dedupe_manually.py)
 scratch/
 
+# Uploads written at the repo root (e.g. by a run from the repo directory).
+# Anchored so it doesn't touch workspace/uploads/.gitkeep below.
+/uploads/
+
 # WorkBuddy runtime data — keep the folders, ignore their contents
 workspace/uploads/*
 !workspace/uploads/.gitkeep
