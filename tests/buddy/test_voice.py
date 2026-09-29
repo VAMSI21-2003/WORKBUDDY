@@ -12,6 +12,7 @@ import buddy.voice as voice
 from buddy.llm import LLMMessage
 from buddy.models import (
     ExecutionResult,
+    PlanningStep,
     StepResult,
     StepVerification,
     Understanding,
@@ -376,7 +377,7 @@ def test_personality_voice_uses_friend_mode_prompt() -> None:
     provider = _FakeLLMProvider(reply="Nice, all cleaned up!")
     speaker = PersonalityVoice(provider)
 
-    speaker(_request(mode="friend"))
+    speaker(_delivered_request("friend"))
 
     assert provider.last_system == FRIEND_MODE_PROMPT
 
@@ -385,20 +386,20 @@ def test_personality_voice_uses_focus_mode_prompt() -> None:
     provider = _FakeLLMProvider(reply="Done. No duplicates remain.")
     speaker = PersonalityVoice(provider)
 
-    speaker(_request(mode="focus"))
+    speaker(_delivered_request("focus"))
 
     assert provider.last_system == FOCUS_MODE_PROMPT
 
 
-def test_personality_voice_returns_the_models_reply_stripped_when_it_claims_nothing() -> None:
-    """Nothing was delivered, but the reply makes no completion claim, so
-    it's used as-is (only surrounding whitespace removed)."""
-    provider = _FakeLLMProvider(reply="  Here's where things stand.  ")
+def test_personality_voice_returns_the_models_reply_stripped_for_a_verified_delivery() -> None:
+    """A verified file was delivered: the model's reply is used as-is (only
+    surrounding whitespace removed)."""
+    provider = _FakeLLMProvider(reply="  All clean, report is down to 3 rows.  ")
     speaker = PersonalityVoice(provider)
 
-    reply = speaker(_request())
+    reply = speaker(_delivered_request("friend"))
 
-    assert reply == "Here's where things stand."
+    assert reply == "All clean, report is down to 3 rows."
 
 
 def test_personality_voice_prompt_contains_only_understanding_execution_and_verification_facts() -> (
@@ -1485,6 +1486,14 @@ def test_personality_voice_uses_the_models_reply_for_a_verified_delivered_turn(m
     assert reply == "Both cleanups went through; report is down to 3 rows."
 
 
+# -- F1: only a verified, delivered file lets the model phrase the turn ----------
+# These replace three tests that let the model phrase any turn whose intent
+# was None or "unclear" (the old "plain conversation" path), plus a truth
+# table marking those intents "not requested". Brain has no conversational
+# intent, so None/"unclear" is what a failed or unclassifiable *action*
+# request becomes; the model is no longer called for it.
+
+
 @pytest.mark.parametrize(
     "execution_result",
     [
@@ -1498,10 +1507,9 @@ def test_personality_voice_uses_the_models_reply_for_a_verified_delivered_turn(m
     ids=["nothing-executed", "nothing-delegated", "only-proactive-analysis"],
 )
 @pytest.mark.parametrize("intent", [None, "unclear"])
-def test_personality_voice_uses_the_models_reply_for_a_plain_conversation_turn(
+def test_personality_voice_uses_the_factual_reply_when_the_intent_is_unclear_or_missing(
     execution_result: ExecutionResult | None, intent: str | None
 ) -> None:
-    """No action was requested or attempted: the model phrases the reply."""
     provider = _FakeLLMProvider(reply="Hey! Send over a file whenever you like.")
     request = _request(
         understanding=Understanding(intent=intent),
@@ -1515,43 +1523,56 @@ def test_personality_voice_uses_the_models_reply_for_a_plain_conversation_turn(
 
     reply = PersonalityVoice(provider)(request)
 
-    assert provider.last_messages is not None
-    assert reply == "Hey! Send over a file whenever you like."
+    assert provider.last_messages is None
+    assert reply == TemplateSpeaker()(request)
 
 
-def test_the_regex_layer_still_catches_a_claim_in_a_plain_conversation_turn() -> None:
-    provider = _FakeLLMProvider(reply="Done — all cleaned up!")
-    request = _request(understanding=Understanding(intent="unclear"))
-
-    reply = PersonalityVoice(provider)(request)
-
-    assert provider.last_messages is not None  # the model was asked
-    assert reply == TemplateSpeaker()(request)  # but its claim was replaced
+def _verified(passed: bool = True) -> VerificationResult:
+    return VerificationResult(
+        passed=passed,
+        steps=(StepVerification(capability="spreadsheet.deduplicate", passed=passed),),
+    )
 
 
 @pytest.mark.parametrize(
-    ("intent", "steps", "expected"),
+    ("intent", "execution_result", "verification_result", "expected"),
     [
-        ("remove_duplicate_rows", (), True),
-        ("multi_step_request", (), True),
-        ("unclear", (), False),
-        (None, (), False),
-        (None, ("read",), False),
-        (None, ("write",), True),
-        (None, ("",), True),  # never dispatched or never started: tier unknown
+        # A verified file was delivered: the model may phrase it, whatever the intent.
+        ("remove_duplicate_rows", "delivered", _verified(), True),
+        ("unclear", "delivered", _verified(), True),
+        (None, "delivered", _verified(), True),
+        # Anything else: never, whatever the intent.
+        ("remove_duplicate_rows", "delivered", _verified(False), False),
+        ("remove_duplicate_rows", "delivered", None, False),
+        ("remove_duplicate_rows", None, None, False),
+        ("multi_step_request", "analysis-only", _verified(), False),
+        ("unclear", None, None, False),
+        (None, None, None, False),
+        (None, "analysis-only", _verified(), False),
     ],
 )
-def test_action_requested_or_attempted(intent, steps, expected) -> None:
-    execution = ExecutionResult(
-        success=True,
-        steps=tuple(
-            StepResult(capability="spreadsheet.x", skill="s", status="success", permission_tier=t)
-            for t in steps
+def test_model_may_describe_outcome(
+    intent, execution_result, verification_result, expected
+) -> None:
+    executions = {
+        None: None,
+        "delivered": ExecutionResult(
+            success=True,
+            outputs=("out/report_deduplicated.xlsx",),
+            steps=(_dedupe_step(outputs=("out/report_deduplicated.xlsx",)),),
         ),
+        "analysis-only": ExecutionResult(
+            success=True,
+            steps=(_analyze_step(input_reference="uploads/report.xlsx", permission_tier="read"),),
+        ),
+    }
+    request = _request(
+        understanding=Understanding(intent=intent),
+        execution_result=executions[execution_result],
+        verification_result=verification_result,
     )
-    request = _request(understanding=Understanding(intent=intent), execution_result=execution)
 
-    assert voice._action_requested_or_attempted(request) is expected
+    assert voice._model_may_describe_outcome(request) is expected
 
 
 # -- R4: analysis of the original failed; the delivered file is still named ----------
@@ -1607,3 +1628,62 @@ def test_voice_names_the_delivered_file_when_the_initial_analysis_failed() -> No
     assert personality == (
         "Dedupe went through, 3 rows left. Your cleaned copy of report.xlsx is ready."
     )
+
+
+# -- Final review F4: the order used is stated when it couldn't be confirmed -------------
+
+
+def _two_step_request(order_confirmed: bool, second_status: str = "success") -> SpeakingRequest:
+    request = _delivered_request("friend")
+    assert request.execution_result is not None
+    steps = list(request.execution_result.steps)
+    steps[2] = dataclasses.replace(steps[2], status=second_status)
+    return dataclasses.replace(
+        request,
+        order_confirmed=order_confirmed,
+        execution_result=dataclasses.replace(request.execution_result, steps=tuple(steps)),
+    )
+
+
+_ORDER_USED = (
+    "I couldn't tell for sure from your message what order you wanted, so the steps ran "
+    "in this order: remove empty rows, then deduplicate."
+)
+
+
+def test_template_speaker_states_the_order_used_when_it_couldnt_be_confirmed() -> None:
+    assert TemplateSpeaker()(_two_step_request(False)).endswith(_ORDER_USED)
+
+
+def test_personality_voice_prompt_states_the_order_used_when_it_couldnt_be_confirmed() -> None:
+    prompt = PersonalityVoice._build_user_prompt(_two_step_request(False))
+
+    assert _ORDER_USED in prompt
+
+
+@pytest.mark.parametrize(
+    "request_factory",
+    [
+        lambda: _two_step_request(True),
+        lambda: _two_step_request(False, second_status="declined"),  # only one step ran
+    ],
+    ids=["confirmed", "one-step-ran"],
+)
+def test_the_order_used_is_not_stated_otherwise(request_factory) -> None:
+    request = request_factory()
+
+    assert "what order you wanted" not in TemplateSpeaker()(request)
+    assert "what order you wanted" not in PersonalityVoice._build_user_prompt(request)
+
+
+@pytest.mark.parametrize(
+    ("flags", "expected"), [((), True), ((True, True), True), ((True, False), False)]
+)
+def test_voice_passes_on_whether_the_plans_order_was_confirmed(flags, expected) -> None:
+    state = BuddyState.new(session_id="s", workspace_id="w")
+    state.planning = tuple(
+        PlanningStep(id=f"step-{i}", description="x", capability="c", order_confirmed=f)
+        for i, f in enumerate(flags)
+    )
+
+    assert Voice._build_request(state).order_confirmed is expected

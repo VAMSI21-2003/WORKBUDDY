@@ -96,6 +96,7 @@ class NullPlanner:
 
 _INTENT_CAPABILITIES: dict[str, str] = {
     "remove_duplicate_rows": "spreadsheet.deduplicate",
+    "remove_empty_rows": "spreadsheet.remove_empty_rows",
 }
 
 
@@ -318,10 +319,24 @@ def _analysis_first(steps: tuple[PlanningStep, ...]) -> tuple[PlanningStep, ...]
 # The only wording that may join two consecutive steps for their order to
 # be read from where they're mentioned. Compared after lowercasing, turning
 # punctuation into spaces and collapsing whitespace, so ", then" and
-# "; then" both count as "then". Anything else between two steps — "and",
-# "last, and", ", but do", "after you" — isn't understood, and the model's
-# order stands.
-_FORWARD_CONNECTORS = frozenset({"then", "and then", "after that", "followed by", "next"})
+# "; then" both count as "then" (and "once that's done" as "once that s
+# done"). Anything else between two steps — "and", "last, and", ", but do",
+# "after you" — isn't understood, and the model's order stands.
+_FORWARD_CONNECTORS = frozenset(
+    {
+        "then",
+        "and then",
+        "after that",
+        "and after that",
+        "afterwards",
+        "once that s done",
+        "followed by",
+        "next",
+    }
+)
+# Connectors made only of punctuation, which normalizing would erase.
+# Compared with surrounding whitespace removed.
+_FORWARD_SYMBOLS = frozenset({"->"})
 # Order-related wording. Outside the connectors above, any of it — before
 # the first step, after the last, or inside a quoted phrase — means the
 # message may state the order some other way ("… last", "… second",
@@ -352,7 +367,8 @@ def _order_stated_by_user(raw_steps: list[dict], user_message: str) -> list[int]
       phrases overlapping;
     - consecutive phrases are joined by nothing but a forward connector
       (``_FORWARD_CONNECTORS``: "then", "and then", ", then", "after
-      that", "followed by", "next");
+      that", "and after that", "afterwards", "once that's done",
+      "followed by", "next"; or ``_FORWARD_SYMBOLS``: "->");
     - no other order-related word (``_ORDER_WORDS``) appears anywhere
       else — before the first phrase (except a lone "first", for "first X,
       then Y"), after the last, or inside a phrase.
@@ -401,11 +417,13 @@ def _order_stated_by_user(raw_steps: list[dict], user_message: str) -> list[int]
         logger.warning("ClaudePlanner: source phrases overlap; keeping model's order")
         return None
 
-    gaps = [
-        _normalize_connector(message[spans[a][1] : spans[b][0]])
-        for a, b in zip(order, order[1:], strict=False)
+    gaps = [message[spans[a][1] : spans[b][0]] for a, b in zip(order, order[1:], strict=False)]
+    unrecognised = [
+        _normalize_connector(gap)
+        for gap in gaps
+        if _normalize_connector(gap) not in _FORWARD_CONNECTORS
+        and gap.strip() not in _FORWARD_SYMBOLS
     ]
-    unrecognised = [gap for gap in gaps if gap not in _FORWARD_CONNECTORS]
     if unrecognised:
         logger.info(
             "ClaudePlanner: steps joined by unrecognised wording %r; keeping model's order",
@@ -598,12 +616,12 @@ class ClaudePlanner:
     — it works with any ``LLMProvider``, not only Claude specifically.
 
     Only engages for ``"multi_step_request"``: for any other intent
-    (including the single known ``"remove_duplicate_rows"``, and
-    ``"unclear"``), it returns ``()`` immediately with no LLM call, the
-    same early-return discipline ``RuleBasedPlanner`` already follows.
-    Also respects ``reasoning.clarification_required`` and requires a
-    resolvable target file — the same two gates ``RuleBasedPlanner``
-    uses, since per
+    (including the single-step ``"remove_duplicate_rows"`` and
+    ``"remove_empty_rows"``, and ``"unclear"``), it returns ``()``
+    immediately with no LLM call, the same early-return discipline
+    ``RuleBasedPlanner`` already follows. Also respects
+    ``reasoning.clarification_required`` and requires a resolvable target
+    file — the same two gates ``RuleBasedPlanner`` uses, since per
     ``docs/design/multi-step-planner-design.md`` Step 1, every step this
     strategy produces will end up targeting that one file regardless of
     what it intended (``MechanicalDelegator`` resolves one shared target
@@ -736,6 +754,9 @@ class ClaudePlanner:
             # Enforce the order the user stated, not just the model's order:
             # steps run as a chain, so order changes the result.
             order = _order_stated_by_user(raw_steps, user_message)
+            # With two or more steps, an order that couldn't be checked is
+            # flagged, so the reply can say which order was used.
+            order_confirmed = order is not None or len(raw_steps) < 2
             if order is None:
                 order = list(range(len(raw_steps)))
             elif order != sorted(order):
@@ -764,6 +785,7 @@ class ClaudePlanner:
                         capability=str(raw_step["capability"]),
                         priority=index,
                         dependencies=dependencies,
+                        order_confirmed=order_confirmed,
                     )
                 )
             return tuple(steps)

@@ -10,6 +10,7 @@ from typing import Protocol
 from buddy.inspector import FINAL_OUTPUT_CAPABILITY, SKIPPED_FINDING
 from buddy.llm import LLMMessage, LLMProvider
 from buddy.models import (
+    DECLINED_STATUS,
     SKIPPED_STATUS,
     ExecutionResult,
     StepResult,
@@ -150,11 +151,10 @@ _ACTION_TIERS = ("write", "external_effect")
 
 NO_CHANGES_SENTENCE = "No changes were made to any file this turn."
 
-# Wording that claims work was carried out. When nothing was delivered this
-# turn, a model reply containing any of it is discarded for the factual
-# TemplateSpeaker reply. Deliberately broad: an honest reply that happens to
-# match ("nothing was removed") is replaced by an equally honest one, never
-# by a false claim.
+# Wording that claims work was carried out. No reply for a turn that
+# delivered nothing may contain any of it. PersonalityVoice never calls the
+# model for such a turn (see ``_model_may_describe_outcome``), so this is
+# what tests check the factual replies against. Deliberately broad.
 _COMPLETION_CLAIM = re.compile(
     r"\b(done|complet(e|ed|ely|ion)|finish(ed)?|succeed(ed)?|success(ful|fully)?|"
     r"removed|deleted|clean(ed)?|cleared|dedup(ed|licated)?|saved|fixed|ready|"
@@ -278,52 +278,21 @@ RECHECK_FAILED_SENTENCE = (
 )
 
 
-# Intents that ask Buddy to change a file: every intent the rule-based
-# planner maps to a capability (all of them file-changing today), plus a
-# compound request, which ClaudePlanner decomposes into steps that may
-# change files. "unclear" and a missing intent are not action requests.
-_ACTION_INTENTS = frozenset({*_INTENT_CAPABILITIES, "multi_step_request"})
-
-
-def _action_requested_or_attempted(request: "SpeakingRequest") -> bool:
-    """Whether this turn asked for, or tried, a change to a file.
-
-    Requested: Brain classified the message as an action intent
-    (``_ACTION_INTENTS``) — even if Think then asked for clarification and
-    only read-only analysis ran. Attempted: any step that isn't known to
-    be read-only was planned this turn — a step that ran above READ tier,
-    or one with no recorded tier because it was never dispatched or never
-    started — or the chain stopped. Proactive analysis and its re-check
-    are READ tier, so on their own they're neither.
-    """
-    if request.understanding.intent in _ACTION_INTENTS:
-        return True
-    execution_result = request.execution_result
-    if execution_result is None:
-        return False
-    return execution_result.stopped_at is not None or any(
-        step.permission_tier != "read" for step in execution_result.steps
-    )
-
-
 def _model_may_describe_outcome(request: "SpeakingRequest") -> bool:
     """Whether ``PersonalityVoice`` may let the model phrase this turn.
 
-    Only two kinds of turn:
-    - no action was requested or attempted (plain conversation, possibly
-      with proactive read-only analysis); or
-    - a verified file was delivered: something was handed back and
-      Inspector ran and passed the turn.
+    Only when a verified file was delivered: something was handed back and
+    Inspector ran and passed the turn. Every other turn is described by
+    ``TemplateSpeaker``'s factual reply, with no model call.
 
-    Every other action turn — the chain stopped, nothing was delivered,
-    only read-only steps ran for an action request, a delivered file
-    failed verification, or verification is missing — is described by
-    ``TemplateSpeaker``'s factual reply, with no model call. A model can
-    phrase a false completion claim in words no check anticipates, so
-    for those turns it's never given the chance.
+    This deliberately doesn't depend on the classified intent. Brain has
+    no conversational intent, so a turn classified ``unclear`` or with no
+    intent (an LLM failure, a non-JSON reply) may well be an action
+    request that nothing carried out. A model can phrase a false
+    completion claim in words no check anticipates, so for any turn that
+    didn't deliver a verified file it's never given the chance. When a
+    conversational intent is added, it will be allowed here explicitly.
     """
-    if not _action_requested_or_attempted(request):
-        return True
     verification_result = request.verification_result
     return (
         not _nothing_delivered(request)
@@ -333,6 +302,28 @@ def _model_may_describe_outcome(request: "SpeakingRequest") -> bool:
 
 
 INITIAL_ANALYSIS_FAILED_SENTENCE = "The initial analysis of your original file couldn't run."
+
+
+def _order_used_sentence(request: "SpeakingRequest") -> str | None:
+    """Say the order the steps ran in, when it couldn't be checked.
+
+    Only when the planner couldn't confirm the order the user stated and
+    two or more file-changing steps ran: the user can then see whether it
+    matches what they meant.
+    """
+    if request.order_confirmed or request.execution_result is None:
+        return None
+    ran = [
+        _describe_capability(step.capability)
+        for step in request.execution_result.steps
+        if _is_action_step(step) and step.status != DECLINED_STATUS
+    ]
+    if len(ran) < 2:
+        return None
+    return (
+        "I couldn't tell for sure from your message what order you wanted, so the steps ran "
+        "in this order: " + ", then ".join(ran) + "."
+    )
 
 
 def _initial_analysis_failed(verification_result: VerificationResult | None) -> bool:
@@ -394,12 +385,16 @@ class SpeakingRequest:
             ``"friend"`` or ``"focus"`` — sourced from
             ``Context.mode``. ``NullSpeaker``/``TemplateSpeaker`` ignore
             it; ``PersonalityVoice`` uses it to select a system prompt.
+        order_confirmed: ``False`` when the plan's order couldn't be
+            checked against the order the user stated (see
+            ``PlanningStep.order_confirmed``).
     """
 
     understanding: Understanding
     execution_result: ExecutionResult | None
     verification_result: VerificationResult | None
     mode: str
+    order_confirmed: bool = True
 
 
 class Speaker(Protocol):
@@ -484,6 +479,9 @@ class TemplateSpeaker:
                 reply = f"{reply} {INITIAL_ANALYSIS_FAILED_SENTENCE}"
             if _recheck_failed(verification_result):
                 reply = f"{reply} {RECHECK_FAILED_SENTENCE}"
+        order_sentence = _order_used_sentence(request)
+        if order_sentence is not None:
+            reply = f"{reply} {order_sentence}"
         return _plain_words(reply)
 
     @staticmethod
@@ -795,6 +793,7 @@ class Voice:
             execution_result=state.execution_result,
             verification_result=state.verification_result,
             mode=state.context.mode,
+            order_confirmed=all(step.order_confirmed for step in state.planning or ()),
         )
 
     @staticmethod
@@ -951,12 +950,12 @@ class PersonalityVoice:
             ``_model_may_describe_outcome``), or when the model call fails
             or returns an empty reply.
         """
-        # Structural guard, checked before any model call: for an action
-        # turn that didn't end in a verified, delivered file, the outcome
-        # is stated only by TemplateSpeaker.
+        # Structural guard, checked before any model call: for a turn that
+        # didn't end in a verified, delivered file, the outcome is stated
+        # only by TemplateSpeaker.
         if not _model_may_describe_outcome(request):
             logger.info(
-                "PersonalityVoice: no verified file was delivered for an action turn; "
+                "PersonalityVoice: no verified file was delivered this turn; "
                 "using the factual reply without a model call"
             )
             return self._fallback_reply(request)
@@ -975,17 +974,6 @@ class PersonalityVoice:
         reply = raw_reply.strip()
         if not reply:
             logger.warning("PersonalityVoice: LLM reply was empty")
-            return self._fallback_reply(request)
-
-        # An extra layer only: the structural guard above already keeps the
-        # model away from every action turn that delivered nothing. What
-        # can reach here with nothing delivered is a plain conversation
-        # turn, where any completion wording is still replaced.
-        if _nothing_delivered(request) and _COMPLETION_CLAIM.search(reply):
-            logger.warning(
-                "PersonalityVoice: reply claimed completion but nothing was delivered; "
-                "using the factual fallback"
-            )
             return self._fallback_reply(request)
 
         reply = _plain_words(reply)
@@ -1124,6 +1112,13 @@ class PersonalityVoice:
                     "Verification recommendations: "
                     + "; ".join(_plain_words(r) for r in verification_result.recommendations)
                 )
+
+        order_sentence = _order_used_sentence(request)
+        if order_sentence is not None:
+            lines.append(
+                "The order the user wanted couldn't be confirmed from their message. Tell them, "
+                f"in plain words, the order the steps ran in. In Buddy's words: {order_sentence}"
+            )
 
         return "\n".join(lines)
 

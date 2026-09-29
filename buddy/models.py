@@ -57,6 +57,9 @@ class PlanningStep:
             to each other. Lower values run first; ``0`` is the default.
         dependencies: IDs of other steps in the same plan that must
             complete before this one can start.
+        order_confirmed: ``False`` when this step belongs to a multi-step
+            plan whose order couldn't be checked against the order the
+            user stated, so the model's own order was used.
     """
 
     id: str
@@ -64,6 +67,7 @@ class PlanningStep:
     capability: str
     priority: int = 0
     dependencies: tuple[str, ...] = ()
+    order_confirmed: bool = True
 
 
 @dataclass(frozen=True)

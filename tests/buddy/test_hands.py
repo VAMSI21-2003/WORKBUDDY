@@ -591,6 +591,80 @@ def test_hands_stops_when_the_last_chain_steps_output_cant_be_handed_back() -> N
     assert result.outputs == ()
 
 
+# -- Final review F3: an .xls input with an .xlsx output carries the chain -------------
+
+_XLS_ORIGINAL = "uploads/report.xls"
+
+
+def _xls_requests(*capabilities: str) -> BuddyState:
+    return _make_state_with_delegation(
+        *(CapabilityRequest(capability=c, target=_XLS_ORIGINAL) for c in capabilities)
+    )
+
+
+class _SuffixSkill(_NamedSkill):
+    """A ``_NamedSkill`` that only handles inputs ending in ``suffixes``."""
+
+    def __init__(self, name: str, suffixes: tuple[str, ...], **kwargs: object) -> None:
+        super().__init__(name, **kwargs)
+        self._suffixes = suffixes
+
+    def can_handle(self, task: SkillTask) -> bool:
+        return task.input_references[0].endswith(self._suffixes)
+
+
+def test_hands_hands_back_an_xlsx_written_from_an_xls_input() -> None:
+    a = _SuffixSkill("skill.a", (".xlsx", ".xls"), capability="cap.a", outputs=["out/a.xlsx"])
+    state = _xls_requests("cap.a")
+
+    Hands(dispatcher=_chain_dispatcher(a))(state)
+
+    result = state.execution_result
+    assert result is not None
+    assert (result.success, result.stopped_at, result.outputs) == (True, None, ("out/a.xlsx",))
+
+
+def test_hands_chains_an_xls_input_through_an_xlsx_output() -> None:
+    a = _SuffixSkill("skill.a", (".xlsx", ".xls"), capability="cap.a", outputs=["out/a.xlsx"])
+    b = _SuffixSkill("skill.b", (".xlsx", ".xls"), capability="cap.b", outputs=["out/b.xlsx"])
+    state = _xls_requests("cap.a", "cap.b")
+
+    Hands(dispatcher=_chain_dispatcher(a, b))(state)
+
+    assert b.received_tasks[0].input_references == ["out/a.xlsx"]
+    result = state.execution_result
+    assert result is not None
+    assert (result.success, result.stopped_at, result.outputs) == (True, None, ("out/b.xlsx",))
+
+
+def test_hands_stops_the_chain_when_the_next_skill_cant_read_the_output() -> None:
+    a = _SuffixSkill("skill.a", (".xls",), capability="cap.a", outputs=["out/a.xlsx"])
+    b = _SuffixSkill("skill.b", (".xls",), capability="cap.b", outputs=["out/b.xls"])
+    state = _xls_requests("cap.a", "cap.b")
+
+    Hands(dispatcher=_chain_dispatcher(a, b))(state)
+
+    _assert_stopped_at_first_step(state, b, "'s output couldn't be carried forward")
+    assert state.execution_result is not None
+    assert state.execution_result.steps[0].failure_reason == (
+        "produced a .xlsx file the next step can't read, so its result couldn't be carried forward"
+    )
+
+
+def test_hands_leaves_a_next_step_with_no_skill_to_stop_the_chain_itself() -> None:
+    state = _requests("cap.a", "cap.missing")
+
+    Hands(dispatcher=_chain_dispatcher(_step_a()))(state)
+
+    result = state.execution_result
+    assert result is not None
+    assert result.stopped_at == "cap.missing"
+    assert [(s.capability, s.status) for s in result.steps] == [
+        ("cap.a", "success"),
+        ("cap.missing", "failure"),
+    ]
+
+
 def _assert_stopped_at_first_step(state: BuddyState, b: _NamedSkill, reason: str) -> None:
     # "reason" follows the capability directly, e.g. "cap.a did not complete"
     # or "cap.a's output couldn't be carried forward".

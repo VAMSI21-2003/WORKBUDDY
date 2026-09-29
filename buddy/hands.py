@@ -22,6 +22,9 @@ logger = logging.getLogger(__name__)
 
 _CONFIRMATION_REQUIRED_TIERS = (PermissionTier.WRITE, PermissionTier.EXTERNAL_EFFECT)
 
+# The file types a chain step's output may have to carry the chain forward.
+_SPREADSHEET_SUFFIXES = (".xlsx", ".xls")
+
 
 class ConfirmationProvider(Protocol):
     """Decides whether a permission-gated task may proceed.
@@ -373,14 +376,10 @@ class Hands:
                 stopped_at = request.capability
                 continue
 
-            if not _feeds_next_step(step.outputs, input_reference):
+            reason = self._why_output_cant_feed_the_chain(state, requests, index, step.outputs)
+            if reason is not None:
                 # Continuing from the old input would silently leave this
                 # step's change out of the final file, so stop instead.
-                reason = (
-                    f"produced {len(step.outputs)} file(s) instead of one "
-                    f"{Path(input_reference).suffix or 'file'}, so its result couldn't be "
-                    "carried forward"
-                )
                 step_results[-1] = replace(
                     step, status=SkillStatus.FAILURE.value, failure_reason=reason
                 )
@@ -512,6 +511,54 @@ class Hands:
             return None
         return "; ".join(verdict.findings) or "no reason given"
 
+    def _why_output_cant_feed_the_chain(
+        self,
+        state: BuddyState,
+        requests: tuple[CapabilityRequest, ...],
+        index: int,
+        outputs: tuple[str, ...],
+    ) -> str | None:
+        """Say why a chain step's outputs can't carry the chain forward, if they can't.
+
+        They can when there is exactly one output, it's a spreadsheet, and
+        the next file-changing step has a skill that accepts it. The
+        output's type needn't match the step's input: a skill that reads
+        an ``.xls`` and writes an ``.xlsx`` is fine. A report or chart a
+        future skill writes alongside (or instead of) the spreadsheet must
+        never be handed on or back.
+
+        Args:
+            state: The current ``BuddyState`` for this turn.
+            requests: Every request delegated this turn.
+            index: The position of the step that produced ``outputs``.
+            outputs: What that step produced.
+
+        Returns:
+            The reason, for the step's ``failure_reason``, or ``None``.
+        """
+        if len(outputs) != 1 or not outputs[0].lower().endswith(_SPREADSHEET_SUFFIXES):
+            return (
+                f"produced {len(outputs)} file(s) instead of one spreadsheet, so its "
+                "result couldn't be carried forward"
+            )
+        for later_index in range(index + 1, len(requests)):
+            later = requests[later_index]
+            candidates = self._dispatcher.locate_by_capability(later.capability)
+            if not candidates:
+                # That step can't run at all; it stops the chain itself.
+                return None
+            changers = [s for s in candidates if s.permission_tier is not PermissionTier.READ]
+            if not changers:
+                continue  # read-only: outside the chain, it reads the original
+            probe = self._build_task(state, later, later_index, outputs[0])
+            if any(skill.can_handle(probe) for skill in changers):
+                return None
+            return (
+                f"produced a {Path(outputs[0]).suffix} file the next step can't read, so its "
+                "result couldn't be carried forward"
+            )
+        return None
+
     @staticmethod
     def _build_task(
         state: BuddyState, request: CapabilityRequest, index: int, input_reference: str
@@ -570,15 +617,3 @@ class Hands:
         state.outputs = raw_outputs
 
 
-def _feeds_next_step(outputs: tuple[str, ...], input_reference: str) -> bool:
-    """Return whether a chain step's outputs become the next step's input.
-
-    Only a single output of the same file type as the step's own input
-    carries the chain forward — a report or chart a future skill writes
-    alongside (or instead of) the spreadsheet must never be handed to the
-    next spreadsheet step.
-    """
-    return (
-        len(outputs) == 1
-        and Path(outputs[0]).suffix.lower() == Path(input_reference).suffix.lower()
-    )

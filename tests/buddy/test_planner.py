@@ -85,6 +85,19 @@ def test_rule_based_planner_produces_step_for_known_intent() -> None:
     assert "report.xlsx" in steps[0].description
 
 
+def test_rule_based_planner_maps_remove_empty_rows() -> None:
+    request = _request(
+        understanding=Understanding(intent="remove_empty_rows", confidence=0.9),
+        reasoning=Reasoning(clarification_required=False, confidence=0.9),
+        uploaded_files=("report.xlsx",),
+        active_file="report.xlsx",
+    )
+
+    steps = RuleBasedPlanner()(request)
+
+    assert [s.capability for s in steps] == ["spreadsheet.remove_empty_rows"]
+
+
 def test_rule_based_planner_produces_nothing_for_unknown_intent() -> None:
     request = _request(
         understanding=Understanding(intent="unclear", confidence=0.1),
@@ -709,6 +722,8 @@ def test_claude_planner_keeps_the_models_order_when_the_stated_order_cant_be_che
     steps = _plan(message, *(_step_json(cap, phrase) for cap, phrase in model_steps))
 
     assert [s.capability for s in steps] == [cap for cap, _ in model_steps]
+    # Flagged, so the reply can say which order was used (final review F4).
+    assert [s.order_confirmed for s in steps] == [False, False]
 
 
 def test_claude_planner_asks_the_model_for_verbatim_source_phrases() -> None:
@@ -899,6 +914,8 @@ def test_claude_planner_keeps_the_models_order_unless_a_forward_connector_states
     steps = _plan(message, *(_step_json(cap, phrase) for cap, phrase in model_steps))
 
     assert [s.capability for s in steps] == [cap for cap, _ in model_steps]
+    # Flagged, so the reply can say which order was used (final review F4).
+    assert [s.order_confirmed for s in steps] == [False, False]
 
 
 @pytest.mark.parametrize(
@@ -913,6 +930,12 @@ def test_claude_planner_keeps_the_models_order_unless_a_forward_connector_states
         ("remove the empty rows, next remove the duplicate rows", [_EMPTY, _DEDUPE]),
         ("first remove the empty rows, then remove the duplicate rows", [_EMPTY, _DEDUPE]),
         ("please remove the empty rows and then remove the duplicate rows.", [_EMPTY, _DEDUPE]),
+        # Final review F4: added to the allowlist.
+        ("remove the empty rows, and after that remove the duplicate rows", [_EMPTY, _DEDUPE]),
+        ("remove the empty rows; once that's done remove the duplicate rows", [_EMPTY, _DEDUPE]),
+        ("remove the empty rows, afterwards remove the duplicate rows", [_EMPTY, _DEDUPE]),
+        ("remove the empty rows -> remove the duplicate rows", [_EMPTY, _DEDUPE]),
+        ("remove the empty rows->remove the duplicate rows", [_EMPTY, _DEDUPE]),
     ],
 )
 @pytest.mark.parametrize("model_order", ["same", "reversed"])
@@ -925,3 +948,29 @@ def test_claude_planner_follows_the_stated_order_with_a_forward_connector(
     steps = _plan(message, *(_step_json(cap, phrases[cap]) for cap in listed))
 
     assert [s.capability for s in steps] == stated
+    assert all(s.order_confirmed for s in steps)
+
+
+@pytest.mark.parametrize(
+    "message",
+    [
+        "remove the empty rows, remove the duplicate rows",  # bare punctuation isn't "->"
+        "remove the empty rows > remove the duplicate rows",
+        "remove the empty rows - remove the duplicate rows",
+    ],
+)
+def test_claude_planner_does_not_read_other_punctuation_as_an_arrow(message: str) -> None:
+    steps = _plan(
+        message,
+        _step_json(_DEDUPE, "remove the duplicate rows"),
+        _step_json(_EMPTY, "remove the empty rows"),
+    )
+
+    assert [s.capability for s in steps] == [_DEDUPE, _EMPTY]
+    assert not any(s.order_confirmed for s in steps)
+
+
+def test_claude_planner_confirms_a_single_step_plan() -> None:
+    steps = _plan("remove the empty rows", _step_json(_EMPTY, "not in the message"))
+
+    assert [s.order_confirmed for s in steps] == [True]
