@@ -1138,6 +1138,99 @@ def test_dedupe_verifier_measures_zero_removed_on_a_file_with_no_duplicates(
     )
 
 
+def _dedupe_like_the_skill(source: str, tmp_path: Path, name: str = "out.xlsx") -> str:
+    """What ``ExcelDeduplicateSkill`` writes: ``drop_duplicates`` (identical blank
+    rows included), through a real .xlsx round trip."""
+    return _xlsx(tmp_path / name, pd.read_excel(source).drop_duplicates().to_dict("list"))
+
+
+def test_dedupe_verifier_counts_repeated_blank_rows_it_removed(tmp_path: Path) -> None:
+    """H1, scenario BT: no duplicate data rows, but two identical blank rows.
+    Dedupe removed one of them, so ``removed`` is 1, not 0."""
+    source = _xlsx(
+        tmp_path / "in.xlsx",
+        {"name": ["Alice", None, "Bob", None, "Carol"], "amount": [1, None, 2, None, 3]},
+    )
+    output = _dedupe_like_the_skill(source, tmp_path)
+
+    result = SpreadsheetDedupeVerifier()(_step_request("spreadsheet.deduplicate", output, source))
+
+    original, written = pd.read_excel(source), pd.read_excel(output)
+    assert (len(original), len(written)) == (5, 4)
+    assert result.passed is True
+    assert result.measurements == (
+        StepMeasurement(
+            DUPLICATE_ROWS_TARGET,
+            output_rows=4,
+            remaining=0,
+            input_rows=5,
+            removed=len(original) - len(written),
+            removed_blank=1,
+        ),
+    )
+
+
+def test_dedupe_verifier_counts_data_and_blank_duplicates_together(tmp_path: Path) -> None:
+    """H1, scenario X-two-empty: 1 duplicate data row and 2 identical blank rows."""
+    source = _xlsx(
+        tmp_path / "in.xlsx",
+        {
+            "name": ["Alice", None, "Bob", "Alice", None, "Carol"],
+            "amount": [1, None, 2, 1, None, 3],
+        },
+    )
+    output = _dedupe_like_the_skill(source, tmp_path)
+
+    result = SpreadsheetDedupeVerifier()(_step_request("spreadsheet.deduplicate", output, source))
+
+    original, written = pd.read_excel(source), pd.read_excel(output)
+    assert result.passed is True
+    (measurement,) = result.measurements
+    assert (measurement.input_rows, measurement.output_rows) == (6, 4)
+    assert measurement.removed == len(original) - len(written) == 2
+    assert (measurement.removed_blank, measurement.removed_data) == (1, 1)
+
+
+def test_dedupe_verifier_gives_no_count_when_the_xlsx_round_trip_dropped_a_blank(
+    tmp_path: Path,
+) -> None:
+    """The row the step kept last is blank, and the .xlsx round trip drops a
+    trailing blank row. Rows in minus rows out (2) is then not what the step
+    removed as duplicates (1), so the verifier still passes the file but
+    confirms no count."""
+    source = _xlsx(tmp_path / "in.xlsx", {"name": ["Alice", None, "Alice"], "amount": [1, None, 1]})
+    output = _dedupe_like_the_skill(source, tmp_path)
+    assert len(pd.read_excel(source)) - len(pd.read_excel(output)) == 2  # the round trip's doing
+
+    result = SpreadsheetDedupeVerifier()(_step_request("spreadsheet.deduplicate", output, source))
+
+    assert result.passed is True
+    (measurement,) = result.measurements
+    assert (measurement.removed, measurement.removed_blank) == (None, 0)
+    assert (measurement.input_rows, measurement.output_rows) == (3, 1)
+
+
+def test_dedupe_verifier_gives_no_count_when_a_step_dropped_every_blank_row(
+    tmp_path: Path,
+) -> None:
+    """A step that dropped both of two identical blank rows removed more than
+    dedupe should have. The file passes the existing check (blank rows are left
+    out of it), but the count isn't confirmed."""
+    source = _xlsx(
+        tmp_path / "in.xlsx",
+        {"name": ["Alice", None, "Bob", None, "Carol"], "amount": [1, None, 2, None, 3]},
+    )
+    output = _xlsx(
+        tmp_path / "out.xlsx",
+        pd.read_excel(source).dropna(how="all").to_dict("list"),
+    )
+
+    result = SpreadsheetDedupeVerifier()(_step_request("spreadsheet.deduplicate", output, source))
+
+    assert result.passed is True
+    assert result.measurements[0].removed is None
+
+
 def test_empty_rows_verifier_measures_what_it_confirmed(tmp_path: Path) -> None:
     source = _xlsx(tmp_path / "in.xlsx", _SIX_ROWS)
     output = _xlsx(tmp_path / "out.xlsx", pd.read_excel(source).dropna(how="all").to_dict("list"))

@@ -154,8 +154,8 @@ class SpreadsheetDedupeVerifier:
             written,
             _step_input(execution_result),
             lambda original: len(original) - int(original.duplicated().sum()),
-            # Measured on the non-empty rows, exactly as the check above.
-            lambda original: int(_without_empty_rows(original).duplicated().sum()),
+            # Every row dedupe must drop, identical blank rows included.
+            lambda original: int(original.duplicated().sum()),
         )
         if check.problem is not None:
             findings.append(check.problem)
@@ -169,7 +169,10 @@ class SpreadsheetDedupeVerifier:
             passed=True,
             confidence=1.0,
             findings=tuple(findings),
-            measurements=(check.measurement(DUPLICATE_ROWS_TARGET, len(written), duplicate_count),),
+            measurements=(check.measurement(
+                    DUPLICATE_ROWS_TARGET, len(written), duplicate_count, repeats_blank_rows=True
+                ),
+            ),
         )
 
 
@@ -269,15 +272,48 @@ class _InputCheck(NamedTuple):
     # read fresh from the input. ``None`` when there was no input to read.
     input_rows: int | None = None
     removed: int | None = None
+    # Rows and fully-empty rows in the output as read (before the check
+    # drops empty rows), and fully-empty rows in the input.
+    output_rows: int | None = None
+    input_blank: int | None = None
+    output_blank: int | None = None
 
-    def measurement(self, target: str, output_rows: int, remaining: int) -> StepMeasurement:
-        """The ``StepMeasurement`` for a check that passed."""
+    def measurement(
+        self, target: str, output_rows: int, remaining: int, repeats_blank_rows: bool = False
+    ) -> StepMeasurement:
+        """The ``StepMeasurement`` for a check that passed.
+
+        ``removed`` is kept only when the files confirm it: it must equal the
+        rows the input had beyond the output. Otherwise it's ``None`` and the
+        reply states no number. The row-count check leaves empty rows out, so
+        this is where an .xlsx round trip that dropped or kept a blank row is
+        caught.
+
+        Args:
+            target: What the step counted.
+            output_rows: Rows in the output, as read.
+            remaining: Target rows still in the output.
+            repeats_blank_rows: ``True`` for deduplication, which removes all
+                but one of any identical blank rows. Their number is then
+                confirmed as well, and reported as ``removed_blank``.
+        """
+        removed, removed_blank = self.removed, 0
+        if removed is not None:
+            confirmed = self.input_rows - self.output_rows == removed
+            if repeats_blank_rows:
+                removed_blank = self.input_blank - self.output_blank
+                # Identical blank rows keep exactly one, so the step removed
+                # all but one of them (none if there were none).
+                confirmed = confirmed and removed_blank == max(self.input_blank - 1, 0)
+            if not confirmed:
+                removed, removed_blank = None, 0
         return StepMeasurement(
             target=target,
             output_rows=output_rows,
             remaining=remaining,
             input_rows=self.input_rows,
-            removed=self.removed,
+            removed=removed,
+            removed_blank=removed_blank,
         )
 
 
@@ -306,8 +342,8 @@ def _check_against_input(
             final file gets, since it isn't any single step's direct output).
         expected_row_count: Recomputes, from the input with its fully-empty
             rows left out, how many rows the output should have.
-        removed_count: Counts, from the input as read, the target rows the
-            step had to remove.
+        removed_count: Counts, from the input as read (empty rows
+            included), the rows the step had to remove.
 
     Returns:
         An ``_InputCheck`` with no problem and the input's counts if the
@@ -325,6 +361,8 @@ def _check_against_input(
 
     input_rows = len(original)
     removed = removed_count(original)
+    input_blank = int(original.isna().all(axis=1).sum())
+    output_rows, output_blank = len(written), int(written.isna().all(axis=1).sum())
     # Fully-empty rows are left out on both sides: an .xlsx can't hold a
     # trailing empty row (openpyxl drops it on the write/read round trip),
     # so whether one survives depends on where it ended up, not on what the
@@ -342,7 +380,13 @@ def _check_against_input(
     unexpected = _row_set(written) - _row_set(original)
     if unexpected:
         return _InputCheck(problem=f"{len(unexpected)} output row(s) don't appear in its input")
-    return _InputCheck(input_rows=input_rows, removed=removed)
+    return _InputCheck(
+        input_rows=input_rows,
+        removed=removed,
+        output_rows=output_rows,
+        input_blank=input_blank,
+        output_blank=output_blank,
+    )
 
 
 _DATE_FORMATS = (

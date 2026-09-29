@@ -224,7 +224,8 @@ def main() -> None:
             for m in verdict.measurements:
                 print(
                     f"  {verdict.capability}: target={m.target} input_rows={m.input_rows} "
-                    f"removed={m.removed} output_rows={m.output_rows} remaining={m.remaining}"
+                    f"removed={m.removed} (of which repeated blank rows: {m.removed_blank}) "
+                    f"output_rows={m.output_rows} remaining={m.remaining}"
                 )
 
     _print_header("OutcomeReport (rendered by code on a verified delivery)")

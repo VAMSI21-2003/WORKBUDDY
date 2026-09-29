@@ -112,11 +112,52 @@ def test_no_entry_claims_there_was_nothing_to_remove() -> None:
     assert not [p.id for p in CATALOG if "nothing to remove" in p.text.lower()]
 
 
-@pytest.mark.parametrize("mode", MODES)
-def test_no_closer_question_when_the_reply_already_asks_about_findings(mode: str) -> None:
-    closers = eligible_phrases(_report(_done(_DEDUPE, 2), open_findings=1), mode, "closer")
+def test_no_closer_implies_the_request_is_finished() -> None:
+    """M1: "Anything else?" / "What's next on the list?" presuppose that the
+    request is done, and PR-A has no ledger of what was requested. Closers come
+    back only when the ledger confirms every requested action is DONE (PR-B)."""
+    removed = {
+        "friend.closer.anything_else",
+        "friend.closer.whats_next",
+        "focus.closer.anything_else",
+    }
+    assert not removed & {p.id for p in CATALOG}
+    assert [p.text for p in CATALOG if p.slot == "closer"] == ["", ""]
+    for report in _REPORTS:
+        for mode in MODES:
+            assert [p.text for p in eligible_phrases(report, mode, "closer")] == [""]
 
-    assert [p.text for p in closers] == [""]
+
+def test_seeing_double_does_not_fire_for_repeated_blank_rows_alone() -> None:
+    """H1: dedupe removed 2 rows, but both were repeated blank rows, so the
+    user's data had no twins."""
+    only_blanks = ActionOutcome(
+        _DEDUPE,
+        DONE,
+        StepMeasurement(
+            DUPLICATE_ROWS_TARGET,
+            output_rows=3,
+            remaining=0,
+            input_rows=5,
+            removed=2,
+            removed_blank=2,
+        ),
+    )
+    some_data = ActionOutcome(
+        _DEDUPE,
+        DONE,
+        StepMeasurement(
+            DUPLICATE_ROWS_TARGET,
+            output_rows=3,
+            remaining=0,
+            input_rows=5,
+            removed=2,
+            removed_blank=1,
+        ),
+    )
+
+    assert "friend.opener.seeing_double" not in _eligible_ids(_report(only_blanks))
+    assert "friend.opener.seeing_double" in _eligible_ids(_report(some_data))
 
 
 # -- The selector ------------------------------------------------------------------------
@@ -142,7 +183,6 @@ def test_selection_varies_across_turns_and_sessions() -> None:
     }
 
     assert len({opener.id for opener, _ in chosen}) > 1
-    assert len({closer.id for _, closer in chosen}) > 1
 
 
 def test_an_unknown_mode_is_treated_as_friend() -> None:

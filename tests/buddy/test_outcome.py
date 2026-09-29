@@ -76,6 +76,54 @@ def _m(
             "Done — removed 2 duplicate row(s). The copy has 4 row(s), 0 duplicate row(s) "
             "remaining. Saved as `report_deduplicated_S-task-1.xlsx`.",
         ),
+        (  # H1: identical blank rows are removed too, and the reply says so
+            OutcomeReport(
+                actions=(
+                    ActionOutcome(
+                        _DEDUPE,
+                        DONE,
+                        StepMeasurement(
+                            DUPLICATE_ROWS_TARGET,
+                            output_rows=4,
+                            remaining=0,
+                            input_rows=6,
+                            removed=2,
+                            removed_blank=1,
+                        ),
+                    ),
+                ),
+                requested=(_DEDUPE,),
+                final_state=(_m(DUPLICATE_ROWS_TARGET, 2),),
+                delivered_file="report.xlsx",
+            ),
+            FILE_STYLE_PLAIN,
+            "Done — removed 2 duplicate row(s), including 1 repeated blank row. "
+            "The copy has 4 row(s), 0 duplicate row(s) remaining. "
+            "Your cleaned copy of report.xlsx is ready.",
+        ),
+        (  # H1: only repeated blank rows were removed, several of them
+            OutcomeReport(
+                actions=(
+                    ActionOutcome(
+                        _DEDUPE,
+                        DONE,
+                        StepMeasurement(
+                            DUPLICATE_ROWS_TARGET,
+                            output_rows=3,
+                            remaining=0,
+                            input_rows=5,
+                            removed=2,
+                            removed_blank=2,
+                        ),
+                    ),
+                ),
+                requested=(_DEDUPE,),
+                output_names=("out.xlsx",),
+            ),
+            FILE_STYLE_GENERATED,
+            "Done — removed 2 duplicate row(s), including 2 repeated blank rows. "
+            "Saved as `out.xlsx`.",
+        ),
         (  # N2: nothing to remove is said as such, with no invented count
             OutcomeReport(
                 actions=(ActionOutcome(_DEDUPE, DONE, _m(DUPLICATE_ROWS_TARGET, 0, 3)),),
@@ -133,8 +181,16 @@ def _m(
             "The duplicate-row removal ran and passed its check.",
         ),
     ],
-    ids=["removed", "n2-none-to-remove", "no-measurement", "unknown-capability", "chain",
-         "inconsistent-final-state"],
+    ids=[
+        "removed",
+        "removed-with-repeated-blank",
+        "removed-only-blanks",
+        "n2-none-to-remove",
+        "no-measurement",
+        "unknown-capability",
+        "chain",
+        "inconsistent-final-state",
+    ],
 )
 def test_render_outcome(report: OutcomeReport, file_style: str, expected: str) -> None:
     assert render_outcome(report, file_style) == expected
@@ -342,6 +398,11 @@ def _random_report(rng: random.Random) -> OutcomeReport:
                 remaining=0,
                 input_rows=rng.choice([None, rng.randint(0, 9000)]),
                 removed=removed,
+                removed_blank=(
+                    rng.randint(0, removed)
+                    if removed and capability == _DEDUPE and rng.random() < 0.5
+                    else 0
+                ),
             )
         actions.append(ActionOutcome(capability, DONE, measurement, after_earlier_step=index > 0))
     final_state = tuple(
@@ -368,7 +429,9 @@ def _measured_numbers(report: OutcomeReport) -> set[int]:
     numbers: set[int] = set()
     for m in (*(a.measurement for a in report.actions if a.measurement), *report.final_state):
         numbers.update(
-            n for n in (m.output_rows, m.remaining, m.input_rows, m.removed) if n is not None
+            n
+            for n in (m.output_rows, m.remaining, m.input_rows, m.removed, m.removed_blank)
+            if n is not None
         )
     return numbers
 

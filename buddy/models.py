@@ -232,8 +232,14 @@ class StepMeasurement:
         remaining: Target rows still in the output.
         input_rows: Rows in the step's input, as read by the verifier;
             ``None`` when there was no input to read (the final-file check).
-        removed: Target rows the input had, which the step had to remove;
-            ``None`` when there was no input to read.
+        removed: Rows the step removed, as confirmed by the verifier:
+            ``input_rows`` minus the rows in the output, and equal to what
+            the capability was required to remove. ``None`` when there was
+            no input to read, or when the verifier couldn't confirm the
+            exact count (the reply then states no number).
+        removed_blank: Of ``removed``, how many were repeated fully-empty
+            rows. Only deduplication removes these (it keeps the first of
+            identical blank rows); ``0`` for every other capability.
     """
 
     target: str
@@ -241,6 +247,12 @@ class StepMeasurement:
     remaining: int
     input_rows: int | None = None
     removed: int | None = None
+    removed_blank: int = 0
+
+    @property
+    def removed_data(self) -> int | None:
+        """``removed`` without the repeated blank rows, or ``None`` if unconfirmed."""
+        return None if self.removed is None else self.removed - self.removed_blank
 
 
 @dataclass(frozen=True)

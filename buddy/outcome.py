@@ -357,7 +357,11 @@ def _action_sentence(action: ActionOutcome) -> str:
         # the sentence can't be read as being about the user's file.
         left = " left" if action.after_earlier_step else ""
         return f"There were no {wording.rows}{left} to remove."
-    return f"Removed {measurement.removed} {wording.counted}."
+    sentence = f"Removed {measurement.removed} {wording.counted}"
+    blank = measurement.removed_blank
+    if blank:
+        sentence += f", including {blank} repeated blank row{'' if blank == 1 else 's'}"
+    return sentence + "."
 
 
 def _final_state_sentence(final_state: tuple[StepMeasurement, ...]) -> str:

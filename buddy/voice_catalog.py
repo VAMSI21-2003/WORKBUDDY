@@ -53,24 +53,22 @@ def _always(report: OutcomeReport) -> bool:
 
 
 def _removed_some(capability: str) -> Callable[[OutcomeReport], bool]:
-    """Eligible when a done ``capability`` step measurably removed at least one row."""
+    """Eligible when a done ``capability`` step measurably removed at least one row.
+
+    Repeated blank rows don't count: "seeing double" is about the user's data.
+    """
 
     def predicate(report: OutcomeReport) -> bool:
         return any(
             action.capability == capability
             and action.status == DONE
             and action.measurement is not None
-            and action.measurement.removed is not None
-            and action.measurement.removed >= 1
+            and action.measurement.removed_data is not None
+            and action.measurement.removed_data >= 1
             for action in report.actions
         )
 
     return predicate
-
-
-def _asks_nothing_else(report: OutcomeReport) -> bool:
-    """Eligible when the reply doesn't already ask about analysis findings."""
-    return report.open_findings == 0
 
 
 CATALOG: tuple[Phrase, ...] = (
@@ -92,24 +90,9 @@ CATALOG: tuple[Phrase, ...] = (
         _removed_some("spreadsheet.remove_empty_rows"),
     ),
     Phrase("friend.closer.none", "friend", CLOSER, "", _always),
-    Phrase(
-        "friend.closer.anything_else",
-        "friend",
-        CLOSER,
-        "Anything else you want me to look at?",
-        _asks_nothing_else,
-    ),
-    Phrase(
-        "friend.closer.whats_next",
-        "friend",
-        CLOSER,
-        "What's next on the list?",
-        _asks_nothing_else,
-    ),
     # Focus mode: no opener, and at most a two-word closer.
     Phrase("focus.opener.none", "focus", OPENER, "", _always),
     Phrase("focus.closer.none", "focus", CLOSER, "", _always),
-    Phrase("focus.closer.anything_else", "focus", CLOSER, "Anything else?", _asks_nothing_else),
 )
 
 
