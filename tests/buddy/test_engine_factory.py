@@ -1526,3 +1526,60 @@ def test_a_single_step_verified_turn_still_says_done_and_names_the_file(
         if speaker_kind == "focus":
             assert reply.startswith(block)  # Focus mode has no opener
     assert original_path.read_bytes() == original_bytes
+
+
+def test_a_dropped_second_action_never_yields_a_nothing_to_remove_opener(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Regression (PR-A review): "remove duplicates then remove empty rows",
+    but the planner returns only dedupe, and the file has no duplicates and one
+    empty row. Dedupe measures removed=0, and the delivered file still has the
+    empty row the user asked to remove. "Nothing to remove" would be false, so
+    friend mode must never say it (PR-A has no ledger of what was requested)."""
+    monkeypatch.chdir(tmp_path)
+    (tmp_path / "uploads").mkdir()
+    input_path = Path("uploads") / "report.xlsx"
+    pd.DataFrame(
+        {
+            "name": ["Alice", "Bob", None, "Carol", "Dana"],
+            "amount": [10, 20, None, 30, 40],
+        }
+    ).to_excel(tmp_path / input_path, index=False, engine="openpyxl")
+    original_bytes = (tmp_path / input_path).read_bytes()
+    original = pd.read_excel(tmp_path / input_path)
+    assert int(original.duplicated().sum()) == 0
+    assert int(original.isna().all(axis=1).sum()) == 1
+
+    replies = _chain_replies(("spreadsheet.deduplicate", "remove duplicates"))
+    state = BuddyState.new(session_id="session-1", workspace_id="workspace-1")
+    state.user_message = "remove duplicates then remove empty rows"
+    state.context.add_uploaded_file(str(input_path))
+    state.context.switch_active_file(str(input_path))
+    state.context.set_mode("friend")
+    build_engine(llm_provider=_QueuedLLMProvider(replies), speaker=PersonalityVoice()).run(state)
+
+    assert _action_order(state) == ["spreadsheet.deduplicate"]  # empty rows never ran
+    result = state.execution_result
+    assert result is not None and len(result.outputs) == 1
+    delivered = pd.read_excel(result.outputs[0])
+    # The user's second request is still unmet in the delivered file.
+    assert int(delivered.isna().all(axis=1).sum()) == 1
+
+    reply = state.reply
+    assert reply is not None
+    assert "nothing to remove" not in reply.lower()
+    output_name = Path(result.outputs[0]).name
+    # Every count in the outcome block is one a pandas read of the delivered file confirms.
+    outcome, _, findings = reply.partition("I also noticed:")
+    assert _numbers_outside_file_names(outcome, output_name) <= {
+        len(delivered),
+        int(delivered.duplicated().sum()),
+        0,
+    }
+    # The analysis finding's counts (the empty row's missing cells) match pandas too.
+    missing = {int(n) for n in delivered.isna().sum()}
+    percent = {round(100 * m / len(delivered)) for m in missing}
+    assert {int(n) for n in re.findall(r"\d+", findings)} <= missing | percent | {0}  # "20.0%"
+    assert f"The copy has {len(delivered)} row(s)" in reply
+    assert f"{int(delivered.duplicated().sum())} duplicate row(s) remaining" in reply
+    assert (tmp_path / input_path).read_bytes() == original_bytes  # rule 2

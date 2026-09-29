@@ -103,17 +103,13 @@ def test_blank_rows_needs_a_done_empty_row_removal_that_removed_rows() -> None:
         assert phrase not in _eligible_ids(report)
 
 
-def test_nothing_to_remove_needs_every_action_to_have_measured_zero() -> None:
-    phrase = "friend.opener.nothing_to_remove"
-    assert phrase in _eligible_ids(_report(_done(_DEDUPE, 0)))
-    assert phrase in _eligible_ids(_report(_done(_EMPTY, 0), _done(_DEDUPE, 0)))
-    for report in (
-        _report(),
-        _report(_done(_DEDUPE, 2)),
-        _report(_done(_DEDUPE, None)),
-        _report(_done(_EMPTY, 0), _done(_DEDUPE, 2)),
-    ):
-        assert phrase not in _eligible_ids(report)
+def test_no_entry_claims_there_was_nothing_to_remove() -> None:
+    """A catalog opener can't know every requested action ran: PR-A has no
+    ledger of what was requested, so "nothing to remove" could be false (the
+    planner may have dropped one of the actions). The outcome block states
+    per-step zeros; whole-turn lines wait for the PR-B ledger."""
+    assert "friend.opener.nothing_to_remove" not in {p.id for p in CATALOG}
+    assert not [p.id for p in CATALOG if "nothing to remove" in p.text.lower()]
 
 
 @pytest.mark.parametrize("mode", MODES)

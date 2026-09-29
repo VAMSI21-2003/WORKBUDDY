@@ -68,16 +68,6 @@ def _removed_some(capability: str) -> Callable[[OutcomeReport], bool]:
     return predicate
 
 
-def _nothing_to_remove(report: OutcomeReport) -> bool:
-    """Eligible when every action is done and measurably removed nothing."""
-    return bool(report.actions) and all(
-        action.status == DONE
-        and action.measurement is not None
-        and action.measurement.removed == 0
-        for action in report.actions
-    )
-
-
 def _asks_nothing_else(report: OutcomeReport) -> bool:
     """Eligible when the reply doesn't already ask about analysis findings."""
     return report.open_findings == 0
@@ -100,13 +90,6 @@ CATALOG: tuple[Phrase, ...] = (
         OPENER,
         "Those blank rows were just taking up space.",
         _removed_some("spreadsheet.remove_empty_rows"),
-    ),
-    Phrase(
-        "friend.opener.nothing_to_remove",
-        "friend",
-        OPENER,
-        "Short one: there was nothing to remove.",
-        _nothing_to_remove,
     ),
     Phrase("friend.closer.none", "friend", CLOSER, "", _always),
     Phrase(

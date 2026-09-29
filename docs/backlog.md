@@ -6,6 +6,8 @@ Open work, in priority order. Each item follows the working method in `CLAUDE.md
 
 **Status (2026-09-30):** design approved (`docs/design/verified-outcome-design.md`, "Decisions (2026-09-30)"). PR-A (`feat/verified-outcome-a`, not merged) renders the delivered outcome by code from verifier measurements, removes the Voice model call, closes N2, and makes the order sentence reply-level for `PersonalityVoice` (the F4 item below). **Still open for PR-B:** the ledger of requested actions (Brain's `requested_actions`, the mention detector), `NOT_DONE` / `DONE_UNREQUESTED` lines and residual counts, which close N1, C1–C3 and N5. Until PR-B, a `multi_step_request` turn gets no "Done —" lead word.
 
+**PR-B follow-up:** reintroduce target-specific "nothing to remove" lines (the removed `friend.opener.nothing_to_remove`) only when the ledger confirms every requested action ran. PR-A dropped that opener because its predicate saw only the steps that ran: with "remove duplicates then remove empty rows" and a planner that returns only dedupe, a file with 0 duplicates and 1 empty row got "nothing to remove" while the empty row was still there.
+
 **Problem:** on a verified delivery, `PersonalityVoice` uses the model's reply without any check against what was requested or what the verifier measured. It's the one known open breach of rule 1, and it exists on `main`.
 
 **Evidence** (`docs/reviews/chaining-wip-final-review.md`, sections F2, "F2 on main" and V5):

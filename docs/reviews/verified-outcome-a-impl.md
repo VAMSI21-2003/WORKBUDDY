@@ -22,7 +22,7 @@ On a turn that delivered a verified file, the reply is now rendered entirely by 
 | `buddy/models.py` | `StepMeasurement` (target, output_rows, remaining, input_rows, removed); `DUPLICATE_ROWS_TARGET`, `EMPTY_ROWS_TARGET`; `measurements: tuple[StepMeasurement, ...]` on `VerificationResult` and `StepVerification`. |
 | `buddy/inspector.py` | `_check_against_input` returns an `_InputCheck` (problem, or input_rows and removed). Both verifiers attach a measurement **only on pass**. `_verify_final_file` carries each chained verifier's output-only measurement, only when the final check passed. `_aggregate_verdicts` copies measurements to each `StepVerification`. Finding strings are unchanged. |
 | `buddy/outcome.py` (new) | `ActionOutcome`, `OutcomeReport` (with `lead_word`), `build_outcome_report`, `render_outcome`. The pure step helpers (`_step_passed`, `_verdict_is_for`, `_is_action_step`, `_describe_capability`) moved here from `voice.py` so this module needs nothing from Voice. `voice.py` imports them under the same names. |
-| `buddy/voice_catalog.py` (new) | `Phrase`, `CATALOG` (11 entries, both modes), `eligible_phrases`, `select_phrases`. |
+| `buddy/voice_catalog.py` (new) | `Phrase`, `CATALOG` (10 entries, both modes), `eligible_phrases`, `select_phrases`. |
 | `buddy/voice.py` | `_model_may_describe_outcome` is renamed `_verified_delivery` (same truth table). The new `_verified_delivery_reply` is used by both speakers' delivered paths. `SpeakingRequest` gains `session_id` and `turn_index`. `PersonalityVoice(provider=None)` no longer calls the provider. Removed: `FRIEND_MODE_PROMPT`, `FOCUS_MODE_PROMPT`, `_build_user_prompt`, `_mentions_file`, `TemplateSpeaker._success_message`, `_output_file_names`. |
 | `buddy/context.py` | `Context.buddy_reply_count()`, used for `turn_index`. |
 | `scripts/run_dedupe_manually.py` | `--fixture {default,no-duplicates}`; prints the verifier measurements, the `OutcomeReport`, each LLM call's stage, and the original's counts. |
@@ -39,13 +39,14 @@ On a turn that delivered a verified file, the reply is now rendered entirely by 
 | `friend.opener.rundown` | "Okay, here's the rundown." | always |
 | `friend.opener.seeing_double` | "That sheet was seeing double." | a done dedupe step measured `removed >= 1` |
 | `friend.opener.blank_rows` | "Those blank rows were just taking up space." | a done empty-rows step measured `removed >= 1` |
-| `friend.opener.nothing_to_remove` | "Short one: there was nothing to remove." | at least one action, and every action measured `removed == 0` |
 | `friend.closer.none` | (none) | always |
 | `friend.closer.anything_else` | "Anything else you want me to look at?" | the reply asks nothing about analysis findings |
 | `friend.closer.whats_next` | "What's next on the list?" | same |
 | `focus.opener.none` | (none) | always |
 | `focus.closer.none` | (none) | always |
 | `focus.closer.anything_else` | "Anything else?" | the reply asks nothing about analysis findings |
+
+**Removed after review:** `friend.opener.nothing_to_remove` ("Short one: there was nothing to remove."). Its predicate only looked at the steps that ran, and PR-A has no ledger of what was requested, so it could be false. Example: "remove duplicates then remove empty rows", the planner returns only dedupe, and the file has 0 duplicates and 1 empty row. Dedupe measures `removed == 0`, the opener was eligible, and the delivered file still had the empty row the user asked to remove. The per-step sentence ("there were no duplicate rows to remove") stays, since it's scoped to the step that ran. Regression test: `test_a_dropped_second_action_never_yields_a_nothing_to_remove_opener` (through `build_engine`, friend mode, counts checked against pandas). The entry can come back in PR-B; see `docs/backlog.md` item 1.
 
 No entry matches `_COMPLETION_CLAIM`, carries a digit or has a placeholder, and the tests enforce all three. The outcome block's lead word is the only "Done".
 
@@ -85,6 +86,7 @@ No entry matches `_COMPLETION_CLAIM`, carries a digit or has a placeholder, and 
   - `test_the_reply_never_uses_a_skills_self_reported_count`: a Skill that says 99; the reply has the verifier's 2.
 - **Property test:** `test_every_number_in_a_rendered_reply_is_a_measured_field`. 200 random reports × 2 file styles × 2 modes × every eligible opener/closer pair (more than 1,000 replies checked). Every integer in the reply, outside the file names, equals a measured field of the report.
 - **Catalog** (`tests/buddy/test_voice_catalog.py`, new):
+  - no entry says there was "nothing to remove" (see "Removed after review" above);
   - ids are unique and match mode and slot;
   - no completion claims, digits or placeholders;
   - every mode and slot always has an eligible entry;
