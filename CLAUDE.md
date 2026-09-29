@@ -23,6 +23,7 @@ Any change that could affect either rule counts as rule-touching (see below).
 - **Never print, log or commit any part of an API key**, not even a prefix or length check.
 - Read keys from the environment: `GROQ_API_KEY` (preferred, free) or `ANTHROPIC_API_KEY`. On the user's Windows machine the Groq key is stored at user scope and is loaded into a command's environment without echoing it, for example in PowerShell:
   `$env:GROQ_API_KEY = [Environment]::GetEnvironmentVariable('GROQ_API_KEY','User')`.
+  In cloud sessions, `GROQ_API_KEY` is a placeholder and the proxy attaches the real key for `api.groq.com`, so don't try to read the key.
 - `.env` files are git-ignored. Tests use obvious placeholder keys only.
 
 ## Running things

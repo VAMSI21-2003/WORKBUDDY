@@ -73,3 +73,7 @@ Each item has its own acceptance criterion: fixed with a test, or explicitly clo
 - **L4:** an unregistered read-only capability stops the chain, because the permission tier is only known after a successful dispatch.
 - **L6:** on the `PersonalityVoice` path the user hears "Your cleaned copy of X is ready." with no location.
 - **M2 fallback / F4 real fix:** when the stated order can't be confirmed, the model's order still runs (now stated in the reply). Consider asking the user instead, before a non-commutative skill is added.
+
+## 6. Decide the supported Python version
+
+`pyproject.toml` requires Python 3.13 (`requires-python = ">=3.13"`), but cloud sessions default to Python 3.11. Decide which version the project supports, then make `pyproject.toml`, the docs and the cloud setup agree.
