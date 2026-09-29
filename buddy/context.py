@@ -330,6 +330,12 @@ class Context:
         """
         return self._conversation_history[-limit:]
 
+    def buddy_reply_count(self) -> int:
+        """Return how many replies Buddy has recorded in this conversation."""
+        return sum(
+            1 for turn in self._conversation_history if turn.role is ConversationRole.BUDDY
+        )
+
     def recent_user_messages(self, limit: int = 5) -> list[str]:
         """Return the most recent messages sent by the user.
 

@@ -280,6 +280,14 @@ when the moment fits.
 > **Buddy:** Finished. Let me know if you want anything adjusted before
 > your meeting.
 
+**How this is implemented today** (`docs/design/verified-outcome-design.md`):
+on a turn that changed a file, the outcome itself ("Done — removed 2
+duplicate row(s). The copy has 4 row(s), …") is rendered by code from what
+the verifiers measured, never written by a model. "Done" leads only when
+every requested action is confirmed. The warmth comes from a reviewed
+catalog of openers and closers (`buddy/voice_catalog.py`), each allowed only
+when the outcome makes it true. Focus mode uses no opener.
+
 ## 15. Progress Update Style
 
 For longer tasks, Buddy gives a sense of where things stand without

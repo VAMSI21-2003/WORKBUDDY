@@ -4,6 +4,8 @@ Open work, in priority order. Each item follows the working method in `CLAUDE.md
 
 ## 1. The outcome of a successful turn comes from verifier data, never from the model (F2 / N1 / N2)
 
+**Status (2026-09-30):** design approved (`docs/design/verified-outcome-design.md`, "Decisions (2026-09-30)"). PR-A (`feat/verified-outcome-a`, not merged) renders the delivered outcome by code from verifier measurements, removes the Voice model call, closes N2, and makes the order sentence reply-level for `PersonalityVoice` (the F4 item below). **Still open for PR-B:** the ledger of requested actions (Brain's `requested_actions`, the mention detector), `NOT_DONE` / `DONE_UNREQUESTED` lines and residual counts, which close N1, C1–C3 and N5. Until PR-B, a `multi_step_request` turn gets no "Done —" lead word.
+
 **Problem:** on a verified delivery, `PersonalityVoice` uses the model's reply without any check against what was requested or what the verifier measured. It's the one known open breach of rule 1, and it exists on `main`.
 
 **Evidence** (`docs/reviews/chaining-wip-final-review.md`, sections F2, "F2 on main" and V5):
@@ -17,6 +19,14 @@ Open work, in priority order. Each item follows the working method in `CLAUDE.md
 - Tests reproduce N1, N2, C1, C2, C3 and N5 end to end through `build_engine`, with the review's model replies, and assert that no false claim reaches the user.
 - Also covered, from the fixes-3 verification: with `PersonalityVoice`, the order sentence is appended when the model's reply omits it, as is already done for the file name.
 - An independent review, and live runs with Groq, show 0 false claims.
+
+**Deferred from the verified-outcome design** (its "Deferred" section):
+- Ask the user when the ledger sources disagree (design 6.7). Depends on item 2.
+- Stop unrequested write steps before execution (6.8). Depends on a measured ledger recall.
+- Compare the ledger's phrase order with the executed order, as an order check independent of the planner.
+- Ledger lines on undelivered turns ("I didn't remove duplicates: I needed to ask you something first").
+- Verify rule 2 at runtime: hash the upload before and after in Hands.
+- Report "give me a report" as a delivered report (item 3); the design only makes it an honest `NO_SKILL` line.
 
 ## 2. An explicit conversation intent, and relaying Think's clarifying question
 

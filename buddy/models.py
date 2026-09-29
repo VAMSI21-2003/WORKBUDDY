@@ -210,6 +210,39 @@ class ExecutionResult:
     stopped_at: str | None = None
 
 
+# ``StepMeasurement.target`` values: what a verifier counted.
+DUPLICATE_ROWS_TARGET = "duplicate_rows"
+EMPTY_ROWS_TARGET = "empty_rows"
+
+
+@dataclass(frozen=True)
+class StepMeasurement:
+    """Counts a verifier measured itself, by reading files fresh.
+
+    Never copied from a Skill: nothing here comes from ``StepResult
+    .summary``, ``self_reported_findings`` or Skill metadata. A verifier
+    records a measurement only when its check passed, so every count is
+    one the check confirmed (see ``docs/design/verified-outcome-design.md``
+    Section 2.1). The reply's counts come from here and nowhere else.
+
+    Attributes:
+        target: What was counted: ``DUPLICATE_ROWS_TARGET`` or
+            ``EMPTY_ROWS_TARGET``.
+        output_rows: Rows in the output, as read by the verifier.
+        remaining: Target rows still in the output.
+        input_rows: Rows in the step's input, as read by the verifier;
+            ``None`` when there was no input to read (the final-file check).
+        removed: Target rows the input had, which the step had to remove;
+            ``None`` when there was no input to read.
+    """
+
+    target: str
+    output_rows: int
+    remaining: int
+    input_rows: int | None = None
+    removed: int | None = None
+
+
 @dataclass(frozen=True)
 class StepVerification:
     """One step's own, unaggregated verification verdict.
@@ -245,6 +278,10 @@ class StepVerification:
             analysis of the original). Outside the chain, so its failure
             doesn't count against ``VerificationResult.passed`` either —
             unless every step this turn was read-only.
+        measurements: What this step's verifier measured, copied from its
+            ``VerificationResult.measurements``. One entry for a step; one
+            per chained step's target for the final-file check. Empty when
+            the check failed or its verifier measures nothing.
     """
 
     capability: str
@@ -255,6 +292,7 @@ class StepVerification:
     input_reference: str = ""
     recheck: bool = False
     read_only: bool = False
+    measurements: tuple[StepMeasurement, ...] = ()
 
 
 @dataclass(frozen=True)
@@ -277,6 +315,10 @@ class VerificationResult:
             Empty when verification didn't go through ``CompositeVerifier``
             at all (e.g. ``NullVerifier``, or a single non-composite
             ``Verifier`` used directly).
+        measurements: Counts this verifier measured itself (see
+            ``StepMeasurement``), set only when its check passed. A
+            composite verdict leaves this empty and carries each step's
+            measurements on ``steps`` instead.
     """
 
     passed: bool
@@ -284,3 +326,4 @@ class VerificationResult:
     findings: tuple[str, ...] = ()
     recommendations: tuple[str, ...] = ()
     steps: tuple[StepVerification, ...] = ()
+    measurements: tuple[StepMeasurement, ...] = ()

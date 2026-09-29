@@ -10,6 +10,7 @@ together — Eyes through Voice — not just each stage in isolation.
 from __future__ import annotations
 
 import json
+import re
 from pathlib import Path
 
 import pandas as pd
@@ -450,7 +451,8 @@ def test_full_slice_runs_two_real_skills_and_aggregates_verification_and_reply(
     assert state.reply is not None
     assert "Before anything else, here's what I noticed" not in state.reply
     assert "missing" not in state.reply.lower()
-    assert "none of the issues I check for were found" in state.reply
+    # Now its own sentence after the outcome, so it starts with a capital.
+    assert "None of the issues I check for were found." in state.reply
     output_names = {Path(p).name for p in state.execution_result.outputs}
     for name in output_names:
         assert name in state.reply
@@ -575,8 +577,10 @@ def test_full_slice_does_not_fold_a_near_duplicate_finding_into_an_exact_dedupe_
     # ...and it survived into the final reply as an OPEN item -- never
     # folded away just because spreadsheet.deduplicate (exact-match only)
     # also ran and passed in the very same turn.
+    # On a delivered turn the findings follow the outcome (decision D3).
     assert state.reply is not None
-    assert "Before anything else, here's what I noticed" in state.reply
+    assert "I also noticed: " in state.reply
+    assert state.reply.index("Saved as") < state.reply.index("I also noticed: ")
     assert "Want me to tackle any of these?" in state.reply
 
 
@@ -957,7 +961,10 @@ def test_full_slice_reports_a_failed_re_check_without_failing_the_delivered_file
 
     reply = state.reply
     assert reply is not None
-    assert reply.startswith("Done")
+    # A multi_step_request gets no "Done" lead word until the ledger can say
+    # every requested part ran (design decision D4).
+    assert "Done" not in reply
+    assert reply.startswith("Removed 1 fully-empty row(s). Removed 1 duplicate row(s).")
     assert RECHECK_FAILED_SENTENCE in reply
     assert f"Saved as `{Path(result.outputs[0]).name}`." in reply
     assert "wasn't able to confirm" not in reply
@@ -992,10 +999,13 @@ def test_full_slice_personality_voice_mentions_the_file_when_the_re_check_fails(
         tmp_path, "remove the empty rows and then remove the duplicate rows", replies, speaker
     )
 
-    assert state.reply == "Both cleanups went through. Your cleaned copy of report.xlsx is ready."
-    prompt = speaker._provider.calls[0][1][0].content  # type: ignore[attr-defined]
-    assert "could not be re-checked for other problems" in prompt
-    assert "spreadsheet." not in prompt
+    # No model call: the reply is rendered by code, and the model's text
+    # never appears.
+    assert speaker._provider.calls == []  # type: ignore[union-attr]
+    assert "Both cleanups went through." not in state.reply
+    assert "Your cleaned copy of report.xlsx is ready." in state.reply
+    assert RECHECK_FAILED_SENTENCE in state.reply
+    assert "spreadsheet." not in state.reply
 
 
 
@@ -1047,7 +1057,10 @@ def test_full_slice_names_the_delivered_file_when_the_initial_analysis_fails(
 
     reply = state.reply
     assert reply is not None
-    assert reply.startswith("Done")
+    # A multi_step_request gets no "Done" lead word until the ledger can say
+    # every requested part ran (design decision D4).
+    assert "Done" not in reply
+    assert reply.startswith("Removed 1 fully-empty row(s). Removed 1 duplicate row(s).")
     assert f"Saved as `{Path(result.outputs[0]).name}`." in reply
     assert "The initial analysis of your original file couldn't run." in reply
     assert "wasn't able to confirm" not in reply
@@ -1339,15 +1352,13 @@ def test_full_slice_states_the_order_used_when_it_couldnt_be_confirmed(
     assert _action_order(state) == _EMPTY_ROWS_FIRST  # the model's order ran
     assert state.verification_result is not None
     assert state.verification_result.passed is True
-    if use_personality_voice:
-        # A verified file was delivered, so the model phrases the reply; its
-        # prompt carries the order the steps ran in.
-        system, messages = speaker._provider.calls[0]  # type: ignore[attr-defined]
-        assert expected in messages[0].content
-        assert "Tell them, in plain words, the order the steps ran in." in messages[0].content
-    else:
-        assert state.reply is not None
-        assert state.reply.endswith(expected)
+    # The order sentence is part of the rendered outcome block, for both
+    # speakers, before the file sentence. No model is called.
+    assert state.reply is not None
+    assert expected in state.reply
+    file_sentence = "Your cleaned copy" if use_personality_voice else "Saved as"
+    assert state.reply.index(expected) < state.reply.index(file_sentence)
+    assert speaker._provider.calls == []  # type: ignore[union-attr]
 
 
 # -- Live-run L-2, end to end: run 7's plan ---------------------------------------------
@@ -1377,4 +1388,141 @@ def test_full_slice_does_not_run_a_step_the_user_never_asked_for(
     assert result.stopped_at is None
     assert "spreadsheet.remove_empty_rows" not in [s.capability for s in result.steps]
     assert int(pd.read_excel(result.outputs[0]).duplicated().sum()) == 0
+    assert original_path.read_bytes() == original_bytes
+
+
+# -- Verified outcome (PR-A): the reply's facts come from code, end to end ---------------
+
+# The review's literal Voice-model replies (N1 a/b/c, N2, C2, N5). Each is queued as
+# the reply a Voice model call would get; none may reach the user.
+_REVIEW_MODEL_REPLIES = (
+    "All done — duplicates removed.",
+    "Duplicates are gone and your sheet is spotless now.",
+    "Got rid of those pesky dupes for you — enjoy the tidy sheet!",
+    "Removed 3 duplicate rows — your sheet is clean.",
+    "Done — duplicates and empty rows are gone from report.",
+    "Both done: empty rows and duplicates are gone.",
+)
+
+
+def _single_intent_replies(intent: str) -> list[str]:
+    understand = json.dumps(
+        {"intent": intent, "confidence": 0.95, "missing_information": [], "notes": ""}
+    )
+    think = json.dumps(
+        {
+            "objective": "Clean up the spreadsheet.",
+            "summary": "Clear enough to proceed.",
+            "clarification_required": False,
+            "confidence": 0.9,
+        }
+    )
+    return [understand, think]
+
+
+def _run_single(
+    tmp_path: Path,
+    rows: dict[str, list[object]],
+    replies: list[str],
+    speaker_kind: str = "template",
+) -> tuple[BuddyState, _QueuedLLMProvider, Path, bytes]:
+    """One single-intent turn. ``speaker_kind``: ``"template"`` for the
+    default ``TemplateSpeaker``, or a mode for ``PersonalityVoice``."""
+    (tmp_path / "uploads").mkdir()
+    input_path = Path("uploads") / "report.xlsx"
+    pd.DataFrame(rows).to_excel(tmp_path / input_path, index=False)
+    original_bytes = (tmp_path / input_path).read_bytes()
+    state = BuddyState.new(session_id="session-1", workspace_id="workspace-1")
+    state.user_message = "remove the duplicate rows"
+    state.context.add_uploaded_file(str(input_path))
+    state.context.switch_active_file(str(input_path))
+    speaker = None
+    if speaker_kind != "template":
+        state.context.set_mode(speaker_kind)
+        speaker = PersonalityVoice()
+    provider = _QueuedLLMProvider(replies)
+    build_engine(llm_provider=provider, speaker=speaker).run(state)
+    return state, provider, tmp_path / input_path, original_bytes
+
+
+def _numbers_outside_file_names(reply: str, *names: str) -> set[int]:
+    for name in names:
+        reply = reply.replace(name, "")
+    return {int(n) for n in re.findall(r"\d+", reply)}
+
+
+_NO_DUPLICATES = {"name": ["Alice", "Bob", "Carol", "Dana"], "amount": [10, 20, 30, 40]}
+
+
+@pytest.mark.parametrize("model_reply", _REVIEW_MODEL_REPLIES)
+@pytest.mark.parametrize("speaker_kind", ["template", "friend", "focus"])
+def test_n2_end_to_end_says_there_was_nothing_to_remove(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, model_reply: str, speaker_kind: str
+) -> None:
+    """N2: a correct dedupe on a file with no duplicates. The reply's count
+    comes from the verifier; no model text, and no "3", can appear."""
+    monkeypatch.chdir(tmp_path)
+    replies = [*_single_intent_replies("remove_duplicate_rows"), model_reply]
+
+    state, provider, original_path, original_bytes = _run_single(
+        tmp_path, _NO_DUPLICATES, replies, speaker_kind
+    )
+
+    # No Voice model call: the queued model reply was never consumed.
+    assert provider._replies == [model_reply]
+    result = state.execution_result
+    assert result is not None and len(result.outputs) == 1
+    delivered = pd.read_excel(result.outputs[0])
+    original = pd.read_excel(original_path)
+    assert int(original.duplicated().sum()) == 0
+
+    reply = state.reply
+    assert reply is not None
+    assert model_reply not in reply
+    assert "Done — there were no duplicate rows to remove." in reply
+    assert (
+        f"The copy has {len(delivered)} row(s), {int(delivered.duplicated().sum())} "
+        "duplicate row(s) remaining."
+    ) in reply
+    output_name = Path(result.outputs[0]).name
+    # Every number in the reply is one the independent read confirms.
+    assert _numbers_outside_file_names(reply, output_name) <= {len(delivered), 0}
+    if speaker_kind == "template":
+        assert f"Saved as `{output_name}`." in reply
+    else:
+        assert "Your cleaned copy of report.xlsx is ready." in reply
+    assert original_path.read_bytes() == original_bytes  # rule 2
+
+
+@pytest.mark.parametrize("speaker_kind", ["template", "friend", "focus"])
+def test_a_single_step_verified_turn_still_says_done_and_names_the_file(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, speaker_kind: str
+) -> None:
+    """Regression: a single-intent turn whose capability passed keeps
+    "Done —", with the verifier's counts, and names the file."""
+    monkeypatch.chdir(tmp_path)
+    rows = {"name": ["Alice", "Bob", "Alice", "Carol", "Bob"], "amount": [10, 20, 10, 30, 20]}
+    replies = _single_intent_replies("remove_duplicate_rows")
+
+    state, _, original_path, original_bytes = _run_single(tmp_path, rows, replies, speaker_kind)
+
+    result = state.execution_result
+    assert result is not None
+    delivered, original = pd.read_excel(result.outputs[0]), pd.read_excel(original_path)
+    removed = len(original) - len(delivered)
+    assert removed == int(original.duplicated().sum()) == 2
+    reply = state.reply
+    assert reply is not None
+    block = (
+        f"Done — removed {removed} duplicate row(s). The copy has {len(delivered)} row(s), "
+        f"{int(delivered.duplicated().sum())} duplicate row(s) remaining."
+    )
+    if speaker_kind == "template":
+        assert reply.startswith(block)
+        assert f"Saved as `{Path(result.outputs[0]).name}`." in reply
+    else:
+        assert block in reply
+        assert "Your cleaned copy of report.xlsx is ready." in reply
+        if speaker_kind == "focus":
+            assert reply.startswith(block)  # Focus mode has no opener
     assert original_path.read_bytes() == original_bytes

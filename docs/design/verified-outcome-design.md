@@ -425,3 +425,14 @@ These are kept out of this change on purpose. Each should be added to `docs/back
 4. Ledger lines on **undelivered** turns (for example "I didn't remove duplicates: I needed to ask you something first"). Those replies are already honest, so this is an improvement, not a rule-1 fix.
 5. Verifying rule 2 at runtime: hash the upload before and after in Hands. The existing chain-stop sentence already claims "your original file is unchanged" without a runtime check.
 6. Reporting "give me a report" as a delivered report (backlog item 3). This design only makes it an honest `NO_SKILL` line.
+
+---
+
+## Decisions (2026-09-30)
+
+The design is approved with these decisions. Where they conflict with the sections above, these win.
+
+- **D1. Adopt 6.6: no model call on delivered turns.** Code picks the opener and closer from the reviewed catalog using the eligibility predicates, deterministically but with variety (for example seeded by session id and turn index, so tests stay stable). The JSON selection contract (2.4, "How it's enforced", step 1, and "The prompt") is removed. Model-written personality returns later only on explicit conversation turns (backlog item 2).
+- **D2. Actions found only by the mention detector (`NOT_READ_AS_REQUEST`) never produce "Partly done —".** They suppress the "Done —" lead word, and the reply gets no lead word.
+- **D3. Reply order:** opener, outcome block, analysis preface/findings, closer. The outcome comes before the analysis findings (this replaces the order in 2.4, step 4, and the "Unchanged parts" position in 2.3).
+- **D4. Implement in two PRs.** PR-A: verifier measurements, `OutcomeReport` and `render_outcome` for `DONE` actions, final-state, order-used and file sentences, the phrase catalog with a deterministic selector, and both speakers' delivered paths on the renderer. No ledger in PR-A: until PR-B, a `multi_step_request` turn gets no "Done —" lead word, and single-intent turns whose capability passed keep "Done —". PR-B: the ledger (Brain's `requested_actions`, the mention detector), `NOT_DONE` and `DONE_UNREQUESTED` lines, "Partly done —", and residual counts.
