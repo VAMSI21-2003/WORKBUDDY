@@ -144,7 +144,14 @@ def build_engine(
             )
         ),
         delegate=Delegate(delegator=MechanicalDelegator()),
-        hands=Hands(dispatcher=dispatcher, confirmation_provider=NullConfirmationProvider()),
+        # The same verifier gates each chain step inside Hands (so a step
+        # that fails verification stops the chain) and then re-checks the
+        # whole turn, final file included, in Inspector.
+        hands=Hands(
+            dispatcher=dispatcher,
+            confirmation_provider=NullConfirmationProvider(),
+            step_verifier=verifier,
+        ),
         inspector=Inspector(verifier=verifier),
         voice=Voice(speaker=speaker if speaker is not None else TemplateSpeaker()),
     )

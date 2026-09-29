@@ -21,13 +21,24 @@ unfiltered. N steps in, N `CapabilityRequest`s out.
 turn — from `active_file`, falling back to the most recent upload — and
 that same single file is assigned to *every* step in the plan.
 `PlanningStep` has no `target` field; `MechanicalDelegator` is the only
-place a target is ever assigned. For a compound request against one file
-("check this column, remove it, report, dashboard" — all on the same
-spreadsheet) this is a non-issue. It would silently misbehave for a
-hypothetical request spanning multiple files. Flagging as instructed,
-not assuming it away — this design doesn't attempt to fix it, since it's
-outside what was asked (Delegate wasn't scoped for changes here) and the
-example request given doesn't require it.
+place a target is ever assigned. It would silently misbehave for a
+hypothetical request spanning multiple files; that is still unaddressed.
+
+> **Superseded (chaining).** This section originally called the shared
+> target "a non-issue" for a compound request against one file. It
+> wasn't: every file-changing step read the *original* upload and wrote
+> its own separate file, so "remove the empty rows and then the
+> duplicates" produced two files, each with only one change. Steps now
+> **chain** in `Hands` (Delegate can't do it — outputs don't exist until
+> a step runs): each file-changing step (Skill tier above READ) reads the
+> previous one's output, and `ExecutionResult.outputs` holds only the
+> final file; intermediates stay on each `StepResult.outputs`. READ-tier
+> steps (proactive `spreadsheet.analyze`) stay outside the chain and
+> always read the original. `ClaudePlanner` enforces the order the user
+> stated by locating each step's quoted `source_phrase` in the message
+> (falling back to the model's order when that can't be checked).
+> Verification checks each step against its own input, then the final
+> file against every step's claim.
 
 **`Hands` (in `buddy/hands.py`) fully supports multiple steps, with
 correct per-item error isolation.** Its `__call__` loops
@@ -40,6 +51,16 @@ continues to the next step, rather than aborting the turn. This is
 exactly the "no skill for this yet, surfaced cleanly, not a crash"
 mechanism the design goal depends on. **Already correct, no changes
 needed.**
+
+> **Superseded (chaining).** Per-item isolation no longer holds for
+> file-changing steps: since each reads the previous step's output, a
+> step that can't be dispatched, isn't confirmed, fails, or fails
+> verification (checked inside `Hands` via the same `CompositeVerifier`
+> Inspector uses) **stops the chain**. Later steps are recorded as
+> `StepResult(status="skipped")`, an error names the step that stopped
+> it, no file is handed back, and the original upload is untouched. A
+> no-skill step is still surfaced cleanly, not a crash — but it now ends
+> the chain rather than being skipped past.
 
 One aggregation detail relevant to later stages (not this design, but
 worth recording): `ExecutionResult.success = not errors` is a strict AND
@@ -72,6 +93,14 @@ Inspector and Voice would need multi-output awareness too. That's real,
 necessary follow-up work, but it's outside "Planner needs a new
 strategy," so it's not part of this design's file list. Recording it
 here so it isn't mistaken for solved.
+
+> **Superseded (chaining).** Nothing keys off `outputs[0]` as "the"
+> result of a multi-step turn any more. `ExecutionResult.outputs` holds
+> only the chain's final file; each step's own output is on its
+> `StepResult`, `CompositeVerifier` verifies every step separately plus
+> the final file (`final_output`), and Voice reads the per-step
+> breakdown. See "In-loop verification, the final-file re-check, and the
+> Voice safeguards" at the end of this document.
 
 ---
 
@@ -207,6 +236,13 @@ an unmatched capability into a clean, per-item, non-fatal
 strategy's job is just to be honest about what was asked, and let that
 existing mechanism do its job. No new "capability unavailable" concept
 needs inventing.
+
+> **Superseded (chaining).** An unmatched capability is no longer a
+> per-item, non-fatal error: it **stops the chain**. `Hands` records it
+> as a `StepResult` with `status="failure"`, no skill, and a
+> plain-words `failure_reason`, so Inspector fails that step; later
+> steps are skipped and no file is handed back. Still a clean message,
+> not a crash.
 
 ### 4. Keeping `RuleBasedPlanner`/`NullPlanner` untouched, while actually using the new strategy
 
@@ -399,3 +435,67 @@ strategy"); `scripts/run_dedupe_manually.py` (not part of this ask).
 Pending sign-off, Step 3 would implement one file at a time per the table
 above, showing each file plus its tests before moving to the next, per
 the project's established implementation rule.
+
+---
+
+## In-loop verification, the final-file re-check, and the Voice safeguards
+
+Added with step chaining; see also `docs/reviews/chaining-wip-review.md`
+and `docs/reviews/chaining-wip-fixes.md`.
+
+**In-loop verification (`Hands`).** `build_engine` gives `Hands` the same
+`CompositeVerifier` Inspector uses, as `step_verifier`. After each
+file-changing step succeeds, `Hands` verifies that step against its own
+input before the next step may read its output. A failure stops the
+chain. So does a step that can't be dispatched, isn't confirmed, reports
+failure, fails its own well-formedness check, or whose output can't feed
+the next step (anything but exactly one file of the input's type). The
+step that stopped the chain is always recorded as a `StepResult`
+(`"failure"`, or `"declined"` for a declined confirmation) with a
+plain-words `failure_reason` when there's no Skill result to check, so
+Inspector sees a failing step. Later steps are `"skipped"`, and
+`ExecutionResult.outputs` is `()`. Inspector still re-verifies everything
+afterwards and is the final word.
+
+**Final-file checks (`CompositeVerifier._verify_final_file`).** When at
+least two file-changing steps chained into the delivered file, every
+step's verifier is re-run on that final file with no input reference, so
+the file the user receives satisfies every step's claim at once. It's
+recorded as the `final_output` verdict.
+
+**Final-file re-check (`Hands._recheck_final_file`).** Read-only steps
+(proactive `spreadsheet.analyze`) run on the original upload, outside the
+chain. Once the chain completes, each is re-run on the final file, so the
+findings the reply reports describe the file actually handed back. These
+steps are marked `recheck=True`. A failed re-check is a Hands warning,
+never an error, and Inspector records it as a non-blocking finding: it
+never fails the turn, since the delivered file was already verified. A
+re-check never marks the original as analyzed (only an analysis whose
+`input_reference` is the active file does).
+
+**Voice safeguards.**
+- Replies route on "was anything delivered?" first
+  (`_nothing_delivered`: the chain stopped, no output, or no action step
+  passed). When nothing was delivered, the reply never says "Done" or
+  implies completion. A stopped chain says which step stopped it and why,
+  and that the original is unchanged.
+- One rule for "passed" (`_step_passed`): a step passed only if its Skill
+  reported success *and* Inspector has a passing verdict for that step.
+- `PersonalityVoice` lets the model phrase only two kinds of turn: a
+  plain conversation turn (no action requested or attempted), and a turn
+  where a file was delivered *and* Inspector ran and passed it. Every
+  other action turn gets `TemplateSpeaker`'s factual reply, with no model
+  call (`_model_may_describe_outcome`). "Action requested" means Brain's
+  intent is `multi_step_request` or one the rule-based planner maps to a
+  capability. "Attempted" means a step that isn't READ tier was planned
+  (including one never dispatched or never started), or the chain
+  stopped. The completion-wording check remains as an extra layer. When a
+  file was delivered, the reply must mention it, or a sentence naming it
+  is appended.
+- A failed final-file re-check, and a failed read-only step on the
+  original (e.g. the initial analysis), are said in plain words. Neither
+  fails the turn unless it was the only thing verified, and the delivered
+  file is still named.
+- No raw capability id (`spreadsheet.analyze`, and any other id in a
+  known domain) reaches a reply: leading `[tag]`s are stripped and ids
+  anywhere in findings, warnings and errors are replaced with plain words.

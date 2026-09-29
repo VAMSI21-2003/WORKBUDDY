@@ -190,10 +190,17 @@ class Brain:
         state.confidence = understanding.confidence
 
 
+# Every intent the classifier may return. Anything else in a reply is
+# recorded as "unclear" rather than passed on as an unknown label.
+INTENT_VOCABULARY = frozenset(
+    {"remove_duplicate_rows", "remove_empty_rows", "multi_step_request", "unclear"}
+)
+
 _SYSTEM_PROMPT = """You are the intent classifier for WorkBuddy, an AI coworker.
 
 Classify the user's request into exactly one of the following intents:
 - "remove_duplicate_rows": the user wants duplicate rows removed from a spreadsheet.
+- "remove_empty_rows": the user wants empty rows removed from a spreadsheet.
 - "multi_step_request": the request clearly names more than one distinct action, but is not itself ambiguous.
 - "unclear": the request does not clearly match a known intent, or is too ambiguous to act on.
 
@@ -202,7 +209,8 @@ never assume anything about what data a file contains.
 
 Respond with a single JSON object and nothing else, matching this shape:
 {
-  "intent": "remove_duplicate_rows" | "multi_step_request" | "unclear",
+  "intent": "remove_duplicate_rows" | "remove_empty_rows" | "multi_step_request"
+            | "unclear",
   "confidence": <number between 0.0 and 1.0>,
   "referenced_files": [<file names the request refers to, if any>],
   "referenced_work_items": [<task or work item identifiers referred to, if any>],
@@ -313,8 +321,12 @@ class ClaudeInterpreter:
             )
 
         try:
+            intent = data.get("intent")
+            if intent not in INTENT_VOCABULARY:
+                logger.warning("ClaudeInterpreter: intent outside the vocabulary: %r", intent)
+                intent = "unclear"
             return Understanding(
-                intent=data.get("intent") or None,
+                intent=intent,
                 confidence=float(data.get("confidence", 0.0)),
                 referenced_files=tuple(data.get("referenced_files") or ()),
                 referenced_work_items=tuple(data.get("referenced_work_items") or ()),
@@ -322,7 +334,7 @@ class ClaudeInterpreter:
                 ambiguity_flags=tuple(data.get("ambiguity_flags") or ()),
                 notes=data.get("notes") or "",
             )
-        except (TypeError, ValueError):
+        except (AttributeError, TypeError, ValueError):
             logger.warning("ClaudeInterpreter: reply JSON had an unexpected shape: %r", data)
             return Understanding(
                 intent=None,

@@ -57,6 +57,9 @@ class PlanningStep:
             to each other. Lower values run first; ``0`` is the default.
         dependencies: IDs of other steps in the same plan that must
             complete before this one can start.
+        order_confirmed: ``False`` when this step belongs to a multi-step
+            plan whose order couldn't be checked against the order the
+            user stated, so the model's own order was used.
     """
 
     id: str
@@ -64,6 +67,7 @@ class PlanningStep:
     capability: str
     priority: int = 0
     dependencies: tuple[str, ...] = ()
+    order_confirmed: bool = True
 
 
 @dataclass(frozen=True)
@@ -90,27 +94,34 @@ class CapabilityRequest:
 class StepResult:
     """The outcome of executing a single delegated capability request.
 
-    Produced by Hands, one per ``CapabilityRequest`` it actually got far
-    enough to dispatch to a Skill (a request that never reached a Skill —
-    routing failure, declined confirmation — has nothing to report here
-    and is represented purely by an ``ExecutionResult.errors`` entry
-    instead; see ``buddy/hands.py``). This is what lets a Verifier
+    Produced by Hands, one per ``CapabilityRequest`` it handled — including
+    one that never reached a Skill: a request no Skill could be dispatched
+    for is recorded with status ``"failure"`` and no skill, and one whose
+    confirmation was declined with status ``DECLINED_STATUS``, each with a
+    ``failure_reason``, so Inspector sees the step that stopped the chain.
+    A step Hands never started because an earlier step in the chain failed
+    gets status ``SKIPPED_STATUS`` and no skill, so the reply can say which
+    steps didn't run. This is what lets a Verifier
     resolve *which* strategy applies to *which* output — something
-    ``ExecutionResult.outputs``, a single flat tuple with every step's
-    outputs concatenated together, cannot express on its own.
+    ``ExecutionResult.outputs`` (only the final file) cannot express on
+    its own.
 
     Attributes:
         capability: The capability this step requested — the same string
             Delegate produced and the Dispatcher used to select a Skill.
-        skill: The name of the Skill that actually ran this step.
+        skill: The name of the Skill that actually ran this step, or
+            ``""`` for a skipped step.
         status: The Skill's own reported outcome for this step, as the
             string value of ``skills.base.SkillStatus`` (e.g.
-            ``"success"``, ``"failure"``). Kept as a plain string rather
-            than importing ``SkillStatus`` here so ``buddy/models.py``
-            stays free of a dependency on ``skills/`` — the same
-            domain-agnostic boundary ``docs/BUDDY_SKILLS.md`` Section 2
-            asks Buddy's core to keep.
-        outputs: References to files or data this step produced.
+            ``"success"``, ``"failure"``), ``SKIPPED_STATUS`` for a step
+            never started, or ``DECLINED_STATUS`` for a step whose
+            confirmation was declined. Kept as a plain string rather than
+            importing ``SkillStatus`` here so ``buddy/models.py`` stays
+            free of a dependency on ``skills/`` — the same domain-agnostic
+            boundary ``docs/BUDDY_SKILLS.md`` Section 2 asks Buddy's core
+            to keep.
+        outputs: References to files or data this step produced —
+            including an intermediate file a later step went on to read.
         summary: Plain-language description of what this step did.
         self_reported_findings: Mirrors ``skills.base.SkillResult
             .self_reported_findings`` — copied across unchanged by
@@ -118,6 +129,25 @@ class StepResult:
             ``status``/``outputs``/``summary``. Findings a Verifier may
             relay as-is rather than independently recompute (see
             ``buddy.inspector.SpreadsheetAnalysisVerifier``).
+        input_reference: The file this step actually read — the original
+            upload for the first step of a chain, the previous step's
+            output after that — or ``""`` if unknown. Lets a Verifier
+            check a step against its own input, not just its output.
+        permission_tier: The permission tier of the Skill that ran this
+            step, as the string value of ``skills.base.PermissionTier``
+            (``"read"``, ``"write"``, ``"external_effect"``), or ``""`` if
+            unknown (e.g. a skipped step). Anything above ``"read"`` is an
+            action step — one that changes a file.
+        failure_reason: Why Hands itself failed this step, in plain words
+            with no capability id — set when there is no Skill result for
+            a Verifier to check (no Skill could run it, confirmation was
+            declined) or when the result couldn't be used (its output
+            couldn't feed the chain). ``""`` otherwise. Inspector relays it
+            as the step's finding instead of running a Verifier.
+        recheck: ``True`` for a read-only step Hands re-ran on the chain's
+            final file after the chain completed (see
+            ``Hands._recheck_final_file``). Its failure is a non-blocking
+            finding: it never fails the turn.
     """
 
     capability: str
@@ -126,6 +156,18 @@ class StepResult:
     outputs: tuple[str, ...] = ()
     summary: str = ""
     self_reported_findings: tuple[str, ...] = ()
+    input_reference: str = ""
+    permission_tier: str = ""
+    failure_reason: str = ""
+    recheck: bool = False
+
+
+# The ``StepResult.status`` of a step Hands never started because an
+# earlier step in the same chain failed.
+SKIPPED_STATUS = "skipped"
+
+# The ``StepResult.status`` of a step whose confirmation was declined.
+DECLINED_STATUS = "declined"
 
 
 @dataclass(frozen=True)
@@ -138,10 +180,11 @@ class ExecutionResult:
 
     Attributes:
         success: Whether execution completed without a fatal error.
-        outputs: References to files or data produced during execution,
-            across every step, in no particular per-step grouping. Kept
-            as the flat, source-of-truth view existing callers already
-            depend on.
+        outputs: The result handed back to the user: the final file of
+            the chain (each step reads the previous step's output — see
+            ``buddy.hands.Hands``), or ``()`` if the chain stopped on a
+            failure or no step produced a file. Intermediate files are
+            not listed here; they stay on each ``StepResult.outputs``.
         warnings: Non-fatal issues encountered during execution.
         errors: Fatal issues that prevented execution from succeeding.
         duration: How long execution took, in seconds.
@@ -152,6 +195,10 @@ class ExecutionResult:
             (see ``buddy.voice.TemplateSpeaker``) should iterate over —
             ``outputs`` alone cannot say which output belongs to which
             capability.
+        stopped_at: The capability of the chain step whose failure
+            stopped the chain (later steps are ``SKIPPED_STATUS``), or
+            ``None`` if the chain didn't stop. Lets the reply say which
+            step failed without parsing error strings.
     """
 
     success: bool
@@ -160,6 +207,7 @@ class ExecutionResult:
     errors: tuple[str, ...] = ()
     duration: float = 0.0
     steps: tuple[StepResult, ...] = ()
+    stopped_at: str | None = None
 
 
 @dataclass(frozen=True)
@@ -186,6 +234,17 @@ class StepVerification:
         confidence: Confidence in this step's own verdict.
         findings: This step's own plain-language findings, unprefixed.
         recommendations: This step's own suggestions for what to do next.
+        input_reference: The file the verified step read (its
+            ``StepResult.input_reference``), or ``""`` if unknown or not a
+            step (e.g. the final-file check). Lets a consumer tell which
+            file a verdict is about when one capability ran more than once.
+        recheck: Mirrors ``StepResult.recheck``: this verdict is for a
+            re-check of the final file, and its failure didn't count
+            against ``VerificationResult.passed``.
+        read_only: The verified step ran at READ tier (e.g. proactive
+            analysis of the original). Outside the chain, so its failure
+            doesn't count against ``VerificationResult.passed`` either —
+            unless every step this turn was read-only.
     """
 
     capability: str
@@ -193,6 +252,9 @@ class StepVerification:
     confidence: float = 0.0
     findings: tuple[str, ...] = ()
     recommendations: tuple[str, ...] = ()
+    input_reference: str = ""
+    recheck: bool = False
+    read_only: bool = False
 
 
 @dataclass(frozen=True)

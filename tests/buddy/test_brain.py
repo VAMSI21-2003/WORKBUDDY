@@ -3,10 +3,18 @@
 from __future__ import annotations
 
 import json
+import re
 
 import pytest
 
-from buddy.brain import Brain, ClaudeInterpreter, NullInterpreter, UnderstandingRequest
+from buddy.brain import (
+    _SYSTEM_PROMPT,
+    INTENT_VOCABULARY,
+    Brain,
+    ClaudeInterpreter,
+    NullInterpreter,
+    UnderstandingRequest,
+)
 from buddy.llm import LLMMessage
 from buddy.models import Understanding
 from buddy.state import BuddyState
@@ -222,3 +230,51 @@ def test_claude_interpreter_accepts_multi_step_request_intent() -> None:
 
     assert understanding.intent == "multi_step_request"
     assert understanding.confidence == pytest.approx(0.9)
+
+
+# -- Review F1: the intent is validated against the vocabulary ------------------------
+
+
+@pytest.mark.parametrize(
+    "intent",
+    ["remove_duplicate_rows", "remove_empty_rows", "multi_step_request", "unclear"],
+)
+def test_claude_interpreter_keeps_every_intent_in_the_vocabulary(intent: str) -> None:
+    provider = _FakeLLMProvider(reply=json.dumps({"intent": intent, "confidence": 0.9}))
+
+    assert ClaudeInterpreter(provider)(_empty_request()).intent == intent
+
+
+@pytest.mark.parametrize(
+    "reply",
+    [
+        {"intent": "deduplicate", "confidence": 0.9},
+        {"intent": "Remove_Duplicate_Rows", "confidence": 0.9},
+        {"intent": "remove_duplicates", "confidence": 0.9},
+        {"intent": "", "confidence": 0.9},
+        {"intent": None, "confidence": 0.9},
+        {"confidence": 0.9},
+    ],
+    ids=["invented", "wrong-case", "near-miss", "empty", "null", "missing"],
+)
+def test_claude_interpreter_records_any_other_intent_as_unclear(reply: dict) -> None:
+    provider = _FakeLLMProvider(reply=json.dumps(reply))
+
+    understanding = ClaudeInterpreter(provider)(_empty_request())
+
+    assert understanding.intent == "unclear"
+    assert understanding.confidence == pytest.approx(0.9)
+
+
+def test_the_prompt_offers_exactly_the_vocabulary() -> None:
+    offered = set(re.findall(r'^- "([a-z_]+)":', _SYSTEM_PROMPT, re.MULTILINE))
+    assert offered == INTENT_VOCABULARY
+
+
+def test_claude_interpreter_falls_back_when_the_reply_is_not_a_json_object() -> None:
+    provider = _FakeLLMProvider(reply=json.dumps(["remove_duplicate_rows"]))
+
+    understanding = ClaudeInterpreter(provider)(_empty_request())
+
+    assert understanding.intent is None
+    assert understanding.missing_information
