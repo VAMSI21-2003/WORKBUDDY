@@ -169,13 +169,16 @@ _INCOMPLETE = {
     "dedupe-and-sort": _report(_ledger_done(_DEDUPE, 0), _not_done("", NO_SKILL)),
     # No reading of the request at all (PR-A's only case): nothing is confirmed.
     "no-reading": _report(_done(_DEDUPE, 0), _done(_EMPTY, 0)),
+    # H1: a mention entry never confirms a request, even when Brain gave no reading.
+    "mention-only-done": _report(_ledger_done(_DEDUPE, 2, _MENTION)),
+    "mention-and-brain-done": _report(_ledger_done(_EMPTY, 1), _ledger_done(_DEDUPE, 2, _MENTION)),
 }
 
 # Reports where every requested action is done and nothing else ran.
 _COMPLETE = {
     "single": _report(_ledger_done(_DEDUPE, 2)),
     "single-nothing": _report(_ledger_done(_DEDUPE, 0, _INTENT)),
-    "chain": _report(_ledger_done(_EMPTY, 1), _ledger_done(_DEDUPE, 2, _MENTION)),
+    "chain": _report(_ledger_done(_EMPTY, 1), _ledger_done(_DEDUPE, 2, _INTENT)),
     "chain-nothing": _report(_ledger_done(_EMPTY, 0), _ledger_done(_DEDUPE, 0)),
     "no-count": _report(_ledger_done(_DEDUPE, None)),
 }

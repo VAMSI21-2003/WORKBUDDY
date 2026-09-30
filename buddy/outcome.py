@@ -36,6 +36,7 @@ from buddy.models import (
     LEDGER_FROM_MENTION,
     SKIPPED_STATUS,
     ExecutionResult,
+    RequestedAction,
     StepMeasurement,
     StepResult,
     StepVerification,
@@ -217,15 +218,17 @@ class OutcomeReport:
 
     @property
     def request_complete(self) -> bool:
-        """Every ledger action is ``DONE``, and nothing ran that isn't in the ledger.
+        """Every action is ``DONE`` and confirmed as requested by Brain's reading.
 
         False for an empty ledger, for any ``NOT_DONE`` or
-        ``DONE_UNREQUESTED`` action, and for a ``DONE`` action with no
-        ledger entry. Catalog entries that imply the request is finished
-        require this.
+        ``DONE_UNREQUESTED`` action, and for a ``DONE`` action Brain's
+        reading doesn't confirm (no ledger entry, or only a mention-detector
+        entry: the detector matches "don't remove duplicates" as well as
+        "remove duplicates", so it can never confirm a request). Catalog
+        entries that imply the request is finished require this.
         """
         return bool(self.actions) and all(
-            action.status == DONE and action.source for action in self.actions
+            action.status == DONE and action.source in BRAIN_SOURCES for action in self.actions
         )
 
     @property
@@ -233,15 +236,15 @@ class OutcomeReport:
         """``"Done"``, ``"Partly done"`` or ``None`` (design 2.3 and decision D2).
 
         - ``"Done"`` only when ``request_complete``.
-        - ``"Partly done"`` when at least one ledger action is ``DONE`` and
-          at least one action from Brain's reading is ``NOT_DONE``. An
-          action only the mention detector found never produces it (D2): it
-          only keeps "Done" away.
+        - ``"Partly done"`` when at least one action Brain's reading has is
+          ``DONE`` and at least one is ``NOT_DONE``. An action only the
+          mention detector found never produces it (D2), and never counts as
+          done for it: it only keeps "Done" away.
         - Otherwise no lead word.
         """
         if self.request_complete:
             return LEAD_DONE
-        requested_done = any(a.status == DONE and a.source for a in self.actions)
+        requested_done = any(a.status == DONE and a.source in BRAIN_SOURCES for a in self.actions)
         brain_not_done = any(
             a.status == NOT_DONE and a.source in BRAIN_SOURCES for a in self.actions
         )
@@ -267,14 +270,17 @@ def build_outcome_report(
     Derivation (design Section 2.2), with the ledger from
     ``buddy.actions.requested_ledger``:
 
-    - A step that passed is ``DONE`` if the ledger has its capability;
+    - A step that passed is ``DONE`` if Brain's reading has its capability;
       ``DONE_UNREQUESTED`` if it doesn't and Brain gave a reading of the
-      request; otherwise ``DONE`` with no ledger source (nothing to compare
-      it with).
+      request (a mention-detector entry doesn't count as Brain's reading);
+      otherwise ``DONE`` with a non-Brain source (nothing to compare it
+      with), which never leads to "Done".
     - A ledger action with no passing step is ``NOT_DONE``: ``NO_SKILL`` if
-      Brain listed it as ``"unsupported"``, ``NOT_CONFIRMED`` if a step for
-      it ran but didn't pass, ``NOT_READ_AS_REQUEST`` if only the mention
-      detector has it, and ``NOT_PLANNED`` if Brain's reading has it.
+      Brain listed it as ``"unsupported"`` (unless its phrase only names an
+      action that has a capability; see ``_no_skill_outcome``),
+      ``NOT_CONFIRMED`` if a step for it ran but didn't pass,
+      ``NOT_READ_AS_REQUEST`` if only the mention detector has it, and
+      ``NOT_PLANNED`` if Brain's reading has it.
 
     Args:
         execution_result: What Hands ran.
@@ -305,7 +311,17 @@ def build_outcome_report(
         if not _step_passed(step, verification_result):
             continue
         entry = ledger_by_capability.get(step.capability)
-        status = DONE if entry is not None or not has_reading else DONE_UNREQUESTED
+        if entry is not None and entry.source in BRAIN_SOURCES:
+            status, source = DONE, entry.source
+        elif has_reading:
+            # Brain's reading doesn't have it. A mention entry doesn't change
+            # that: the detector also matches a negation ("don't remove
+            # duplicates"), so it can only add to the not-done side.
+            status, source = DONE_UNREQUESTED, ""
+        else:
+            # No reading to compare with: neither confirmed nor called
+            # unrequested, and never "Done".
+            status, source = DONE, entry.source if entry is not None else ""
         passed.append(
             (
                 step,
@@ -314,7 +330,7 @@ def build_outcome_report(
                     status=status,
                     measurement=_measurement_for(step, verification_result, len(action_steps)),
                     after_earlier_step=index > 0,
-                    source=entry.source if entry is not None else "",
+                    source=source,
                 ),
             )
         )
@@ -322,14 +338,14 @@ def build_outcome_report(
     passed_capabilities = {step.capability for step, _ in passed}
     ran_capabilities = {step.capability for step in action_steps}
     not_done: list[ActionOutcome] = []
+    said_no_skill: set[str] = set()
     for entry in ledger:
         if entry.action == UNSUPPORTED:
-            phrase = _quoted_phrase(entry.source_phrase) if entry.phrase_found else ""
-            not_done.append(
-                ActionOutcome(
-                    "", NOT_DONE, reason=NO_SKILL, source=entry.source, user_phrase=phrase
-                )
-            )
+            outcome = _no_skill_outcome(entry, ledger, passed_capabilities)
+            if outcome is None or outcome.user_phrase.casefold() in said_no_skill:
+                continue
+            said_no_skill.add(outcome.user_phrase.casefold())
+            not_done.append(outcome)
             continue
         capability = ACTIONS_BY_NAME[entry.action].capability
         if capability in passed_capabilities:
@@ -363,6 +379,61 @@ def build_outcome_report(
         output_names=tuple(Path(output).name for output in outputs),
         open_findings=open_findings,
     )
+
+
+# Words that, left over once an action's own words are removed from an
+# "unsupported" phrase, don't ask for anything more ("remove the duplicate
+# rows", "keep the duplicates").
+_FILLER_WORDS = frozenset(
+    "a an the this that these those it them its my our your all any every some "
+    "please pls just only also then and or but to of in on from for with without into "
+    "can could would you i we let lets do does dont don't not no never keep leave "
+    "remove removing delete deleting drop get rid clean clear erase strip "
+    "row rows line lines entry entries record records data file sheet spreadsheet report".split()
+)
+
+
+def _no_skill_outcome(
+    entry: RequestedAction,
+    ledger: tuple[RequestedAction, ...],
+    passed_capabilities: set[str],
+) -> ActionOutcome | None:
+    """The ``NO_SKILL`` outcome for an ``unsupported`` entry, or ``None`` to say nothing.
+
+    Brain's "unsupported" label and phrase boundaries are a model's, so a
+    slip (a whole-message phrase, a near-miss action name) can hang it on
+    words that name an action Buddy does have. "I can't do this part yet"
+    would then sit next to a sentence saying it was done. So when the phrase
+    names an action (the mention detector's pattern, or the words Brain
+    quoted for an action that passed):
+
+    - if nothing else is left in it once those words and filler are removed,
+      the entry is dropped: the action has its own sentence (or none, when it
+      ran and was said);
+    - otherwise the sentence is the generic, unquoted one, since a quote would
+      include the named action.
+    """
+    phrase = entry.source_phrase
+    lowered = phrase.casefold()
+    names_action = False
+    for action in ACTIONS_BY_NAME.values():
+        remaining = action.mention.sub(" ", lowered)
+        if remaining != lowered:
+            names_action, lowered = True, remaining
+    for other in ledger:
+        other_action = ACTIONS_BY_NAME.get(other.action)
+        if other_action is None or other_action.capability not in passed_capabilities:
+            continue
+        said = other.source_phrase.casefold().strip()
+        if said and said in lowered:
+            names_action, lowered = True, lowered.replace(said, " ")
+    if not names_action:
+        quoted = _quoted_phrase(phrase) if entry.phrase_found else ""
+        return ActionOutcome("", NOT_DONE, reason=NO_SKILL, source=entry.source, user_phrase=quoted)
+    left_over = [w for w in re.findall(r"[\w']+", lowered) if w not in _FILLER_WORDS]
+    if not left_over:
+        return None
+    return ActionOutcome("", NOT_DONE, reason=NO_SKILL, source=entry.source)
 
 
 def _quoted_phrase(phrase: str) -> str:

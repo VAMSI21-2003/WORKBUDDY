@@ -112,3 +112,47 @@
 
 - **N1, C1–C3 and N5 need a model error, so they can't be forced live.** They are covered end to end, with fake model replies, by the `build_engine` tests listed in `docs/reviews/verified-outcome-b-impl.md`. Live, Groq classified all 6 messages correctly, so no run exercised `NOT_PLANNED` or `DONE_UNREQUESTED`.
 - **No live run produced a completion closer.** Every "Done" run either was in focus mode with the closer seed landing on the empty entry, or already asked about analysis findings. The closers' eligibility is covered by unit and end-to-end tests.
+
+---
+
+# After the review fixes (H1, H2, M1)
+
+Fixed head: the commit that adds `docs/reviews/verified-outcome-b-fixes.md`. Command: `python scripts/run_dedupe_manually.py --mode focus --message "<request>"` with the real pipeline (Groq through the session proxy), on a fresh fixture each run (6 rows, 2 exact duplicates, 1 empty row). **4 of 4 runs completed; no 429.** Every run: `clarification_required` false, the original byte-identical afterwards (hash before → after unchanged).
+
+### Run 1: "remove the duplicate rows"
+- **Intent:** `remove_duplicate_rows` (0.99). **Ledger:** `[brain] remove_duplicate_rows: "remove the duplicate rows"`.
+- **Steps executed:** analyze (original) → deduplicate → analyze (re-check). **Delivered:** yes.
+- **Independent check:** original 6 rows / 2 duplicates / 1 empty; delivered 4 rows / 0 duplicates / 1 empty.
+- **Reply:** "Done — removed 2 duplicate row(s). The copy has 4 row(s), 0 duplicate row(s) remaining. Your cleaned copy of manual_report.xlsx is ready. I also noticed: name: 1 missing value(s) (25.0%); amount: 1 missing value(s) (25.0%). Want me to tackle any of these?"
+- **False claim:** none. 2, 4, 0 match pandas. No completion closer (the reply already asks about findings).
+- **Original hash:** `f63fe0504dcdeacc` → `f63fe0504dcdeacc`.
+
+### Run 2: "remove the empty rows but keep the duplicates"
+- **Intent:** `remove_empty_rows` (0.99). **Ledger:** `[brain] remove_empty_rows: "remove the empty rows but keep the duplicates"` (a whole-message phrase, harmless for a supported action); `[mention] remove_duplicate_rows: "duplicates"`.
+- **Steps executed:** analyze → remove_empty_rows → analyze. **Delivered:** yes.
+- **Report:** empty rows `done` (brain); dedupe `not_done` / `not_read_as_request` (mention). Lead word: none. Residual: 2 duplicate rows.
+- **Independent check:** delivered 5 rows / 2 duplicates / 0 empty (the duplicates were kept, as asked).
+- **Reply:** "Removed 1 fully-empty row(s). Your message mentions duplicate rows, but I didn't run the duplicate-row removal. I read your request as: remove empty rows. The copy has 5 row(s), 0 fully-empty row(s) remaining. It still has 2 duplicate row(s). Your cleaned copy of manual_report.xlsx is ready. **None of the other issues I check for were found.**"
+- **False claim:** none. This is the M1 case: the all-clear is now qualified next to "It still has 2 duplicate row(s)." No "Done", no closer.
+- **Original hash:** `b5853e69dbf1fd34` → `b5853e69dbf1fd34`.
+
+### Run 3: "remove the duplicate rows and then give me a report"
+- **Intent:** `multi_step_request` (0.98). **Ledger:** `[brain] remove_duplicate_rows: "remove the duplicate rows"`, `[brain] unsupported: "give me a report"`.
+- **Steps executed:** analyze → deduplicate → analyze (the planner added no report step). **Delivered:** yes.
+- **Independent check:** delivered 4 rows / 0 duplicates / 1 empty.
+- **Reply:** "Partly done — removed 2 duplicate row(s). I can't do this part yet: “give me a report”. The copy has 4 row(s), 0 duplicate row(s) remaining. Your cleaned copy of manual_report.xlsx is ready. I also noticed: name: 1 missing value(s) (25.0%); amount: 1 missing value(s) (25.0%). Want me to tackle any of these?"
+- **False claim:** none. The quoted phrase names nothing that was done, so H2 leaves it alone. The findings are the analysis of the final file, which the reply doesn't call a report (backlog item 3).
+- **Original hash:** `61c4e61ba292dc1b` → `61c4e61ba292dc1b`.
+
+### Run 4: "remove duplicates and sort by amount"
+- **Intent:** `multi_step_request` (0.98). **Ledger:** `[brain] remove_duplicate_rows: "remove duplicates"`, `[brain] unsupported: "sort by amount"`.
+- **Steps executed:** analyze → deduplicate (succeeded) → `spreadsheet.sort` (failure: no registered skill). The chain stopped. **Delivered:** no.
+- **Independent check:** no output file.
+- **Reply:** "Before anything else, here's what I noticed: name: 1 missing value(s) (16.7%); amount: 1 missing value(s) (16.7%). Want me to tackle any of these? I ran into a problem partway through. The sort step: couldn't be run because no available skill can do it. I stopped at the sort step and no file was handed back; your original file is unchanged."
+- **False claim:** none. This is the unchanged undelivered path, so the ledger isn't involved.
+- **Original hash:** `cc8bb4f941ee4967` → `cc8bb4f941ee4967`.
+
+### What these runs don't show
+- **H1 and H2 need a model slip** (the planner running a forbidden step; a near-miss action name; a whole-message `unsupported` phrase). Groq read all four messages sensibly, so none was triggered live. They're covered end to end by the `build_engine` tests in `docs/reviews/verified-outcome-b-fixes.md`, which fail on the pre-fix code.
+- Run 2 is the only live evidence for the fixes: M1's qualified sentence, and a mention entry that adds only a not-done line.
+- No live run produced a completion closer or a "Partly done" opener; both are covered by tests.

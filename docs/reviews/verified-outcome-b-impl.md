@@ -2,6 +2,7 @@
 
 **Design:** `docs/design/verified-outcome-design.md`, Sections 2.2–2.5 and 3, with "Decisions (2026-09-30)". D2 and D4 apply directly.
 **Code:** commit `31bbb5f` (code and tests). The docs commit after it changes one docstring in `buddy/engine_factory.py` and no behaviour.
+**Fixes:** review H1, H2 and M1 are fixed in `docs/reviews/verified-outcome-b-fixes.md`; the tables below are updated to match. Where the text below says a mention entry counts as requested, the fixes doc supersedes it.
 **Rule-touching:** yes, rule 1. This needs an independent review by a separate session, written to `docs/reviews/verified-outcome-b-review.md`, before merging. That review hasn't been done. This document is the implementer's account, not a review.
 **Live runs:** `docs/reviews/verified-outcome-b-live-runs.md`. 6 of 6 runs completed. There were 0 false claims, every count matched pandas, and the original was unchanged in every run.
 **Suite:** `python -m pytest -q` gives **839 passed** (`main`: 710). `ruff check buddy tests` finds 22 errors, the same set as on `main` (compared with line numbers stripped); none are in new or changed lines.
@@ -41,12 +42,14 @@ A missing or malformed field (not a list) gives no Brain entries; an entry with 
 
 | Ledger has it? | A step for its capability… | Status / reason | Rendered |
 |---|---|---|---|
-| yes (any source) | passed | `DONE` | "Removed 2 duplicate row(s)." / "There were no … to remove." / "The … ran and passed its check." (PR-A wording) |
+| yes, Brain or intent | passed | `DONE` | "Removed 2 duplicate row(s)." / "There were no … to remove." / "The … ran and passed its check." (PR-A wording) |
+| yes, mention only, and Brain gave a reading | passed | `DONE_UNREQUESTED` (fix for review H1) | "I also removed 2 duplicate row(s), though I didn't read that as part of your request." |
 | no, and Brain gave a reading | passed | `DONE_UNREQUESTED` | "I also removed 2 duplicate row(s), though I didn't read that as part of your request." ("I" instead of "I also" when no done sentence precedes it) |
 | no, and Brain gave **no** reading | passed | `DONE`, `source=""` | as `DONE`, but it blocks "Done —" (Deviations 3) |
 | yes, Brain or intent | didn't run | `NOT_DONE` / `NOT_PLANNED` | "I didn't run the empty-row removal, though I read it as part of your request." |
+| yes, mention only, and Brain gave **no** reading | passed | `DONE`, `source="mention"` | as `DONE`, but it blocks "Done —" (fix for review H1) |
 | yes, mention only | didn't run | `NOT_DONE` / `NOT_READ_AS_REQUEST` | "Your message mentions duplicate rows, but I didn't run the duplicate-row removal." then, once, "I read your request as: remove empty rows." (only if Brain's reading has a supported action) |
-| yes, `unsupported` | (no capability) | `NOT_DONE` / `NO_SKILL` | "I can't do this part yet: “sort by amount”." if the phrase is the user's own words; otherwise "I read part of your request as something I can't do yet." |
+| yes, `unsupported` | (no capability) | `NOT_DONE` / `NO_SKILL` (fix for review H2: dropped when the phrase only names an action that has a capability, unquoted when it also asks for more; identical sentences collapse) | "I can't do this part yet: “sort by amount”." if the phrase is the user's own words; otherwise "I read part of your request as something I can't do yet." |
 | yes | ran but didn't pass | `NOT_DONE` / `NOT_CONFIRMED` | "I couldn't confirm the empty-row removal: its check didn't pass." (Deviations 2) |
 
 **Residuals** (design 2.5): for each `NOT_DONE` action whose target was measured on the delivered file, "It still has 1 fully-empty row(s)." If the count is 0, "It has no fully-empty rows." Without a final-state sentence before it, the subject is "The copy". If the read failed, no sentence is added.
@@ -54,8 +57,8 @@ A missing or malformed field (not a list) gives no Brain entries; an entry with 
 **Order in the block:** done actions in the order they ran (the lead word attaches to the first), then unrequested ones, then not-done ones in ledger order, then the final state, residuals, the order-used sentence and the file.
 
 **Lead word** (design 2.3 + D2):
-- **"Done"** when `request_complete`: there's at least one action, every action is `DONE`, and every one has a ledger source.
-- **"Partly done"** when some ledger action is `DONE` and some action from **Brain's reading** (`brain` or `intent`) is `NOT_DONE`. This includes `NO_SKILL`.
+- **"Done"** when `request_complete`: there's at least one action, every action is `DONE`, and every one has a **Brain** source (`brain` or `intent`). A mention entry never counts (review H1).
+- **"Partly done"** when some action from **Brain's reading** is `DONE` and some action from Brain's reading is `NOT_DONE`. This includes `NO_SKILL`.
 - **None** otherwise. So a mention-only `NOT_DONE` (`NOT_READ_AS_REQUEST`) never produces "Partly done", and it keeps "Done" away (D2).
 
 ## The catalog (every entry, with why its predicate makes its text true)

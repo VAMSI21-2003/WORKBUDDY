@@ -961,10 +961,11 @@ def test_full_slice_reports_a_failed_re_check_without_failing_the_delivered_file
 
     reply = state.reply
     assert reply is not None
-    # PR-B: the message mentions both actions (the ledger here comes from the
-    # mention detector, since this Brain reply has no requested_actions), and
-    # both ran and passed, so the request is complete and the reply says "Done".
-    assert reply.startswith("Done — removed 1 fully-empty row(s). Removed 1 duplicate row(s).")
+    # PR-B (review H1): this Brain reply has no requested_actions, so the ledger
+    # comes from the mention detector alone. A mention never confirms a request,
+    # so both removals are stated but the reply doesn't claim "Done".
+    assert reply.startswith("Removed 1 fully-empty row(s). Removed 1 duplicate row(s).")
+    assert "Done" not in reply
     assert RECHECK_FAILED_SENTENCE in reply
     assert f"Saved as `{Path(result.outputs[0]).name}`." in reply
     assert "wasn't able to confirm" not in reply
@@ -1057,10 +1058,11 @@ def test_full_slice_names_the_delivered_file_when_the_initial_analysis_fails(
 
     reply = state.reply
     assert reply is not None
-    # PR-B: the message mentions both actions (the ledger here comes from the
-    # mention detector, since this Brain reply has no requested_actions), and
-    # both ran and passed, so the request is complete and the reply says "Done".
-    assert reply.startswith("Done — removed 1 fully-empty row(s). Removed 1 duplicate row(s).")
+    # PR-B (review H1): this Brain reply has no requested_actions, so the ledger
+    # comes from the mention detector alone. A mention never confirms a request,
+    # so both removals are stated but the reply doesn't claim "Done".
+    assert reply.startswith("Removed 1 fully-empty row(s). Removed 1 duplicate row(s).")
+    assert "Done" not in reply
     assert f"Saved as `{Path(result.outputs[0]).name}`." in reply
     assert "The initial analysis of your original file couldn't run." in reply
     assert "wasn't able to confirm" not in reply
@@ -1668,20 +1670,22 @@ def test_h1_removed_counts_repeated_blank_rows_and_every_number_matches_pandas(
     removed_sentences = re.findall(r"[Rr]emoved (\d+) ([a-z()-]+ row\(s\))", outcome)
     assert sum(int(n) for n, _ in removed_sentences) == rows_in - rows_out
     duplicate_sentence = re.search(
-        r"(Done — r|R)emoved (\d+) duplicate row\(s\)(?:, including (\d+) repeated blank rows?)?\.",
+        r"(?:Done — )?[Rr]emoved (\d+) duplicate row\(s\)"
+        r"(?:, including (\d+) repeated blank rows?)?\.",
         outcome,
     )
     assert duplicate_sentence is not None, reply
     # Dedupe's own count: every duplicate row of the input, blank repeats included.
-    assert int(duplicate_sentence[2]) == duplicates_in
+    assert int(duplicate_sentence[1]) == duplicates_in
     # ... of which the repeated blank rows are the input's blank rows beyond the one kept.
-    assert int(duplicate_sentence[3]) == blank_in - 1 == 1
+    assert int(duplicate_sentence[2]) == blank_in - 1 == 1
     if chain:
         # The chain's second step removes the one blank row dedupe kept.
         assert removed_sentences[1] == ("1", "fully-empty row(s)")
         assert (rows_in, rows_out) == (len(rows["name"]), len(rows["name"]) - duplicates_in - 1)
-        # PR-B: both actions the message mentions ran and passed.
-        assert reply.count("Done — removed") == 1
+        # PR-B (review H1): Brain gave no reading, so the mention detector alone
+        # has both actions and never confirms a request: no "Done".
+        assert "Done" not in reply
         assert f"The copy has {rows_out} row(s), 0 duplicate row(s) and 0 fully-empty" in reply
     else:
         assert len(removed_sentences) == 1
@@ -1807,7 +1811,12 @@ def _plan_reply(*planned: tuple[str, str]) -> str:
 
 
 def _run_ledger_turn(
-    tmp_path: Path, message: str, replies: list[str], speaker_kind: str, model_reply: str
+    tmp_path: Path,
+    message: str,
+    replies: list[str],
+    speaker_kind: str,
+    model_reply: str,
+    session_id: str = "session-1",
 ) -> tuple[BuddyState, _QueuedLLMProvider, Path, bytes]:
     """One turn on the review's fixture. ``speaker_kind``: ``"template"``, or a mode
     for ``PersonalityVoice`` (given the same provider, so any Voice call would show)."""
@@ -1815,7 +1824,7 @@ def _run_ledger_turn(
     input_path = Path("uploads") / "report.xlsx"
     pd.DataFrame(_REVIEW_ROWS).to_excel(tmp_path / input_path, index=False)
     original_bytes = (tmp_path / input_path).read_bytes()
-    state = BuddyState.new(session_id="session-1", workspace_id="workspace-1")
+    state = BuddyState.new(session_id=session_id, workspace_id="workspace-1")
     state.user_message = message
     state.context.add_uploaded_file(str(input_path))
     state.context.switch_active_file(str(input_path))
@@ -2231,3 +2240,294 @@ def test_a_fully_done_chain_says_done_and_may_close(
     ) in reply
     assert "still has" not in reply and "didn't run" not in reply
     assert original_path.read_bytes() == original_bytes
+
+
+# -- Verified outcome (PR-B fixes): review H1, H2 and M1, end to end -----------------------
+
+_MODEL_REPLY = "All done — duplicates and empty rows are gone."
+_COMPLETION_CLOSERS = ("Anything else", "What's next")
+_SEEDS = ["s1", "s2", "s3", "s4", "s5", "s6"]
+
+
+def _delivered_turn(
+    tmp_path: Path,
+    message: str,
+    replies: list[str],
+    speaker_kind: str = "template",
+    session_id: str = "session-1",
+) -> tuple[str, Path]:
+    """One delivered turn; checks the parts every fix scenario shares. Returns the reply
+    and the delivered file."""
+    state, provider, original_path, original_bytes = _run_ledger_turn(
+        tmp_path, message, replies, speaker_kind, _MODEL_REPLY, session_id
+    )
+    result = state.execution_result
+    assert result is not None and len(result.outputs) == 1
+    assert state.verification_result is not None and state.verification_result.passed
+    reply = state.reply
+    assert reply is not None
+    assert provider._replies == [_MODEL_REPLY]  # the Voice model was never called
+    assert _MODEL_REPLY not in reply
+    assert original_path.read_bytes() == original_bytes  # rule 2
+    return reply, Path(result.outputs[0])
+
+
+def _no_completion_claim(reply: str) -> None:
+    assert "Done" not in reply and "done —" not in reply, reply
+    for closer in _COMPLETION_CLOSERS:
+        assert closer not in reply, reply
+    assert "only part of this went through" not in reply, reply
+
+
+_H1_CHAIN_PLAN = _plan_reply(
+    ("spreadsheet.deduplicate", "remove duplicates"),
+    ("spreadsheet.remove_empty_rows", "remove the empty rows"),
+)
+
+
+@pytest.mark.parametrize("session_id", _SEEDS)
+@pytest.mark.parametrize("speaker_kind", _SPEAKERS)
+def test_c2_a_step_the_user_forbade_is_unrequested_and_the_reply_never_says_done(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, speaker_kind: str, session_id: str
+) -> None:
+    """Review H1, c2: Brain reads only remove_empty_rows; the planner also ran dedupe.
+    The mention detector matches "remove duplicates" inside a negation, so it can't make
+    that step requested: it is stated as not read as a request, and nothing leads "Done"."""
+    monkeypatch.chdir(tmp_path)
+    brain = _brain_ledger_reply(
+        "multi_step_request", ("remove_empty_rows", "remove the empty rows")
+    )
+
+    reply, delivered = _delivered_turn(
+        tmp_path, "don't remove duplicates, just remove the empty rows",
+        [brain, _THINK_PROCEEDS, _H1_CHAIN_PLAN], speaker_kind, session_id,
+    )
+
+    assert _counts(delivered) == (3, 0, 0)
+    assert (
+        "I also removed 2 duplicate row(s), though I didn't read that as part of your request."
+    ) in reply
+    assert "Removed 1 fully-empty row(s)." in reply
+    assert "sheet was seeing double" not in reply  # no opener praising the forbidden step
+    _no_completion_claim(reply)
+
+
+@pytest.mark.parametrize("session_id", _SEEDS)
+@pytest.mark.parametrize("speaker_kind", _SPEAKERS)
+@pytest.mark.parametrize(
+    ("message", "duplicate_phrase"),
+    [
+        ("remove the empty rows but keep the duplicates", "the duplicates"),  # c3
+        ("keep the duplicates, remove the empty rows", "the duplicates"),  # c7
+    ],
+    ids=["c3", "c7"],
+)
+def test_c3_c7_with_no_reading_from_brain_a_mention_never_says_done(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    message: str,
+    duplicate_phrase: str,
+    speaker_kind: str,
+    session_id: str,
+) -> None:
+    """Review H1, c3 and c7: a multi_step_request reply with no requested_actions, and
+    a planner that also ran dedupe. Both steps are in the ledger only through the mention
+    detector, which can't confirm a request: the removals are stated, nothing more."""
+    monkeypatch.chdir(tmp_path)
+    brain = _brain_ledger_reply("multi_step_request", None)
+    empty, dedupe = (
+        ("spreadsheet.remove_empty_rows", "remove the empty rows"),
+        ("spreadsheet.deduplicate", duplicate_phrase),
+    )
+    plan = (
+        _plan_reply(empty, dedupe) if message.startswith("remove") else _plan_reply(dedupe, empty)
+    )
+
+    reply, delivered = _delivered_turn(
+        tmp_path, message, [brain, _THINK_PROCEEDS, plan], speaker_kind, session_id
+    )
+
+    assert _counts(delivered) == (3, 0, 0)
+    assert "emoved 2 duplicate row(s)" in reply and "emoved 1 fully-empty row(s)" in reply
+    _no_completion_claim(reply)
+
+
+@pytest.mark.parametrize("session_id", _SEEDS)
+@pytest.mark.parametrize("speaker_kind", _SPEAKERS)
+def test_c6_nothing_requested_was_done_so_the_reply_says_neither_done_nor_partly_done(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, speaker_kind: str, session_id: str
+) -> None:
+    """Review H1, c6: Brain reads only remove_empty_rows and the planner ran only dedupe.
+    The dedupe is unrequested (the mention doesn't count) and the empty-row removal was
+    read as requested but not run. Nothing requested was done, so no "Partly done"."""
+    monkeypatch.chdir(tmp_path)
+    brain = _brain_ledger_reply(
+        "multi_step_request", ("remove_empty_rows", "remove the empty rows")
+    )
+    plan = _plan_reply(("spreadsheet.deduplicate", "remove duplicates"))
+
+    reply, delivered = _delivered_turn(
+        tmp_path, "don't remove duplicates, just remove the empty rows",
+        [brain, _THINK_PROCEEDS, plan], speaker_kind, session_id,
+    )
+
+    assert _counts(delivered) == (4, 0, 1)
+    assert (
+        "I removed 2 duplicate row(s), though I didn't read that as part of your request."
+    ) in reply
+    assert "I didn't run the empty-row removal, though I read it as part of your request." in reply
+    assert "It still has 1 fully-empty row(s)." in reply
+    assert "Partly done" not in reply
+    assert "sheet was seeing double" not in reply
+    _no_completion_claim(reply)
+
+
+_DEDUPE_ONLY_BLOCK = (
+    "Done — removed 2 duplicate row(s). The copy has 4 row(s), 0 duplicate row(s) remaining."
+)
+
+
+@pytest.mark.parametrize("session_id", _SEEDS)
+@pytest.mark.parametrize("speaker_kind", _SPEAKERS)
+@pytest.mark.parametrize(
+    "action",
+    ["remove_duplicates", "Remove_Duplicate_Rows", "remove_duplicate_rows ", "deduplicate"],
+)
+def test_k_a_near_miss_action_name_for_a_done_action_is_never_cant_do_yet(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    action: str,
+    speaker_kind: str,
+    session_id: str,
+) -> None:
+    """Review H2, k-remove_duplicates: the dedupe ran and passed, and Brain's
+    requested_actions spelled its name slightly off. Casing and whitespace are
+    normalised; a different name is "unsupported" but names an action that was
+    done, so it says nothing. Either way: "Done", never "I can't do this part yet"."""
+    monkeypatch.chdir(tmp_path)
+    brain = _brain_ledger_reply(
+        "remove_duplicate_rows", (action, "remove the duplicate rows")
+    )
+
+    reply, delivered = _delivered_turn(
+        tmp_path, "remove the duplicate rows please", [brain, _THINK_PROCEEDS],
+        speaker_kind, session_id,
+    )
+
+    assert _counts(delivered) == (4, 0, 1)
+    assert _DEDUPE_ONLY_BLOCK in reply, reply
+    assert "can't do" not in reply and "Partly done" not in reply, reply
+    assert "only part of this went through" not in reply
+
+
+@pytest.mark.parametrize("speaker_kind", _SPEAKERS)
+def test_a1_a_whole_message_phrase_is_never_quoted_as_something_buddy_cant_do(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, speaker_kind: str
+) -> None:
+    """Review H2, a1: Brain's unsupported entry quotes the whole message, which names the
+    dedupe that ran. It can't be quoted ("I can't do … remove duplicates and sort by
+    amount") but the sort part is real, so the generic sentence stays."""
+    monkeypatch.chdir(tmp_path)
+    brain = _brain_ledger_reply(
+        "remove_duplicate_rows",
+        ("remove_duplicate_rows", "remove duplicates"),
+        ("unsupported", "remove duplicates and sort by amount"),
+    )
+
+    reply, delivered = _delivered_turn(
+        tmp_path, "remove duplicates and sort by amount", [brain, _THINK_PROCEEDS],
+        speaker_kind,
+    )
+
+    assert _counts(delivered) == (4, 0, 1)
+    assert (
+        "Partly done — removed 2 duplicate row(s). "
+        "I read part of your request as something I can't do yet. "
+        "The copy has 4 row(s), 0 duplicate row(s) remaining."
+    ) in reply, reply
+    assert "can't do this part yet" not in reply
+    assert "sort by amount”" not in reply
+
+
+@pytest.mark.parametrize("speaker_kind", _SPEAKERS)
+def test_a4_an_unsupported_entry_naming_only_a_done_action_is_dropped(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, speaker_kind: str
+) -> None:
+    """Review H2, a4: Brain labels "remove duplicates" itself as unsupported, though the
+    dedupe ran. Nothing is left over once the done action's words are removed."""
+    monkeypatch.chdir(tmp_path)
+    brain = _brain_ledger_reply("remove_duplicate_rows", ("unsupported", "remove duplicates"))
+
+    reply, _ = _delivered_turn(
+        tmp_path, "remove duplicates and sort by amount", [brain, _THINK_PROCEEDS],
+        speaker_kind,
+    )
+
+    assert "can't do" not in reply and "Partly done" not in reply, reply
+    assert "emoved 2 duplicate row(s)." in reply
+
+
+@pytest.mark.parametrize("speaker_kind", _SPEAKERS)
+def test_b5_keep_the_duplicates_is_not_something_buddy_cant_do(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, speaker_kind: str
+) -> None:
+    """Review H2, b5: Brain lists "keep the duplicates" as unsupported. The duplicates
+    were kept, so "I can't do this part yet" would be wrong, and so would "Partly done"."""
+    monkeypatch.chdir(tmp_path)
+    brain = _brain_ledger_reply(
+        "remove_empty_rows",
+        ("remove_empty_rows", "remove the empty rows"),
+        ("unsupported", "keep the duplicates"),
+    )
+
+    reply, delivered = _delivered_turn(
+        tmp_path, "remove the empty rows but keep the duplicates", [brain, _THINK_PROCEEDS],
+        speaker_kind,
+    )
+
+    assert _counts(delivered) == (5, 2, 0)
+    assert "can't do" not in reply and "keep the duplicates" not in reply, reply
+    assert "Partly done" not in reply
+    assert "It still has 2 duplicate row(s)." in reply
+    _no_completion_claim(reply)
+
+
+@pytest.mark.parametrize("speaker_kind", _SPEAKERS)
+def test_l2_the_same_unsupported_part_is_said_once(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, speaker_kind: str
+) -> None:
+    monkeypatch.chdir(tmp_path)
+    brain = _brain_ledger_reply(
+        "remove_duplicate_rows",
+        ("remove_duplicate_rows", "remove duplicates"),
+        ("unsupported", "sort by amount"),
+        ("unsupported", "Sort by amount"),
+        ("sort_rows", "sort the rows by amount"),  # not the user's words: generic
+        ("report", "make a chart"),  # not the user's words: generic
+    )
+
+    reply, _ = _delivered_turn(
+        tmp_path, "remove duplicates and sort by amount", [brain, _THINK_PROCEEDS],
+        speaker_kind,
+    )
+
+    assert reply.count("I can't do this part yet: “sort by amount”.") == 1, reply
+    assert reply.count("I read part of your request as something I can't do yet.") == 1, reply
+
+
+@pytest.mark.parametrize("speaker_kind", _SPEAKERS)
+def test_m1_the_analyzers_all_clear_is_qualified_next_to_a_residual(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, speaker_kind: str
+) -> None:
+    """Review M1: "It still has 2 duplicate row(s)." can't be followed by "None of the
+    issues I check for were found." (the analysis doesn't check exact duplicates)."""
+    monkeypatch.chdir(tmp_path)
+    brain = _brain_ledger_reply("remove_empty_rows", None)
+
+    reply, _ = _delivered_turn(
+        tmp_path, "remove the duplicate rows please", [brain, _THINK_PROCEEDS], speaker_kind
+    )
+
+    assert "It still has 2 duplicate row(s)." in reply
+    assert "None of the other issues I check for were found." in reply
+    assert "None of the issues I check for were found" not in reply

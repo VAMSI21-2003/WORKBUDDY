@@ -8,7 +8,7 @@ from pathlib import Path
 from typing import Protocol
 
 from buddy.actions import INTENT_CAPABILITIES
-from buddy.inspector import FINAL_OUTPUT_CAPABILITY, SKIPPED_FINDING
+from buddy.inspector import FINAL_OUTPUT_CAPABILITY, NO_ANALYSIS_FINDINGS, SKIPPED_FINDING
 from buddy.llm import LLMProvider
 from buddy.models import (
     DECLINED_STATUS,
@@ -337,6 +337,8 @@ class SpeakingRequest:
 # Leads the analysis findings on a delivered turn, after the outcome.
 DELIVERED_ANALYSIS_LEAD = "I also noticed: "
 ANALYSIS_QUESTION = "Want me to tackle any of these?"
+# The analyzer's all-clear, when a residual count says the file still has something.
+_OTHER_ISSUES_NOTE = "none of the other issues I check for were found"
 
 
 def _verified_delivery_reply(
@@ -393,6 +395,13 @@ def _verified_delivery_reply(
         delivered_file=_delivered_file_name(request),
         open_findings=len(open_findings),
     )
+    if any(m.remaining for m in report.residuals):
+        # "It still has 2 duplicate row(s)." can't be followed by an
+        # unqualified all-clear: the analysis doesn't check for that.
+        analysis_notes = [
+            _OTHER_ISSUES_NOTE if note == NO_ANALYSIS_FINDINGS else note
+            for note in analysis_notes
+        ]
     opener = closer = ""
     if mode is not None:
         opener_phrase, closer_phrase = select_phrases(

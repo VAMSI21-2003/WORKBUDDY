@@ -315,7 +315,25 @@ def test_requested_actions_are_parsed_in_order_with_the_users_own_words() -> Non
     )
 
 
-@pytest.mark.parametrize("action", ["sort_rows", "Remove_Duplicate_Rows", "report"])
+@pytest.mark.parametrize(
+    "action", ["Remove_Duplicate_Rows", " remove_duplicate_rows ", "REMOVE_DUPLICATE_ROWS\n"]
+)
+def test_a_casing_or_whitespace_slip_in_an_action_name_is_still_that_action(action: str) -> None:
+    understanding = _interpret(
+        {
+            "intent": "multi_step_request",
+            "confidence": 0.9,
+            "requested_actions": [{"action": action, "source_phrase": "remove duplicates"}],
+        },
+        "remove duplicates and sort by amount",
+    )
+
+    assert understanding.requested_actions == (
+        RequestedAction("remove_duplicate_rows", "remove duplicates", LEDGER_FROM_BRAIN, True),
+    )
+
+
+@pytest.mark.parametrize("action", ["sort_rows", "remove_duplicates", "report"])
 def test_an_action_outside_the_vocabulary_becomes_unsupported_and_keeps_its_phrase(
     action: str,
 ) -> None:

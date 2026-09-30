@@ -97,10 +97,12 @@ class OutcomeReport:
 
 | Ledger has the action? | A step for its capability… | Status |
 |---|---|---|
-| yes | ran, passed (`_step_passed`), and the turn delivered | `DONE`, with that step's measurement |
+| yes, from Brain (`requested_actions` or its single-action intent) | ran, passed (`_step_passed`), and the turn delivered | `DONE`, with that step's measurement |
+| yes, from the mention detector only, and Brain gave a reading | ran, passed | `DONE_UNREQUESTED` (a mention never confirms a request: it matches "don't remove duplicates" as well as "remove duplicates") |
+| yes, from the mention detector only, and Brain gave no reading | ran, passed | `DONE`, but never confirmed: it blocks "Done —" and the completion closers |
 | yes, from Brain | didn't run | `NOT_DONE` / `NOT_PLANNED` |
 | yes, from the mention detector only | didn't run | `NOT_DONE` / `NOT_READ_AS_REQUEST` |
-| yes, as `unsupported` | (no capability) | `NOT_DONE` / `NO_SKILL` |
+| yes, as `unsupported` | (no capability) | `NOT_DONE` / `NO_SKILL`, unless its phrase names an action that has a capability (then it's dropped, or unquoted if it also asks for something more) |
 | no | ran and passed | `DONE_UNREQUESTED` |
 
 The report is only built for turns that delivered a verified file (`_model_may_describe_outcome` is true today). Undelivered, stopped and unverified turns keep `TemplateSpeaker`'s existing factual paths unchanged. They already never claim completion (verified in V1 and V5 of the final review), so this change doesn't touch them.

@@ -221,7 +221,8 @@ def _a(capability: str, status: str = DONE, source: str = _BRAIN, reason: str | 
     [
         ((_a(_DEDUPE),), "Done"),
         ((_a(_EMPTY, source=_INTENT),), "Done"),
-        ((_a(_DEDUPE), _a(_EMPTY, source=_MENTION)), "Done"),  # every ledger item done
+        ((_a(_DEDUPE), _a(_EMPTY, source=_MENTION)), None),  # H1: a mention never confirms
+        ((_a(_DEDUPE, source=_MENTION),), None),
         ((), None),  # nothing ran
         ((_a(_DEDUPE, source=""),), None),  # no reading of the request to compare with
         ((_a(_DEDUPE), _a(_EMPTY, source="")), None),  # something not in the ledger ran
@@ -245,9 +246,9 @@ def _a(capability: str, status: str = DONE, source: str = _BRAIN, reason: str | 
             ),
             None,
         ),
-        (  # a mention-only action that was done counts as requested and done
+        (  # H1: a mention-only action that was done never counts as requested
             (_a(_DEDUPE, source=_MENTION), _a("", NOT_DONE, reason=NO_SKILL)),
-            "Partly done",
+            None,
         ),
     ],
 )
@@ -755,6 +756,57 @@ def test_with_no_reading_at_all_a_passing_step_is_neither_confirmed_nor_unreques
     assert _statuses(report) == [(_DEDUPE, DONE, None, "")]
     assert report.lead_word is None
     assert "didn't read that" not in render_outcome(report, FILE_STYLE_GENERATED)
+
+
+def test_h1_a_mention_only_step_is_unrequested_when_brain_gave_a_reading() -> None:
+    report = _single_dedupe_turn(
+        _brain("remove_empty_rows"), _mention("remove_duplicate_rows", "remove duplicates")
+    )
+
+    assert _statuses(report) == [
+        (_DEDUPE, DONE_UNREQUESTED, None, ""),
+        (_EMPTY, NOT_DONE, NOT_PLANNED, _BRAIN),
+    ]
+    assert report.lead_word is None and not report.request_complete
+    assert "I removed 2 duplicate row(s), though I didn't read that as part of your request." in (
+        render_outcome(report, FILE_STYLE_GENERATED)
+    )
+
+
+def test_h1_a_mention_only_step_with_no_reading_is_done_but_never_confirms() -> None:
+    report = _single_dedupe_turn(_mention("remove_duplicate_rows", "the duplicates"))
+
+    assert _statuses(report) == [(_DEDUPE, DONE, None, _MENTION)]
+    assert report.lead_word is None and not report.request_complete
+
+
+def test_h2_an_unsupported_entry_naming_a_done_action_is_dropped_or_unquoted() -> None:
+    def no_skill(*phrases: str, brain_phrase: str = "") -> list[str]:
+        report = _single_dedupe_turn(
+            _brain("remove_duplicate_rows", brain_phrase, found=bool(brain_phrase)),
+            *(_brain(UNSUPPORTED, phrase, found=True) for phrase in phrases),
+        )
+        return [a.user_phrase for a in report.actions if a.reason == NO_SKILL]
+
+    assert no_skill("remove duplicates") == []  # names only the done action
+    assert no_skill("Remove the duplicate rows please") == []  # plus filler
+    assert no_skill("remove duplicates and sort by amount") == [""]  # unquoted
+    assert no_skill("sort by amount") == ["sort by amount"]  # names nothing
+    assert no_skill("please") == ["please"]  # no action named: unchanged
+    # The words Brain quoted for the done action count too (a paraphrase).
+    said = "get rid of the repeated entries"
+    assert no_skill(said, brain_phrase=said) == []
+    assert no_skill(f"{said} and sort", brain_phrase=said) == [""]
+    # The same part is said once.
+    assert no_skill("sort by amount", "Sort by amount", "sort by amount") == ["sort by amount"]
+
+
+def test_h2_an_unsupported_entry_naming_an_action_that_did_not_run_is_dropped_too() -> None:
+    report = _single_dedupe_turn(
+        _brain("remove_duplicate_rows"), _brain(UNSUPPORTED, "keep the empty rows", found=True)
+    )
+
+    assert not [a for a in report.actions if a.reason == NO_SKILL]
 
 
 def test_a_step_that_ran_but_did_not_pass_is_not_confirmed_never_not_planned() -> None:

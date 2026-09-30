@@ -402,7 +402,12 @@ def _parse_requested_actions(raw: object, user_message: str) -> tuple[RequestedA
         if not isinstance(action, str) or not action.strip():
             logger.warning("ClaudeInterpreter: skipped a requested_actions entry with no action")
             continue
-        if action not in ACTION_VOCABULARY:
+        # Stray whitespace or casing ("Remove_Duplicate_Rows ") is a spelling
+        # slip, not a different action.
+        normalised = action.strip().casefold()
+        if normalised in ACTION_VOCABULARY:
+            action = normalised
+        else:
             logger.warning(
                 "ClaudeInterpreter: requested action outside the vocabulary: %r", action
             )
