@@ -173,11 +173,11 @@ While a turn is `awaiting_confirmation`, its `pending_confirmation` is:
 
 How it works: the turn runs in a worker thread and `Hands` calls `confirmation_provider.confirm(task, tier)`. The API's `WebConfirmationProvider` publishes the pending confirmation on the turn record, sets the status to `awaiting_confirmation`, and blocks on a `threading.Event` with a timeout (default 120 s). The confirm endpoint sets the decision and releases the event.
 
-- **Approve**: `confirm()` returns `True`; the pipeline continues unchanged.
+- **Approve**: `confirm()` returns `True` for the first Write-tier step, and the provider remembers the approval for the rest of the turn (it does not ask again).
 - **Reject**: `confirm()` returns `False`; `Hands` already handles this by logging and skipping the step (`buddy/hands.py:256-268`). The reply then comes from the pipeline like any other turn. **What `Hands` and `Voice` do after a decline is not yet verified by any test I've read**; PR-3 must add one that shows the reply says the step wasn't done and no file is delivered for it.
 - **Timeout or server shutdown**: treated as reject, never as approve. The turn's record notes `decision_source: "timeout"`.
 
-A chain with several Write-tier steps asks once per step, as `Hands` does today. Whether the product should ask once per turn instead is an open question (Section 9).
+**Policy (decided 2026-09-30, see "Decisions"): one confirmation per turn.** Before the first file-changing step, the user sees the whole plan (every step, in order, with the file name) and approves or rejects it once. Approval covers every step of that turn's plan; reject means no step runs. The object above is therefore the *plan* confirmation: it carries a `steps` list (`[{ "capability": "spreadsheet.deduplicate", "prompt": "Remove duplicate rows from report.xlsx and save the result as a new file." }, …]`, in execution order), and `capability`, `permission_tier` and `prompt` describe the first step for compatibility. The mechanism is in "Decisions", item 2.
 
 ### 1.6 List files: `GET /sessions/{session_id}/files`
 
@@ -375,7 +375,7 @@ One assumption to confirm in PR-1: that `ExecutionResult.outputs` is empty when 
 
 ### 6.1 Access and exposure
 
-- **No authentication in v1** (decision needed, Section 9). The session id is a 128-bit bearer secret; requests for someone else's session look identical to requests for a session that doesn't exist (`404`). This is adequate for a local or single-user deployment and **not adequate for a public one**: anyone holding a session id can read and act on that session, and there's no rate limit per identity. Until auth exists, bind to `127.0.0.1` by default and put a reverse proxy with its own auth in front for anything else.
+- **Superseded by "Decisions (2026-09-30)", item 1: v1 ships a shared demo password.** The text below is the original analysis and still explains why per-session ids alone are not enough. **No authentication in v1** (original wording). The session id is a 128-bit bearer secret; requests for someone else's session look identical to requests for a session that doesn't exist (`404`). This is adequate for a local or single-user deployment and **not adequate for a public one**: anyone holding a session id can read and act on that session, and there's no rate limit per identity. Until auth exists, bind to `127.0.0.1` by default and put a reverse proxy with its own auth in front for anything else.
 - **CORS:** an explicit origin allowlist from configuration (`WORKBUDDY_CORS_ORIGINS`); no `*`.
 - **Headers:** `X-Content-Type-Options: nosniff` and `Cache-Control: no-store` on every response.
 
@@ -509,7 +509,7 @@ Tests (`tests/backend/`): about 1,800 lines across the 7.2 and 7.3 lists.
 | `buddy/context.py` | `to_dict` / `from_dict` | +60 |
 | `buddy/engine_factory.py` | optional `confirmation_provider` argument | +5 |
 | `buddy/llm.py` | request timeout, if not already set | +10 |
-| `requirements.txt`, `pyproject.toml` | `fastapi`, `uvicorn`, `python-multipart`; fix the stale comment | +6 |
+| `requirements.txt`, `pyproject.toml` | `fastapi`, `uvicorn`, `python-multipart`, `xlrd`; `requires-python = ">=3.11"`, black/ruff/mypy targets 3.11; fix the stale comment | +12 |
 | `tests/core/test_engine.py` and new tests | updated contract, new cases | +250 |
 
 ### 8.3 Suggested PR split
@@ -519,7 +519,7 @@ Each PR on its own branch from `main` (per `CLAUDE.md`), merged only by the user
 1. **PR-1 `feat/pipeline-failure-and-output-dir`: core seams (rule-touching).** R6 in the engine and Voice, F5's `output_dir`, `Context` serialization, the fallback constants, LLM timeout, `build_engine`'s confirmation argument. No API code. Independent review required (it changes the engine's contract and the reply path); live runs with the existing script (a normal turn, plus two turns in one session showing distinct folders). Closes backlog R6 (pipeline half), F5 (skill half), L2's precondition.
 2. **PR-2 `feat/backend-api-core`: sessions, uploads, turns, state, files, downloads (rule-touching).** Everything except real confirmation: a `NullConfirmationProvider`-equivalent approves automatically, **behind a setting that is off by default in production config** and on in tests, so the feature that's on when merged is not silently "approve everything". Includes persistence and restart repair, the delivery function, the integrity check, errors and security. Independent review required; live runs 1, 2, 5, 6, 7, 8.
 3. **PR-3 `feat/backend-api-confirmation`: confirm/reject (rule-touching).** `WebConfirmationProvider`, the endpoint, prompt templates, the decline-path test that Section 1.5 says is missing. Independent review; live runs 3 and 4. After this, auto-approve is removed from the default configuration.
-4. **PR-4 `feat/backend-retention` (optional, before any shared deployment):** TTL sweep, per-session quotas, per-identity limits when auth exists.
+4. **PR-4 `feat/backend-retention` (REQUIRED before the public demo deployment, per "Decisions"):** TTL sweep, per-session quotas, per-IP rate limit, demo-password check, hosted-demo binding/CORS. The demo password and rate limit may be split out as PR-4a if PR-4 grows past a reviewable size; nothing is deployed until both are merged.
 
 PR-2 and PR-3 could be one PR. I'd keep them apart because the confirmation flow is the riskiest concurrency code, and because it makes the review of "reply text comes only from the pipeline" independent of the threading review.
 
@@ -530,6 +530,8 @@ Backlog changes when these land: item 4 is closed by PR-1 through PR-3; backlog 
 ## 9. Open questions, risks and deferred items
 
 ### 9.1 Decisions the user needs to make
+
+**Answered on 2026-09-30 for items 1, 2, 3 and 5; see "Decisions (2026-09-30)" at the end of this document. Item 4 (upload size) is still open.**
 
 1. **Authentication.** None in v1, per Section 6.1. Is the first deployment local/single-user only? If it will be reachable by others, auth moves ahead of the frontend work.
 2. **Confirmation policy.** Dedupe and empty-row removal are Write tier but only ever create a new file. Asking on every step will be noisy, particularly in a chain. Options: ask every step (what the architecture says and what this design implements), ask once per turn, or auto-approve skills that create new files and ask only for ones that could affect an original. That is a product decision that bears on rule 2's spirit, so I haven't chosen it for you; the design supports all three by changing only the provider.
@@ -560,3 +562,75 @@ Backlog changes when these land: item 4 is closed by PR-1 through PR-3; backlog 
 - If the review finds `Engine`'s failure contract can't change without breaking callers I haven't seen, Layer 2 (API catch plus fallback) becomes the only R6 mechanism, and the failure reply loses its stage detail.
 - If live run 7 shows the conversation context degrading classification, the API stops recording conversation into `Context` for Brain/Think (one-line change) and multi-turn awareness is designed separately.
 - If a measured large-sheet run exceeds the 180 s deadline routinely, the deadline and the concurrency cap need rework before the frontend ships, not after.
+
+---
+
+## Decisions (2026-09-30)
+
+The user's answers to Section 9.1. Where this section conflicts with an earlier section, **this section wins**; Sections 1.5, 6.1 and 8 have been edited to point here.
+
+### 1. First deployment is a public demo link
+
+Anyone with the URL can reach it, so "no auth, bind to localhost" (Section 6.1) no longer holds. v1 needs the following, and **PR-4 is now required before deployment**.
+
+| Need | Design |
+|---|---|
+| Shared demo password | One password from `WORKBUDDY_DEMO_PASSWORD`. Checked on **every** API route except `GET /healthz`, via a FastAPI dependency applied to the whole router (not per route, so a new route can't forget it). Sent as `Authorization: Bearer <password>` (or a header named `X-Demo-Password`; pick one in PR-4 and keep it out of URLs, so it never lands in access logs). Compared with `hmac.compare_digest`. Wrong or missing gives `401 unauthorized` with a fixed body. **If the variable is unset, the app refuses to start unless `WORKBUDDY_ENV=dev`**, so a deployment can't silently be open. The password is never logged, echoed or returned, and the log redaction filter (Section 6.4) gets a pattern for the header. |
+| Per-IP rate limit | Token bucket per client IP, in memory (one worker, Section 0), applied before the password check so guessing is throttled too; failed-password attempts count double. Defaults: 60 requests/min/IP overall, 10 turns/hour/IP, both configurable. `429 rate_limited` with `Retry-After`. The client IP comes from the proxy's forwarded header **only** when `WORKBUDDY_TRUSTED_PROXY_HOPS` says how many proxies to trust; otherwise from the socket. Getting this wrong makes every user share one bucket or lets a caller spoof theirs, so PR-4 tests both. |
+| Retention / TTL sweep | Background task deletes sessions, uploads and outputs idle past `WORKBUDDY_SESSION_TTL_HOURS` (default 24). Deletion is by session folder under the data root, with the same resolve/`is_relative_to`/no-symlink checks as Section 6.3. Never touches a session with a running turn. |
+| Per-session quotas | Max uploads (default 20, already in Section 6.5), total upload bytes per session (default 100 MB), max turns per session (default 50), and a global cap on total bytes under the data root; when the global cap is hit, new sessions get `503 storage_full` rather than the sweep deleting live sessions. |
+| Binding / CORS | Bind `0.0.0.0` only when `WORKBUDDY_ENV=production` (still `127.0.0.1` by default). `WORKBUDDY_CORS_ORIGINS` is set to the exact demo origin(s); if the frontend is served by the same app (the recommended deployment, see the frontend design) CORS can be empty. No `*`. Add HSTS and a CSP when serving the static frontend. Docs/OpenAPI (`/docs`, `/openapi.json`) are disabled in production or put behind the password. |
+
+Honest limits of this design, so nobody over-reads it:
+- **[Certain]** A shared password is one secret for everyone. Once it is posted somewhere, it is public. It deters casual traffic and bots; it is not access control. Rotate it by changing the variable and restarting (which also ends live turns, Section 9.2).
+- **[Certain]** The demo spends the owner's Groq quota. The per-IP limit, the global concurrent-turn cap (Section 6.5) and the turn quotas are the cost control; there is no per-user billing.
+- **[Likely]** Users will upload real spreadsheets to a public demo. The frontend must say uploads are deleted after the TTL and that this is a demo, and the sweep must be tested (PR-4), because a retention promise that isn't enforced is a false claim in the product's own voice.
+- **[Possible]** In-memory per-IP buckets reset on restart and don't work with more than one worker; acceptable at this scale.
+
+### 2. Confirmation policy: once per turn
+
+Before the first file-changing step, the user sees the whole plan (every step, in order, with the file name) and approves or rejects it once. **Approval covers every step of that turn's plan; reject means no step runs.**
+
+**What I verified about the existing code.** `Hands` calls `confirmation_provider.confirm(task, tier)` once per Write-tier step, mid-loop, and `confirm` receives only the current `SkillTask` (`buddy/hands.py:250-256`). The provider therefore does not see the plan today. READ-tier steps (`spreadsheet.analyze`) are not confirmed at all and stay that way, since they change no file. I have not read how `Hands` treats the steps *after* a declined one beyond the `continue` at the decline site, so "reject means no step runs" needs a test rather than an assumption (below).
+
+**Mechanism (no change to `ConfirmationProvider`'s signature):**
+1. The turn procedure (Section 3.3) hands the plan to the `WebConfirmationProvider` before `Hands` runs, from the Planner's output on `BuddyState`: an ordered list of `(capability, input_name)` for the Write-tier steps. The provider is per-turn, so it has no cross-turn state.
+2. On the **first** `confirm()` call in the turn, the provider publishes one `pending_confirmation` whose `steps` lists the whole plan (Section 1.5), sets `awaiting_confirmation`, and blocks as before (timeout 120 s, timeout = reject).
+3. **Approve:** it records the decision and returns `True` for that and every later `confirm()` in the same turn without publishing anything.
+4. **Reject or timeout:** it records the decision, returns `False` for that and every later call. So even if `Hands` were to keep iterating after a decline, no later step can run. This is the guarantee, and it holds in the provider rather than depending on `Hands`' loop behavior.
+5. If the plan contains no Write-tier step, no confirmation is requested and none is shown.
+
+**The plan shown to the user must equal the plan that runs.** The steps list is built from the same Planner output `Hands` executes, not from the user's message. If `Hands` ever asks to confirm a step that isn't in the published plan (a planner/executor mismatch), the provider returns `False` and the turn's failure path reports it, rather than approving something the user never saw. That guard is a required test in PR-3.
+
+**Tests added to PR-3:**
+- a two-step chain asks exactly once, and both steps run on approve;
+- reject: no step runs, no file is delivered, and the reply comes from the pipeline and does not claim any change (this also closes the "decline path is unverified" gap in Section 1.5);
+- timeout behaves as reject;
+- an unlisted step gets `False`;
+- a plan with only a READ-tier step never enters `awaiting_confirmation`.
+
+**Rule 2 note.** Every current skill only writes a new file, so a single up-front approval does not weaken rule 2. If a future skill can affect an original or overwrite something, it must not ride on a plan approval: it would need its own tier and its own confirmation, and the provider must ask again for it. PR-3 adds a test that a step whose tier is not in the published plan's tiers is refused.
+
+Sections 1.5 and 8 are updated to match: the pending confirmation carries `steps`; the "asks once per step" sentence is replaced; the PR-3 description gains the tests above.
+
+### 3. Python: 3.11 and newer
+
+PR-1 changes:
+- `pyproject.toml`: `requires-python = ">=3.11"`; `[tool.black] target-version = ["py311"]`; `[tool.ruff] target-version = "py311"`; `[tool.mypy] python_version = "3.11"`.
+- **Audit for 3.12/3.13-only syntax and APIs first.** Not yet done: PR-1 must grep for `type X =` aliases, PEP 695 generics (`def f[T]`), `typing.override`, f-string nesting that relies on PEP 701, and stdlib additions after 3.11, and fix them or the "3.11+" claim is false. Because ruff's `UP` rules follow the target version, lowering it will also change what `ruff check` suggests; PR-1 must not add new lint errors (`CLAUDE.md`).
+- CI (when it exists) and the live-run procedure run on 3.11 **and** 3.13, so "3.11 and newer" is tested at both ends rather than assumed. Cloud sessions run 3.11 (backlog item 6), so the suite on 3.11 is the immediately checkable half; the 3.13 half needs the user's machine or a CI matrix.
+- Backlog item 6 is closed by this decision plus PR-1.
+
+### 4. File types: `.xlsx` and `.xls`
+
+- `.xls` is accepted. PR-1 adds `xlrd` to `requirements.txt` (`xlrd>=2.0.1`, which reads `.xls` only, and that is all it is needed for).
+- Section 6.2's "accepted only if `xlrd` imports at startup" stays as a defence, but in the demo deployment a missing `xlrd` is a startup **failure**, not a silent downgrade to `.xlsx`-only, so the UI's list of accepted types can't disagree with the server.
+- **The pipeline's `.xls` behavior is untested by me.** `CLAUDE.md` says `.xls` reading needs `xlrd`; I have not confirmed what the skills *write* for an `.xls` input (the design in Section 3.4 assumes `.xlsx` output names). PR-2/PR-3 need a fixture-based test that an `.xls` upload is deduplicated, that the delivered file's name and format are what the reply says, and that the original `.xls` is byte-identical afterwards (rule 2). Until that passes, `.xls` support is not claimed in the frontend.
+- Content sniffing for `.xls` is already specified in Section 6.2 (OLE2 header). Note that OLE2 is also the header for `.doc`/`.ppt`; the sniff proves "OLE2", not "spreadsheet", so a non-spreadsheet OLE2 file passes the API check and fails inside the skill, where it becomes an honest failure reply (R6).
+
+### Consequences for the PR split (Section 8.3)
+
+- PR-1 gains: Python 3.11 floor and audit, `xlrd`.
+- PR-3 gains: the once-per-turn plan confirmation and its tests.
+- PR-4 is required before deployment and gains the demo password, per-IP rate limit and hosted-demo binding/CORS.
+- **Still open:** upload size limit (9.1 item 4), which the public demo makes more pressing: 25 MB times the per-IP rate is the memory and disk exposure, and it is unmeasured.
