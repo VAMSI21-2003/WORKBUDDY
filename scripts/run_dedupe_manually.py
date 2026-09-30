@@ -31,6 +31,7 @@ import pandas as pd
 # ``python scripts/run_dedupe_manually.py`` from the repo root.
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
+from buddy.actions import requested_ledger  # noqa: E402
 from buddy.engine_factory import build_engine  # noqa: E402
 from buddy.llm import ClaudeProvider, GroqProvider, LLMProvider  # noqa: E402
 from buddy.outcome import build_outcome_report  # noqa: E402
@@ -180,6 +181,18 @@ def main() -> None:
     if state.understanding is not None:
         print(f"intent:     {state.understanding.intent!r}")
         print(f"confidence: {state.understanding.confidence:.2f}")
+        print("Brain's own requested_actions (as returned, before the intent is added):")
+        raw = [e for e in state.understanding.requested_actions if e.source == "brain"]
+        for entry in raw:
+            print(f"  {entry.action}: {entry.source_phrase!r} (in message: {entry.phrase_found})")
+        if not raw:
+            print("  (none)")
+        print("ledger (Brain's reading, its intent, then mention-only entries):")
+        for entry in requested_ledger(state.understanding):
+            print(
+                f"  [{entry.source}] {entry.action}: {entry.source_phrase!r} "
+                f"(in message: {entry.phrase_found})"
+            )
     else:
         print("state.understanding is None")
 
@@ -227,19 +240,26 @@ def main() -> None:
                     f"removed={m.removed} (of which repeated blank rows: {m.removed_blank}) "
                     f"output_rows={m.output_rows} remaining={m.remaining}"
                 )
+        print("residuals (fresh read of the delivered file, per requested target):")
+        for m in state.verification_result.residuals:
+            print(f"  target={m.target} output_rows={m.output_rows} remaining={m.remaining}")
 
     _print_header("OutcomeReport (rendered by code on a verified delivery)")
     speaking_request = Voice._build_request(state)
     if _verified_delivery(speaking_request):
         report = build_outcome_report(
-            state.execution_result,
-            state.verification_result,
-            state.understanding.intent if state.understanding is not None else None,
+            state.execution_result, state.verification_result, state.understanding
         )
-        print(f"lead word:   {report.lead_word!r}")
+        print(f"lead word:     {report.lead_word!r}")
         for action in report.actions:
-            print(f"action:      {action}")
-        print(f"final state: {report.final_state}")
+            print(
+                f"action:        {action.capability or '(no skill)'} status={action.status} "
+                f"reason={action.reason} source={action.source!r} "
+                f"measurement={action.measurement} phrase={action.user_phrase!r}"
+            )
+        print(f"brain reading: {report.brain_reading}")
+        print(f"final state:   {report.final_state}")
+        print(f"residuals:     {report.residuals}")
     else:
         print("not a verified delivery: TemplateSpeaker's factual reply, no report")
 
@@ -260,7 +280,7 @@ def main() -> None:
             written = pd.read_excel(output_path)
             original = pd.read_excel(input_path)
             print(f"original row count:   {len(original)}")
-            print(f"original duplicates:  {int(original.dropna(how='all').duplicated().sum())}")
+            print(f"original duplicates:  {int(original.duplicated().sum())} (blank repeats incl.)")
             print(f"original empty rows:  {int(original.isna().all(axis=1).sum())}")
             print(f"row count:            {len(written)}")
             print(f"duplicate rows found: {int(written.duplicated().sum())}")

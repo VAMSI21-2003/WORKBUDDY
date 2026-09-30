@@ -2,12 +2,19 @@
 
 import json
 import logging
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from typing import Protocol
 
+from buddy.actions import (
+    ACTION_VOCABULARY,
+    UNSUPPORTED,
+    brain_ledger,
+    find_phrase,
+    mentioned_actions,
+)
 from buddy.context import ConversationTurn
 from buddy.llm import LLMMessage, LLMProvider
-from buddy.models import Understanding
+from buddy.models import LEDGER_FROM_BRAIN, LEDGER_FROM_MENTION, RequestedAction, Understanding
 from buddy.state import BuddyState
 
 logger = logging.getLogger(__name__)
@@ -216,8 +223,22 @@ Respond with a single JSON object and nothing else, matching this shape:
   "referenced_work_items": [<task or work item identifiers referred to, if any>],
   "missing_information": [<plain-language description of what's missing, if anything>],
   "ambiguity_flags": [<plain-language description of ambiguity, if any>],
-  "notes": "<any other brief note, or an empty string>"
+  "notes": "<any other brief note, or an empty string>",
+  "requested_actions": [
+    {"action": "remove_duplicate_rows" | "remove_empty_rows" | "unsupported",
+     "source_phrase": "<the exact words from the user's message that ask for it>"}
+  ]
 }
+
+"requested_actions" lists every action the message asks you to carry out, in
+the order the user asked for them, one entry per action, whatever the intent:
+a single request has one entry, a compound request has one per action. Use
+"unsupported" for an action that is neither removing duplicate rows nor
+removing empty rows (for example sorting, a report or a chart).
+"source_phrase" must be copied character-for-character from the user's
+message, not paraphrased. Don't list anything the user says to keep or not to
+do. A message that asks for no action (a greeting, a question) gets an empty
+list.
 """
 
 
@@ -268,7 +289,7 @@ class ClaudeInterpreter:
                 confidence=0.0,
                 missing_information=("the language model call failed",),
             )
-        return self._parse_reply(raw_reply)
+        return self._parse_reply(raw_reply, request.user_message)
 
     @staticmethod
     def _build_user_prompt(request: UnderstandingRequest) -> str:
@@ -299,11 +320,13 @@ class ClaudeInterpreter:
         return "\n".join(lines)
 
     @staticmethod
-    def _parse_reply(raw_reply: str) -> Understanding:
+    def _parse_reply(raw_reply: str, user_message: str = "") -> Understanding:
         """Parse the model's raw JSON reply into an ``Understanding``.
 
         Args:
             raw_reply: The model's raw text reply.
+            user_message: The user's message, to check each
+                ``requested_actions`` phrase against.
 
         Returns:
             The parsed ``Understanding``, or a conservative fallback if
@@ -333,6 +356,9 @@ class ClaudeInterpreter:
                 missing_information=tuple(data.get("missing_information") or ()),
                 ambiguity_flags=tuple(data.get("ambiguity_flags") or ()),
                 notes=data.get("notes") or "",
+                requested_actions=_parse_requested_actions(
+                    data.get("requested_actions"), user_message
+                ),
             )
         except (AttributeError, TypeError, ValueError):
             logger.warning("ClaudeInterpreter: reply JSON had an unexpected shape: %r", data)
@@ -341,3 +367,112 @@ class ClaudeInterpreter:
                 confidence=0.0,
                 missing_information=("the model's reply had an unexpected shape",),
             )
+
+
+def _parse_requested_actions(raw: object, user_message: str) -> tuple[RequestedAction, ...]:
+    """Parse Brain's ``requested_actions`` into ledger entries.
+
+    Never drops a request it can read: an action outside the vocabulary
+    becomes ``"unsupported"`` and keeps its phrase. A phrase that isn't in
+    the message is kept too, marked ``phrase_found=False`` (it's the model's
+    words, so the reply never quotes it). Only an entry with no action at
+    all is skipped. A missing or malformed field gives no entries; the
+    ledger then falls back to Brain's intent (``buddy.actions.brain_ledger``).
+
+    Args:
+        raw: The reply's ``requested_actions`` value, whatever its type.
+        user_message: The user's message.
+
+    Returns:
+        The entries, in the order Brain listed them.
+    """
+    if raw is None:
+        return ()
+    if not isinstance(raw, list):
+        logger.warning("ClaudeInterpreter: requested_actions was not a list; ignoring it")
+        return ()
+    entries: list[RequestedAction] = []
+    for item in raw:
+        if isinstance(item, dict):
+            action, phrase = item.get("action"), item.get("source_phrase")
+        elif isinstance(item, str):
+            action, phrase = item, ""
+        else:
+            action, phrase = None, ""
+        if not isinstance(action, str) or not action.strip():
+            logger.warning("ClaudeInterpreter: skipped a requested_actions entry with no action")
+            continue
+        if action not in ACTION_VOCABULARY:
+            logger.warning(
+                "ClaudeInterpreter: requested action outside the vocabulary: %r", action
+            )
+            action = UNSUPPORTED
+        phrase = phrase if isinstance(phrase, str) else ""
+        found = find_phrase(user_message, phrase)
+        entries.append(
+            RequestedAction(
+                action=action,
+                source_phrase=found if found is not None else phrase,
+                source=LEDGER_FROM_BRAIN,
+                phrase_found=found is not None,
+            )
+        )
+    return tuple(entries)
+
+
+class MentionCrossCheck:
+    """An ``Interpreter`` that adds what the message mentions to the ledger.
+
+    Wraps another interpreter (``ClaudeInterpreter``), the same composition
+    style as ``buddy.planner.ProactiveAnalysisPlanner``. After the inner
+    interpreter runs, a deterministic mention detector
+    (``buddy.actions.mentioned_actions``) looks for each action's object in
+    the user's message. Every action it finds that Brain's reading (its
+    ``requested_actions`` plus its single-action intent) doesn't list is
+    added with ``source=LEDGER_FROM_MENTION``. Brain's reading itself is
+    materialised into ``requested_actions`` too, so the ledger reads the same
+    everywhere.
+
+    Independent of every model, and it can only add items to the "not done"
+    side of a reply: see ``docs/design/verified-outcome-design.md`` Section
+    3.2. It never changes ``intent``, so routing is unaffected. It runs even
+    when Brain failed; such turns deliver nothing and never use the ledger.
+    """
+
+    def __init__(self, inner: Interpreter) -> None:
+        """Initialize the wrapper.
+
+        Args:
+            inner: The interpreter whose understanding is cross-checked.
+        """
+        self._inner = inner
+
+    def __call__(self, request: UnderstandingRequest) -> Understanding:
+        """Interpret ``request`` with the inner interpreter, then add mentions.
+
+        Args:
+            request: The request to interpret.
+
+        Returns:
+            The inner understanding, with ``requested_actions`` holding
+            Brain's reading followed by the mention-only entries.
+        """
+        understanding = self._inner(request)
+        brain = brain_ledger(understanding)
+        listed = {entry.action for entry in brain}
+        added = tuple(
+            RequestedAction(
+                action=action.name,
+                source_phrase=text,
+                source=LEDGER_FROM_MENTION,
+                phrase_found=True,
+            )
+            for action, text in mentioned_actions(request.user_message)
+            if action.name not in listed
+        )
+        if added:
+            logger.info(
+                "MentionCrossCheck: the message also mentions %s, which Brain didn't list",
+                ", ".join(entry.action for entry in added),
+            )
+        return replace(understanding, requested_actions=brain + added)

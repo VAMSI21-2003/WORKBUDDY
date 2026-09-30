@@ -9,6 +9,7 @@ from typing import NamedTuple, Protocol
 
 import pandas as pd
 
+from buddy.actions import ACTIONS_BY_NAME, requested_ledger
 from buddy.models import (
     DUPLICATE_ROWS_TARGET,
     EMPTY_ROWS_TARGET,
@@ -138,7 +139,7 @@ class SpreadsheetDedupeVerifier:
                 findings=(f"could not independently read {output_path!r}: {exc}",),
             )
 
-        duplicate_count = int(written.duplicated().sum())  # recomputed from scratch
+        duplicate_count = _duplicate_rows(written)  # recomputed from scratch
         findings = [
             f"output has {len(written)} row(s), {duplicate_count} duplicate row(s) remaining"
         ]
@@ -153,9 +154,9 @@ class SpreadsheetDedupeVerifier:
         check = _check_against_input(
             written,
             _step_input(execution_result),
-            lambda original: len(original) - int(original.duplicated().sum()),
+            lambda original: len(original) - _duplicate_rows(original),
             # Every row dedupe must drop, identical blank rows included.
-            lambda original: int(original.duplicated().sum()),
+            _duplicate_rows,
         )
         if check.problem is not None:
             findings.append(check.problem)
@@ -215,7 +216,7 @@ class SpreadsheetEmptyRowsVerifier:
                 findings=(f"could not independently read {output_path!r}: {exc}",),
             )
 
-        empty_row_count = int(written.isna().all(axis=1).sum())  # recomputed from scratch
+        empty_row_count = _empty_rows(written)  # recomputed from scratch
         findings = [
             f"output has {len(written)} row(s), {empty_row_count} fully-empty row(s) remaining"
         ]
@@ -230,8 +231,8 @@ class SpreadsheetEmptyRowsVerifier:
         check = _check_against_input(
             written,
             _step_input(execution_result),
-            lambda original: len(original) - int(original.isna().all(axis=1).sum()),
-            lambda original: int(original.isna().all(axis=1).sum()),
+            lambda original: len(original) - _empty_rows(original),
+            _empty_rows,
         )
         if check.problem is not None:
             findings.append(check.problem)
@@ -247,6 +248,24 @@ class SpreadsheetEmptyRowsVerifier:
             findings=tuple(findings),
             measurements=(check.measurement(EMPTY_ROWS_TARGET, len(written), empty_row_count),),
         )
+
+
+# How each measured target is counted in a file, as read fresh. The step
+# verifiers and ``ResidualMeasurer`` use the same definitions.
+def _duplicate_rows(df: pd.DataFrame) -> int:
+    """Rows that repeat an earlier row exactly (identical blank rows included)."""
+    return int(df.duplicated().sum())
+
+
+def _empty_rows(df: pd.DataFrame) -> int:
+    """Rows with every cell empty."""
+    return int(df.isna().all(axis=1).sum())
+
+
+_TARGET_COUNTERS: dict[str, Callable[[pd.DataFrame], int]] = {
+    DUPLICATE_ROWS_TARGET: _duplicate_rows,
+    EMPTY_ROWS_TARGET: _empty_rows,
+}
 
 
 def _step_input(execution_result: ExecutionResult) -> str:
@@ -879,6 +898,74 @@ class CompositeVerifier:
 # The ``StepVerification.capability`` recorded for the final-file check —
 # not a real capability, just the label for "the file the user receives".
 FINAL_OUTPUT_CAPABILITY = "final_output"
+
+
+class ResidualMeasurer:
+    """A ``Verifier`` wrapper that measures what's left in the delivered file.
+
+    Turn level only: wired around Inspector's verifier, never into Hands'
+    per-step verifier. After the inner verifier passes a turn that handed a
+    file back, it reads that file fresh and counts, for each action in the
+    requested-actions ledger (``buddy.actions.requested_ledger``) that has a
+    measured target, the rows and the target rows still in it. The reply
+    uses these only for a requested action that wasn't done ("It still has
+    1 fully-empty row(s)."), per ``docs/design/verified-outcome-design.md``
+    Section 2.5.
+
+    It never changes the verdict: ``passed``, ``findings`` and every other
+    field are the inner verifier's. It only reads the delivered file, never
+    the original, so rule 2 isn't touched. If the file can't be read, there
+    are no residuals, and the reply claims nothing about what's left.
+    """
+
+    def __init__(self, inner: Verifier) -> None:
+        """Initialize the wrapper.
+
+        Args:
+            inner: The verifier whose verdict is kept (``CompositeVerifier``).
+        """
+        self._inner = inner
+
+    def __call__(self, request: VerificationRequest) -> VerificationResult:
+        """Verify with the inner verifier, then measure the delivered file.
+
+        Args:
+            request: The request to verify.
+
+        Returns:
+            The inner verdict, with ``residuals`` set when it passed a turn
+            that delivered a file and the file could be read.
+        """
+        result = self._inner(request)
+        execution_result = request.execution_result
+        if (
+            not result.passed
+            or execution_result is None
+            or not execution_result.outputs
+            or execution_result.stopped_at is not None
+        ):
+            return result
+        targets: list[str] = []
+        for entry in requested_ledger(request.understanding):
+            action = ACTIONS_BY_NAME.get(entry.action)
+            if action is not None and action.target not in targets:
+                targets.append(action.target)
+        if not targets:
+            return result
+        delivered = execution_result.outputs[0]
+        try:
+            written = pd.read_excel(delivered)  # fresh, independent read of the delivered file
+        except Exception:  # noqa: BLE001 — no residuals, and nothing is claimed
+            logger.exception("ResidualMeasurer: failed to read %r", delivered)
+            return result
+        residuals = tuple(
+            StepMeasurement(
+                target=target, output_rows=len(written), remaining=_TARGET_COUNTERS[target](written)
+            )
+            for target in targets
+            if target in _TARGET_COUNTERS
+        )
+        return replace(result, residuals=residuals)
 
 
 class Inspector:

@@ -4,13 +4,14 @@ Delegate -> Hands -> Inspector -> Voice cycle into a runnable Engine.
 
 import logging
 
-from buddy.brain import Brain, ClaudeInterpreter
+from buddy.brain import Brain, ClaudeInterpreter, MentionCrossCheck
 from buddy.delegate import Delegate, MechanicalDelegator
 from buddy.eyes import Eyes
 from buddy.hands import Hands, NullConfirmationProvider
 from buddy.inspector import (
     CompositeVerifier,
     Inspector,
+    ResidualMeasurer,
     SpreadsheetAnalysisVerifier,
     SpreadsheetDedupeVerifier,
     SpreadsheetEmptyRowsVerifier,
@@ -133,7 +134,9 @@ def build_engine(
 
     cycle = CognitiveCycle(
         eyes=Eyes(),
-        brain=Brain(interpreter=ClaudeInterpreter(provider)),
+        # Brain's reading, plus what the message mentions that Brain didn't
+        # list: the requested-actions ledger the reply is checked against.
+        brain=Brain(interpreter=MentionCrossCheck(ClaudeInterpreter(provider))),
         think=Think(thinker=ClaudeThinker(provider)),
         planner=Planner(
             planner=ProactiveAnalysisPlanner(
@@ -146,13 +149,15 @@ def build_engine(
         delegate=Delegate(delegator=MechanicalDelegator()),
         # The same verifier gates each chain step inside Hands (so a step
         # that fails verification stops the chain) and then re-checks the
-        # whole turn, final file included, in Inspector.
+        # whole turn, final file included, in Inspector. Only Inspector's
+        # turn-level check also measures what's left in the delivered file
+        # for each requested action (ResidualMeasurer).
         hands=Hands(
             dispatcher=dispatcher,
             confirmation_provider=NullConfirmationProvider(),
             step_verifier=verifier,
         ),
-        inspector=Inspector(verifier=verifier),
+        inspector=Inspector(verifier=ResidualMeasurer(verifier)),
         voice=Voice(speaker=speaker if speaker is not None else TemplateSpeaker()),
     )
     logger.debug("build_engine: assembled the CognitiveCycle for the dedupe slice")

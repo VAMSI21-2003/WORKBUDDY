@@ -10,6 +10,7 @@ from pathlib import Path
 import pandas as pd
 import pytest
 
+from buddy.actions import UNSUPPORTED
 from buddy.inspector import (
     CompositeVerifier,
     SpreadsheetDedupeVerifier,
@@ -19,7 +20,11 @@ from buddy.inspector import (
 from buddy.models import (
     DUPLICATE_ROWS_TARGET,
     EMPTY_ROWS_TARGET,
+    LEDGER_FROM_BRAIN,
+    LEDGER_FROM_INTENT,
+    LEDGER_FROM_MENTION,
     ExecutionResult,
+    RequestedAction,
     StepMeasurement,
     StepResult,
     StepVerification,
@@ -28,8 +33,14 @@ from buddy.models import (
 )
 from buddy.outcome import (
     DONE,
+    DONE_UNREQUESTED,
     FILE_STYLE_GENERATED,
     FILE_STYLE_PLAIN,
+    NO_SKILL,
+    NOT_CONFIRMED,
+    NOT_DONE,
+    NOT_PLANNED,
+    NOT_READ_AS_REQUEST,
     ActionOutcome,
     OutcomeReport,
     build_outcome_report,
@@ -40,6 +51,7 @@ from buddy.voice_catalog import CATALOG, MODES, eligible_phrases
 
 _DEDUPE = "spreadsheet.deduplicate"
 _EMPTY = "spreadsheet.remove_empty_rows"
+_BRAIN, _INTENT, _MENTION = LEDGER_FROM_BRAIN, LEDGER_FROM_INTENT, LEDGER_FROM_MENTION
 _ORDER = (
     "I couldn't tell for sure from your message what order you wanted, so the steps ran "
     "in this order: remove empty rows, then deduplicate."
@@ -66,8 +78,9 @@ def _m(
     [
         (
             OutcomeReport(
-                actions=(ActionOutcome(_DEDUPE, DONE, _m(DUPLICATE_ROWS_TARGET, 2)),),
-                requested=(_DEDUPE,),
+                actions=(
+                    ActionOutcome(_DEDUPE, DONE, _m(DUPLICATE_ROWS_TARGET, 2), source=_BRAIN),
+                ),
                 final_state=(_m(DUPLICATE_ROWS_TARGET, 2),),
                 output_names=("report_deduplicated_S-task-1.xlsx",),
                 delivered_file="report.xlsx",
@@ -90,9 +103,9 @@ def _m(
                             removed=2,
                             removed_blank=1,
                         ),
+                        source=_BRAIN,
                     ),
                 ),
-                requested=(_DEDUPE,),
                 final_state=(_m(DUPLICATE_ROWS_TARGET, 2),),
                 delivered_file="report.xlsx",
             ),
@@ -115,9 +128,9 @@ def _m(
                             removed=2,
                             removed_blank=2,
                         ),
+                        source=_BRAIN,
                     ),
                 ),
-                requested=(_DEDUPE,),
                 output_names=("out.xlsx",),
             ),
             FILE_STYLE_GENERATED,
@@ -126,8 +139,9 @@ def _m(
         ),
         (  # N2: nothing to remove is said as such, with no invented count
             OutcomeReport(
-                actions=(ActionOutcome(_DEDUPE, DONE, _m(DUPLICATE_ROWS_TARGET, 0, 3)),),
-                requested=(_DEDUPE,),
+                actions=(
+                    ActionOutcome(_DEDUPE, DONE, _m(DUPLICATE_ROWS_TARGET, 0, 3), source=_BRAIN),
+                ),
                 final_state=(_m(DUPLICATE_ROWS_TARGET, 0, 3),),
                 delivered_file="report.xlsx",
             ),
@@ -137,8 +151,7 @@ def _m(
         ),
         (  # no measurement: no count at all
             OutcomeReport(
-                actions=(ActionOutcome(_EMPTY, DONE, None),),
-                requested=(_EMPTY,),
+                actions=(ActionOutcome(_EMPTY, DONE, None, source=_INTENT),),
                 output_names=("out.xlsx",),
             ),
             FILE_STYLE_GENERATED,
@@ -149,7 +162,7 @@ def _m(
             FILE_STYLE_GENERATED,
             "The fix dates step ran and passed its check.",
         ),
-        (  # a chain (multi_step_request): no lead word in PR-A; "left" for the later step
+        (  # a chain with no ledger to compare it with: no lead word; "left" for the later step
             OutcomeReport(
                 actions=(
                     ActionOutcome(_EMPTY, DONE, _m(EMPTY_ROWS_TARGET, 1, 5)),
@@ -196,43 +209,79 @@ def test_render_outcome(report: OutcomeReport, file_style: str, expected: str) -
     assert render_outcome(report, file_style) == expected
 
 
-# -- The lead word -----------------------------------------------------------------------
+# -- The lead word (design 2.3 and decision D2) ------------------------------------------
+
+
+def _a(capability: str, status: str = DONE, source: str = _BRAIN, reason: str | None = None):
+    return ActionOutcome(capability, status, reason=reason, source=source)
 
 
 @pytest.mark.parametrize(
-    ("requested", "done", "expected"),
+    ("actions", "expected"),
     [
-        ((_DEDUPE,), (_DEDUPE,), "Done"),
-        ((_EMPTY,), (_EMPTY,), "Done"),
-        ((), (_DEDUPE,), None),  # multi_step_request / unclear / no intent: no ledger yet
-        ((), (_DEDUPE, _EMPTY), None),
-        ((_EMPTY,), (_DEDUPE,), None),  # what ran isn't what was asked for
-        ((_EMPTY,), (_DEDUPE, _EMPTY), None),  # something else ran too
-        ((_DEDUPE,), (), None),  # nothing ran
+        ((_a(_DEDUPE),), "Done"),
+        ((_a(_EMPTY, source=_INTENT),), "Done"),
+        ((_a(_DEDUPE), _a(_EMPTY, source=_MENTION)), "Done"),  # every ledger item done
+        ((), None),  # nothing ran
+        ((_a(_DEDUPE, source=""),), None),  # no reading of the request to compare with
+        ((_a(_DEDUPE), _a(_EMPTY, source="")), None),  # something not in the ledger ran
+        ((_a(_EMPTY, DONE_UNREQUESTED, source=""),), None),  # N5-like: only unrequested work
+        (  # C1: part of Brain's reading wasn't planned
+            (_a(_DEDUPE), _a(_EMPTY, NOT_DONE, reason=NOT_PLANNED)),
+            "Partly done",
+        ),
+        (  # Brain listed an action with no skill
+            (_a(_DEDUPE), _a("", NOT_DONE, reason=NO_SKILL)),
+            "Partly done",
+        ),
+        (  # D2: only the mention detector has the unrun action: no "Partly", no "Done"
+            (_a(_DEDUPE), _a(_EMPTY, NOT_DONE, _MENTION, NOT_READ_AS_REQUEST)),
+            None,
+        ),
+        (  # N5: nothing requested was done
+            (
+                _a(_DEDUPE, DONE_UNREQUESTED, source=""),
+                _a(_EMPTY, NOT_DONE, reason=NOT_PLANNED),
+            ),
+            None,
+        ),
+        (  # a mention-only action that was done counts as requested and done
+            (_a(_DEDUPE, source=_MENTION), _a("", NOT_DONE, reason=NO_SKILL)),
+            "Partly done",
+        ),
     ],
 )
-def test_lead_word(requested: tuple[str, ...], done: tuple[str, ...], expected: str | None) -> None:
-    report = OutcomeReport(actions=tuple(ActionOutcome(c) for c in done), requested=requested)
+def test_lead_word(actions: tuple[ActionOutcome, ...], expected: str | None) -> None:
+    report = OutcomeReport(actions=actions)
 
     assert report.lead_word == expected
+    assert report.request_complete is (expected == "Done")
 
 
 @pytest.mark.parametrize(
     ("intent", "expected"),
     [
-        ("remove_duplicate_rows", (_DEDUPE,)),
-        ("remove_empty_rows", (_EMPTY,)),
+        ("remove_duplicate_rows", ((_DEDUPE, _INTENT),)),
+        ("remove_empty_rows", ((_EMPTY, _INTENT),)),
         ("multi_step_request", ()),
         ("unclear", ()),
         (None, ()),
     ],
 )
-def test_requested_comes_only_from_a_single_action_intent(
-    intent: str | None, expected: tuple[str, ...]
+def test_with_no_requested_actions_the_ledger_is_brains_single_action_intent(
+    intent: str | None, expected: tuple[tuple[str, str], ...]
 ) -> None:
-    report = build_outcome_report(ExecutionResult(success=True), None, intent)
+    """Older replies and test fakes have no requested_actions (design 3.1)."""
+    output = "out.xlsx"
+    steps = (_step(_DEDUPE, output, "in.xlsx"), _step(_EMPTY, "out2.xlsx", output))
+    report = build_outcome_report(
+        ExecutionResult(success=True, outputs=("out2.xlsx",), steps=steps),
+        VerificationResult(passed=True),
+        Understanding(intent=intent),
+    )
 
-    assert report.requested == expected
+    ledger = tuple((a.capability, a.source) for a in report.actions if a.source)
+    assert ledger == expected
 
 
 # -- Building the report ---------------------------------------------------------------
@@ -273,7 +322,7 @@ def test_report_takes_each_steps_measurement_from_its_own_passing_verdict() -> N
     report = build_outcome_report(
         ExecutionResult(success=True, outputs=("b.xlsx",), steps=steps),
         verification,
-        "multi_step_request",
+        Understanding(intent="multi_step_request"),
     )
 
     assert report.actions == (
@@ -315,7 +364,7 @@ def test_single_step_final_state_is_its_own_measurement_when_it_made_the_deliver
             success=True, outputs=("out.xlsx",), steps=(_step(_DEDUPE, "out.xlsx", "in.xlsx"),)
         ),
         verification,
-        "remove_duplicate_rows",
+        Understanding(intent="remove_duplicate_rows"),
     )
 
     assert report.final_state == (m,)
@@ -333,10 +382,10 @@ def test_a_measurement_for_another_target_is_never_attributed_to_a_step() -> Non
             success=True, outputs=("out.xlsx",), steps=(_step(_DEDUPE, "out.xlsx", "in.xlsx"),)
         ),
         verification,
-        "remove_duplicate_rows",
+        Understanding(intent="remove_duplicate_rows"),
     )
 
-    assert report.actions == (ActionOutcome(_DEDUPE, DONE, None),)
+    assert report.actions == (ActionOutcome(_DEDUPE, DONE, None, source=_INTENT),)
     assert "7" not in render_outcome(report, FILE_STYLE_GENERATED)
 
 
@@ -384,6 +433,9 @@ def test_the_reply_never_uses_a_skills_self_reported_count(tmp_path: Path) -> No
 _TARGET_BY_CAPABILITY = {_DEDUPE: DUPLICATE_ROWS_TARGET, _EMPTY: EMPTY_ROWS_TARGET}
 
 
+_PHRASES = ("sort by amount", "make a chart of Q3 2024", "give me a report")
+
+
 def _random_report(rng: random.Random) -> OutcomeReport:
     capabilities = rng.choice([(_DEDUPE,), (_EMPTY,), (_DEDUPE, _EMPTY), (_EMPTY, _DEDUPE)])
     actions = []
@@ -404,7 +456,31 @@ def _random_report(rng: random.Random) -> OutcomeReport:
                     else 0
                 ),
             )
-        actions.append(ActionOutcome(capability, DONE, measurement, after_earlier_step=index > 0))
+        status = rng.choice([DONE, DONE, DONE_UNREQUESTED])
+        source = rng.choice([_BRAIN, _INTENT, _MENTION, ""]) if status == DONE else ""
+        actions.append(
+            ActionOutcome(
+                capability, status, measurement, after_earlier_step=index > 0, source=source
+            )
+        )
+    not_run = [c for c in (_DEDUPE, _EMPTY) if c not in capabilities]
+    residuals = []
+    for capability in not_run:
+        if rng.random() < 0.6:
+            reason = rng.choice([NOT_PLANNED, NOT_READ_AS_REQUEST])
+            source = _MENTION if reason == NOT_READ_AS_REQUEST else _BRAIN
+            actions.append(ActionOutcome(capability, NOT_DONE, reason=reason, source=source))
+            if rng.random() < 0.7:
+                residuals.append(
+                    StepMeasurement(
+                        _TARGET_BY_CAPABILITY[capability], rows, rng.choice([0, rng.randint(1, 60)])
+                    )
+                )
+    if rng.random() < 0.4:
+        phrase = rng.choice(("", *_PHRASES))
+        actions.append(
+            ActionOutcome("", NOT_DONE, reason=NO_SKILL, source=_BRAIN, user_phrase=phrase)
+        )
     final_state = tuple(
         StepMeasurement(_TARGET_BY_CAPABILITY[c], rows, rng.choice([0, 0, rng.randint(1, 50)]))
         for c in capabilities
@@ -412,8 +488,9 @@ def _random_report(rng: random.Random) -> OutcomeReport:
     )
     return OutcomeReport(
         actions=tuple(actions),
-        requested=rng.choice([(), (capabilities[0],)]),
+        brain_reading=rng.choice([(), ("remove empty rows",), ("remove duplicate rows",)]),
         final_state=final_state,
+        residuals=tuple(residuals),
         order_used=rng.choice([None, _ORDER]),
         delivered_file=rng.choice(["report.xlsx", "q3_2024_sales_v12.xlsx"]),
         output_names=(
@@ -427,7 +504,12 @@ def _random_report(rng: random.Random) -> OutcomeReport:
 
 def _measured_numbers(report: OutcomeReport) -> set[int]:
     numbers: set[int] = set()
-    for m in (*(a.measurement for a in report.actions if a.measurement), *report.final_state):
+    measurements = (
+        *(a.measurement for a in report.actions if a.measurement),
+        *report.final_state,
+        *report.residuals,
+    )
+    for m in measurements:
         numbers.update(
             n
             for n in (m.output_rows, m.remaining, m.input_rows, m.removed, m.removed_blank)
@@ -437,11 +519,12 @@ def _measured_numbers(report: OutcomeReport) -> set[int]:
 
 
 def _without_file_sentence(reply: str, report: OutcomeReport) -> str:
-    """The generated/original file names carry their own digits; drop them."""
+    """The generated/original file names, and the user's own quoted words,
+    carry their own digits; drop them."""
     for name in (*report.output_names, report.delivered_file or ""):
         if name:
             reply = reply.replace(name, "")
-    return reply
+    return re.sub(r"“[^”]*”", "", reply)
 
 
 def test_every_number_in_a_rendered_reply_is_a_measured_field() -> None:
@@ -465,3 +548,253 @@ def test_every_number_in_a_rendered_reply_is_a_measured_field() -> None:
 def test_no_catalog_entry_carries_a_number() -> None:
     for phrase in CATALOG:
         assert re.search(r"\d", phrase.text) is None, phrase.id
+
+
+# -- PR-B: NOT_DONE and DONE_UNREQUESTED rows (design Sections 2.3 and 2.5) ---------------
+
+_C1_BLOCK_FINAL = StepMeasurement(DUPLICATE_ROWS_TARGET, output_rows=4, remaining=0)
+
+
+@pytest.mark.parametrize(
+    ("report", "expected"),
+    [
+        (  # C1: Brain read both; the planner dropped empty-row removal
+            OutcomeReport(
+                actions=(
+                    ActionOutcome(_DEDUPE, DONE, _m(DUPLICATE_ROWS_TARGET, 2), source=_BRAIN),
+                    ActionOutcome(_EMPTY, NOT_DONE, reason=NOT_PLANNED, source=_BRAIN),
+                ),
+                brain_reading=("remove duplicate rows", "remove empty rows"),
+                final_state=(_C1_BLOCK_FINAL,),
+                residuals=(StepMeasurement(EMPTY_ROWS_TARGET, 4, 1),),
+                output_names=("out.xlsx",),
+            ),
+            "Partly done — removed 2 duplicate row(s). I didn't run the empty-row removal, "
+            "though I read it as part of your request. The copy has 4 row(s), 0 duplicate "
+            "row(s) remaining. It still has 1 fully-empty row(s). Saved as `out.xlsx`.",
+        ),
+        (  # N1 / C3: only the mention detector has the unrun action (D2: no lead word)
+            OutcomeReport(
+                actions=(
+                    ActionOutcome(_EMPTY, DONE, _m(EMPTY_ROWS_TARGET, 1, 5), source=_INTENT),
+                    ActionOutcome(
+                        _DEDUPE, NOT_DONE, reason=NOT_READ_AS_REQUEST, source=_MENTION
+                    ),
+                ),
+                brain_reading=("remove empty rows",),
+                final_state=(StepMeasurement(EMPTY_ROWS_TARGET, 5, 0),),
+                residuals=(StepMeasurement(DUPLICATE_ROWS_TARGET, 5, 2),),
+                delivered_file="report.xlsx",
+            ),
+            "Removed 1 fully-empty row(s). Your message mentions duplicate rows, but I "
+            "didn't run the duplicate-row removal. I read your request as: remove empty rows. "
+            "The copy has 5 row(s), 0 fully-empty row(s) remaining. It still has 2 duplicate "
+            "row(s). Your cleaned copy of report.xlsx is ready.",
+        ),
+        (  # N5: unrequested work ran, the requested action didn't
+            OutcomeReport(
+                actions=(
+                    ActionOutcome(_DEDUPE, DONE_UNREQUESTED, _m(DUPLICATE_ROWS_TARGET, 2)),
+                    ActionOutcome(_EMPTY, NOT_DONE, reason=NOT_PLANNED, source=_BRAIN),
+                ),
+                brain_reading=("remove empty rows",),
+                final_state=(_C1_BLOCK_FINAL,),
+                residuals=(StepMeasurement(EMPTY_ROWS_TARGET, 4, 1),),
+                output_names=("out.xlsx",),
+            ),
+            "I removed 2 duplicate row(s), though I didn't read that as part of your request. "
+            "I didn't run the empty-row removal, though I read it as part of your request. "
+            "The copy has 4 row(s), 0 duplicate row(s) remaining. It still has 1 fully-empty "
+            "row(s). Saved as `out.xlsx`.",
+        ),
+        (  # NO_SKILL with the user's own words; an unrequested step after a done one
+            OutcomeReport(
+                actions=(
+                    ActionOutcome(_EMPTY, DONE, _m(EMPTY_ROWS_TARGET, 0, 5), source=_BRAIN),
+                    ActionOutcome(
+                        _DEDUPE,
+                        DONE_UNREQUESTED,
+                        _m(DUPLICATE_ROWS_TARGET, 0, 5),
+                        after_earlier_step=True,
+                    ),
+                    ActionOutcome(
+                        "", NOT_DONE, reason=NO_SKILL, source=_BRAIN, user_phrase="sort by amount"
+                    ),
+                ),
+            ),
+            "Partly done — there were no fully-empty rows to remove. I also ran the "
+            "duplicate-row removal, though I didn't read that as part of your request; there "
+            "were no duplicate rows left to remove. I can't do this part yet: “sort by amount”.",
+        ),
+        (  # NO_SKILL whose phrase isn't the user's: nothing is quoted
+            OutcomeReport(
+                actions=(
+                    ActionOutcome(_DEDUPE, DONE, None, source=_BRAIN),
+                    ActionOutcome("", NOT_DONE, reason=NO_SKILL, source=_BRAIN),
+                ),
+            ),
+            "Partly done — the duplicate-row removal ran and passed its check. I read part of "
+            "your request as something I can't do yet.",
+        ),
+        (  # an unrequested step with no count; NOT_CONFIRMED; a zero residual, no final state
+            OutcomeReport(
+                actions=(
+                    ActionOutcome(_DEDUPE, DONE_UNREQUESTED, None),
+                    ActionOutcome(_EMPTY, NOT_DONE, reason=NOT_CONFIRMED, source=_BRAIN),
+                ),
+                residuals=(StepMeasurement(EMPTY_ROWS_TARGET, 4, 0),),
+            ),
+            "I ran the duplicate-row removal, though I didn't read that as part of your "
+            "request; it passed its check. I couldn't confirm the empty-row removal: its check "
+            "didn't pass. The copy has no fully-empty rows.",
+        ),
+        (  # a mention-only NOT_DONE with no reading from Brain: no "I read your request as"
+            OutcomeReport(
+                actions=(
+                    ActionOutcome(_DEDUPE, DONE, _m(DUPLICATE_ROWS_TARGET, 0, 5), source=_MENTION),
+                    ActionOutcome(_EMPTY, NOT_DONE, reason=NOT_READ_AS_REQUEST, source=_MENTION),
+                ),
+                residuals=(StepMeasurement(EMPTY_ROWS_TARGET, 5, 1),),
+            ),
+            "There were no duplicate rows to remove. Your message mentions empty rows, but "
+            "I didn't run the empty-row removal. The copy still has 1 fully-empty row(s).",
+        ),
+    ],
+    ids=["C1", "N1-C3", "N5", "no-skill-quoted", "no-skill-unquoted", "not-confirmed", "no-read"],
+)
+def test_render_ledger_rows(report: OutcomeReport, expected: str) -> None:
+    style = FILE_STYLE_PLAIN if report.delivered_file else FILE_STYLE_GENERATED
+    assert render_outcome(report, style) == expected
+
+
+# -- PR-B: the derivation table (design Section 2.2) -------------------------------------
+
+
+def _brain(action: str, phrase: str = "", found: bool = False) -> RequestedAction:
+    return RequestedAction(action, phrase, _BRAIN, found)
+
+
+def _mention(action: str, phrase: str) -> RequestedAction:
+    return RequestedAction(action, phrase, _MENTION, True)
+
+
+def _single_dedupe_turn(
+    *ledger: RequestedAction, intent: str | None = "multi_step_request", **verification: object
+) -> OutcomeReport:
+    m = _m(DUPLICATE_ROWS_TARGET, 2)
+    return build_outcome_report(
+        ExecutionResult(
+            success=True, outputs=("out.xlsx",), steps=(_step(_DEDUPE, "out.xlsx", "in.xlsx"),)
+        ),
+        VerificationResult(
+            passed=True,
+            steps=(StepVerification(_DEDUPE, True, input_reference="in.xlsx", measurements=(m,)),),
+            **verification,  # type: ignore[arg-type]
+        ),
+        Understanding(intent=intent, requested_actions=ledger),
+    )
+
+
+def _statuses(report: OutcomeReport) -> list[tuple[str, str, str | None, str]]:
+    return [(a.capability, a.status, a.reason, a.source) for a in report.actions]
+
+
+def test_brains_reading_with_no_step_is_not_planned() -> None:
+    report = _single_dedupe_turn(_brain("remove_duplicate_rows"), _brain("remove_empty_rows"))
+
+    assert _statuses(report) == [
+        (_DEDUPE, DONE, None, _BRAIN),
+        (_EMPTY, NOT_DONE, NOT_PLANNED, _BRAIN),
+    ]
+    assert report.brain_reading == ("remove duplicate rows", "remove empty rows")
+    assert report.lead_word == "Partly done"
+
+
+def test_a_mention_only_action_with_no_step_is_not_read_as_request() -> None:
+    report = _single_dedupe_turn(
+        _brain("remove_duplicate_rows"), _mention("remove_empty_rows", "empty rows")
+    )
+
+    assert _statuses(report) == [
+        (_DEDUPE, DONE, None, _BRAIN),
+        (_EMPTY, NOT_DONE, NOT_READ_AS_REQUEST, _MENTION),
+    ]
+    assert report.lead_word is None  # D2
+
+
+def test_an_unsupported_action_is_no_skill_and_quotes_only_the_users_own_words() -> None:
+    long_phrase = "make me a `chart`\nof every \"region\" " + "and quarter " * 10
+    report = _single_dedupe_turn(
+        _brain("remove_duplicate_rows"),
+        _brain(UNSUPPORTED, "sort by amount", found=True),
+        _brain(UNSUPPORTED, "arrange the rows", found=False),  # the model's words
+        _brain(UNSUPPORTED, long_phrase, found=True),
+    )
+
+    no_skill = [a for a in report.actions if a.reason == NO_SKILL]
+    assert [a.user_phrase for a in no_skill[:2]] == ["sort by amount", ""]
+    quoted = no_skill[2].user_phrase
+    assert len(quoted) == 80 and quoted.endswith("…")
+    assert not set("`\n\"") & set(quoted)
+    assert quoted.startswith("make me a chart of every region and quarter")
+
+
+def test_a_step_brain_did_not_read_is_done_unrequested() -> None:
+    report = _single_dedupe_turn(_brain("remove_empty_rows"))
+
+    assert _statuses(report) == [
+        (_DEDUPE, DONE_UNREQUESTED, None, ""),
+        (_EMPTY, NOT_DONE, NOT_PLANNED, _BRAIN),
+    ]
+    assert report.lead_word is None
+
+
+def test_with_no_reading_at_all_a_passing_step_is_neither_confirmed_nor_unrequested() -> None:
+    report = _single_dedupe_turn()
+
+    assert _statuses(report) == [(_DEDUPE, DONE, None, "")]
+    assert report.lead_word is None
+    assert "didn't read that" not in render_outcome(report, FILE_STYLE_GENERATED)
+
+
+def test_a_step_that_ran_but_did_not_pass_is_not_confirmed_never_not_planned() -> None:
+    steps = (_step(_DEDUPE, "a.xlsx", "in.xlsx"), _step(_EMPTY, "b.xlsx", "a.xlsx"))
+    report = build_outcome_report(
+        ExecutionResult(success=True, outputs=("a.xlsx",), steps=steps),
+        VerificationResult(
+            passed=True,
+            steps=(
+                StepVerification(_DEDUPE, True, input_reference="in.xlsx"),
+                StepVerification(_EMPTY, False, input_reference="a.xlsx"),
+            ),
+        ),
+        Understanding(
+            requested_actions=(_brain("remove_duplicate_rows"), _mention("remove_empty_rows", "x"))
+        ),
+    )
+
+    assert _statuses(report)[1] == (_EMPTY, NOT_DONE, NOT_CONFIRMED, _MENTION)
+
+
+def test_residuals_are_kept_only_for_actions_that_were_not_done() -> None:
+    residuals = (
+        StepMeasurement(DUPLICATE_ROWS_TARGET, 4, 0),
+        StepMeasurement(EMPTY_ROWS_TARGET, 4, 1),
+    )
+    report = _single_dedupe_turn(
+        _brain("remove_duplicate_rows"), _brain("remove_empty_rows"), residuals=residuals
+    )
+
+    assert report.residuals == (StepMeasurement(EMPTY_ROWS_TARGET, 4, 1),)
+    assert render_outcome(report, FILE_STYLE_GENERATED) == (
+        "Partly done — removed 2 duplicate row(s). I didn't run the empty-row removal, though I "
+        "read it as part of your request. The copy has 4 row(s), 0 duplicate row(s) remaining. "
+        "It still has 1 fully-empty row(s). Saved as `out.xlsx`."
+    )
+
+
+def test_no_residual_sentence_when_the_delivered_file_could_not_be_read() -> None:
+    report = _single_dedupe_turn(_brain("remove_duplicate_rows"), _brain("remove_empty_rows"))
+
+    assert report.residuals == ()
+    assert "still has" not in render_outcome(report, FILE_STYLE_GENERATED)

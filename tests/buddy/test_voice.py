@@ -1076,7 +1076,7 @@ def test_personality_voice_reply_always_mentions_the_file_handed_back(mode: str)
         voice.build_outcome_report(
             _delivered_request(mode).execution_result,
             _delivered_request(mode).verification_result,
-            "multi_step_request",
+            Understanding(intent="multi_step_request"),
             delivered_file="report.xlsx",
         ),
         mode,
@@ -1875,7 +1875,7 @@ def test_delivered_reply_order_is_opener_outcome_findings_closer() -> None:
         voice.build_outcome_report(
             request.execution_result,
             request.verification_result,
-            "remove_duplicate_rows",
+            Understanding(intent="remove_duplicate_rows"),
             open_findings=1,
         ),
         "friend",

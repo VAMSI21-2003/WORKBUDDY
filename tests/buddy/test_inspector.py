@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from dataclasses import replace
 from pathlib import Path
 
 import pandas as pd
@@ -10,6 +11,7 @@ from buddy.inspector import (
     CompositeVerifier,
     Inspector,
     NullVerifier,
+    ResidualMeasurer,
     SpreadsheetAnalysisVerifier,
     SpreadsheetDedupeVerifier,
     SpreadsheetEmptyRowsVerifier,
@@ -18,7 +20,9 @@ from buddy.inspector import (
 from buddy.models import (
     DUPLICATE_ROWS_TARGET,
     EMPTY_ROWS_TARGET,
+    LEDGER_FROM_BRAIN,
     ExecutionResult,
+    RequestedAction,
     StepMeasurement,
     StepResult,
     StepVerification,
@@ -1330,3 +1334,127 @@ def test_composite_verifier_carries_each_steps_measurements_and_the_final_files(
     )
     # The aggregate carries them per step, not at the top level.
     assert result.measurements == ()
+
+
+# -- ResidualMeasurer (verified-outcome design, Section 2.5) ------------------------------
+
+_RESIDUAL_ROWS = {  # 5 rows: 2 exact duplicates (one pair plus a repeat), 1 fully-empty
+    "name": ["Alice", "Bob", None, "Alice", "Bob"],
+    "amount": [10, 20, None, 10, 20],
+}
+
+
+def _delivered(tmp_path: Path, rows: dict[str, list[object]] = _RESIDUAL_ROWS) -> str:
+    path = tmp_path / "delivered.xlsx"
+    pd.DataFrame(rows).to_excel(path, index=False)
+    return str(path)
+
+
+def _ledger(*actions: str) -> Understanding:
+    return Understanding(
+        intent="multi_step_request",
+        requested_actions=tuple(RequestedAction(a, a, LEDGER_FROM_BRAIN, False) for a in actions),
+    )
+
+
+def _measure(
+    understanding: Understanding,
+    execution_result: ExecutionResult | None,
+    inner: VerificationResult | None = None,
+) -> VerificationResult:
+    inner_result = inner if inner is not None else VerificationResult(passed=True, findings=("x",))
+    return ResidualMeasurer(_FakeVerifier(inner_result))(
+        _request(understanding=understanding, execution_result=execution_result)
+    )
+
+
+def test_residual_measurer_counts_each_requested_target_in_the_delivered_file(
+    tmp_path: Path,
+) -> None:
+    delivered = _delivered(tmp_path)
+    inner = VerificationResult(passed=True, confidence=0.9, findings=("kept",))
+
+    result = _measure(
+        _ledger("remove_empty_rows", "remove_duplicate_rows", "unsupported"),
+        ExecutionResult(success=True, outputs=(delivered,)),
+        inner,
+    )
+
+    fresh = pd.read_excel(delivered)
+    assert result.residuals == (
+        StepMeasurement(EMPTY_ROWS_TARGET, len(fresh), int(fresh.isna().all(axis=1).sum())),
+        StepMeasurement(DUPLICATE_ROWS_TARGET, len(fresh), int(fresh.duplicated().sum())),
+    )
+    assert [(m.remaining, m.removed, m.input_rows) for m in result.residuals] == [
+        (1, None, None),
+        (2, None, None),
+    ]
+    # The verdict itself is the inner verifier's, unchanged.
+    assert replace(result, residuals=()) == inner
+
+
+def test_residual_measurer_uses_the_intent_when_brain_listed_nothing(tmp_path: Path) -> None:
+    result = _measure(
+        Understanding(intent="remove_empty_rows"),
+        ExecutionResult(success=True, outputs=(_delivered(tmp_path),)),
+    )
+
+    assert [m.target for m in result.residuals] == [EMPTY_ROWS_TARGET]
+
+
+def test_residual_measurer_measures_nothing_without_a_ledger(tmp_path: Path) -> None:
+    result = _measure(
+        Understanding(intent="multi_step_request"),
+        ExecutionResult(success=True, outputs=(_delivered(tmp_path),)),
+    )
+
+    assert result.residuals == ()
+
+
+def test_residual_measurer_never_measures_an_unverified_or_undelivered_turn(
+    tmp_path: Path,
+) -> None:
+    delivered = _delivered(tmp_path)
+    ledger = _ledger("remove_empty_rows")
+    failed = VerificationResult(passed=False, findings=("no",))
+
+    assert _measure(ledger, ExecutionResult(success=True, outputs=(delivered,)), failed) == failed
+    assert _measure(ledger, ExecutionResult(success=True)).residuals == ()
+    assert _measure(ledger, None).residuals == ()
+    stopped = ExecutionResult(success=False, outputs=(delivered,), stopped_at="x")
+    assert _measure(ledger, stopped).residuals == ()
+
+
+def test_residual_measurer_claims_nothing_when_the_file_cant_be_read(tmp_path: Path) -> None:
+    unreadable = tmp_path / "broken.xlsx"
+    unreadable.write_text("not a workbook")
+    inner = VerificationResult(passed=True, findings=("kept",))
+
+    delivered = ExecutionResult(success=True, outputs=(str(unreadable),))
+
+    result = _measure(_ledger("remove_empty_rows"), delivered, inner)
+
+    assert result == inner  # no residuals, verdict unchanged
+
+
+def test_residual_measurer_only_reads_the_delivered_file(tmp_path: Path) -> None:
+    """Rule 2: the original is never opened, let alone written."""
+    original = tmp_path / "original.xlsx"
+    pd.DataFrame(_RESIDUAL_ROWS).to_excel(original, index=False)
+    before = original.read_bytes()
+    step = StepResult(
+        capability="spreadsheet.deduplicate",
+        skill="s",
+        status="success",
+        outputs=(_delivered(tmp_path, {"name": ["Alice"], "amount": [1]}),),
+        input_reference=str(original),
+        permission_tier="write",
+    )
+
+    result = _measure(
+        _ledger("remove_duplicate_rows"),
+        ExecutionResult(success=True, outputs=step.outputs, steps=(step,)),
+    )
+
+    assert result.residuals == (StepMeasurement(DUPLICATE_ROWS_TARGET, 1, 0),)
+    assert original.read_bytes() == before
