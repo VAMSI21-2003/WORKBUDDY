@@ -147,3 +147,74 @@ All of them match.
 - Three docstring/comment edits.
 
 No analysis step failed in any of the 7 runs, so none of these replies would change. The runs weren't repeated.
+
+## Runs on the fixed head
+
+Head: `cdb8ca3` (`feat/verified-outcome-a`, PR #3), which includes the H1/M1 fixes. Groq, real pipeline (`PersonalityVoice`) via `scripts/run_dedupe_manually.py`. 4 runs, no 429s. No code was changed. The default fixture is 6 rows: 2 exact duplicates and 1 fully-empty row. `no-duplicates` is 4 rows with no duplicates and no empty rows.
+
+Voice model: in every run the LLM calls were the intent classifier and the reasoning stage (plus the planner in run 4). There was no Voice call. The replies come from `TemplateSpeaker` / the code-rendered outcome, so the Voice model wasn't used for phrasing.
+
+Independent check: the script's pandas check of the delivered file right after each run, plus a separate pandas re-derivation on the fixture. Runs 1–3 share an output filename (F5, backlog item 4), so the file on disk after the batch is run 3's. Runs 1 and 2 were checked by the script right after each run. I re-derived their numbers from the fixture in pandas (`drop_duplicates(keep="first")`: 6 → 4, 2 removed, 0 duplicates left, 1 missing `name` and 1 missing `amount` in 4 rows = 25.0%).
+
+### Run 1: focus, default, "remove duplicate rows"
+- **Intent:** `remove_duplicate_rows` (0.99). **`clarification_required`:** false.
+- **Steps executed:** analyze → deduplicate → analyze (re-check). All succeeded.
+- **Delivered:** yes, `manual_report_deduplicated_manual-session-task-1.xlsx`.
+- **Voice model called:** no.
+- **Reply:** "Done — removed 2 duplicate row(s). The copy has 4 row(s), 0 duplicate row(s) remaining. Your cleaned copy of manual_report.xlsx is ready. I also noticed: name: 1 missing value(s) (25.0%); amount: 1 missing value(s) (25.0%). Want me to tackle any of these?"
+- **Numbers checked in pandas:**
+  - removed 2: original has 2 duplicated rows. ✔
+  - rows in − rows out = 6 − 4 = 2, equal to "removed 2". ✔
+  - The copy has 4 rows. ✔
+  - 0 duplicates remaining. ✔
+  - name: 1 missing (25.0%) and amount: 1 missing (25.0%): the delivered file's surviving empty row is 1 of 4. ✔
+- **False claim:** none. The empty row is not claimed removed, and the reply reports its missing values.
+- **Original hash:** `8c630cafe11425ab` → `8c630cafe11425ab` (unchanged).
+
+### Run 2: friend, default, "remove duplicate rows"
+- **Intent:** `remove_duplicate_rows` (0.99). **`clarification_required`:** false.
+- **Steps executed:** analyze → deduplicate → analyze (re-check). All succeeded.
+- **Delivered:** yes, same filename as run 1.
+- **Voice model called:** no.
+- **Reply:** "Okay, here's the rundown. Done — removed 2 duplicate row(s). The copy has 4 row(s), 0 duplicate row(s) remaining. Your cleaned copy of manual_report.xlsx is ready. I also noticed: name: 1 missing value(s) (25.0%); amount: 1 missing value(s) (25.0%). Want me to tackle any of these?"
+- **Numbers checked in pandas:** identical to run 1 (6 − 4 = 2 removed; 4 rows; 0 duplicates; 1 of 4 = 25.0% missing for both columns). ✔
+- **False claim:** none.
+- **Original hash:** `1c1e6e523d60ae1f` → `1c1e6e523d60ae1f` (unchanged).
+
+### Run 3: focus, no-duplicates, "remove duplicate rows"
+- **Intent:** `remove_duplicate_rows` (0.99). **`clarification_required`:** false.
+- **Steps executed:** analyze → deduplicate → analyze (re-check). All succeeded.
+- **Delivered:** yes (a copy with 4 rows).
+- **Voice model called:** no.
+- **Reply:** "Done — there were no duplicate rows to remove. The copy has 4 row(s), 0 duplicate row(s) remaining. Your cleaned copy of manual_report.xlsx is ready. None of the issues I check for were found."
+- **Numbers checked in pandas** (delivered file still on disk, re-read after the batch):
+  - Original: 4 rows, 0 duplicates, 0 empty rows. Delivered: 4 rows, 0 duplicates.
+  - rows in − rows out = 4 − 4 = 0, consistent with "no duplicate rows to remove". ✔
+  - The copy has 4 rows. ✔
+  - 0 duplicates remaining. ✔
+  - "None of the issues I check for were found": 0 missing values in the file. ✔
+- **False claim:** none. It says nothing was removed and doesn't say something was cleaned.
+- **Original hash:** `8976fb75db1058a6` → `8976fb75db1058a6` (unchanged).
+
+### Run 4: friend, default, "remove the empty rows and then remove the duplicate rows"
+- **Intent:** `multi_step_request` (0.99). **`clarification_required`:** false.
+- **Steps executed:** analyze (original) → remove_empty_rows → deduplicate → analyze (re-check on final). All succeeded. The chain ran in the stated order (the reply carries no order-uncertainty sentence).
+- **Delivered:** yes, one file only: `manual_report_no_empty_rows_manual-session-task-1_deduplicated_manual-session-task-2.xlsx`.
+- **Voice model called:** no. The LLM calls were Brain, Think and Planner.
+- **Reply:** "Okay, here's the rundown. Removed 1 fully-empty row(s). Removed 2 duplicate row(s). The copy has 3 row(s), 0 fully-empty row(s) and 0 duplicate row(s) remaining. Your cleaned copy of manual_report.xlsx is ready. None of the issues I check for were found."
+- **Numbers checked in pandas** (all files still on disk):
+  - Original: 6 rows, 1 empty row, 2 duplicates.
+  - Intermediate after step 1: 5 rows, 0 empty. 6 − 5 = 1 = "removed 1 fully-empty row". ✔
+  - Delivered: 3 rows. Step 2's rows in − rows out = 5 − 3 = 2 = "removed 2 duplicate row". ✔
+  - 3 rows, 0 empty, 0 duplicates in the delivered file. ✔
+  - Overall 6 − 3 = 3 = 1 + 2. ✔
+  - "None of the issues I check for were found": 0 missing values in the delivered file. ✔
+- **False claim:** none.
+- **Original hash:** `22e8e58d78dd947e` → `22e8e58d78dd947e` (unchanged).
+
+### Observations
+- No false claim in any of the 4 replies. Every number in each reply matches pandas, including rows in minus rows out.
+- The original's hash was unchanged before and after in every run. Hashes differ between runs only because the script rewrites the fixture `.xlsx` each run (embedded timestamps); the content is the same.
+- H1 (blank duplicates counted in "removed") is not exercised by these fixtures: `removed_blank` was 0 in every measurement.
+- Run 1 and 2's replies use the analysis notes after a dedupe ("I also noticed … 25.0%"). These are true of the delivered copy (the empty row is still in it).
+- Run 3 is the N2 case on the fixed head: "no duplicate rows to remove" is stated as a measured fact (input 4, removed 0).
