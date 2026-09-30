@@ -284,3 +284,142 @@ These aren't blocking this PR, but they should go into `docs/backlog.md` if they
 - **L1**: self-reported near-duplicate numbers reach delivered replies (labelled). Either keep numbers out of self-reported findings, or state them as the Skill's claim.
 - **L2**: `turn_index` is always 0 until the engine calls `record_buddy_reply`.
 - **L3**: `_delivered_file_name` falls back to the output's name, and a test enshrines "cleaned copy of out.xlsx".
+
+---
+
+## Re-review of the fixes (`87f7168`)
+
+Review only. No code was changed. This section is the only change to the repository.
+
+> **Reviewer independence.** I have no memory of writing the fixes. I wrote the review above. I read `docs/reviews/verified-outcome-a-fixes.md` for the list of claims, and checked each one by running code.
+
+### Method
+
+**Trees:**
+- Branch head: `87f7168`.
+- Pre-fix: `1d57990`. It has the same code as `03744e6`, and its harness results are the ones from the review above.
+- `main`: `0b499fe`.
+- Pre-fix and `main` were checked out as temporary worktrees, removed afterwards.
+
+**Harnesses:** the same scratchpad harnesses as the review (real `build_engine`, real skills, real `.xlsx`, fake LLM only), plus one new one:
+- **Main harness:** 237 scenarios, 243 turns, run on the head and on `main`.
+- **Forced-failure harness:** 18 turns.
+- **Direct `SpeakingRequest` shapes:** 30.
+- **Self-reported-finding probe (L1):** 2 turns.
+- **New H1 edge harness:** 40 turns, on the head, pre-fix and `main`. The fixtures are:
+  - BT (Alice, blank, Bob, blank, Carol);
+  - X-two-empty;
+  - Alice, blank, Alice: the blank that dedupe keeps ends up last, and the `.xlsx` round trip drops it;
+  - Alice, Bob, blank, Alice: the same effect;
+  - three identical blank rows plus one duplicate data row;
+  - blank rows as the only duplicates.
+
+  Each fixture ran as a single dedupe and as a chain (dedupe, then empty rows), with all 3 speakers. There are also 4 turns with a deliberately buggy dedupe (`drop_duplicates()` then `dropna(how="all")`), to check that an unconfirmable count is withheld.
+
+**Checks on every delivered turn:**
+- "Removed N" adds up to rows in minus rows out, measured by pandas.
+- "The copy has N row(s)…" matches the delivered file.
+- No "no duplicate rows to remove" when pandas finds duplicates.
+- The Voice model is never called.
+- The original is unchanged.
+
+### H1: fixed
+
+| Scenario | Pre-fix (`1d57990`) | Head (`87f7168`) | Pandas (in → out) |
+|---|---|---|---|
+| BT, single, template | "Done — **there were no duplicate rows to remove.** The copy has 4 row(s)…" | "Done — removed 1 duplicate row(s), including 1 repeated blank row. The copy has 4 row(s), 0 duplicate row(s) remaining. …" | 5 → 4 |
+| BT, chain | "There were no duplicate rows to remove. Removed 1 fully-empty row(s). The copy has 3 row(s)…" | "Removed 1 duplicate row(s), including 1 repeated blank row. Removed 1 fully-empty row(s). The copy has 3 row(s), 0 duplicate row(s) and 0 fully-empty row(s) remaining. …" | 5 → 3 |
+| X-two-empty, single (main harness and edge harness) | "Done — removed **1** duplicate row(s). …" | "Done — removed 2 duplicate row(s), including 1 repeated blank row. The copy has 4 row(s)…" | 6 → 4 |
+| X-two-empty, chain | "Removed 1 duplicate row(s). Removed 1 fully-empty row(s). …" | "Removed 2 duplicate row(s), including 1 repeated blank row. Removed 1 fully-empty row(s). The copy has 3 row(s)…" | 6 → 3 |
+| Three blanks and a duplicate, single | "Done — removed 1 duplicate row(s). …" | "Done — removed 3 duplicate row(s), including 2 repeated blank rows. The copy has 3 row(s)…" | 6 → 3 |
+| Blank rows are the only duplicates, single | "Done — there were no duplicate rows to remove. …" | "Done — removed 1 duplicate row(s), including 1 repeated blank row. …" | 4 → 3 |
+| Alice, blank, Alice (the kept blank row is lost in the round trip), single | "Done — removed **1** duplicate row(s). The copy has 1 row(s)…" | "Done — the duplicate-row removal ran and passed its check. The copy has 1 row(s), 0 duplicate row(s) remaining. …" | 3 → 1 |
+| Alice, Bob, blank, Alice (same), single | "Done — removed 1 duplicate row(s). The copy has 2 row(s)…" | "Done — the duplicate-row removal ran and passed its check. The copy has 2 row(s)…" | 4 → 2 |
+| Buggy dedupe that drops every blank row (BT, X-two-empty) | "Done — there were no duplicate rows to remove." / "Done — removed 1 …" | "Done — the duplicate-row removal ran and passed its check. The copy has 3 row(s)…" | 5 → 3, 6 → 3 |
+
+**What the counts show:**
+- **Every counted reply** (the edge harness plus 127 main-harness and forced-failure deliveries) now adds up exactly to the pandas row delta.
+- Every final-state sentence matches the delivered file.
+- The two round-trip fixtures show that the pre-fix branch also had a third H1 shape, which the review above didn't list: "removed 1" when 2 rows disappeared. The new row-delta confirmation withholds the count there, as intended.
+
+**Opener predicate.** `friend.opener.seeing_double` now requires `removed_data >= 1`. I called `eligible_phrases` directly:
+
+| `removed` | `removed_blank` | `seeing_double` eligible? |
+|---|---|---|
+| 1 | 1 | no |
+| 2 | 1 | yes |
+| 0 | 0 | no |
+| `None` | 0 | no |
+
+That's correct: repeated blank rows aren't "the sheet seeing double".
+
+**Tests:**
+- The 15 new `test_h1_*` end-to-end tests fail on the pre-fix `buddy/`: I copied the head's `test_engine_factory.py` into the pre-fix worktree, and 15 of 15 failed.
+- They pass on the head (15 of 15).
+
+### M1: fixed
+
+- `CATALOG` now holds exactly seven entries: the four friend openers, `friend.closer.none`, `focus.opener.none` and `focus.closer.none`.
+- No reply in any of the head's turns contains "What's next on the list?", "Anything else you want me to look at?" or "Anything else?".
+
+**The M1 scenarios, head vs pre-fix:**
+
+| Scenario | Pre-fix ended with | Head |
+|---|---|---|
+| C1b friend | "…None of the issues I check for were found. What's next on the list?" | The same reply without the closer |
+| C3b friend | "…What's next on the list?" | Without the closer |
+| N1 friend (clarify=false) | "…What's next on the list?" | Without the closer |
+| SEED-N1, 12 sessions | 7 of 12 ended with "Anything else you want me to look at?" | 0 of 12 have a closer. The opener distribution is unchanged: blank rows 7, rundown 3, neutral 2 |
+
+The template and focus versions of C1b, C3b and N1 are byte-identical to pre-fix.
+
+### Nothing else changed
+
+**Code diff:** the diff from `1d57990` to `87f7168` touches only `buddy/inspector.py`, `buddy/models.py`, `buddy/outcome.py`, `buddy/voice_catalog.py` and `scripts/run_dedupe_manually.py` (a print line). The rest is tests and docs: the design, the backlog and the fixes doc.
+
+**Main harness vs pre-fix** (261 turns, including forced-failure):
+
+| Result | Turns |
+|---|---|
+| Byte-identical | 227 |
+| Differ only by the removed closer | 31 |
+| Other differences | 3, all X-two-empty (H1 above) |
+
+**Paths that don't deliver a verified file:**
+- All 134 non-delivered turns (undelivered, stopped, unverified) are byte-identical to `main`. So are the 30 direct `SpeakingRequest` shapes.
+- The Voice model was called 0 times on the head.
+- `main`'s own replies are unchanged between my two sessions.
+
+**Rule 2:** the original's SHA-256 was unchanged in every run: 261 main-harness and forced-failure turns, and 40 edge turns on each tree.
+
+**Suite and lint:** `python -m pytest -q` gives **710 passed**, 11 warnings. `ruff check buddy tests` finds 22 errors, the same as before, and none are new.
+
+**Changed or removed test lines:**
+- The only removed ones are `test_no_closer_question_when_the_reply_already_asks_about_findings` and the closer-variety assertion. Both test entries that no longer exist.
+- The replacement, `test_no_closer_implies_the_request_is_finished` (`tests/buddy/test_voice_catalog.py:115`), is stricter: every closer, for every report and mode, is empty.
+
+**Backlog:** M3 is item 1a, and L1–L3 are under item 5, as the fixes doc says.
+
+### New observations (Low, not blocking)
+
+- **R1.** When the kept blank row is lost in the `.xlsx` round trip (Alice, blank, Alice), the reply withholds the count but doesn't mention that a blank row the user didn't ask to remove is gone. Each sentence is true ("The copy has 1 row(s)"), so no claim is false.
+  - This is `.xlsx` and skill behaviour, and it happens on `main` too.
+  - Worth a backlog line with M3: the skills shouldn't silently lose rows the capability doesn't target.
+- **R2.** A dedupe that drops non-duplicate blank rows still *passes* verification. The count is now withheld, but the verdict is still "passed".
+  - The verifier can't fail it without also failing the legitimate round-trip case, because both show a larger row delta.
+  - This gap predates PR-A, and its reply impact is now contained (no count is claimed).
+- **Still open, as the review above concluded:** M2 ("Done —" on a misclassified request) remains, and is PR-B's. L1 is unchanged: the probe still shows the self-reported "match probability 0.97" in the delivered reply, with its label.
+
+### Updated verdict: **MERGE**, after the owed live runs
+
+**Why:**
+- H1 and M1, the only two blockers, are fixed and verified end to end, including against pandas and on edge shapes the fix didn't list.
+- Nothing else in behaviour changed.
+- The undelivered, stopped and unverified paths are still byte-identical to `main`.
+- The suite passes, and rule 2 held in every run.
+
+**Condition, from `CLAUDE.md` rather than from a finding:** the fixes doc says the live Groq runs weren't repeated for `87f7168`. The delivered reply text changed: closers are gone, and blank-repeat counts are new. `CLAUDE.md` requires live runs before merging, so `docs/reviews/verified-outcome-a-live-runs.md` should get runs on `87f7168` before the user merges. The highest-value run is the default fixture with the message "remove duplicate rows", in both modes.
+
+### Deferred (additions to the list above)
+
+- R1 and R2 above. Both are Low and pre-existing. Suggested for the backlog next to item 1a (M3).
