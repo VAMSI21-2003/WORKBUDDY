@@ -36,6 +36,11 @@ Open work, in priority order. Each item follows the working method in `CLAUDE.md
 
 **Source:** `docs/reviews/verified-outcome-a-review.md`, M3. It exists on `main` too; it isn't introduced by PR-A. It's a rule 1 breach, so it comes right after PR-B.
 
+**Status (2026-09-30):** `fix/multi-sheet` (not merged, independent review pending) takes the "refuse" option. Both skills refuse a workbook with more than one sheet, the reply says why, and the verifier compares each step's sheet names with its input's. See `docs/reviews/fix-multi-sheet-impl.md` and `docs/reviews/fix-multi-sheet-live-runs.md`. **Still open after it:**
+- The proactive analysis reads only the first sheet, and its findings don't say so. On a refused multi-sheet workbook the reply still leads with "here's what I noticed: … (16.7%)", computed on sheet 1 only, then asks "Want me to tackle any of these?". Skip the analysis on a multi-sheet workbook, or label its findings with the sheet.
+- Per-sheet cleaning (keep every sheet and clean each one, or the one the user named). It needs per-sheet measurements in the Inspector and Outcome code.
+- A real `.xls` can't be cleaned without `xlrd`, which isn't a dependency. The skills now say so.
+
 **Problem:** `skills/excel/dedupe.py` and `skills/excel/remove_empty_rows.py` read only the first sheet (`pd.read_excel(input_path)`) and write one sheet named `Sheet1`. For a workbook with sheets `Q1` and `Q2`, the delivered file has one sheet, and the reply says "Your cleaned copy of report.xlsx is ready." and "The copy has 2 row(s)…". Nothing tells the user that `Q2` was dropped, and no verifier notices.
 
 **Acceptance criteria:**

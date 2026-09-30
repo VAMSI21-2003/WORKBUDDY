@@ -6,6 +6,7 @@ from pathlib import Path
 import pandas as pd
 
 from skills.base import PermissionTier, Skill, SkillResult, SkillStatus, SkillTask
+from skills.excel.workbook import WorkbookRefused, single_sheet_name
 
 logger = logging.getLogger(__name__)
 
@@ -91,7 +92,14 @@ class ExcelDeduplicateSkill(Skill):
 
         input_path = task.input_references[0]
         try:
-            original = pd.read_excel(input_path)  # READ-ONLY open of the upload
+            # Only one sheet is read and written, so any other sheet would be
+            # lost: refuse a workbook that has more than one.
+            sheet_name = single_sheet_name(input_path)
+        except WorkbookRefused as exc:
+            logger.info("%s: refused %r: %s", type(self).__name__, input_path, exc)
+            return SkillResult(status=SkillStatus.FAILURE, errors=[str(exc)])
+        try:
+            original = pd.read_excel(input_path, sheet_name=sheet_name)  # READ-ONLY open
         except Exception as exc:  # noqa: BLE001 — surfaced as a SkillResult, not raised
             logger.exception("ExcelDeduplicateSkill: failed to read %r", input_path)
             return SkillResult(
@@ -103,7 +111,8 @@ class ExcelDeduplicateSkill(Skill):
 
         try:
             output_path.parent.mkdir(parents=True, exist_ok=True)
-            deduped.to_excel(output_path, index=False)  # WRITE only ever targets output_path
+            # WRITE only ever targets output_path, keeping the sheet's name.
+            deduped.to_excel(output_path, index=False, sheet_name=sheet_name)
         except Exception as exc:  # noqa: BLE001
             logger.exception("ExcelDeduplicateSkill: failed to write %r", output_path)
             return SkillResult(

@@ -7,6 +7,7 @@ from dataclasses import dataclass, replace
 from datetime import datetime
 from typing import NamedTuple, Protocol
 
+import openpyxl
 import pandas as pd
 
 from buddy.models import (
@@ -810,6 +811,9 @@ class CompositeVerifier:
             return VerificationResult(passed=False, findings=(SKIPPED_FINDING,))
         if step.failure_reason:
             return VerificationResult(passed=False, confidence=1.0, findings=(step.failure_reason,))
+        sheet_problem = _sheet_list_problem(step)
+        if sheet_problem is not None:
+            return VerificationResult(passed=False, confidence=1.0, findings=(sheet_problem,))
         verifier = self._verifiers_by_capability.get(step.capability, self._fallback)
         result = verifier(self._scoped_request(request, step))
         if step.recheck and not result.passed:
@@ -874,6 +878,57 @@ class CompositeVerifier:
             # file: its rows and the target rows remaining, never "removed".
             measurements=tuple(m for v in verdicts for m in v.measurements) if passed else (),
         )
+
+
+_WORKBOOK_SUFFIXES = (".xlsx", ".xlsm", ".xls")
+
+
+def _sheet_names(path: str) -> list[str]:
+    """Every sheet's name in the workbook at ``path``, read fresh and read-only."""
+    with open(path, "rb") as handle:
+        if handle.read(4) == b"PK\x03\x04":  # .xlsx content, whatever the extension
+            handle.seek(0)
+            book = openpyxl.load_workbook(handle, read_only=True)
+            try:
+                return list(book.sheetnames)  # chart sheets included
+            finally:
+                book.close()
+    with pd.ExcelFile(path) as book:
+        return list(book.sheet_names)
+
+
+def _sheet_list_problem(step: StepResult) -> str | None:
+    """Say how a file-changing step's output lost or renamed a sheet, if it did.
+
+    A structural check, independent of the capability and of what the Skill
+    reported: a step that read a workbook must hand on a workbook with the
+    same sheet names, in the same order. Each chain step is checked against
+    the file it read (the previous step's output), so the final file's
+    sheets match the original's.
+
+    Returns:
+        ``None`` if the sheet lists match, or the step isn't a successful
+        file-changing step that read a workbook; otherwise the problem.
+    """
+    if (
+        step.status != "success"
+        or step.permission_tier == "read"
+        or step.recheck
+        or not step.outputs
+        or not step.input_reference.lower().endswith(_WORKBOOK_SUFFIXES)
+    ):
+        return None
+    try:
+        before, after = _sheet_names(step.input_reference), _sheet_names(step.outputs[0])
+    except Exception as exc:  # noqa: BLE001 — surfaced as a finding, not raised
+        logger.exception("Inspector: failed to read the sheet names of %r", step.outputs[0])
+        return f"couldn't independently read the workbook's sheet names: {exc}"
+    if before == after:
+        return None
+    return (
+        f"the output's sheets ({', '.join(after) or 'none'}) don't match its input's "
+        f"({', '.join(before)}), so a sheet was lost or renamed"
+    )
 
 
 # The ``StepVerification.capability`` recorded for the final-file check —

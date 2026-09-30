@@ -23,6 +23,7 @@ import argparse
 import hashlib
 import os
 import sys
+import time
 from pathlib import Path
 
 import pandas as pd
@@ -69,14 +70,39 @@ def _write_fixture_without_duplicates(path: Path) -> None:
     ).to_excel(path, index=False)
 
 
+def _write_two_sheet_fixture(path: Path) -> None:
+    """Write a real .xlsx workbook with two sheets: ``Q1`` holds the default
+    fixture's 6 rows (2 duplicates, 1 empty row) and ``Q2`` holds 2 distinct
+    rows. The skills refuse it (backlog item 1a): nothing should come back.
+    """
+    path.parent.mkdir(parents=True, exist_ok=True)
+    with pd.ExcelWriter(path) as writer:
+        pd.DataFrame(
+            {
+                "name": ["Alice", "Bob", None, "Alice", "Carol", "Bob"],
+                "amount": [10, 20, None, 10, 30, 20],
+            }
+        ).to_excel(writer, sheet_name="Q1", index=False)
+        pd.DataFrame({"name": ["Zed", "Yan"], "amount": [90, 80]}).to_excel(
+            writer, sheet_name="Q2", index=False
+        )
+
+
 _FIXTURES = {
     "default": (_write_fixture_with_duplicates, "duplicates and an empty row"),
     "no-duplicates": (_write_fixture_without_duplicates, "no duplicates and no empty rows"),
+    "two-sheets": (_write_two_sheet_fixture, "sheets Q1 (default rows) and Q2 (2 rows)"),
 }
 
 
+def _sheet_names(path: Path) -> list[str]:
+    """Every sheet's name, read independently of the pipeline."""
+    with pd.ExcelFile(path) as book:
+        return list(book.sheet_names)
+
+
 def _sha256(path: Path) -> str:
-    return hashlib.sha256(path.read_bytes()).hexdigest()[:16]
+    return hashlib.sha256(path.read_bytes()).hexdigest()
 
 
 def _print_header(title: str) -> None:
@@ -138,7 +164,7 @@ def _parse_args() -> argparse.Namespace:
         default="default",
         help=(
             "The upload to run against (default: 6 rows, 2 exact duplicates, 1 empty row; "
-            "no-duplicates: 4 distinct rows)."
+            "no-duplicates: 4 distinct rows; two-sheets: the default rows on Q1, and Q2)."
         ),
     )
     return parser.parse_args()
@@ -153,6 +179,7 @@ def main() -> None:
 
     input_path = SCRATCH_DIR / "uploads" / "manual_report.xlsx"
     write_fixture, fixture_description = _FIXTURES[args.fixture]
+    started = time.time()
     write_fixture(input_path)
     original_before = _sha256(input_path)
     print(f"Wrote fixture ({args.fixture}: {fixture_description}) to: {input_path}")
@@ -253,6 +280,7 @@ def main() -> None:
     _print_header("Independent check of the output file")
     outputs = state.execution_result.outputs if state.execution_result is not None else ()
     print(f"files handed back:    {len(outputs)}")
+    print(f"original sheets:      {_sheet_names(input_path)}")
     if outputs:
         output_path = Path(outputs[0])
         print(f"output path: {output_path}")
@@ -262,6 +290,7 @@ def main() -> None:
             print(f"original row count:   {len(original)}")
             print(f"original duplicates:  {int(original.dropna(how='all').duplicated().sum())}")
             print(f"original empty rows:  {int(original.isna().all(axis=1).sum())}")
+            print(f"output sheets:        {_sheet_names(output_path)}")
             print(f"row count:            {len(written)}")
             print(f"duplicate rows found: {int(written.duplicated().sum())}")
             print(f"empty rows found:     {int(written.isna().all(axis=1).sum())}")
@@ -272,6 +301,9 @@ def main() -> None:
     original_after = _sha256(input_path)
     unchanged = "unchanged" if original_after == original_before else "CHANGED"
     print(f"original file hash:   {original_before} -> {original_after} ({unchanged})")
+    output_dir = Path("workspace") / "outputs" / "manual-workspace"
+    written_now = sorted(p.name for p in output_dir.glob("*.xlsx") if p.stat().st_mtime >= started)
+    print(f"files written this run under {output_dir}: {written_now or 'none'}")
 
 
 if __name__ == "__main__":
