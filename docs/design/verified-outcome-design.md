@@ -127,6 +127,8 @@ The renderer is deterministic, and its wording is fixed in code. Each sentence c
 | file, `file_style="generated"` (Template) | "Saved as \`report_deduplicated_S-task-1.xlsx\`." (as today) |
 | file, `file_style="plain"` (PersonalityVoice) | "Your cleaned copy of report.xlsx is ready." (as today) |
 
+**PR-B wording note.** As implemented (`docs/reviews/verified-outcome-b-impl.md`, "Deviations"), the `NOT_PLANNED` and `NOT_READ_AS_REQUEST` rows name the step that didn't run rather than the rows ("I didn't run the empty-row removal, though I read it as part of your request." / "Your message mentions duplicate rows, but I didn't run the duplicate-row removal."). "I didn't remove any" can be false: dedupe removes repeated blank rows, and empty-row removal removes blank rows that `duplicated()` counts as duplicates. "Also" is dropped because in N1 the message mentions nothing else.
+
 **Lead word.** The block starts with "Done — " only when the ledger is non-empty, every ledger item is `DONE`, and nothing is `DONE_UNREQUESTED`. It starts with "Partly done — " when at least one requested item is `DONE` and at least one is `NOT_DONE`. Otherwise there is no lead word. So a bare "Done" can't appear for a compound request with an item left unaddressed, which is one of the backlog's acceptance criteria.
 
 **Unchanged parts.** The analysis preface ("Before anything else, here's what I noticed: …"), `INITIAL_ANALYSIS_FAILED_SENTENCE` and `RECHECK_FAILED_SENTENCE` keep their current code-rendered text and position.

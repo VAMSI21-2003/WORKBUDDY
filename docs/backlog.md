@@ -4,11 +4,7 @@ Open work, in priority order. Each item follows the working method in `CLAUDE.md
 
 ## 1. The outcome of a successful turn comes from verifier data, never from the model (F2 / N1 / N2)
 
-**Status (2026-09-30):** design approved (`docs/design/verified-outcome-design.md`, "Decisions (2026-09-30)"). PR-A (`feat/verified-outcome-a`, not merged) renders the delivered outcome by code from verifier measurements, removes the Voice model call, closes N2, and makes the order sentence reply-level for `PersonalityVoice` (the F4 item below). **Still open for PR-B:** the ledger of requested actions (Brain's `requested_actions`, the mention detector), `NOT_DONE` / `DONE_UNREQUESTED` lines and residual counts, which close N1, C1–C3 and N5. Until PR-B, a `multi_step_request` turn gets no "Done —" lead word.
-
-**PR-B follow-up:** reintroduce target-specific "nothing to remove" lines (the removed `friend.opener.nothing_to_remove`) only when the ledger confirms every requested action ran. PR-A dropped that opener because its predicate saw only the steps that ran: with "remove duplicates then remove empty rows" and a planner that returns only dedupe, a file with 0 duplicates and 1 empty row got "nothing to remove" while the empty row was still there.
-
-**PR-B follow-up (closers):** reintroduce completion-implying closers ("Anything else?", "What's next on the list?") only when the ledger confirms every requested action is DONE. PR-A removed `friend.closer.anything_else`, `friend.closer.whats_next` and `focus.closer.anything_else` (review M1): their predicate only checked that no analysis findings were open, so they appeared on turns where a requested action never ran, and "What's next?" presupposes the current item is finished.
+**Status (2026-09-30):** design approved (`docs/design/verified-outcome-design.md`, "Decisions (2026-09-30)"). PR-A (`feat/verified-outcome-a`) is merged: the delivered outcome is rendered by code from verifier measurements, the Voice model call is gone, N2 is closed, and the order sentence is reply-level for `PersonalityVoice`. **PR-B (`feat/verified-outcome-b`, not merged, independent review not yet done)** adds the ledger of requested actions (Brain's `requested_actions`, the mention detector), `NOT_DONE` / `DONE_UNREQUESTED` lines, "Partly done —", residual counts, and brings back the "nothing to remove" opener and the completion closers (PR-A review M1), gated on every requested action being done. In the `build_engine` tests it closes N1, C1–C3 and N5; see `docs/reviews/verified-outcome-b-impl.md` and `-live-runs.md`. Once PR-B is reviewed and merged, this item is closed apart from the deferred list below.
 
 **Problem:** on a verified delivery, `PersonalityVoice` uses the model's reply without any check against what was requested or what the verifier measured. It's the one known open breach of rule 1, and it exists on `main`.
 
@@ -31,6 +27,7 @@ Open work, in priority order. Each item follows the working method in `CLAUDE.md
 - Ledger lines on undelivered turns ("I didn't remove duplicates: I needed to ask you something first").
 - Verify rule 2 at runtime: hash the upload before and after in Hands.
 - Report "give me a report" as a delivered report (item 3); the design only makes it an honest `NO_SKILL` line.
+- **From PR-B:** the leftover case the design names (6.9 and "Costs"). If Brain misclassifies *and* the message paraphrases the request so the mention detector misses it, the reply can still lead with "Done —" for work that wasn't asked for. That's no false outcome claim, but it's misleading about the request. Measuring the ledger's recall (a labelled set of about 50 messages) comes before 6.8.
 
 ## 1a. M3 (high): multi-sheet workbooks lose every sheet after the first, while the reply says "cleaned copy"
 
@@ -63,6 +60,7 @@ Open work, in priority order. Each item follows the working method in `CLAUDE.md
 **Problem:**
 - **L-3:** "give me a report" is mapped to `spreadsheet.analyze` and then absorbed by the duplicate-analyze filter, so no step records the user's request. The reply may say "Done" without a report (`docs/reviews/chaining-wip-live-runs.md`).
 - **L-4:** `spreadsheet.analyze` never reports exact duplicate rows. Its duplicate check covers only near-duplicates, and only when there's a name column plus a phone or email column. The no-findings wording was softened on `main` ("none of the issues I check for were found"), but the model paraphrases it as "no issues found".
+- **L-4, more visible since PR-B:** a delivered reply can now say "It still has 2 duplicate row(s)." followed by the analyzer's "None of the issues I check for were found." Both are true (the analyzer doesn't check exact duplicates), but together they read as a contradiction (live run 7 in `docs/reviews/verified-outcome-b-live-runs.md`).
 
 **Acceptance criteria:**
 - A requested report is either delivered, as the analysis findings on the final file clearly labelled as the report, or stated as not available. It's never silently absorbed.

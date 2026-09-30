@@ -97,7 +97,11 @@ def build_engine(
     ``SpreadsheetAnalysisVerifier`` for ``spreadsheet.analyze``, falling
     back to ``NullVerifier``'s honest "not independently checked" result
     for any other capability — the concrete implementations this vertical
-    slice needs (see ``docs/design/slice-1-dedupe-design.md``). All wiring
+    slice needs (see ``docs/design/slice-1-dedupe-design.md``). Brain's
+    interpreter is wrapped in ``MentionCrossCheck`` and Inspector's verifier
+    in ``ResidualMeasurer``, which build and measure the requested-actions
+    ledger the reply is checked against (see
+    ``docs/design/verified-outcome-design.md`` Sections 2.5 and 3). All wiring
     happens here, once; every stage above continues to depend only on the
     protocol it was already built against, and none of them import this
     module.
