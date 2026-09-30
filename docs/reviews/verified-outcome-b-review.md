@@ -279,3 +279,112 @@ These don't block merging, but they should go into `docs/backlog.md`:
 - **L2:** collapse duplicate `NO_SKILL` sentences.
 - **L3:** "Partly done" when Brain lists an action the user said to keep. Mention-detector noise on "deduplicated" and "blank lines". Both follow from D2 and the prompt rule; measure them with the ledger-recall set (design 6.8).
 - **Carried from the PR-A review, unchanged here:** M3 (multi-sheet: `X-multisheet` still says "Done — removed 1 duplicate row(s). The copy has 2 row(s)…" with sheet `Q2` dropped), and L1–L3 from that review.
+
+---
+
+# Re-review (fixes commit `ef3166f`)
+
+**Verdict: DON'T MERGE.** H1 and M1 are fixed. H2's named scenarios are fixed, but the H2 fix introduced a new false "Done —" (N1 below).
+
+> **Independence caveat.** This re-review was run by the same session that wrote the fixes, at the user's explicit request, after the session objected that `CLAUDE.md` requires a separate session with no memory of the code. It is not the independent review the working method calls for. I tried to attack the fix rather than confirm it, and that found N1, but a separate session should still re-run this before anything merges. The harness is not in the repo (it lives in the session scratchpad), so it should also be rebuilt from the tables below.
+
+## Method
+
+- **Tree.** `origin/feat/verified-outcome-b` at `ef3166f` (local and remote heads equal). Comparison trees: `origin/main` (`310f660`) and the pre-fix head `3617c9f`, each as a temporary git worktree. The harness asserts that `buddy` is imported from the tree under test.
+- **Harness.** The real `build_engine` with the real skills and verifiers, and a fake LLM routed by system prompt (Brain / Think / Planner / anything else = Voice, counted). It has 38 scenarios × (template + friend × 12 session ids + focus = 14 turns) = **532 turns per tree**. Each turn records the reply, the steps, `delivered`, a fresh pandas read of the original and of the delivered file, the Voice-model call count and the original's SHA-256 before and after.
+- **Scenarios.** Every scenario from the review (c2, c3, c6, c7, k-remove_duplicates and its near-miss spellings, k-multi, a1–a5, b2, b4, b5, b6, e1, M1's N1 and d2), plus new ones aimed at the fixes (x1–x10, c8, e2, r-*).
+
+## Results
+
+| Check | Result |
+|---|---|
+| `python -m pytest -q` | **1008 passed** (181 s) |
+| `ruff check buddy tests` | 22 errors, identical to `main` with line numbers stripped |
+| Voice-model calls, all 532 turns | **0**; the model's marker text never reached a reply |
+| Original file changed (rule 2), all 532 turns | **0** |
+| Undelivered turns (chain stop, unclear): head vs `main` | **28 of 28 byte-identical** |
+
+### H1: fixed
+
+| Scenario | Head (template; friend × 12 and focus checked for the same markers) |
+|---|---|
+| `c2` "don't remove duplicates, just remove the empty rows" | "Removed 1 fully-empty row(s). I also removed 2 duplicate row(s), though I didn't read that as part of your request. …" No "Done", "Partly done", closer, or "seeing double" opener in any of 14 replies. |
+| `c3`, `c7` (no `requested_actions`) | Both removals stated plainly. No "Done", "Partly done", or closer in any of 14 replies each. |
+| `c6` | "I removed 2 duplicate row(s), though I didn't read that as part of your request. I didn't run the empty-row removal, though I read it as part of your request. … It still has 1 fully-empty row(s)." No "Partly done" and no "only part of this went through". |
+| `c8` (negation, "do not dedupe, only remove blank rows") | Dedupe stated as not run; the residual says 2 duplicates remain. |
+| `x7` (Brain missed one of two real requests) | Honest but flat: "I also removed 2 duplicate row(s), though I didn't read that as part of your request." No "Done". This is the accepted cost of D2 and H1. |
+| `x8` (both actions listed by Brain) | "Done —" still leads, and friend gets closers (3 of 12 "Anything else", 4 of 12 "What's next"). |
+
+Minor: for `c3` and `c7`, 2 of 12 friend replies open "That sheet was seeing double." The dedupe did remove rows, so the sentence is true, but it sits on a request that said to keep them. There's no reading from Brain in those scenarios, so nothing in the ledger can say so. Low.
+
+### H2 near-miss and broad phrases: fixed
+
+All 5 spellings of the action name (`remove_duplicates`, `Remove_Duplicate_Rows`, `"remove_duplicate_rows "`, `deduplicate`, `REMOVE_DUPLICATE_ROWS`) give "Done — removed 2 duplicate row(s).", with no "can't do" and no "Partly done" (14 of 14 turns each). Also:
+- `a1`, `a2`, `a5`: "Partly done — removed 2 duplicate row(s). I read part of your request as something I can't do yet." The whole-message quote is gone.
+- `a4`, `e2`: the entry is dropped, and the reply says "Done —".
+- `b5`: "keep the duplicates" is dropped; the reply is the N1-style block and no "Partly done".
+- `b2`: one sentence. `k-multi-nearmiss`: two real actions, no false "can't do".
+
+### M1: fixed
+
+N1, d2 and c8 show "It still has 2 duplicate row(s)." followed by "None of the **other** issues I check for were found." With no residual (`m1-clean`) the sentence is unchanged.
+
+## New findings
+
+### N1 (High, introduced by the H2 fix): a real unsupported request vanishes, and the reply says "Done —"
+
+**Where:** `buddy/outcome.py`, `_FILLER_WORDS` / `_no_skill_outcome`. The filler list contains the verbs "delete", "drop", "clean", "clear", "erase", "strip", "get", "rid" and the nouns "file", "sheet", "spreadsheet", "report", "data", "rows", "lines". If an `unsupported` phrase names an action and everything left is in that list, the entry is dropped.
+
+**Scenarios** (default fixture, dedupe ran; Brain's `unsupported` entry is a broad phrase that begins with the dedupe words, the same shape as live run 7's whole-message phrase):
+
+| ID | Message | Brain's `unsupported` phrase | Pre-fix head (`3617c9f`) | Fixed head |
+|---|---|---|---|---|
+| `x2` | "remove duplicates and delete the file" | "remove duplicates and delete the file" | "Partly done — removed 2 duplicate row(s). I can't do this part yet: “remove duplicates and delete the file”." | **"Done — removed 2 duplicate row(s)."** (14 of 14 turns, all speakers) |
+| `x3` | "remove duplicates and clean the data" | "remove duplicates and clean the data" | "Partly done — … can't do …" | **"Done —"** (14 of 14) |
+| `x4` | "remove duplicates and drop the sheet" | "remove duplicates and drop the sheet" | "Partly done — … can't do …" | **"Done —"** (14 of 14) |
+| `x5` "…and email me the report" | | same shape | "Partly done" | "Partly done … something I can't do yet" (correct) |
+| `x6` "delete the file" alone | | "delete the file" | "Partly done … can't do: “delete the file”" | same (correct: no action named) |
+
+**Why it matters:**
+- Brain flagged a part of the request as unsupported, and the reply now drops it and leads "Done —". That's a code-rendered completion claim for a request Buddy itself knows it only partly did. `main` also says "Done —" here, because it ignores the ledger, so it isn't a regression against `main`. But it is a regression against the pre-fix branch, and it defeats the purpose of the ledger.
+- It needs a broad phrase from Brain, which live run 7 shows happens, and one of the filler words. "email", "sort", "chart" and any other non-listed word are safe.
+- The filler list was written to drop "please" and "keep" around an action name. It doesn't need the verbs as a class or any of the nouns.
+
+**Suggested fix (small):**
+- Reduce `_FILLER_WORDS` to articles, politeness, negation and keep/leave words, and the removal verbs ("remove", "delete", "drop", "get", "rid") only.
+- Remove all nouns ("file", "sheet", "spreadsheet", "report", "data") from the list. Also remove "clean", "clear", "erase", "strip".
+- Keep "rows", "lines", "entries" and "records" only if the mention pattern has already consumed the word before them.
+- Add `build_engine` tests for `x2`, `x3` and `x4`: each must show "Partly done —" and the generic sentence, never "Done —".
+
+### N2 (Low–Medium, widened by the H1 fix; was L1): "I didn't read that as part of your request" when Brain's phrase names the action
+
+**Scenarios:** `a3` (Brain's only entry is an `unsupported` whole-message phrase "remove duplicates and sort by amount", and the planner ran dedupe), `x1` and `e1` (Brain's only entry is `unsupported` "sort by amount").
+
+**Head:** "I removed 2 duplicate row(s), though I didn't read that as part of your request. I read part of your request as something I can't do yet." Pre-fix, the mention entry made the dedupe `DONE`, giving "Partly done — removed 2 duplicate row(s)…". Now the reply tells the user Buddy didn't read "remove duplicates" as part of a request whose text says it (a3 quotes it in full). The sentence is about Brain's reading, but with an `unsupported` entry that contains the words, it misleads. L1 already covers it. The H1 change widens it: before, a mention entry made these steps `DONE`, so `a3` and `x1` got "Partly done" instead of the "didn't read" sentence.
+
+**Suggested fix (small):** `has_reading` should require a supported action in Brain's reading, as L1 says. Then these turns take the "no reading" path (`source="mention"`, no claim, no lead word). Not blocking on its own, but it's the same function as N1.
+
+### Low, unchanged
+
+- `b6`: a bare "please" `unsupported` entry still renders "I can't do this part yet: “please”." and "Partly done". The fix's notes say this was left on purpose; it needs a model slip to happen.
+- `b4` (L3): "Partly done" when Brain lists an action the user said to keep. Deferred (backlog).
+
+## Regression summary
+
+| Area | Status |
+|---|---|
+| Undelivered, stopped, unverified replies vs `main` | 28 of 28 byte-identical |
+| Voice model | 0 calls, no model text in any reply |
+| Rule 2 | original unchanged in 532 of 532 turns |
+| Counts | every "removed N" / "still has N" / "The copy has N" matched the pandas read in the turns I spot-checked (k, c2, c6, b5, x8, x10) |
+| Suite and lint | 1008 passed; 22 lint errors = `main` |
+
+## Verdict: DON'T MERGE
+
+1. **N1 blocks.** The H2 fix turns a wrong-but-flagged "Partly done … can't do: <whole message>" into a clean "Done —" when the unsupported part is phrased with a listed verb or noun. The fix is a few lines in `_FILLER_WORDS` plus three `build_engine` tests.
+2. N2 is not blocking, but it should be fixed together with N1 (same function: `has_reading`).
+3. After both, a separate session should re-run these scenarios (x2–x4, a3, x1, e1 especially) and then the live runs.
+
+## Deferred
+
+- N2 if not fixed now; L3; `b6`; carried over from the PR-A review: M3 and its L1–L3.
