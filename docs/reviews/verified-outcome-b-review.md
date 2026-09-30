@@ -72,7 +72,7 @@ Review only. No code was changed. This file is the only file written or committe
 - `buddy/outcome.py:244`. `requested_done` for "Partly done" also accepts a mention source.
 - These contradict the docstrings at `buddy/actions.py:120`, `buddy/brain.py:436` and `docs/design/verified-outcome-design.md:222`: "it can only add items to the **not done** side".
 - The design's own 2.2 table ("yes, any source → `DONE`") is the cause. The implementation follows the table, not the safety claim.
-- `buddy/voice_catalog.py:95-102`. The closers and `friend.opener.partial` inherit this, because they're gated on `request_complete` / `lead_word`.
+- `buddy/voice_catalog.py:95-112`. The closers and `friend.opener.partial` inherit this, because they're gated on `request_complete` / `lead_word`.
 
 **Scenarios run.** All use the default or `dups_only` fixture, a Brain reply of `multi_step_request`, and a planner that runs a step Brain's reading doesn't have. That's the same class of model error as N5, which PR-B exists to handle.
 
