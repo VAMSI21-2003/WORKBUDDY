@@ -45,7 +45,7 @@ Any change that could affect either rule counts as rule-touching (see below).
 
 ## Decided behaviour (don't undo without the user)
 
-- **The Voice model phrases a turn only when a verified file was delivered and Inspector passed it.** Every other turn gets `TemplateSpeaker`'s factual reply, with no model call.
+- **The Voice model never writes reply text. On a delivered, verified turn, the reply is rendered by code from execution and verifier data, with opener and closer lines chosen by code from a reviewed phrase catalog.**
 - **Brain intents are a closed vocabulary.** Anything else becomes `unclear`.
 - **Multi-step requests run as a chain,** in the order the user stated. The order is enforced from `source_phrase` positions, using an allowlist of forward connectors. When the order can't be confirmed, the reply says which order ran.
   - The chain stops on any failure, including failed verification, and then nothing is handed back.

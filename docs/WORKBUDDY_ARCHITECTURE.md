@@ -146,6 +146,15 @@ message the user actually sees, written to `BuddyState.reply`, following
 the tone rules in `BUDDY_PERSONALITY.md`. Speak is the only stage that
 produces user-facing language.
 
+No model writes reply text. On a turn that delivered a verified file, the
+outcome (what was done, the counts the verifiers measured, the order used
+when it couldn't be confirmed, and the file) is rendered by code
+(`buddy/outcome.py`) from `ExecutionResult` and `VerificationResult`, and
+the personality around it is an opener and a closer chosen by code from a
+reviewed phrase catalog (`buddy/voice_catalog.py`). Every other turn gets
+`TemplateSpeaker`'s factual reply. See
+`docs/design/verified-outcome-design.md`.
+
 ## 5. BuddyState
 
 `BuddyState` (`buddy/state.py`) is the single object every stage reads

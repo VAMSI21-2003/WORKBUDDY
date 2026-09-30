@@ -16,7 +16,10 @@ from buddy.inspector import (
     VerificationRequest,
 )
 from buddy.models import (
+    DUPLICATE_ROWS_TARGET,
+    EMPTY_ROWS_TARGET,
     ExecutionResult,
+    StepMeasurement,
     StepResult,
     StepVerification,
     Understanding,
@@ -1082,3 +1085,248 @@ def test_composite_verifier_still_fails_a_turn_whose_only_step_is_a_failed_read(
     )
 
     assert result.passed is False
+
+
+# -- Measurements: counts the verifiers measured themselves (verified-outcome 2.1) ------
+
+_SIX_ROWS = {
+    # 2 exact duplicates (Alice, Bob) and 1 fully-empty row, mid-file.
+    "name": ["Alice", "Bob", None, "Alice", "Carol", "Bob"],
+    "amount": [10, 20, None, 10, 30, 20],
+}
+
+
+def test_dedupe_verifier_measures_what_it_confirmed(tmp_path: Path) -> None:
+    source = _xlsx(tmp_path / "in.xlsx", _SIX_ROWS)
+    output = _xlsx(
+        tmp_path / "out.xlsx",
+        pd.read_excel(source).drop_duplicates().to_dict(orient="list"),
+    )
+
+    result = SpreadsheetDedupeVerifier()(_step_request("spreadsheet.deduplicate", output, source))
+
+    assert result.passed is True
+    original, written = pd.read_excel(source), pd.read_excel(output)
+    assert result.measurements == (
+        StepMeasurement(
+            target=DUPLICATE_ROWS_TARGET,
+            output_rows=len(written),
+            remaining=int(written.duplicated().sum()),
+            input_rows=len(original),
+            removed=int(original.dropna(how="all").duplicated().sum()),
+        ),
+    )
+    assert (result.measurements[0].input_rows, result.measurements[0].removed) == (6, 2)
+    assert (result.measurements[0].output_rows, result.measurements[0].remaining) == (4, 0)
+    # The finding strings are unchanged.
+    assert result.findings == ("output has 4 row(s), 0 duplicate row(s) remaining",)
+
+
+def test_dedupe_verifier_measures_zero_removed_on_a_file_with_no_duplicates(
+    tmp_path: Path,
+) -> None:
+    """N2's data: nothing to remove is measured as 0, never a guess."""
+    rows = {"name": ["Alice", "Bob", "Carol"], "amount": [10, 20, 30]}
+    source = _xlsx(tmp_path / "in.xlsx", rows)
+    output = _xlsx(tmp_path / "out.xlsx", rows)
+
+    result = SpreadsheetDedupeVerifier()(_step_request("spreadsheet.deduplicate", output, source))
+
+    assert result.passed is True
+    assert result.measurements == (
+        StepMeasurement(DUPLICATE_ROWS_TARGET, output_rows=3, remaining=0, input_rows=3, removed=0),
+    )
+
+
+def _dedupe_like_the_skill(source: str, tmp_path: Path, name: str = "out.xlsx") -> str:
+    """What ``ExcelDeduplicateSkill`` writes: ``drop_duplicates`` (identical blank
+    rows included), through a real .xlsx round trip."""
+    return _xlsx(tmp_path / name, pd.read_excel(source).drop_duplicates().to_dict("list"))
+
+
+def test_dedupe_verifier_counts_repeated_blank_rows_it_removed(tmp_path: Path) -> None:
+    """H1, scenario BT: no duplicate data rows, but two identical blank rows.
+    Dedupe removed one of them, so ``removed`` is 1, not 0."""
+    source = _xlsx(
+        tmp_path / "in.xlsx",
+        {"name": ["Alice", None, "Bob", None, "Carol"], "amount": [1, None, 2, None, 3]},
+    )
+    output = _dedupe_like_the_skill(source, tmp_path)
+
+    result = SpreadsheetDedupeVerifier()(_step_request("spreadsheet.deduplicate", output, source))
+
+    original, written = pd.read_excel(source), pd.read_excel(output)
+    assert (len(original), len(written)) == (5, 4)
+    assert result.passed is True
+    assert result.measurements == (
+        StepMeasurement(
+            DUPLICATE_ROWS_TARGET,
+            output_rows=4,
+            remaining=0,
+            input_rows=5,
+            removed=len(original) - len(written),
+            removed_blank=1,
+        ),
+    )
+
+
+def test_dedupe_verifier_counts_data_and_blank_duplicates_together(tmp_path: Path) -> None:
+    """H1, scenario X-two-empty: 1 duplicate data row and 2 identical blank rows."""
+    source = _xlsx(
+        tmp_path / "in.xlsx",
+        {
+            "name": ["Alice", None, "Bob", "Alice", None, "Carol"],
+            "amount": [1, None, 2, 1, None, 3],
+        },
+    )
+    output = _dedupe_like_the_skill(source, tmp_path)
+
+    result = SpreadsheetDedupeVerifier()(_step_request("spreadsheet.deduplicate", output, source))
+
+    original, written = pd.read_excel(source), pd.read_excel(output)
+    assert result.passed is True
+    (measurement,) = result.measurements
+    assert (measurement.input_rows, measurement.output_rows) == (6, 4)
+    assert measurement.removed == len(original) - len(written) == 2
+    assert (measurement.removed_blank, measurement.removed_data) == (1, 1)
+
+
+def test_dedupe_verifier_gives_no_count_when_the_xlsx_round_trip_dropped_a_blank(
+    tmp_path: Path,
+) -> None:
+    """The row the step kept last is blank, and the .xlsx round trip drops a
+    trailing blank row. Rows in minus rows out (2) is then not what the step
+    removed as duplicates (1), so the verifier still passes the file but
+    confirms no count."""
+    source = _xlsx(tmp_path / "in.xlsx", {"name": ["Alice", None, "Alice"], "amount": [1, None, 1]})
+    output = _dedupe_like_the_skill(source, tmp_path)
+    assert len(pd.read_excel(source)) - len(pd.read_excel(output)) == 2  # the round trip's doing
+
+    result = SpreadsheetDedupeVerifier()(_step_request("spreadsheet.deduplicate", output, source))
+
+    assert result.passed is True
+    (measurement,) = result.measurements
+    assert (measurement.removed, measurement.removed_blank) == (None, 0)
+    assert (measurement.input_rows, measurement.output_rows) == (3, 1)
+
+
+def test_dedupe_verifier_gives_no_count_when_a_step_dropped_every_blank_row(
+    tmp_path: Path,
+) -> None:
+    """A step that dropped both of two identical blank rows removed more than
+    dedupe should have. The file passes the existing check (blank rows are left
+    out of it), but the count isn't confirmed."""
+    source = _xlsx(
+        tmp_path / "in.xlsx",
+        {"name": ["Alice", None, "Bob", None, "Carol"], "amount": [1, None, 2, None, 3]},
+    )
+    output = _xlsx(
+        tmp_path / "out.xlsx",
+        pd.read_excel(source).dropna(how="all").to_dict("list"),
+    )
+
+    result = SpreadsheetDedupeVerifier()(_step_request("spreadsheet.deduplicate", output, source))
+
+    assert result.passed is True
+    assert result.measurements[0].removed is None
+
+
+def test_empty_rows_verifier_measures_what_it_confirmed(tmp_path: Path) -> None:
+    source = _xlsx(tmp_path / "in.xlsx", _SIX_ROWS)
+    output = _xlsx(tmp_path / "out.xlsx", pd.read_excel(source).dropna(how="all").to_dict("list"))
+
+    result = SpreadsheetEmptyRowsVerifier()(
+        _step_request("spreadsheet.remove_empty_rows", output, source)
+    )
+
+    assert result.passed is True
+    original = pd.read_excel(source)
+    assert result.measurements == (
+        StepMeasurement(
+            EMPTY_ROWS_TARGET,
+            output_rows=5,
+            remaining=0,
+            input_rows=len(original),
+            removed=int(original.isna().all(axis=1).sum()),
+        ),
+    )
+    assert result.measurements[0].removed == 1
+
+
+def test_a_failing_verifier_records_no_measurement(tmp_path: Path) -> None:
+    source = _xlsx(tmp_path / "in.xlsx", _WITH_DUPES)
+    dropped_a_row = _xlsx(tmp_path / "out.xlsx", {"name": ["Alice", "Bob"], "amount": [10, 20]})
+    still_dupes = _xlsx(tmp_path / "dupes.xlsx", _WITH_DUPES)
+
+    wrong_rows = SpreadsheetDedupeVerifier()(
+        _step_request("spreadsheet.deduplicate", dropped_a_row, source)
+    )
+    dupes_left = SpreadsheetDedupeVerifier()(_step_request("spreadsheet.deduplicate", still_dupes))
+    empty_left = SpreadsheetEmptyRowsVerifier()(
+        _step_request("spreadsheet.remove_empty_rows", _xlsx(tmp_path / "e.xlsx", _SIX_ROWS))
+    )
+
+    for result in (wrong_rows, dupes_left, empty_left):
+        assert result.passed is False
+        assert result.measurements == ()
+
+
+def test_a_verifier_with_no_input_measures_only_the_output(tmp_path: Path) -> None:
+    output = _xlsx(tmp_path / "out.xlsx", {"name": ["Alice", "Bob"], "amount": [10, 20]})
+
+    result = SpreadsheetDedupeVerifier()(_step_request("spreadsheet.deduplicate", output))
+
+    assert result.measurements == (
+        StepMeasurement(DUPLICATE_ROWS_TARGET, output_rows=2, remaining=0),
+    )
+
+
+def test_composite_verifier_carries_each_steps_measurements_and_the_final_files(
+    tmp_path: Path,
+) -> None:
+    source = _xlsx(tmp_path / "in.xlsx", _SIX_ROWS)
+    first_out = _xlsx(tmp_path / "a.xlsx", pd.read_excel(source).drop_duplicates().to_dict("list"))
+    final = _xlsx(tmp_path / "b.xlsx", pd.read_excel(first_out).dropna(how="all").to_dict("list"))
+    steps = (
+        StepResult(
+            capability="spreadsheet.deduplicate",
+            skill="excel.deduplicate",
+            status="success",
+            outputs=(first_out,),
+            input_reference=source,
+        ),
+        StepResult(
+            capability="spreadsheet.remove_empty_rows",
+            skill="excel.remove_empty_rows",
+            status="success",
+            outputs=(final,),
+            input_reference=first_out,
+        ),
+    )
+    composite = CompositeVerifier(
+        {
+            "spreadsheet.deduplicate": SpreadsheetDedupeVerifier(),
+            "spreadsheet.remove_empty_rows": SpreadsheetEmptyRowsVerifier(),
+        }
+    )
+
+    result = composite(
+        _request(execution_result=ExecutionResult(success=True, outputs=(final,), steps=steps))
+    )
+
+    assert result.passed is True
+    dedupe, empty_rows, final_check = result.steps
+    assert dedupe.measurements == (
+        StepMeasurement(DUPLICATE_ROWS_TARGET, output_rows=4, remaining=0, input_rows=6, removed=2),
+    )
+    assert empty_rows.measurements == (
+        StepMeasurement(EMPTY_ROWS_TARGET, output_rows=3, remaining=0, input_rows=4, removed=1),
+    )
+    # The final-file check reads only the final file: no "removed".
+    written = pd.read_excel(final)
+    assert final_check.measurements == (
+        StepMeasurement(DUPLICATE_ROWS_TARGET, output_rows=len(written), remaining=0),
+        StepMeasurement(EMPTY_ROWS_TARGET, output_rows=len(written), remaining=0),
+    )
+    # The aggregate carries them per step, not at the top level.
+    assert result.measurements == ()

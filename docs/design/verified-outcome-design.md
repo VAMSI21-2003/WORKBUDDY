@@ -43,12 +43,21 @@ class StepMeasurement:
     output_rows: int          # rows in the output, as read by the verifier
     remaining: int            # target rows still in the output
     input_rows: int | None = None   # rows in the step's input; None when there's no input (final-file check)
-    removed: int | None = None      # target rows the input had, which the step had to remove
+    removed: int | None = None      # rows the step removed, confirmed by the verifier; None when there's no input or the count can't be confirmed
+    removed_blank: int = 0          # of `removed`, repeated fully-empty rows (dedupe only)
 ```
 
 - `VerificationResult.measurement: StepMeasurement | None = None` and `StepVerification.measurement: StepMeasurement | None = None`. `_aggregate_verdicts` copies it from each step's result, the same way it copies `findings`.
-- **Dedupe verifier.** `_check_against_input` already reads the input and computes `expected = len(original) - duplicated`. Return `removed = int(original.duplicated().sum())` and `input_rows = len(original)`, measured on the non-empty rows, exactly as the existing check does. `removed` is set **only when the verifier passes**. The pass condition already proves the output has exactly `input − removed` non-empty rows, all taken from the input, so the number is confirmed rather than predicted.
-- **Empty-rows verifier.** The same, with `removed = int(original.isna().all(axis=1).sum())`.
+- **Dedupe verifier.** `_check_against_input` already reads the input and the output. Dedupe removes *every* row that repeats an earlier row, and identical fully-empty rows repeat each other, so it removes all but one of them. `removed` is therefore the number of rows the step actually removed, blank repeats included, and the verifier confirms it against the files rather than assuming it. (The first version measured this on the non-empty rows only, so a file whose only duplicates were two blank rows got "there were no duplicate rows to remove" while a row had gone: review finding H1.) The verifier records:
+  - `input_rows = len(original)`, and `removed = int(original.duplicated().sum())`, counted on the input as read, blank rows included;
+  - `removed_blank = blank rows in the input − blank rows in the output`.
+
+  `removed` is set only when the verifier passes **and** both of these hold; otherwise it is `None` and the reply states no number:
+  - `input_rows − rows in the output == removed`. The existing pass condition compares the non-empty rows only, because an `.xlsx` round trip drops a trailing blank row, so a kept blank row that ends up last vanishes. That would make the row delta larger than what dedupe removed, and this check turns it into "no count" instead of a wrong one.
+  - `removed_blank == max(blank rows in the input − 1, 0)`: exactly one of the identical blank rows is kept.
+
+  What the number means, then, is "rows the step removed, as confirmed by the input and output files". Rows in minus rows out always equals it.
+- **Empty-rows verifier.** The same, with `removed = int(original.isna().all(axis=1).sum())`, and `removed_blank = 0`. The same row-delta check applies.
 - **Final-file check** (`_verify_final_file`). `output_rows` and `remaining` for each chained step's target. `removed` is `None`.
 - The existing finding strings stay unchanged, so Inspector's other consumers and tests are unaffected.
 
@@ -105,8 +114,9 @@ The renderer is deterministic, and its wording is fixed in code. Each sentence c
 | Report content | Rendered sentence |
 |---|---|
 | `DONE`, `removed > 0` | "Removed 2 duplicate row(s)." |
+| `DONE`, `removed > 0`, `removed_blank > 0` (**H1**) | "Removed 2 duplicate row(s), including 1 repeated blank row." |
 | `DONE`, `removed == 0` (**N2**) | "There were no duplicate rows to remove." |
-| `DONE`, no measurement (e.g. a non-composite verifier) | "Removed the duplicate rows; the result was checked." |
+| `DONE`, no measurement or no confirmed count (`removed=None`: a non-composite verifier, or the files don't confirm the number) | "Removed the duplicate rows; the result was checked." |
 | `DONE_UNREQUESTED` | "I also removed 2 duplicate row(s), though I didn't read that as part of your request." |
 | `NOT_PLANNED` | "I didn't remove the empty rows: that step was left out of what I ran." |
 | `NOT_READ_AS_REQUEST` | "Your message also mentions duplicate rows, but I didn't remove any. I read your request as: remove empty rows." |
@@ -291,6 +301,8 @@ The implementer must run the full suite and list every test that changed in the 
 **Measurements (`test_inspector.py`)**
 - The dedupe verifier on 6 rows with 2 duplicates and 1 empty row gives `removed=2`, `remaining=0`, and an `input_rows` that matches a fresh pandas read.
 - On a file with no duplicates it gives `removed=0` (N2's data).
+- On 5 rows (Alice, blank, Bob, blank, Carol) it gives `removed=1`, `removed_blank=1`, and on 6 rows with 1 duplicate data row and 2 identical blank rows it gives `removed=2`, `removed_blank=1` (H1).
+- When the `.xlsx` round trip dropped a blank row the step kept, or a step dropped every blank row, `removed=None`: the count isn't confirmed.
 - A Skill whose `summary` or `metadata` says 99 still gets the verifier's number in the reply.
 - A failing verifier has `removed=None`.
 
@@ -425,3 +437,14 @@ These are kept out of this change on purpose. Each should be added to `docs/back
 4. Ledger lines on **undelivered** turns (for example "I didn't remove duplicates: I needed to ask you something first"). Those replies are already honest, so this is an improvement, not a rule-1 fix.
 5. Verifying rule 2 at runtime: hash the upload before and after in Hands. The existing chain-stop sentence already claims "your original file is unchanged" without a runtime check.
 6. Reporting "give me a report" as a delivered report (backlog item 3). This design only makes it an honest `NO_SKILL` line.
+
+---
+
+## Decisions (2026-09-30)
+
+The design is approved with these decisions. Where they conflict with the sections above, these win.
+
+- **D1. Adopt 6.6: no model call on delivered turns.** Code picks the opener and closer from the reviewed catalog using the eligibility predicates, deterministically but with variety (for example seeded by session id and turn index, so tests stay stable). The JSON selection contract (2.4, "How it's enforced", step 1, and "The prompt") is removed. Model-written personality returns later only on explicit conversation turns (backlog item 2).
+- **D2. Actions found only by the mention detector (`NOT_READ_AS_REQUEST`) never produce "Partly done —".** They suppress the "Done —" lead word, and the reply gets no lead word.
+- **D3. Reply order:** opener, outcome block, analysis preface/findings, closer. The outcome comes before the analysis findings (this replaces the order in 2.4, step 4, and the "Unchanged parts" position in 2.3).
+- **D4. Implement in two PRs.** PR-A: verifier measurements, `OutcomeReport` and `render_outcome` for `DONE` actions, final-state, order-used and file sentences, the phrase catalog with a deterministic selector, and both speakers' delivered paths on the renderer. No ledger in PR-A: until PR-B, a `multi_step_request` turn gets no "Done —" lead word, and single-intent turns whose capability passed keep "Done —". PR-B: the ledger (Brain's `requested_actions`, the mention detector), `NOT_DONE` and `DONE_UNREQUESTED` lines, "Partly done —", and residual counts.

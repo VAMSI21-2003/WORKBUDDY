@@ -10,8 +10,11 @@ from typing import NamedTuple, Protocol
 import pandas as pd
 
 from buddy.models import (
+    DUPLICATE_ROWS_TARGET,
+    EMPTY_ROWS_TARGET,
     SKIPPED_STATUS,
     ExecutionResult,
+    StepMeasurement,
     StepResult,
     StepVerification,
     Understanding,
@@ -147,18 +150,29 @@ class SpreadsheetDedupeVerifier:
                 recommendations=("re-run deduplication; duplicates remain",),
             )
 
-        problem = _check_against_input(
+        check = _check_against_input(
             written,
             _step_input(execution_result),
             lambda original: len(original) - int(original.duplicated().sum()),
+            # Every row dedupe must drop, identical blank rows included.
+            lambda original: int(original.duplicated().sum()),
         )
-        if problem is not None:
-            findings.append(problem)
+        if check.problem is not None:
+            findings.append(check.problem)
+            return VerificationResult(
+                passed=False,
+                confidence=1.0,
+                findings=tuple(findings),
+                recommendations=("re-run deduplication on the original",),
+            )
         return VerificationResult(
-            passed=problem is None,
+            passed=True,
             confidence=1.0,
             findings=tuple(findings),
-            recommendations=() if problem is None else ("re-run deduplication on the original",),
+            measurements=(check.measurement(
+                    DUPLICATE_ROWS_TARGET, len(written), duplicate_count, repeats_blank_rows=True
+                ),
+            ),
         )
 
 
@@ -213,18 +227,25 @@ class SpreadsheetEmptyRowsVerifier:
                 recommendations=("re-run empty-row removal; empty rows remain",),
             )
 
-        problem = _check_against_input(
+        check = _check_against_input(
             written,
             _step_input(execution_result),
             lambda original: len(original) - int(original.isna().all(axis=1).sum()),
+            lambda original: int(original.isna().all(axis=1).sum()),
         )
-        if problem is not None:
-            findings.append(problem)
+        if check.problem is not None:
+            findings.append(check.problem)
+            return VerificationResult(
+                passed=False,
+                confidence=1.0,
+                findings=tuple(findings),
+                recommendations=("re-run empty-row removal on the original",),
+            )
         return VerificationResult(
-            passed=problem is None,
+            passed=True,
             confidence=1.0,
             findings=tuple(findings),
-            recommendations=() if problem is None else ("re-run empty-row removal on the original",),
+            measurements=(check.measurement(EMPTY_ROWS_TARGET, len(written), empty_row_count),),
         )
 
 
@@ -243,11 +264,65 @@ def _row_set(df: pd.DataFrame) -> set[tuple[object, ...]]:
     return set(df.astype(object).where(df.notna(), None).itertuples(index=False, name=None))
 
 
+class _InputCheck(NamedTuple):
+    """What ``_check_against_input`` found: a problem, or what it measured."""
+
+    problem: str | None = None
+    # Rows in the step's input, and the target rows it had to remove, both
+    # read fresh from the input. ``None`` when there was no input to read.
+    input_rows: int | None = None
+    removed: int | None = None
+    # Rows and fully-empty rows in the output as read (before the check
+    # drops empty rows), and fully-empty rows in the input.
+    output_rows: int | None = None
+    input_blank: int | None = None
+    output_blank: int | None = None
+
+    def measurement(
+        self, target: str, output_rows: int, remaining: int, repeats_blank_rows: bool = False
+    ) -> StepMeasurement:
+        """The ``StepMeasurement`` for a check that passed.
+
+        ``removed`` is kept only when the files confirm it: it must equal the
+        rows the input had beyond the output. Otherwise it's ``None`` and the
+        reply states no number. The row-count check leaves empty rows out, so
+        this is where an .xlsx round trip that dropped or kept a blank row is
+        caught.
+
+        Args:
+            target: What the step counted.
+            output_rows: Rows in the output, as read.
+            remaining: Target rows still in the output.
+            repeats_blank_rows: ``True`` for deduplication, which removes all
+                but one of any identical blank rows. Their number is then
+                confirmed as well, and reported as ``removed_blank``.
+        """
+        removed, removed_blank = self.removed, 0
+        if removed is not None:
+            confirmed = self.input_rows - self.output_rows == removed
+            if repeats_blank_rows:
+                removed_blank = self.input_blank - self.output_blank
+                # Identical blank rows keep exactly one, so the step removed
+                # all but one of them (none if there were none).
+                confirmed = confirmed and removed_blank == max(self.input_blank - 1, 0)
+            if not confirmed:
+                removed, removed_blank = None, 0
+        return StepMeasurement(
+            target=target,
+            output_rows=output_rows,
+            remaining=remaining,
+            input_rows=self.input_rows,
+            removed=removed,
+            removed_blank=removed_blank,
+        )
+
+
 def _check_against_input(
     written: pd.DataFrame,
     input_path: str,
     expected_row_count: Callable[[pd.DataFrame], int],
-) -> str | None:
+    removed_count: Callable[[pd.DataFrame], int],
+) -> _InputCheck:
     """Check an output against the step's own input, not just on its own.
 
     An output-only check ("no duplicates left") would still pass for a step
@@ -255,26 +330,39 @@ def _check_against_input(
     confirms the output has exactly the rows the capability should have
     kept: the expected row count, and no row that wasn't in the input.
 
+    When the check passes, it also returns what it measured on the input:
+    its row count and how many target rows it had. The pass condition
+    proves the output kept exactly the rest, so the removed count is
+    confirmed, not predicted.
+
     Args:
         written: The step's output, already read fresh.
         input_path: The file the step read, or ``""`` if unknown — in which
             case only the output-only postcondition applies (the check a
             final file gets, since it isn't any single step's direct output).
-        expected_row_count: Recomputes, from the input, how many rows the
-            output should have.
+        expected_row_count: Recomputes, from the input with its fully-empty
+            rows left out, how many rows the output should have.
+        removed_count: Counts, from the input as read (empty rows
+            included), the rows the step had to remove.
 
     Returns:
-        ``None`` if the output is consistent with its input (or there is no
-        input to check against); otherwise a plain-language problem.
+        An ``_InputCheck`` with no problem and the input's counts if the
+        output is consistent with its input; with no problem and no counts
+        if there is no input to check against; otherwise with a
+        plain-language problem.
     """
     if not input_path:
-        return None
+        return _InputCheck()
     try:
         original = pd.read_excel(input_path)  # fresh, independent read of the step's input
     except Exception as exc:  # noqa: BLE001 — surfaced as a finding, not raised
         logger.exception("Inspector: failed to read step input %r", input_path)
-        return f"could not independently read its input {input_path!r}: {exc}"
+        return _InputCheck(problem=f"could not independently read its input {input_path!r}: {exc}")
 
+    input_rows = len(original)
+    removed = removed_count(original)
+    input_blank = int(original.isna().all(axis=1).sum())
+    output_rows, output_blank = len(written), int(written.isna().all(axis=1).sum())
     # Fully-empty rows are left out on both sides: an .xlsx can't hold a
     # trailing empty row (openpyxl drops it on the write/read round trip),
     # so whether one survives depends on where it ended up, not on what the
@@ -283,14 +371,22 @@ def _check_against_input(
     written = _without_empty_rows(written)
     expected = expected_row_count(original)
     if len(written) != expected:
-        return (
-            f"expected {expected} non-empty row(s) from its {len(original)}-row input, "
-            f"found {len(written)}"
+        return _InputCheck(
+            problem=(
+                f"expected {expected} non-empty row(s) from its {len(original)}-row input, "
+                f"found {len(written)}"
+            )
         )
     unexpected = _row_set(written) - _row_set(original)
     if unexpected:
-        return f"{len(unexpected)} output row(s) don't appear in its input"
-    return None
+        return _InputCheck(problem=f"{len(unexpected)} output row(s) don't appear in its input")
+    return _InputCheck(
+        input_rows=input_rows,
+        removed=removed,
+        output_rows=output_rows,
+        input_blank=input_blank,
+        output_blank=output_blank,
+    )
 
 
 _DATE_FORMATS = (
@@ -618,6 +714,7 @@ def _aggregate_verdicts(per_step: Sequence[_Verdict]) -> VerificationResult:
                 input_reference=v.input_reference,
                 recheck=v.recheck,
                 read_only=v.read_only,
+                measurements=v.result.measurements,
             )
             for v in per_step
         ),
@@ -767,11 +864,15 @@ class CompositeVerifier:
             verifier = self._verifiers_by_capability.get(step.capability, self._fallback)
             final_step = replace(step, outputs=(final_file,), input_reference="")
             verdicts.append(verifier(self._scoped_request(request, final_step)))
+        passed = all(v.passed for v in verdicts)
         return VerificationResult(
-            passed=all(v.passed for v in verdicts),
+            passed=passed,
             confidence=min(v.confidence for v in verdicts),
             findings=tuple(f"final file: {f}" for v in verdicts for f in v.findings),
             recommendations=tuple(r for v in verdicts for r in v.recommendations),
+            # With no input reference, each verifier measured only the final
+            # file: its rows and the target rows remaining, never "removed".
+            measurements=tuple(m for v in verdicts for m in v.measurements) if passed else (),
         )
 
 

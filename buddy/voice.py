@@ -8,18 +8,27 @@ from pathlib import Path
 from typing import Protocol
 
 from buddy.inspector import FINAL_OUTPUT_CAPABILITY, SKIPPED_FINDING
-from buddy.llm import LLMMessage, LLMProvider
+from buddy.llm import LLMProvider
 from buddy.models import (
     DECLINED_STATUS,
     SKIPPED_STATUS,
     ExecutionResult,
     StepResult,
-    StepVerification,
     Understanding,
     VerificationResult,
 )
+from buddy.outcome import (
+    FILE_STYLE_GENERATED,
+    FILE_STYLE_PLAIN,
+    _describe_capability,
+    _is_action_step,
+    _step_passed,
+    build_outcome_report,
+    render_outcome,
+)
 from buddy.planner import _INTENT_CAPABILITIES
 from buddy.state import BuddyState
+from buddy.voice_catalog import select_phrases
 
 logger = logging.getLogger(__name__)
 
@@ -41,7 +50,7 @@ _ANALYSIS_FINDING_FIX_CAPABILITY: dict[str, str] = {}
 # findings, a category) -- "[spreadsheet.deduplicate] ..." or
 # "[spreadsheet.analyze] [outliers] ...". Those tags are internal routing
 # labels and must never reach the user, so they're stripped before a
-# finding is rendered into a reply or handed to the model.
+# finding is rendered into a reply.
 _FINDING_TAG_PREFIX = re.compile(r"^(?:\[[\w.]+\]\s*)+")
 
 # A raw capability id anywhere in a text, e.g. the "spreadsheet.report" in
@@ -73,11 +82,6 @@ def _is_analysis_finding(finding: str) -> bool:
     return finding.startswith(f"[{_ANALYZE_CAPABILITY}]")
 
 
-def _describe_capability(capability: str) -> str:
-    """Turn a capability id into plain words, e.g. ``"spreadsheet.deduplicate"`` -> ``"deduplicate"``."""
-    return capability.rsplit(".", 1)[-1].replace("_", " ")
-
-
 def _find_step(execution_result: ExecutionResult | None, capability: str) -> StepResult | None:
     """Return the first step in ``execution_result.steps`` for ``capability``.
 
@@ -96,84 +100,19 @@ def _find_step(execution_result: ExecutionResult | None, capability: str) -> Ste
     return None
 
 
-def _step_passed(
-    step: StepResult, verification_result: VerificationResult | None
-) -> bool:
-    """Return whether ``step`` ran *and Inspector confirmed it* this turn.
-
-    The one rule for "passed" everywhere in Voice — the prompt's
-    "(passed)" labels, the "requested action was NOT performed" line, and
-    whether any change was delivered. It's the strict reading: a step
-    passes only when its Skill reported ``"success"`` *and* Inspector has
-    a passing verdict for that same step. A step Inspector never checked
-    (no verdict for it, or no Inspector at all) does not pass — never
-    "passed unless contradicted", since that reading is what let an
-    unchecked step count as done.
-
-    When Inspector gave no per-step breakdown (``NullVerifier``, or a
-    single non-composite ``Verifier``), its overall ``passed`` is the only
-    verdict there is, so it's used for every step.
-
-    Args:
-        step: The step to check.
-        verification_result: Inspector's verdict, if it ran.
-
-    Returns:
-        ``True`` if the step ran successfully and verification confirmed it.
-    """
-    if step.status != "success" or verification_result is None:
-        return False
-    if not verification_result.steps:
-        return verification_result.passed
-    return any(
-        _verdict_is_for(verdict, step) and verdict.passed for verdict in verification_result.steps
-    )
-
-
-def _verdict_is_for(verdict: StepVerification, step: StepResult) -> bool:
-    """Whether Inspector's ``verdict`` is about ``step``.
-
-    Matched on capability, on whether it's a re-check of the final file,
-    and — when both sides recorded one — on the file the step read, so the
-    analysis of the original and its re-check on the final file are never
-    mixed up.
-    """
-    if verdict.capability != step.capability or verdict.recheck != step.recheck:
-        return False
-    return (
-        not verdict.input_reference
-        or not step.input_reference
-        or verdict.input_reference == step.input_reference
-    )
-
-
-_ACTION_TIERS = ("write", "external_effect")
-
 NO_CHANGES_SENTENCE = "No changes were made to any file this turn."
 
 # Wording that claims work was carried out. No reply for a turn that
-# delivered nothing may contain any of it. PersonalityVoice never calls the
-# model for such a turn (see ``_model_may_describe_outcome``), so this is
-# what tests check the factual replies against. Deliberately broad.
+# delivered nothing may contain any of it, and no phrase-catalog entry may
+# either (``buddy.voice_catalog``): on a delivered turn the outcome block's
+# lead word is the only "Done". Tests check replies against it; it is a
+# lint, not the safeguard. Deliberately broad.
 _COMPLETION_CLAIM = re.compile(
     r"\b(done|complet(e|ed|ely|ion)|finish(ed)?|succeed(ed)?|success(ful|fully)?|"
     r"removed|deleted|clean(ed)?|cleared|dedup(ed|licated)?|saved|fixed|ready|"
     r"handled|taken care)\b",
     re.IGNORECASE,
 )
-
-
-def _is_action_step(step: StepResult) -> bool:
-    """Whether ``step`` ran a Skill that changes files (tier above READ).
-
-    Results recorded before steps carried their tier count as actions only
-    if they produced a file.
-    """
-    if step.status == SKIPPED_STATUS:
-        return False
-    if step.permission_tier:
-        return step.permission_tier in _ACTION_TIERS
-    return bool(step.outputs)
 
 
 def _action_passed_verification(
@@ -223,8 +162,8 @@ def _nothing_delivered(request: "SpeakingRequest") -> bool:
 def _delivered_file_name(request: "SpeakingRequest") -> str | None:
     """The name of the user's original file, if a changed copy was handed back.
 
-    The generated output name is never shown to the user (see the mode
-    prompts); the reply refers to it as a cleaned copy of the original.
+    ``PersonalityVoice`` never shows the generated output name; its reply
+    refers to the file as a cleaned copy of the original.
     """
     if _nothing_delivered(request):
         return None
@@ -233,12 +172,6 @@ def _delivered_file_name(request: "SpeakingRequest") -> str | None:
         if _is_action_step(step) and step.input_reference:
             return Path(step.input_reference).name
     return Path(request.execution_result.outputs[0]).name
-
-
-def _mentions_file(reply: str, file_name: str) -> bool:
-    stem = Path(file_name).stem.lower()
-    text = reply.lower()
-    return stem in text or stem.replace("_", " ") in text
 
 
 def _findings_for_reply(verification_result: VerificationResult) -> tuple[str, ...]:
@@ -278,20 +211,18 @@ RECHECK_FAILED_SENTENCE = (
 )
 
 
-def _model_may_describe_outcome(request: "SpeakingRequest") -> bool:
-    """Whether ``PersonalityVoice`` may let the model phrase this turn.
+def _verified_delivery(request: "SpeakingRequest") -> bool:
+    """Whether this turn delivered a verified file.
 
-    Only when a verified file was delivered: something was handed back and
-    Inspector ran and passed the turn. Every other turn is described by
-    ``TemplateSpeaker``'s factual reply, with no model call.
+    Something was handed back and Inspector ran and passed the turn. Only
+    such a turn gets the rendered outcome (``_verified_delivery_reply``),
+    and, from ``PersonalityVoice``, catalog phrases around it. Every other
+    turn keeps ``TemplateSpeaker``'s factual reply.
 
     This deliberately doesn't depend on the classified intent. Brain has
     no conversational intent, so a turn classified ``unclear`` or with no
     intent (an LLM failure, a non-JSON reply) may well be an action
-    request that nothing carried out. A model can phrase a false
-    completion claim in words no check anticipates, so for any turn that
-    didn't deliver a verified file it's never given the chance. When a
-    conversational intent is added, it will be allowed here explicitly.
+    request that nothing carried out.
     """
     verification_result = request.verification_result
     return (
@@ -384,10 +315,14 @@ class SpeakingRequest:
         mode: Buddy's conversational personality mode for this session —
             ``"friend"`` or ``"focus"`` — sourced from
             ``Context.mode``. ``NullSpeaker``/``TemplateSpeaker`` ignore
-            it; ``PersonalityVoice`` uses it to select a system prompt.
+            it; ``PersonalityVoice`` uses it to select catalog phrases.
         order_confirmed: ``False`` when the plan's order couldn't be
             checked against the order the user stated (see
             ``PlanningStep.order_confirmed``).
+        session_id: The session this turn belongs to.
+        turn_index: How many replies Buddy had already given in this
+            session. With ``session_id``, it seeds the deterministic
+            choice of catalog phrases (``buddy.voice_catalog``).
     """
 
     understanding: Understanding
@@ -395,6 +330,87 @@ class SpeakingRequest:
     verification_result: VerificationResult | None
     mode: str
     order_confirmed: bool = True
+    session_id: str = ""
+    turn_index: int = 0
+
+
+# Leads the analysis findings on a delivered turn, after the outcome.
+DELIVERED_ANALYSIS_LEAD = "I also noticed: "
+ANALYSIS_QUESTION = "Want me to tackle any of these?"
+
+
+def _verified_delivery_reply(
+    request: SpeakingRequest, *, file_style: str, mode: str | None = None
+) -> str:
+    """The reply for a turn that delivered a verified file, rendered by code.
+
+    In order (design decision D3): the opener, the outcome block, the
+    analysis findings, the closer. The outcome block comes from
+    ``buddy.outcome`` (execution and verifier data only); the opener and
+    closer from ``buddy.voice_catalog``, chosen by code, and only when a
+    ``mode`` is given. No model writes any of it.
+
+    Args:
+        request: The turn; ``_verified_delivery(request)`` must be true.
+        file_style: How the outcome block names the file.
+        mode: The personality mode for the catalog phrases, or ``None`` for
+            none (``TemplateSpeaker``).
+
+    Returns:
+        The reply text.
+    """
+    execution_result = request.execution_result
+    verification_result = request.verification_result
+    assert verification_result is not None
+    open_findings: tuple[str, ...] = ()
+    analysis_notes: list[str] = []
+    if _find_step(execution_result, _ANALYZE_CAPABILITY) is not None:
+        open_findings, other_findings = TemplateSpeaker._partition_analysis_findings(
+            verification_result
+        )
+        # An analysis finding with no category (e.g. "none of the issues I
+        # check for were found") is a note, not a question. A failed
+        # analysis is said by INITIAL_ANALYSIS_FAILED_SENTENCE instead. Every
+        # other finding is a step verifier's own wording, replaced by the
+        # measured counts.
+        failed = {
+            finding
+            for verdict in verification_result.steps
+            if verdict.capability == _ANALYZE_CAPABILITY and not verdict.passed
+            for finding in verdict.findings
+        }
+        analysis_notes = [
+            _strip_finding_tags(f)
+            for f in other_findings
+            if _is_analysis_finding(f) and _FINDING_TAG_PREFIX.sub("", f) not in failed
+        ]
+    report = build_outcome_report(
+        execution_result,
+        verification_result,
+        request.understanding.intent,
+        order_used=_order_used_sentence(request),
+        delivered_file=_delivered_file_name(request),
+        open_findings=len(open_findings),
+    )
+    opener = closer = ""
+    if mode is not None:
+        opener_phrase, closer_phrase = select_phrases(
+            report, mode, seed=f"{request.session_id}:{request.turn_index}"
+        )
+        opener, closer = opener_phrase.text, closer_phrase.text
+
+    parts = [opener, render_outcome(report, file_style)]
+    if open_findings:
+        parts.append(DELIVERED_ANALYSIS_LEAD + "; ".join(open_findings) + ". " + ANALYSIS_QUESTION)
+    if analysis_notes:
+        joined = "; ".join(analysis_notes)
+        parts.append(joined[0].upper() + joined[1:] + ".")
+    if _initial_analysis_failed(verification_result):
+        parts.append(INITIAL_ANALYSIS_FAILED_SENTENCE)
+    if _recheck_failed(verification_result):
+        parts.append(RECHECK_FAILED_SENTENCE)
+    parts.append(closer)
+    return _plain_words(" ".join(part for part in parts if part))
 
 
 class Speaker(Protocol):
@@ -456,6 +472,10 @@ class TemplateSpeaker:
         """
         execution_result = request.execution_result
         verification_result = request.verification_result
+        # A verified delivery: the outcome is rendered from execution and
+        # verifier data, with the generated file name and no phrases.
+        if _verified_delivery(request):
+            return _verified_delivery_reply(request, file_style=FILE_STYLE_GENERATED)
         # Routed on "was anything delivered?" first: when the chain stopped
         # or no verified file came back, no later branch may run — they
         # can say "Done" because an earlier step passed.
@@ -469,10 +489,10 @@ class TemplateSpeaker:
         elif verification_result is None:
             reply = "I made the changes, but wasn't able to confirm the result."
         else:
+            # Delivered, but Inspector didn't pass it (a verified delivery
+            # returned above).
             if _find_step(execution_result, _ANALYZE_CAPABILITY) is not None:
-                reply = self._compose_with_analysis_preface(execution_result, verification_result)
-            elif verification_result.passed:
-                reply = self._success_message(execution_result, verification_result)
+                reply = self._compose_with_analysis_preface(verification_result)
             else:
                 reply = self._failure_message(verification_result)
             if _initial_analysis_failed(verification_result):
@@ -584,9 +604,7 @@ class TemplateSpeaker:
         return " ".join(parts)
 
     @staticmethod
-    def _compose_with_analysis_preface(
-        execution_result: ExecutionResult | None, verification_result: VerificationResult
-    ) -> str:
+    def _compose_with_analysis_preface(verification_result: VerificationResult) -> str:
         """Compose a reply that leads with proactive-analysis findings.
 
         Per ``docs/design/proactive-analysis-design.md`` Section 5.3: this
@@ -597,16 +615,17 @@ class TemplateSpeaker:
         ``verification_result.steps``) are silently dropped, not asked
         about again.
 
+        Only used for a delivered turn Inspector didn't pass: a verified
+        delivery is ``_verified_delivery_reply``'s job.
+
         Args:
-            execution_result: The execution result, if any, to pull
-                output file names from for the trailing message.
             verification_result: Inspector's own verdict, covering every
                 step this turn ran, including ``spreadsheet.analyze``.
 
         Returns:
             The reply text: a leading sentence about open findings (if
-            any), followed by the ordinary success/failure message built
-            from every other step's own findings.
+            any), followed by the failure message built from every other
+            step's own findings.
         """
         open_findings, other_findings = TemplateSpeaker._partition_analysis_findings(
             verification_result
@@ -619,10 +638,7 @@ class TemplateSpeaker:
                 + ". Want me to tackle any of these?"
             )
         remaining_result = dataclasses.replace(verification_result, findings=other_findings)
-        if remaining_result.passed:
-            parts.append(TemplateSpeaker._success_message(execution_result, remaining_result))
-        else:
-            parts.append(TemplateSpeaker._failure_message(remaining_result))
+        parts.append(TemplateSpeaker._failure_message(remaining_result))
         return " ".join(parts)
 
     @staticmethod
@@ -659,44 +675,12 @@ class TemplateSpeaker:
         return tuple(open_findings), tuple(other_findings)
 
     @staticmethod
-    def _success_message(
-        execution_result: ExecutionResult | None, verification_result: VerificationResult
-    ) -> str:
-        """Compose the reply for a passed verification.
-
-        Covers every step's outcome, not just the first: every finding
-        Inspector recorded (one turn may cover several delegated steps,
-        each independently verified — see
-        ``buddy.inspector.CompositeVerifier``) and every output file
-        produced are all included, not only index ``0`` of each.
-
-        Args:
-            execution_result: The execution result, if any, to pull
-                output file names from.
-            verification_result: Inspector's own verdict, covering every
-                step this turn ran.
-
-        Returns:
-            The reply text.
-        """
-        parts = ["Done"]
-        if verification_result.findings:
-            findings = "; ".join(_strip_finding_tags(f) for f in verification_result.findings)
-            parts.append(f"— {findings}.")
-        else:
-            parts[0] = "Done."
-        output_names = TemplateSpeaker._output_file_names(execution_result)
-        if output_names:
-            saved = ", ".join(f"`{name}`" for name in output_names)
-            parts.append(f"Saved as {saved}.")
-        return " ".join(parts)
-
-    @staticmethod
     def _failure_message(verification_result: VerificationResult) -> str:
         """Compose the reply for a failed (or inconclusive) verification.
 
-        Covers every step's findings, not just the first — see
-        ``_success_message``'s docstring for why.
+        Covers every step's findings, not just the first: one turn may
+        cover several delegated steps, each independently verified (see
+        ``buddy.inspector.CompositeVerifier``).
 
         Args:
             verification_result: The verification result, covering every
@@ -712,22 +696,6 @@ class TemplateSpeaker:
         if verification_result.recommendations:
             parts.append(" ".join(verification_result.recommendations))
         return " ".join(parts)
-
-    @staticmethod
-    def _output_file_names(execution_result: ExecutionResult | None) -> tuple[str, ...]:
-        """Extract every output file's name, across every step.
-
-        Args:
-            execution_result: The execution result, if any.
-
-        Returns:
-            Each output path's base name, in the order they were
-            produced, or ``()`` if there aren't any.
-        """
-        if execution_result is None or not execution_result.outputs:
-            return ()
-        return tuple(Path(output_path).name for output_path in execution_result.outputs)
-
 
 class Voice:
     """The Voice stage of Buddy's cognitive cycle.
@@ -794,6 +762,8 @@ class Voice:
             verification_result=state.verification_result,
             mode=state.context.mode,
             order_confirmed=all(step.order_confirmed for step in state.planning or ()),
+            session_id=state.session_id,
+            turn_index=state.context.buddy_reply_count(),
         )
 
     @staticmethod
@@ -807,134 +777,30 @@ class Voice:
         state.reply = reply
 
 
-FRIEND_MODE_PROMPT = """You are the voice of WorkBuddy, an AI coworker, speaking directly to the user in Friend mode.
-
-Your job is to report, in your own words, an outcome that has already
-happened — not to decide what happened. You will be given the plain facts
-(what was attempted, whether it succeeded, whether it was independently
-verified, and any findings, warnings, or errors). Your only job is to
-phrase those facts warmly and honestly.
-
-Tone: warm, honest, occasionally funny — like a trusted work friend who
-doesn't take things too seriously but always tells the truth. Light,
-PG-rated ribbing is welcome when it naturally fits (e.g. gently ribbing a
-spreadsheet that turned out to have a lot of duplicates), but never mean
-and never forced. A playful pop-culture-adjacent line (e.g. comparing
-yourself to Jarvis or another AI assistant) is fine sparingly — not in
-every reply, only when it genuinely fits.
-
-Avoid generic AI humor. No reflexive puns, no worn-out phrases like
-"superpowers" or "checked out," and no joke that's just the first idea
-that comes to mind rather than something genuinely specific to what
-actually happened. If nothing about this particular situation is
-genuinely funny, skip the joke entirely — flat honesty beats a forced or
-generic one, every time.
-
-For calibration, here is the target voice — specific to the situation at
-hand, not generic filler:
-- "Third time's the charm, or third time we both pretend I didn't
-  notice? Let's just fix it properly this time."
-- "Deleting it now — but three formulas are about to lose their best
-  friend, and they'll break the second it's gone."
-These are not templates to reuse verbatim — they're examples of the level
-of specificity and callback humor to aim for, not lines to recycle.
-
-If any of the facts you're given are listed under "Noticed on your own,
-unprompted", treat them differently from an ordinary outcome: they're
-something you noticed on your own, before being asked to — not a request
-you're reporting pass/fail on. Lead with them, phrase them warmly, and close by asking which one (if
-any) the user wants you to look at first. Don't ask about a finding that's
-already been resolved by something else you did this same turn — only ask
-about the ones still open.
-
-Hard rules:
-- Never invent, omit, or soften a fact you were given. If something
-  failed, say it failed. The personality is in HOW you say it, never in
-  WHAT you say.
-- If you're told no changes were made to any file this turn, say so
-  plainly, and never say or imply that anything was done, completed,
-  removed, cleaned, or saved.
-- If you're told a file was handed back, mention it — by its plain
-  original name, as a cleaned copy.
-- Never recite a full file path or a generated filename verbatim — no
-  folder separators, no system-generated suffixes like
-  "_manual-session-task-0". Refer to the file the way a person would:
-  "the file," "your spreadsheet," or its plain original name with the
-  generated suffix dropped.
-- Never repeat internal labels: no bracketed tags like "[something]", no
-  dotted system names like "spreadsheet.deduplicate", and none of the
-  field labels from the facts you were given. Describe what happened in
-  plain words.
-- Keep it short: 1-3 sentences. This is a quick status update, not an
-  essay.
-- Respond with the reply text only — no preamble, no quotation marks, no
-  markdown headers.
-"""
-
-FOCUS_MODE_PROMPT = """You are the voice of WorkBuddy, an AI coworker, speaking directly to the user in Focus mode.
-
-Your job is to report, in your own words, an outcome that has already
-happened — not to decide what happened. You will be given the plain facts
-(what was attempted, whether it succeeded, whether it was independently
-verified, and any findings, warnings, or errors). Your only job is to
-phrase those facts as briefly and directly as possible.
-
-Tone: short, direct, zero humor, zero small talk. State what happened and
-what needs attention, in the fewest words possible. No warmth, no jokes,
-no filler.
-
-Sound like a clipped human colleague giving a quick heads-up, not a
-system log or a formal report. Prefer "Done — 3 rows left, duplicates
-gone" over passive, formal phrasing like "resulting in a 3-row output."
-Say it the way a coworker would say it out loud in five words, not the
-way a status page would print it.
-
-Facts listed under "Noticed on your own, unprompted" are an unprompted
-observation, not a pass/fail outcome. Lead with them tersely, then ask which one to prioritize —
-skip any already resolved by something else this turn.
-
-Hard rules:
-- Never invent, omit, or soften a fact you were given. If something
-  failed, say it failed.
-- If you're told no changes were made to any file this turn, say so, and
-  never say or imply that anything was done, completed, removed, cleaned,
-  or saved.
-- If you're told a file was handed back, mention it by its plain original
-  name.
-- Never repeat internal labels: no bracketed tags like "[something]", no
-  dotted system names like "spreadsheet.deduplicate", and none of the
-  field labels from the facts you were given.
-- Prefer a single short sentence. Two only if truly necessary.
-- Respond with the reply text only — no preamble, no quotation marks, no
-  markdown headers.
-"""
-
-
 class PersonalityVoice:
-    """A ``Speaker`` backed by a Claude model, with a selectable personality.
+    """A ``Speaker`` with a selectable personality: Friend or Focus mode.
 
-    Reads exactly the same ``SpeakingRequest`` fields ``TemplateSpeaker``
-    does — ``understanding``, ``execution_result``, ``verification_result``
-    — and asks the model to phrase them, using one of two system prompts
-    selected by ``request.mode``: ``FRIEND_MODE_PROMPT`` (warm, honest,
-    occasionally funny) or ``FOCUS_MODE_PROMPT`` (short, direct, no
-    humor). Both prompts instruct the model that the facts it's given are
-    fixed — the personality only changes HOW the outcome is described,
-    never WHAT is reported. No new data is gathered beyond what
-    ``TemplateSpeaker`` already has access to.
+    The Voice model never writes reply text (``CLAUDE.md``, "Decided
+    behaviour"; ``docs/design/verified-outcome-design.md``, decision D1):
 
-    Never raises: on an LLM failure or an empty reply, falls back to
-    ``TemplateSpeaker``'s deterministic, factual reply — the same honesty
-    contract ``ClaudeInterpreter``/``ClaudeThinker`` follow, reusing
-    ``TemplateSpeaker`` rather than duplicating its logic. Never logs
-    prompt or reply content — only that a call failed or was empty.
+    - On a turn that delivered a verified file, the reply is rendered by
+      code: the outcome block from execution and verifier data, with the
+      file named as a cleaned copy of the original, and an opener and
+      closer for ``request.mode`` chosen by code from the reviewed phrase
+      catalog (``buddy.voice_catalog``).
+    - Every other turn gets ``TemplateSpeaker``'s factual reply.
+
+    No turn calls the model today. The provider is kept for explicit
+    conversation turns (backlog item 2), the only place model-written
+    wording is planned to return.
     """
 
-    def __init__(self, provider: LLMProvider) -> None:
+    def __init__(self, provider: LLMProvider | None = None) -> None:
         """Initialize the speaker.
 
         Args:
-            provider: The ``LLMProvider`` used to compose the reply.
+            provider: Kept for explicit conversation turns (backlog item
+                2); not called by any turn today.
         """
         self._provider = provider
 
@@ -945,197 +811,13 @@ class PersonalityVoice:
             request: The request to compose a reply for.
 
         Returns:
-            The composed reply text; ``TemplateSpeaker``'s factual reply
-            when the model may not describe this turn's outcome (see
-            ``_model_may_describe_outcome``), or when the model call fails
-            or returns an empty reply.
+            The rendered reply for a verified delivery; otherwise
+            ``TemplateSpeaker``'s factual reply.
         """
-        # Structural guard, checked before any model call: for a turn that
-        # didn't end in a verified, delivered file, the outcome is stated
-        # only by TemplateSpeaker.
-        if not _model_may_describe_outcome(request):
+        if not _verified_delivery(request):
             logger.info(
                 "PersonalityVoice: no verified file was delivered this turn; "
-                "using the factual reply without a model call"
+                "using the factual reply"
             )
-            return self._fallback_reply(request)
-
-        system_prompt = FOCUS_MODE_PROMPT if request.mode == "focus" else FRIEND_MODE_PROMPT
-        user_prompt = self._build_user_prompt(request)
-        try:
-            raw_reply = self._provider.complete(
-                system=system_prompt,
-                messages=(LLMMessage(role="user", content=user_prompt),),
-            )
-        except Exception:
-            logger.exception("PersonalityVoice: LLM call failed")
-            return self._fallback_reply(request)
-
-        reply = raw_reply.strip()
-        if not reply:
-            logger.warning("PersonalityVoice: LLM reply was empty")
-            return self._fallback_reply(request)
-
-        reply = _plain_words(reply)
-        # A file was handed back: the reply must say so.
-        file_name = _delivered_file_name(request)
-        if file_name is not None and not _mentions_file(reply, file_name):
-            reply = f"{reply} Your cleaned copy of {file_name} is ready."
-        return reply
-
-    @staticmethod
-    def _build_user_prompt(request: SpeakingRequest) -> str:
-        """Build the user-turn prompt from ``request``.
-
-        Only the same facts ``TemplateSpeaker`` already reads —
-        ``understanding.intent``, ``execution_result``, and
-        ``verification_result`` — are included.
-
-        ``understanding.intent`` is what the user *asked for*, not what
-        happened: Think can flag ``clarification_required`` (or the
-        planner can otherwise produce no step), leaving the intent's
-        capability unrun while other steps — e.g. proactive
-        ``spreadsheet.analyze`` — still succeed. So the intent is labelled
-        as a request, every step that actually ran is listed with its
-        status, and when the intent's capability has no passing step this
-        turn the prompt says explicitly that the action was not
-        performed. Otherwise "classified as remove_duplicate_rows" plus
-        "Execution succeeded: True" reads to the model as "duplicates
-        removed".
-
-        Args:
-            request: The request to build a prompt from.
-
-        Returns:
-            The plain-text user prompt to send to the model.
-        """
-        lines: list[str] = []
-        execution_result = request.execution_result
-        verification_result = request.verification_result
-        steps = execution_result.steps if execution_result is not None else ()
-
-        # Stated first and unconditionally when true, from the steps alone —
-        # not from which intent the request was classified as.
-        if _no_changes_made(execution_result, verification_result):
-            lines.append(
-                f"{NO_CHANGES_SENTENCE} Nothing the user asked for was carried out; "
-                "do not say or imply that anything was done, completed, removed, or saved."
-            )
-
-        intent = request.understanding.intent
-        if intent:
-            lines.append(
-                "What the user asked for (a request, not an outcome): " + intent.replace("_", " ")
-            )
-            capability = _INTENT_CAPABILITIES.get(intent)
-            if capability is not None and not any(
-                step.capability == capability and _step_passed(step, verification_result)
-                for step in steps
-            ):
-                lines.append(
-                    f"The requested action ({_describe_capability(capability)}) was NOT "
-                    "performed this turn. Do not say or imply that it was done."
-                )
-
-        if execution_result is None:
-            lines.append("Execution: nothing was executed.")
-        else:
-            ran = [step for step in steps if step.status != SKIPPED_STATUS]
-            skipped = [step for step in steps if step.status == SKIPPED_STATUS]
-            if ran:
-                ran_text = ", ".join(
-                    f"{_describe_capability(step.capability)}"
-                    f"{' re-check of the final file' if step.recheck else ''} "
-                    f"({'passed' if _step_passed(step, verification_result) else 'did not pass'})"
-                    for step in ran
-                )
-                lines.append(f"Steps that actually ran this turn: {ran_text}")
-            else:
-                lines.append("Steps that actually ran this turn: none")
-            if execution_result.stopped_at is not None:
-                lines.append(
-                    "Work stopped at this failed step, so no file was handed back and the "
-                    f"original is unchanged: {_describe_capability(execution_result.stopped_at)}"
-                )
-            if skipped:
-                lines.append(
-                    "Steps that never ran, because an earlier step failed: "
-                    + ", ".join(_describe_capability(step.capability) for step in skipped)
-                )
-            lines.append(f"Execution succeeded: {execution_result.success}")
-            file_name = _delivered_file_name(request)
-            if file_name is not None:
-                lines.append(
-                    f"File handed back to the user (mention it in your reply): a cleaned copy "
-                    f"of {file_name}, with every change above applied"
-                )
-            if execution_result.warnings:
-                lines.append(
-                    "Execution warnings: "
-                    + "; ".join(_plain_words(w) for w in execution_result.warnings)
-                )
-            if execution_result.errors:
-                lines.append(
-                    "Execution errors: "
-                    + "; ".join(_plain_words(e) for e in execution_result.errors)
-                )
-
-        if verification_result is None:
-            lines.append("Verification: not performed.")
-        else:
-            lines.append(f"Verification passed: {verification_result.passed}")
-            reported = _findings_for_reply(verification_result)
-            noticed = [_strip_finding_tags(f) for f in reported if _is_analysis_finding(f)]
-            findings = [_strip_finding_tags(f) for f in reported if not _is_analysis_finding(f)]
-            if noticed:
-                about = (
-                    " (in the cleaned file handed back, after the changes)"
-                    if _analysis_describes_final_file(verification_result)
-                    else ""
-                )
-                lines.append(f"Noticed on your own, unprompted{about}: " + "; ".join(noticed))
-            if findings:
-                lines.append("Verification findings: " + "; ".join(findings))
-            if _initial_analysis_failed(verification_result):
-                lines.append(
-                    "The initial analysis of the original file couldn't run. Say so plainly; "
-                    "it doesn't affect the file handed back, which was verified."
-                )
-            if _recheck_failed(verification_result):
-                lines.append(
-                    "The cleaned file handed back could not be re-checked for other problems "
-                    "after the changes. Say so plainly; the file itself was still verified and "
-                    "handed back."
-                )
-            if verification_result.recommendations:
-                lines.append(
-                    "Verification recommendations: "
-                    + "; ".join(_plain_words(r) for r in verification_result.recommendations)
-                )
-
-        order_sentence = _order_used_sentence(request)
-        if order_sentence is not None:
-            lines.append(
-                "The order the user wanted couldn't be confirmed from their message. Tell them, "
-                f"in plain words, the order the steps ran in. In Buddy's words: {order_sentence}"
-            )
-
-        return "\n".join(lines)
-
-    @staticmethod
-    def _fallback_reply(request: SpeakingRequest) -> str:
-        """Fall back to a plain, factual reply when the LLM call fails.
-
-        ``TemplateSpeaker`` already builds a deterministic, factual
-        sentence directly from ``execution_result``/``verification_result``
-        with no LLM involved — reusing it here satisfies the same
-        honest-fallback contract ``ClaudeInterpreter``/``ClaudeThinker``
-        follow, without duplicating that logic.
-
-        Args:
-            request: The request that would otherwise be spoken for.
-
-        Returns:
-            The fallback reply text.
-        """
-        return TemplateSpeaker()(request)
+            return TemplateSpeaker()(request)
+        return _verified_delivery_reply(request, file_style=FILE_STYLE_PLAIN, mode=request.mode)

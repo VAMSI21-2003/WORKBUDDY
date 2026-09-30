@@ -33,8 +33,9 @@ sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
 from buddy.engine_factory import build_engine  # noqa: E402
 from buddy.llm import ClaudeProvider, GroqProvider, LLMProvider  # noqa: E402
+from buddy.outcome import build_outcome_report  # noqa: E402
 from buddy.state import BuddyState  # noqa: E402
-from buddy.voice import PersonalityVoice  # noqa: E402
+from buddy.voice import PersonalityVoice, Voice, _verified_delivery  # noqa: E402
 
 SCRATCH_DIR = Path(__file__).resolve().parent.parent / "scratch"
 
@@ -54,6 +55,24 @@ def _write_fixture_with_duplicates(path: Path) -> None:
             "amount": [10, 20, None, 10, 30, 20],
         }
     ).to_excel(path, index=False)
+
+
+def _write_fixture_without_duplicates(path: Path) -> None:
+    """Write a real .xlsx file with 4 distinct, non-empty rows and no
+    duplicates: the design's N2 case, where there's nothing to remove."""
+    path.parent.mkdir(parents=True, exist_ok=True)
+    pd.DataFrame(
+        {
+            "name": ["Alice", "Bob", "Carol", "Dana"],
+            "amount": [10, 20, 30, 40],
+        }
+    ).to_excel(path, index=False)
+
+
+_FIXTURES = {
+    "default": (_write_fixture_with_duplicates, "duplicates and an empty row"),
+    "no-duplicates": (_write_fixture_without_duplicates, "no duplicates and no empty rows"),
+}
 
 
 def _sha256(path: Path) -> str:
@@ -81,6 +100,19 @@ def _build_provider() -> LLMProvider:
     return ClaudeProvider()
 
 
+class _CountingProvider:
+    """Wraps the real provider and records which system prompt each call used,
+    so the output shows exactly which stages called the model."""
+
+    def __init__(self, inner: LLMProvider) -> None:
+        self._inner = inner
+        self.calls: list[str] = []
+
+    def complete(self, *, system: str, messages, max_tokens: int = 1024) -> str:  # type: ignore[no-untyped-def]
+        self.calls.append(system.strip().splitlines()[0][:70])
+        return self._inner.complete(system=system, messages=messages, max_tokens=max_tokens)
+
+
 def _parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument(
@@ -100,6 +132,15 @@ def _parse_args() -> argparse.Namespace:
             "multi-step decomposition."
         ),
     )
+    parser.add_argument(
+        "--fixture",
+        choices=tuple(_FIXTURES),
+        default="default",
+        help=(
+            "The upload to run against (default: 6 rows, 2 exact duplicates, 1 empty row; "
+            "no-duplicates: 4 distinct rows)."
+        ),
+    )
     return parser.parse_args()
 
 
@@ -111,9 +152,10 @@ def main() -> None:
     args = _parse_args()
 
     input_path = SCRATCH_DIR / "uploads" / "manual_report.xlsx"
-    _write_fixture_with_duplicates(input_path)
+    write_fixture, fixture_description = _FIXTURES[args.fixture]
+    write_fixture(input_path)
     original_before = _sha256(input_path)
-    print(f"Wrote fixture with duplicates and an empty row to: {input_path}")
+    print(f"Wrote fixture ({args.fixture}: {fixture_description}) to: {input_path}")
 
     state = BuddyState.new(session_id="manual-session", workspace_id="manual-workspace")
     state.user_message = args.message
@@ -128,7 +170,7 @@ def main() -> None:
     # Anthropic. PersonalityVoice replaces build_engine()'s default
     # TemplateSpeaker so --mode actually has a visible effect on the reply;
     # TemplateSpeaker ignores mode entirely.
-    provider = _build_provider()
+    provider = _CountingProvider(_build_provider())
     engine = build_engine(llm_provider=provider, speaker=PersonalityVoice(provider))
 
     print("Running the full cognitive cycle (this makes a real LLM API call)...")
@@ -176,9 +218,37 @@ def main() -> None:
 
     _print_header("VerificationResult (Inspector stage)")
     print(state.verification_result)
+    if state.verification_result is not None:
+        print("measurements (per verdict):")
+        for verdict in state.verification_result.steps:
+            for m in verdict.measurements:
+                print(
+                    f"  {verdict.capability}: target={m.target} input_rows={m.input_rows} "
+                    f"removed={m.removed} (of which repeated blank rows: {m.removed_blank}) "
+                    f"output_rows={m.output_rows} remaining={m.remaining}"
+                )
+
+    _print_header("OutcomeReport (rendered by code on a verified delivery)")
+    speaking_request = Voice._build_request(state)
+    if _verified_delivery(speaking_request):
+        report = build_outcome_report(
+            state.execution_result,
+            state.verification_result,
+            state.understanding.intent if state.understanding is not None else None,
+        )
+        print(f"lead word:   {report.lead_word!r}")
+        for action in report.actions:
+            print(f"action:      {action}")
+        print(f"final state: {report.final_state}")
+    else:
+        print("not a verified delivery: TemplateSpeaker's factual reply, no report")
 
     _print_header(f"Reply (Voice stage, {args.mode} mode)")
     print(state.reply)
+
+    _print_header("LLM calls this turn (first line of each system prompt)")
+    for index, call in enumerate(provider.calls, 1):
+        print(f"  {index}. {call}")
 
     _print_header("Independent check of the output file")
     outputs = state.execution_result.outputs if state.execution_result is not None else ()
@@ -188,6 +258,10 @@ def main() -> None:
         print(f"output path: {output_path}")
         if output_path.exists():
             written = pd.read_excel(output_path)
+            original = pd.read_excel(input_path)
+            print(f"original row count:   {len(original)}")
+            print(f"original duplicates:  {int(original.dropna(how='all').duplicated().sum())}")
+            print(f"original empty rows:  {int(original.isna().all(axis=1).sum())}")
             print(f"row count:            {len(written)}")
             print(f"duplicate rows found: {int(written.duplicated().sum())}")
             print(f"empty rows found:     {int(written.isna().all(axis=1).sum())}")

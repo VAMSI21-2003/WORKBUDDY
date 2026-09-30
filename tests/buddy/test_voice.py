@@ -11,23 +11,26 @@ import pytest
 import buddy.voice as voice
 from buddy.llm import LLMMessage
 from buddy.models import (
+    DUPLICATE_ROWS_TARGET,
+    EMPTY_ROWS_TARGET,
     ExecutionResult,
     PlanningStep,
+    StepMeasurement,
     StepResult,
     StepVerification,
     Understanding,
     VerificationResult,
 )
+from buddy.outcome import OutcomeReport
 from buddy.state import BuddyState
 from buddy.voice import (
-    FOCUS_MODE_PROMPT,
-    FRIEND_MODE_PROMPT,
     NullSpeaker,
     PersonalityVoice,
     SpeakingRequest,
     TemplateSpeaker,
     Voice,
 )
+from buddy.voice_catalog import select_phrases
 
 
 class _FakeLLMProvider:
@@ -77,6 +80,84 @@ def test_null_speaker_returns_honest_fallback() -> None:
 
 
 def test_template_speaker_success_message_mentions_output_file_and_finding() -> None:
+    """A single-intent turn whose capability passed: "Done —", the verifier's
+    counts, and the generated file name."""
+    output = "workspace/outputs/workspace-1/report_deduplicated.xlsx"
+    request = _request(
+        understanding=Understanding(intent="remove_duplicate_rows"),
+        execution_result=ExecutionResult(
+            success=True, outputs=(output,), steps=(_dedupe_step(outputs=(output,)),)
+        ),
+        verification_result=VerificationResult(
+            passed=True,
+            confidence=1.0,
+            findings=(
+                "[spreadsheet.deduplicate] output has 3 row(s), 0 duplicate row(s) remaining",
+            ),
+            steps=(
+                StepVerification(
+                    capability="spreadsheet.deduplicate",
+                    passed=True,
+                    measurements=(_dedupe_measurement(),),
+                ),
+            ),
+        ),
+    )
+
+    reply = TemplateSpeaker()(request)
+
+    assert reply == (
+        "Done — removed 2 duplicate row(s). The copy has 3 row(s), 0 duplicate row(s) "
+        "remaining. Saved as `report_deduplicated.xlsx`."
+    )
+
+
+def test_template_speaker_success_message_covers_every_steps_output_and_finding() -> None:
+    """Regression guard for the single-output/single-finding assumption:
+    a turn covering two delegated steps must mention both output files
+    and both steps' outcomes, not just the first of each.
+    """
+    first = "workspace/outputs/workspace-1/report_deduplicated.xlsx"
+    second = "workspace/outputs/workspace-1/report_no_empty_rows.xlsx"
+    request = _request(
+        execution_result=ExecutionResult(
+            success=True,
+            outputs=(first, second),
+            steps=(
+                _dedupe_step(outputs=(first,)),
+                _empty_rows_step(outputs=(second,), input_reference=first),
+            ),
+        ),
+        verification_result=VerificationResult(
+            passed=True,
+            confidence=1.0,
+            steps=(
+                StepVerification(
+                    capability="spreadsheet.deduplicate",
+                    passed=True,
+                    measurements=(_dedupe_measurement(),),
+                ),
+                StepVerification(
+                    capability="spreadsheet.remove_empty_rows",
+                    passed=True,
+                    measurements=(_empty_rows_measurement(input_rows=3, removed=0, output_rows=3),),
+                ),
+            ),
+        ),
+    )
+
+    reply = TemplateSpeaker()(request)
+
+    assert "report_deduplicated.xlsx" in reply
+    assert "report_no_empty_rows.xlsx" in reply
+    assert "Removed 2 duplicate row(s)." in reply
+    assert "There were no fully-empty rows left to remove." in reply
+
+
+def test_template_speaker_states_no_count_for_a_result_without_measurements() -> None:
+    """A result with no per-step breakdown or measurements (a verifier used
+    directly, fakes): the reply names the file and states no count, since
+    nothing measured one. The verifier's own finding strings aren't used."""
     request = _request(
         execution_result=ExecutionResult(
             success=True, outputs=("workspace/outputs/workspace-1/report_deduplicated.xlsx",)
@@ -90,42 +171,7 @@ def test_template_speaker_success_message_mentions_output_file_and_finding() -> 
 
     reply = TemplateSpeaker()(request)
 
-    assert "Done" in reply
-    assert "report_deduplicated.xlsx" in reply
-    assert "0 duplicate row(s)" in reply
-
-
-def test_template_speaker_success_message_covers_every_steps_output_and_finding() -> None:
-    """Regression guard for the single-output/single-finding assumption:
-    a turn covering two delegated steps must mention both output files
-    and both findings, not just the first of each.
-    """
-    request = _request(
-        execution_result=ExecutionResult(
-            success=True,
-            outputs=(
-                "workspace/outputs/workspace-1/report_deduplicated.xlsx",
-                "workspace/outputs/workspace-1/report_no_empty_rows.xlsx",
-            ),
-        ),
-        verification_result=VerificationResult(
-            passed=True,
-            confidence=1.0,
-            findings=(
-                "[spreadsheet.deduplicate] output has 3 row(s), 0 duplicate row(s) remaining",
-                "[spreadsheet.remove_empty_rows] output has 3 row(s), "
-                "0 fully-empty row(s) remaining",
-            ),
-        ),
-    )
-
-    reply = TemplateSpeaker()(request)
-
-    assert "Done" in reply
-    assert "report_deduplicated.xlsx" in reply
-    assert "report_no_empty_rows.xlsx" in reply
-    assert "0 duplicate row(s)" in reply
-    assert "0 fully-empty row(s)" in reply
+    assert reply == "Saved as `report_deduplicated.xlsx`."
 
 
 def test_template_speaker_failure_message_covers_every_steps_finding() -> None:
@@ -231,6 +277,43 @@ def _dedupe_step(**overrides: object) -> StepResult:
     return StepResult(**fields)  # type: ignore[arg-type]
 
 
+def _empty_rows_step(**overrides: object) -> StepResult:
+    fields: dict[str, object] = {
+        "capability": "spreadsheet.remove_empty_rows",
+        "skill": "excel.remove_empty_rows",
+        "status": "success",
+        "outputs": ("report_no_empty_rows.xlsx",),
+        "input_reference": "uploads/report.xlsx",
+        "permission_tier": "write",
+    }
+    fields.update(overrides)
+    return StepResult(**fields)  # type: ignore[arg-type]
+
+
+def _dedupe_measurement(
+    input_rows: int | None = 5, removed: int | None = 2, output_rows: int = 3
+) -> StepMeasurement:
+    return StepMeasurement(
+        target=DUPLICATE_ROWS_TARGET,
+        output_rows=output_rows,
+        remaining=0,
+        input_rows=input_rows,
+        removed=removed,
+    )
+
+
+def _empty_rows_measurement(
+    input_rows: int | None = 6, removed: int | None = 1, output_rows: int = 5
+) -> StepMeasurement:
+    return StepMeasurement(
+        target=EMPTY_ROWS_TARGET,
+        output_rows=output_rows,
+        remaining=0,
+        input_rows=input_rows,
+        removed=removed,
+    )
+
+
 def test_template_speaker_leads_with_analysis_findings_before_the_ordinary_message() -> None:
     request = _request(
         execution_result=ExecutionResult(success=True, steps=(_analyze_step(),)),
@@ -278,7 +361,9 @@ def test_template_speaker_analysis_preface_still_reports_other_steps_outcome() -
 
     assert "amount: 1 unusually high value" in reply
     assert "report_deduplicated.xlsx" in reply
-    assert "0 duplicate row(s) remaining" in reply
+    # On a delivered turn the outcome comes first, then the findings (D3).
+    assert reply.startswith("The duplicate-row removal ran and passed its check.")
+    assert reply.index("Saved as") < reply.index("I also noticed: amount: 1 unusually high value")
 
 
 def test_template_speaker_skips_the_preface_sentence_when_no_findings_are_open() -> None:
@@ -335,7 +420,8 @@ def test_template_speaker_does_not_fold_a_near_duplicate_finding_into_an_exact_d
     reply = TemplateSpeaker()(request)
 
     assert "Alice Johnson and Alice Johnston" in reply
-    assert "Before anything else, here's what I noticed" in reply
+    # A delivered turn: the findings follow the outcome, led "I also noticed" (D3).
+    assert "I also noticed: " in reply
     assert "Want me to tackle any of these?" in reply
 
 
@@ -373,41 +459,35 @@ def test_template_speaker_does_fold_a_finding_once_a_real_matching_capability_pa
 # -- PersonalityVoice ---------------------------------------------------------------
 
 
-def test_personality_voice_uses_friend_mode_prompt() -> None:
-    provider = _FakeLLMProvider(reply="Nice, all cleaned up!")
-    speaker = PersonalityVoice(provider)
+@pytest.mark.parametrize("mode", ["friend", "focus"])
+def test_personality_voice_makes_no_model_call_on_a_verified_delivery(mode: str) -> None:
+    """Decision D1: the reply is rendered by code in both modes; the model
+    is never called."""
+    provider = _FakeLLMProvider(raises=AssertionError("the model must not be called"))
 
-    speaker(_delivered_request("friend"))
+    reply = PersonalityVoice(provider)(_delivered_request(mode))
 
-    assert provider.last_system == FRIEND_MODE_PROMPT
-
-
-def test_personality_voice_uses_focus_mode_prompt() -> None:
-    provider = _FakeLLMProvider(reply="Done. No duplicates remain.")
-    speaker = PersonalityVoice(provider)
-
-    speaker(_delivered_request("focus"))
-
-    assert provider.last_system == FOCUS_MODE_PROMPT
+    assert provider.last_messages is None
+    assert "Removed 1 fully-empty row(s). Removed 2 duplicate row(s)." in reply
 
 
-def test_personality_voice_returns_the_models_reply_stripped_for_a_verified_delivery() -> None:
-    """A verified file was delivered: the model's reply is used as-is (only
-    surrounding whitespace removed)."""
+def test_personality_voice_never_returns_the_models_reply_for_a_verified_delivery() -> None:
+    """Inverted: the model's text used to be the reply. Now it can't appear."""
     provider = _FakeLLMProvider(reply="  All clean, report is down to 3 rows.  ")
-    speaker = PersonalityVoice(provider)
 
-    reply = speaker(_delivered_request("friend"))
+    reply = PersonalityVoice(provider)(_delivered_request("friend"))
 
-    assert reply == "All clean, report is down to 3 rows."
+    assert "All clean" not in reply
+    assert provider.last_messages is None
 
 
-def test_personality_voice_prompt_contains_only_understanding_execution_and_verification_facts() -> (
+def test_personality_voice_reply_contains_only_understanding_execution_and_verification_facts() -> (
     None
 ):
-    """The prompt must be built solely from understanding/execution_result/
+    """The reply is built solely from understanding/execution_result/
     verification_result — the same fields TemplateSpeaker already reads —
-    never from any new data source.
+    never from any new data source. (It used to be the prompt; the facts
+    are now asserted on the reply itself.)
     """
     provider = _FakeLLMProvider(reply="ok")
     speaker = PersonalityVoice(provider)
@@ -421,25 +501,23 @@ def test_personality_voice_prompt_contains_only_understanding_execution_and_veri
             ),
         ),
         verification_result=VerificationResult(
-            passed=True, confidence=1.0, findings=("output has 3 row(s), 0 duplicate row(s) remaining",)
+            passed=True,
+            confidence=1.0,
+            findings=("output has 3 row(s), 0 duplicate row(s) remaining",),
+            measurements=(_dedupe_measurement(),),
         ),
     )
 
-    speaker(request)
+    reply = speaker(request)
 
-    assert provider.last_messages is not None
-    prompt = provider.last_messages[0].content
-    assert "remove duplicate rows" in prompt
-    assert "deduplicate (passed)" in prompt
-    assert "NOT performed" not in prompt
-    assert "No changes were made" not in prompt
-    assert "Execution succeeded: True" in prompt
+    assert provider.last_messages is None
+    assert "No changes were made" not in reply
     # The file is named as a cleaned copy of the original, never by its
     # generated name.
-    assert "a cleaned copy of report.xlsx" in prompt
-    assert "report_deduplicated_task-1" not in prompt
-    assert "Verification passed: True" in prompt
-    assert "0 duplicate row(s) remaining" in prompt
+    assert "Your cleaned copy of report.xlsx is ready." in reply
+    assert "report_deduplicated_task-1" not in reply
+    assert "Done — removed 2 duplicate row(s)." in reply
+    assert "0 duplicate row(s) remaining" in reply
 
 
 def _clarification_turn_request(mode: str) -> SpeakingRequest:
@@ -492,17 +570,14 @@ def test_personality_voice_does_not_present_an_unrun_intent_as_done(mode: str) -
     provider = _FakeLLMProvider(reply="ok")
     speaker = PersonalityVoice(provider)
 
-    speaker(_clarification_turn_request(mode))
+    reply = speaker(_clarification_turn_request(mode))
 
-    # An action turn with no verified file: the model is never called; the
-    # prompt builder is checked directly (it still serves verified turns).
+    # An action turn with no verified file: the model is never called and
+    # the factual reply claims nothing. (The prompt builder these lines
+    # used to check is gone: no turn calls the model.)
     assert provider.last_messages is None
-    prompt = PersonalityVoice._build_user_prompt(_clarification_turn_request(mode))
-    assert "(deduplicate) was NOT performed this turn" in prompt
-    assert "Do not say or imply that it was done." in prompt
-    assert "Steps that actually ran this turn: analyze (passed)" in prompt
-    assert "deduplicate (passed)" not in prompt
-    assert "classified as" not in prompt
+    assert reply == TemplateSpeaker()(_clarification_turn_request(mode))
+    assert voice._COMPLETION_CLAIM.search(reply) is None
 
 
 @pytest.mark.parametrize("mode", ["friend", "focus"])
@@ -543,14 +618,14 @@ def test_personality_voice_flags_a_dedupe_step_that_ran_but_failed_verification(
         ),
     )
 
-    speaker(request)
+    reply = speaker(request)
 
     # An action turn with no verified file: the model is never called; the
-    # prompt builder is checked directly (it still serves verified turns).
+    # factual reply says the step couldn't be confirmed. (The prompt
+    # builder these lines used to check is gone.)
     assert provider.last_messages is None
-    prompt = PersonalityVoice._build_user_prompt(request)
-    assert "deduplicate (did not pass)" in prompt
-    assert "(deduplicate) was NOT performed this turn" in prompt
+    assert reply == TemplateSpeaker()(request)
+    assert "Done" not in reply
 
 
 # -- Internal capability labels never reach the user ------------------------------
@@ -593,32 +668,6 @@ def _tagged_findings_request(mode: str = "friend") -> SpeakingRequest:
     )
 
 
-@pytest.mark.parametrize("mode", ["friend", "focus"])
-def test_personality_voice_prompt_carries_no_capability_tags_or_ids(mode: str) -> None:
-    provider = _FakeLLMProvider(reply="ok")
-
-    PersonalityVoice(provider)(_tagged_findings_request(mode))
-
-    # An action turn with no verified file: the model is never called; the
-    # prompt builder is checked directly (it still serves verified turns).
-    assert provider.last_messages is None
-    prompt = PersonalityVoice._build_user_prompt(_tagged_findings_request(mode))
-    assert _CAPABILITY_TAG.search(prompt) is None
-    assert "spreadsheet." not in prompt
-    # The facts themselves still arrive, just without their labels -- and
-    # analysis findings stay distinguishable as unprompted observations.
-    assert (
-        "Noticed on your own, unprompted: none of the issues I check for were found; "
-        "amount: 1 unusually high value"
-    ) in prompt
-    assert "Verification findings: output has 3 row(s), 0 duplicate row(s) remaining" in prompt
-
-
-@pytest.mark.parametrize("prompt", [FRIEND_MODE_PROMPT, FOCUS_MODE_PROMPT])
-def test_mode_prompts_forbid_repeating_internal_labels(prompt: str) -> None:
-    assert "Never repeat internal labels" in prompt
-
-
 @pytest.mark.parametrize(
     "verification_result",
     [
@@ -650,7 +699,10 @@ def test_rendered_reply_contains_no_capability_tags(
         assert "spreadsheet." not in reply
 
 
-def test_personality_voice_falls_back_to_template_speaker_on_provider_failure() -> None:
+def test_personality_voice_is_unaffected_by_a_failing_provider() -> None:
+    """There's no model call to fail: a verified delivery gets the rendered
+    reply (the file as a cleaned copy of the original), not the template's
+    generated file name."""
     provider = _FakeLLMProvider(raises=RuntimeError("network error"))
     speaker = PersonalityVoice(provider)
     request = _request(
@@ -660,7 +712,14 @@ def test_personality_voice_falls_back_to_template_speaker_on_provider_failure() 
 
     reply = speaker(request)
 
-    assert reply == TemplateSpeaker()(request)
+    assert provider.last_messages is None
+    opener, closer = select_phrases(
+        OutcomeReport(actions=(), delivered_file="out.xlsx"), "friend", seed=":0"
+    )
+    expected = " ".join(
+        p for p in (opener.text, "Your cleaned copy of out.xlsx is ready.", closer.text) if p
+    )
+    assert reply == expected
 
 
 def test_personality_voice_falls_back_to_template_speaker_on_empty_reply() -> None:
@@ -781,21 +840,17 @@ def _stopped_chain_request(mode: str = "focus") -> SpeakingRequest:
     )
 
 
-def test_personality_voice_prompt_says_where_the_chain_stopped_and_what_never_ran() -> None:
+def test_personality_voice_reply_says_where_the_chain_stopped_and_what_never_ran() -> None:
     provider = _FakeLLMProvider(reply="ok")
 
-    PersonalityVoice(provider)(_stopped_chain_request())
+    reply = PersonalityVoice(provider)(_stopped_chain_request())
 
-    # An action turn with no verified file: the model is never called; the
-    # prompt builder is checked directly (it still serves verified turns).
+    # No verified file: the model is never called, and the factual reply
+    # says where the chain stopped. (It used to check the prompt builder,
+    # which is gone.)
     assert provider.last_messages is None
-    prompt = PersonalityVoice._build_user_prompt(_stopped_chain_request())
-    assert "Steps that actually ran this turn: deduplicate (did not pass)" in prompt
-    assert "Steps that never ran, because an earlier step failed: remove empty rows" in prompt
-    assert (
-        "Work stopped at this failed step, so no file was handed back and the original is "
-        "unchanged: deduplicate"
-    ) in prompt
+    assert reply == TemplateSpeaker()(_stopped_chain_request())
+    assert "I stopped at the deduplicate step, so remove empty rows never ran" in reply
 
 
 def test_template_speaker_names_the_failed_step_and_what_never_ran() -> None:
@@ -853,17 +908,16 @@ _B4_LIVE_REPLY = (
 
 
 @pytest.mark.parametrize("mode", ["friend", "focus"])
-def test_personality_voice_prompt_states_no_changes_when_only_analysis_ran(mode: str) -> None:
+def test_personality_voice_reply_states_no_changes_when_only_analysis_ran(mode: str) -> None:
     provider = _FakeLLMProvider(reply="ok")
 
-    PersonalityVoice(provider)(_b4_request(mode))
+    reply = PersonalityVoice(provider)(_b4_request(mode))
 
-    # An action turn with no verified file: the model is never called; the
-    # prompt builder is checked directly (it still serves verified turns).
+    # No verified file: the model is never called. (It used to check the
+    # prompt builder, which is gone.)
     assert provider.last_messages is None
-    prompt = PersonalityVoice._build_user_prompt(_b4_request(mode))
-    assert prompt.startswith("No changes were made to any file this turn.")
-    assert "File handed back" not in prompt
+    assert reply.endswith("No changes were made to any file this turn.")
+    assert "cleaned copy" not in reply
 
 
 @pytest.mark.parametrize("mode", ["friend", "focus"])
@@ -965,8 +1019,16 @@ def _delivered_request(mode: str) -> SpeakingRequest:
                     passed=True,
                     findings=("[missing_values] name: 1 missing (16.7%)",),
                 ),
-                StepVerification(capability="spreadsheet.remove_empty_rows", passed=True),
-                StepVerification(capability="spreadsheet.deduplicate", passed=True),
+                StepVerification(
+                    capability="spreadsheet.remove_empty_rows",
+                    passed=True,
+                    measurements=(_empty_rows_measurement(),),
+                ),
+                StepVerification(
+                    capability="spreadsheet.deduplicate",
+                    passed=True,
+                    measurements=(_dedupe_measurement(),),
+                ),
                 StepVerification(
                     capability="spreadsheet.analyze",
                     passed=True,
@@ -974,26 +1036,34 @@ def _delivered_request(mode: str) -> SpeakingRequest:
                     input_reference=final,
                     recheck=True,
                 ),
-                StepVerification(capability="final_output", passed=True),
+                StepVerification(
+                    capability="final_output",
+                    passed=True,
+                    measurements=(
+                        StepMeasurement(EMPTY_ROWS_TARGET, output_rows=3, remaining=0),
+                        StepMeasurement(DUPLICATE_ROWS_TARGET, output_rows=3, remaining=0),
+                    ),
+                ),
             ),
         ),
     )
 
 
+_DELIVERED_BLOCK = (
+    "Removed 1 fully-empty row(s). Removed 2 duplicate row(s). The copy has 3 row(s), "
+    "0 fully-empty row(s) and 0 duplicate row(s) remaining."
+)
+
+
 @pytest.mark.parametrize("mode", ["friend", "focus"])
-def test_personality_voice_prompt_states_the_file_handed_back(mode: str) -> None:
+def test_personality_voice_reply_states_the_file_handed_back(mode: str) -> None:
     provider = _FakeLLMProvider(reply="ok")
 
-    PersonalityVoice(provider)(_delivered_request(mode))
+    reply = PersonalityVoice(provider)(_delivered_request(mode))
 
-    assert provider.last_messages is not None
-    prompt = provider.last_messages[0].content
-    assert (
-        "File handed back to the user (mention it in your reply): a cleaned copy of "
-        "report.xlsx, with every change above applied"
-    ) in prompt
-    assert "No changes were made" not in prompt
-    assert "deduplicated_s-task-2" not in prompt  # never the generated name
+    assert "Your cleaned copy of report.xlsx is ready." in reply
+    assert "No changes were made" not in reply
+    assert "deduplicated_s-task-2" not in reply  # never the generated name
 
 
 @pytest.mark.parametrize("mode", ["friend", "focus"])
@@ -1002,18 +1072,29 @@ def test_personality_voice_reply_always_mentions_the_file_handed_back(mode: str)
 
     reply = PersonalityVoice(provider)(_delivered_request(mode))
 
-    assert reply == (
-        "Done — 3 rows left, no empties or duplicates. "
-        "Your cleaned copy of report.xlsx is ready."
+    opener, closer = select_phrases(
+        voice.build_outcome_report(
+            _delivered_request(mode).execution_result,
+            _delivered_request(mode).verification_result,
+            "multi_step_request",
+            delivered_file="report.xlsx",
+        ),
+        mode,
+        seed=":0",
     )
-
-
-@pytest.mark.parametrize("mode", ["friend", "focus"])
-def test_personality_voice_leaves_a_reply_that_already_names_the_file(mode: str) -> None:
-    named = "Your report is cleaned up: 3 rows, no empties or duplicates."
-    provider = _FakeLLMProvider(reply=named)
-
-    assert PersonalityVoice(provider)(_delivered_request(mode)) == named
+    expected = " ".join(
+        p
+        for p in (
+            opener.text,
+            _DELIVERED_BLOCK,
+            "Your cleaned copy of report.xlsx is ready.",
+            "None of the issues I check for were found.",
+            closer.text,
+        )
+        if p
+    )
+    assert reply == expected
+    assert "3 rows left" not in reply
 
 
 # -- 3. Findings describe the file the user receives --------------------------------
@@ -1022,15 +1103,10 @@ def test_personality_voice_leaves_a_reply_that_already_names_the_file(mode: str)
 def test_personality_voice_reports_analysis_of_the_final_file_not_the_original() -> None:
     provider = _FakeLLMProvider(reply="ok")
 
-    PersonalityVoice(provider)(_delivered_request("focus"))
+    reply = PersonalityVoice(provider)(_delivered_request("focus"))
 
-    assert provider.last_messages is not None
-    prompt = provider.last_messages[0].content
-    assert (
-        "Noticed on your own, unprompted (in the cleaned file handed back, after the changes): "
-        "none of the issues I check for were found"
-    ) in prompt
-    assert "missing" not in prompt  # the original's stale finding
+    assert "None of the issues I check for were found." in reply
+    assert "missing" not in reply  # the original's stale finding
 
 
 def test_template_speaker_reports_analysis_of_the_final_file_not_the_original() -> None:
@@ -1038,7 +1114,11 @@ def test_template_speaker_reports_analysis_of_the_final_file_not_the_original() 
 
     assert "missing" not in reply
     assert "Before anything else" not in reply
-    assert "none of the issues I check for were found" in reply
+    assert "I also noticed" not in reply
+    assert reply == (
+        f"{_DELIVERED_BLOCK} Saved as `report_no_empty_rows_s-task-1_deduplicated_s-task-2.xlsx`."
+        " None of the issues I check for were found."
+    )
 
 
 def test_voice_reports_the_originals_analysis_when_nothing_was_re_analyzed() -> None:
@@ -1049,7 +1129,6 @@ def test_voice_reports_the_originals_analysis_when_nothing_was_re_analyzed() -> 
     reply = PersonalityVoice(provider)(_b4_request())
 
     assert "name: 1 missing (16.7%)" in reply
-    assert "name: 1 missing (16.7%)" in PersonalityVoice._build_user_prompt(_b4_request())
 
 
 # -- B1: a chain that stopped after an earlier step passed never says "Done" -------
@@ -1173,20 +1252,17 @@ def test_personality_voice_fallback_never_says_done_when_the_last_step_stopped_t
     _assert_no_completion_claim(reply, stopped_step)
 
 
-def test_personality_voice_prompt_says_nothing_was_delivered_when_the_last_step_stopped() -> None:
+def test_personality_voice_reply_says_nothing_was_delivered_when_the_last_step_stopped() -> None:
     provider = _FakeLLMProvider(reply="ok")
 
-    PersonalityVoice(provider)(_passed_then_stopped_request(_undispatchable_report()))
+    reply = PersonalityVoice(provider)(_passed_then_stopped_request(_undispatchable_report()))
 
-    # An action turn with no verified file: the model is never called; the
-    # prompt builder is checked directly (it still serves verified turns).
+    # No verified file: the model is never called. (It used to check the
+    # prompt builder, which is gone.)
     assert provider.last_messages is None
-    prompt = PersonalityVoice._build_user_prompt(
-        _passed_then_stopped_request(_undispatchable_report())
-    )
-    assert "File handed back" not in prompt
-    assert "report (did not pass)" in prompt
-    assert "spreadsheet." not in prompt  # the error's capability id is in plain words
+    assert "cleaned copy" not in reply
+    assert "no file was handed back" in reply
+    assert "spreadsheet." not in reply  # the error's capability id is in plain words
 
 
 # -- M1: a failed re-check of the final file is reported, not a failure ------------
@@ -1253,7 +1329,9 @@ def _recheck_failed_request(mode: str = "friend") -> SpeakingRequest:
 def test_template_speaker_reports_a_failed_re_check_and_still_names_the_file() -> None:
     reply = TemplateSpeaker()(_recheck_failed_request())
 
-    assert reply.startswith("Done")
+    # A multi_step_request gets no "Done" lead word until the ledger (D4).
+    assert "Done" not in reply
+    assert reply.startswith("The duplicate-row removal ran and passed its check.")
     assert "Saved as `report_no_empty_rows_deduplicated.xlsx`." in reply
     assert voice.RECHECK_FAILED_SENTENCE in reply
     assert "missing" not in reply  # the original's findings no longer describe the file
@@ -1261,19 +1339,17 @@ def test_template_speaker_reports_a_failed_re_check_and_still_names_the_file() -
     assert "spreadsheet." not in reply
 
 
-def test_personality_voice_prompt_reports_a_failed_re_check_and_the_file() -> None:
+def test_personality_voice_reply_reports_a_failed_re_check_and_the_file() -> None:
     provider = _FakeLLMProvider(reply="ok")
 
     reply = PersonalityVoice(provider)(_recheck_failed_request())
 
-    assert provider.last_messages is not None
-    prompt = provider.last_messages[0].content
-    assert "could not be re-checked for other problems" in prompt
-    assert "a cleaned copy of report.xlsx" in prompt
-    assert "analyze re-check of the final file (did not pass)" in prompt
-    assert "spreadsheet." not in prompt
-    assert "missing" not in prompt
-    assert reply == "ok Your cleaned copy of report.xlsx is ready."
+    assert provider.last_messages is None
+    assert voice.RECHECK_FAILED_SENTENCE in reply
+    assert "Your cleaned copy of report.xlsx is ready." in reply
+    assert "spreadsheet." not in reply
+    assert "missing" not in reply
+    assert "ok" not in reply.split()
 
 
 # -- No raw capability id anywhere in a reply -----------------------------------------
@@ -1480,13 +1556,17 @@ def test_template_speaker_reports_an_unverified_delivered_file_honestly() -> Non
 
 
 @pytest.mark.parametrize("mode", ["friend", "focus"])
-def test_personality_voice_uses_the_models_reply_for_a_verified_delivered_turn(mode: str) -> None:
+def test_personality_voice_never_uses_the_models_reply_for_a_verified_delivered_turn(
+    mode: str,
+) -> None:
+    """Inverted: the model's reply used to be the reply."""
     provider = _FakeLLMProvider(reply="Both cleanups went through; report is down to 3 rows.")
 
     reply = PersonalityVoice(provider)(_delivered_request(mode))
 
-    assert provider.last_messages is not None
-    assert reply == "Both cleanups went through; report is down to 3 rows."
+    assert provider.last_messages is None
+    assert "Both cleanups went through" not in reply
+    assert _DELIVERED_BLOCK in reply
 
 
 # -- F1: only a verified, delivered file lets the model phrase the turn ----------
@@ -1540,7 +1620,7 @@ def _verified(passed: bool = True) -> VerificationResult:
 @pytest.mark.parametrize(
     ("intent", "execution_result", "verification_result", "expected"),
     [
-        # A verified file was delivered: the model may phrase it, whatever the intent.
+        # A verified file was delivered, whatever the intent.
         ("remove_duplicate_rows", "delivered", _verified(), True),
         ("unclear", "delivered", _verified(), True),
         (None, "delivered", _verified(), True),
@@ -1554,9 +1634,7 @@ def _verified(passed: bool = True) -> VerificationResult:
         (None, "analysis-only", _verified(), False),
     ],
 )
-def test_model_may_describe_outcome(
-    intent, execution_result, verification_result, expected
-) -> None:
+def test_verified_delivery(intent, execution_result, verification_result, expected) -> None:
     executions = {
         None: None,
         "delivered": ExecutionResult(
@@ -1575,7 +1653,7 @@ def test_model_may_describe_outcome(
         verification_result=verification_result,
     )
 
-    assert voice._model_may_describe_outcome(request) is expected
+    assert voice._verified_delivery(request) is expected
 
 
 # -- R4: analysis of the original failed; the delivered file is still named ----------
@@ -1622,15 +1700,15 @@ def test_voice_names_the_delivered_file_when_the_initial_analysis_failed() -> No
     reply = TemplateSpeaker()(request)
     assert "Saved as `report_deduplicated.xlsx`." in reply
     assert voice.INITIAL_ANALYSIS_FAILED_SENTENCE in reply
+    assert "reported failure" not in reply  # said once, in plain words
     assert "wasn't able to confirm" not in reply
 
     provider = _FakeLLMProvider(reply="Dedupe went through, 3 rows left.")
     personality = PersonalityVoice(provider)(request)
-    assert provider.last_messages is not None  # verified delivery: the model may phrase it
-    assert "couldn't run" in provider.last_messages[0].content
-    assert personality == (
-        "Dedupe went through, 3 rows left. Your cleaned copy of report.xlsx is ready."
-    )
+    assert provider.last_messages is None  # rendered by code, no model call
+    assert voice.INITIAL_ANALYSIS_FAILED_SENTENCE in personality
+    assert "Your cleaned copy of report.xlsx is ready." in personality
+    assert "Dedupe went through" not in personality
 
 
 # -- Final review F4: the order used is stated when it couldn't be confirmed -------------
@@ -1655,13 +1733,22 @@ _ORDER_USED = (
 
 
 def test_template_speaker_states_the_order_used_when_it_couldnt_be_confirmed() -> None:
-    assert TemplateSpeaker()(_two_step_request(False)).endswith(_ORDER_USED)
+    reply = TemplateSpeaker()(_two_step_request(False))
+
+    # Part of the outcome block now: after the counts, before the file.
+    assert _ORDER_USED in reply
+    assert reply.index(_ORDER_USED) < reply.index("Saved as")
 
 
-def test_personality_voice_prompt_states_the_order_used_when_it_couldnt_be_confirmed() -> None:
-    prompt = PersonalityVoice._build_user_prompt(_two_step_request(False))
+def test_personality_voice_reply_states_the_order_used_when_it_couldnt_be_confirmed() -> None:
+    """Reply-level now (it was only in the prompt): closes the backlog's
+    F4-with-PersonalityVoice item."""
+    reply = PersonalityVoice(_FakeLLMProvider(reply="Done, both cleanups."))(
+        _two_step_request(False)
+    )
 
-    assert _ORDER_USED in prompt
+    assert _ORDER_USED in reply
+    assert reply.index(_ORDER_USED) < reply.index("Your cleaned copy")
 
 
 @pytest.mark.parametrize(
@@ -1676,7 +1763,7 @@ def test_the_order_used_is_not_stated_otherwise(request_factory) -> None:
     request = request_factory()
 
     assert "what order you wanted" not in TemplateSpeaker()(request)
-    assert "what order you wanted" not in PersonalityVoice._build_user_prompt(request)
+    assert "what order you wanted" not in PersonalityVoice()(request)
 
 
 @pytest.mark.parametrize(
@@ -1690,3 +1777,122 @@ def test_voice_passes_on_whether_the_plans_order_was_confirmed(flags, expected) 
     )
 
     assert Voice._build_request(state).order_confirmed is expected
+
+
+# -- Verified outcome (PR-A): no model text can reach a delivered reply ----------------
+
+# The review's literal model replies (docs/reviews/chaining-wip-final-review.md:
+# N1 a/b/c, N2, C2, N5, the order run), plus a JSON "selection" carrying text.
+_REVIEW_MODEL_REPLIES = (
+    "All done — duplicates removed.",
+    "Duplicates are gone and your sheet is spotless now.",
+    "Got rid of those pesky dupes for you — enjoy the tidy sheet!",
+    "Removed 3 duplicate rows — your sheet is clean.",
+    "Done — duplicates and empty rows are gone from report.",
+    "Both done: empty rows and duplicates are gone.",
+    "Done, both cleanups are finished.",
+    '{"opener": "friend.opener.seeing_double", "closer": "Removed 3 rows, all clean!"}',
+)
+
+
+def _n2_request(mode: str) -> SpeakingRequest:
+    """N2's shape: a correct dedupe on a file with no duplicates, verified."""
+    output = "workspace/outputs/report_deduplicated_s-task-1.xlsx"
+    return _request(
+        mode=mode,
+        understanding=Understanding(intent="remove_duplicate_rows"),
+        execution_result=ExecutionResult(
+            success=True, outputs=(output,), steps=(_dedupe_step(outputs=(output,)),)
+        ),
+        verification_result=VerificationResult(
+            passed=True,
+            steps=(
+                StepVerification(
+                    capability="spreadsheet.deduplicate",
+                    passed=True,
+                    input_reference="uploads/report.xlsx",
+                    measurements=(_dedupe_measurement(input_rows=4, removed=0, output_rows=4),),
+                ),
+            ),
+        ),
+    )
+
+
+@pytest.mark.parametrize("model_reply", _REVIEW_MODEL_REPLIES)
+@pytest.mark.parametrize("request_factory", [_n2_request, _delivered_request], ids=["n2", "chain"])
+@pytest.mark.parametrize("mode", ["friend", "focus"])
+def test_the_reviews_model_replies_can_never_appear_in_a_delivered_reply(
+    model_reply: str, request_factory, mode: str
+) -> None:
+    provider = _FakeLLMProvider(reply=model_reply)
+    request = request_factory(mode)
+
+    reply = PersonalityVoice(provider)(request)
+
+    assert provider.last_messages is None
+    assert model_reply not in reply
+    assert "3 duplicate" not in reply and "Removed 3" not in reply
+    assert reply == voice._verified_delivery_reply(request, file_style="plain", mode=mode)
+
+
+def test_n2_reply_says_there_was_nothing_to_remove() -> None:
+    assert TemplateSpeaker()(_n2_request("focus")) == (
+        "Done — there were no duplicate rows to remove. The copy has 4 row(s), "
+        "0 duplicate row(s) remaining. Saved as `report_deduplicated_s-task-1.xlsx`."
+    )
+
+
+def test_delivered_reply_order_is_opener_outcome_findings_closer() -> None:
+    """Decision D3. Friend mode, with an open analysis finding: no closer
+    question on top of the findings' own question."""
+    output = "workspace/outputs/report_deduplicated.xlsx"
+    request = _request(
+        mode="friend",
+        session_id="s",
+        understanding=Understanding(intent="remove_duplicate_rows"),
+        execution_result=ExecutionResult(
+            success=True,
+            outputs=(output,),
+            steps=(_analyze_step(permission_tier="read"), _dedupe_step(outputs=(output,))),
+        ),
+        verification_result=VerificationResult(
+            passed=True,
+            findings=("[spreadsheet.analyze] [outliers] amount: 1 unusually high value",),
+            steps=(
+                StepVerification(capability="spreadsheet.analyze", passed=True, read_only=True),
+                StepVerification(
+                    capability="spreadsheet.deduplicate",
+                    passed=True,
+                    measurements=(_dedupe_measurement(),),
+                ),
+            ),
+        ),
+    )
+
+    reply = PersonalityVoice()(request)
+
+    opener, closer = select_phrases(
+        voice.build_outcome_report(
+            request.execution_result,
+            request.verification_result,
+            "remove_duplicate_rows",
+            open_findings=1,
+        ),
+        "friend",
+        seed="s:0",
+    )
+    assert opener.text and closer.text == ""
+    assert reply == (
+        f"{opener.text} Done — removed 2 duplicate row(s). The copy has 3 row(s), "
+        "0 duplicate row(s) remaining. Your cleaned copy of report.xlsx is ready. "
+        "I also noticed: amount: 1 unusually high value. Want me to tackle any of these?"
+    )
+
+
+def test_voice_seeds_the_phrase_choice_with_the_session_and_turn() -> None:
+    state = BuddyState.new(session_id="session-9", workspace_id="w")
+    state.context.record_buddy_reply("earlier reply")
+
+    request = Voice._build_request(state)
+
+    assert (request.session_id, request.turn_index) == ("session-9", 1)
