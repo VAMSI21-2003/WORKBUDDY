@@ -634,3 +634,166 @@ PR-1 changes:
 - PR-3 gains: the once-per-turn plan confirmation and its tests.
 - PR-4 is required before deployment and gains the demo password, per-IP rate limit and hosted-demo binding/CORS.
 - **Still open:** upload size limit (9.1 item 4), which the public demo makes more pressing: 25 MB times the per-IP rate is the memory and disk exposure, and it is unmeasured.
+
+---
+
+## Decisions (2026-09-30, part 2)
+
+Resolves the conflicts and asks raised by the frontend design (`docs/design/frontend-design.md` on `design/frontend`, Sections 12 and 14) and the upload size left open in part 1. The rules in items 1 and 2 are the user's; the numbers in item 1 and the limit in item 3 are this design's recommendation, with the evidence given. Where this section conflicts with an earlier section, **this section wins**. Earlier text is not edited, so Section 6.2's "25 MB" and Section 9.1's "item 4 is still open" are superseded here rather than rewritten.
+
+Nothing in part 1 is reversed. One wording is refined at the user's direction: part 1 item 1 said "60 requests/min/IP **overall**". The number stays; polls of an existing turn move to their own allowance (item 1 below).
+
+### 1. Polling vs the per-IP rate limit
+
+**The conflict (frontend Section 14):** the UI polls `GET .../turns/{turn_id}` every 1 s (2 s after 20 s). Under one 60/min bucket, one tab polling one turn uses the whole budget, and the next upload or confirmation is refused.
+
+**Rule.** Every request is charged to exactly one of these per-IP token buckets (in memory, one worker, as in part 1), chosen by method, route template and whether the password is valid:
+
+| Bucket | Charged for | Burst | Refill | Status |
+|---|---|---|---|---|
+| `general` | every `/api/v1` request that isn't a valid poll (below): `POST /sessions`, `GET /sessions/{id}`, `GET .../files`, downloads, and the mutating routes | 60 | 1/s (60/min) | number unchanged from part 1 |
+| `poll` | `GET /api/v1/sessions/{sid}/turns/{tid}` **with a valid password** | 30 | 3/s (180/min) | new |
+| `turns` | `POST .../turns`, *in addition to* `general` | 10 | 10/hour | unchanged from part 1 |
+| `uploads` | `POST .../files`, *in addition to* `general` | 5 | 20/hour | new, sized in item 3 |
+| `healthz` | `GET /healthz` (no password) | 10 | 1/s | new; keeps a host's health probe and users from starving each other |
+
+1. **Polls of an existing turn get their own allowance.** A poll with a valid password takes one token from `poll` only. If the response is anything other than `200` (unknown session or turn, malformed id), one token is **also** taken from `general` after the response (clamped at zero). So the higher allowance serves turns that exist, and probing ids costs the strict rate. No session lookup happens before the password check to choose the bucket.
+2. **Mutating requests are counted strictly.** `POST .../files`, `POST .../turns` and `POST .../confirmation` (and `POST /sessions`) take a token from `general`, plus `turns` or `uploads` where listed, **whatever the response**: a `409`, `413`, `415` or `422` still counts. All required buckets must have a token, or the request is refused before the handler runs.
+3. **Password failures still count double.** A request whose password is missing or wrong takes **2** tokens from `general`, on every route **including the poll route**, so the poll allowance can't be used to guess the password. The limiter decides "valid" with the same function the auth dependency uses (one function, `hmac.compare_digest`), so the two can't disagree.
+4. **A request refused with `429` consumes nothing.** That keeps `Retry-After` exact (item 2, ask 6).
+
+**Why these numbers.**
+- [Certain] The global cap on unfinished turns is 2 (Section 6.5), and a turn awaiting confirmation counts as unfinished. So no IP can legitimately have more than two turns to poll, and the frontend polls at most 1/s per turn: 2 polls/s is the legitimate maximum per IP. The `poll` refill is 3/s to leave margin for retries and clock jitter; burst 30 absorbs a reload or the "What happened" fetches.
+- [Certain] The longest a turn can be polled is 180 s deadline + 120 s confirmation window = 300 s. At the frontend's cadence that is 20 + 140 = 160 polls, well inside `poll`.
+- **Startup check:** the app refuses to start if `poll` refill per second is below the global concurrent-turn cap. Raising the cap without raising the poll allowance would bring the conflict back.
+- A normal turn's non-poll traffic (turn, confirmation, a download, a file-list refresh) is under 10 `general` tokens.
+- [Certain] Users behind one IP (an office, a school NAT) share every bucket, including 10 turns/hour. That limit is unchanged from part 1 and is the price of having no per-user identity.
+
+**Not changed:** SSE stays deferred. With a separate poll allowance the conflict is resolved without it.
+
+**Tested in PR-4** (injected clock, no sleeps):
+1. One turn polled at the frontend's cadence for the full 300 s, plus upload, turn, confirmation and download from the same IP: no `429`.
+2. Two such turns at once from one IP: no `429`. A third poll stream at 1 s eventually gets `429 rate_limited`, and while it does, a `general` request from the same IP still succeeds (the buckets are independent).
+3. 300 valid polls don't reduce `general`.
+4. Strict counting: uploads refused with `413`/`415`/`422`/`409` and turns refused with `409`/`422` each consume `general` (and `uploads`/`turns`); the 61st `general` request in a burst gets `429`; the 11th turn in an hour and the 6th upload in a burst get `429`.
+5. Double count: wrong-password requests take 2 tokens on every route; 30 wrong-password polls exhaust `general`, and the `poll` bucket is untouched.
+6. A poll of an unknown turn or session takes a token from `general` as well.
+7. A `429` consumes nothing, and after advancing the clock by `Retry-After` the same request is accepted.
+8. `/healthz` traffic doesn't touch `general`, and vice versa.
+9. The startup check refuses a poll refill below the concurrent-turn cap.
+10. `WORKBUDDY_TRUSTED_PROXY_HOPS` (part 1): with it unset, a spoofed `X-Forwarded-For` doesn't change the bucket; with it set, two clients behind the proxy get separate buckets.
+
+**For the frontend design (not decided here):** a `429` on a poll is a refused request, not a lost connection. It should wait `Retry-After` and not count toward the "5 consecutive failures → I don't know how it ended" rule in frontend Section 1.6.
+
+### 2. The frontend's asks 1, 2, 3, 4, 6 and 7 (Section 12): accepted
+
+Ask 5 (download tokens, SSE) stays deferred, as the frontend design itself proposes.
+
+**Ask 1: `pending_confirmation.steps`.** Already decided in part 1, item 2. Each entry is `{ "capability", "prompt" }`, in execution order, Write-tier steps only; `prompt` comes from the fixed per-capability template. The part 1 PR-3 tests (a two-step chain asks once; an unlisted step is refused) also assert that `steps` equals the Write-tier steps `Hands` executes, in the same order.
+
+**Ask 2: limits and retention in the session response.** `POST /sessions` (`201`) and `GET /sessions/{id}` gain:
+
+```json
+{ "limits": { "max_upload_bytes": 5242880,
+              "accepted_extensions": [".xlsx", ".xls"],
+              "max_message_chars": 4000 },
+  "retention_hours": 24 }
+```
+
+- Each value is read from the **same settings object** the enforcing code reads; nothing is a second copy. Tests: an upload of exactly `max_upload_bytes` is accepted and one byte more gets `413`; a message of `max_message_chars` is accepted and one more character gets `422`; every listed extension passes the type check and nothing unlisted does.
+- `accepted_extensions` is the upload validator's allowlist itself. `.xls` is in it only in the PR that adds the `.xls` fixture test (part 1, item 4) and only if `xlrd` imports, so the UI can't advertise a type the server rejects or hasn't tested.
+- **`retention_hours` is `null` until the retention sweep exists (PR-4).** The field is in the schema from PR-2 so the frontend's types don't change, but advertising "deleted after 24 hours" before anything deletes would be a false claim in the product's voice. PR-4 sets it from `WORKBUDDY_SESSION_TTL_HOURS`, the same value the sweep reads, and tests that a session idle for longer than `retention_hours` is gone after a sweep. (The frontend already shows no number when the value is missing.)
+- The `413` message is built from the setting at startup ("That file is larger than 5 MB."), not a literal, so it can't disagree with the configured cap.
+
+**Ask 3: a committed `openapi.json`.**
+- Location: `backend/openapi.json`, generated by `python -m backend.export_openapi` (`app.openapi()` serialized with sorted keys, 2-space indent and a trailing newline).
+- `tests/backend/test_openapi_sync.py` builds the app with test settings, regenerates the schema and compares it byte for byte with the committed file. On mismatch the failure message names the regeneration command. The frontend's build and CI generate types from this file.
+- The schema must describe the **real** error bodies. FastAPI documents its own `HTTPValidationError` for `422` by default, which is not our `{ "error": { "code", "message" } }` body. Each route declares its error responses with the shared `ErrorBody` model, and a test walks the schema and fails if any 4xx/5xx response references anything else. `429` responses declare the `Retry-After` header.
+- `fastapi` is pinned to a minor version in `requirements.txt`, so a library upgrade that changes the generated schema shows up as a deliberate diff, not CI noise.
+- This is the repo copy. Serving `/openapi.json` in production is still off or behind the password (part 1, item 1).
+
+**Ask 4: the auth header and the `401` body.** Decided: **`Authorization: Bearer <password>`**. `X-Demo-Password` is not accepted.
+- Parsing: the scheme is matched case-insensitively (`Bearer`, per RFC 6750), and the credential is compared with `hmac.compare_digest` on UTF-8 bytes. Missing header, another scheme, an empty credential and a wrong password are all the same failure.
+- Response: `401` with header `WWW-Authenticate: Bearer realm="workbuddy-demo"` and body `{ "error": { "code": "unauthorized", "message": "The demo password is missing or wrong." } }`. It's one body for every case, so a caller learns nothing about why it failed.
+- Implemented with FastAPI's `HTTPBearer(auto_error=False)` and our own `401`, so the body is ours and not FastAPI's default. The scheme then appears in `openapi.json` as a `bearer` security scheme.
+- The static frontend and `/healthz` are not behind it; every `/api/v1` route is (part 1).
+- The log-redaction pattern for `Bearer …` from Section 6.4 covers it. A PR-4 test asserts the password never appears in a response or in captured logs, including on `401` and `429`.
+
+**Ask 6: `Retry-After` on every `429`.** An integer number of seconds (never an HTTP date), at least 1.
+- `rate_limited`: the exact wait until the refusing bucket (the longest, if several refuse) has enough tokens. Test 7 in item 1 checks it.
+- `server_busy`: a fixed hint from `WORKBUDDY_BUSY_RETRY_AFTER_S` (default 10). It can't be exact, because turns finish unpredictably. It is "don't retry sooner", not a promise, and the error message doesn't promise a free slot either.
+- If `WORKBUDDY_CORS_ORIGINS` is ever non-empty, `Access-Control-Expose-Headers: Retry-After` is sent. Otherwise a cross-origin page can't read the header. In the recommended same-origin deployment this doesn't arise.
+
+**Ask 7: `reply_source` and `outcome` are always present on finished turns.** This was already the contract (Section 1.3.1: `finished` is the only state in which they are set; Section 5.1, invariant 7: set together in one step). What's new is that it's now enforced two ways:
+- **Schema:** the turn model is a union discriminated on `status`. The `finished` variant has `reply: str`, `reply_source` and `outcome` as required, non-null enums. The JSON shape in Section 1.3.1 doesn't change (the other variants still carry those keys as `null`). [Likely] `openapi-typescript` renders this as a TypeScript union the frontend can narrow on. If it doesn't, the tests below are still the guarantee.
+- **Tests (every way a turn can finish):** delivered; not delivered; stage raises (R6); Voice raises; deadline; integrity failure; restart repair (a turn marked `failed` with `reply_source: "pipeline_fallback"`); and, in PR-3, confirmation reject and timeout. Each asserts that `reply`, `reply_source` and `outcome` are all non-null once `status == "finished"`, and on no earlier poll.
+
+### 3. Upload size limit: 5 MB (5,242,880 bytes) for the public demo
+
+**Decision (recommended; the user can override it with `WORKBUDDY_MAX_UPLOAD_BYTES`): the default becomes 5 MiB everywhere, replacing Section 6.2's 25 MB guess.** Anyone running locally can raise it.
+
+**What I measured.** This was not measured in the pipeline, the API or the demo host. Isolated `pandas` calls, in this cloud container (Python 3.11.15, pandas 2.3.3, openpyxl 3.1.5, Intel Xeon 2.8 GHz). Synthetic sheets: 14 columns (6 floats, 3 ints, 4 short strings, 1 date), 5% duplicate rows, one sheet. Each figure is one run in a fresh process; peak RSS includes about 67 MB for importing pandas.
+
+| `.xlsx` size | rows | uncompressed | `read_excel` | read + dedupe + `to_excel` (peak RSS) | read + `ProfileReport(minimal)` (peak RSS) |
+|---|---|---|---|---|---|
+| 1.9 MB | 21,000 | 13 MB | 3.0 s | 7.8 s (187 MB) | 6.0 s (331 MB) |
+| 5.0 MB | 54,600 | 35 MB | 7.9 s | 21.1 s (375 MB) | 11.6 s (379 MB) |
+| 9.6 MB | 105,000 | 67 MB | 14.5 s | 42.0 s (648 MB) | 19.3 s (439 MB) |
+| 19.3 MB | 210,000 | 136 MB | 29.4 s | 90.8 s (1,210 MB) | 35.4 s (519 MB) |
+
+Separately, importing `buddy.engine_factory`, the excel skills and `ydata_profiling` gives 303 MB peak RSS before any work (FastAPI and uvicorn aren't installed yet, so they're not included).
+
+**Reasoning.**
+- **Time binds first, not memory.** [Likely] From the `read_excel` call sites (`skills/excel/analyze.py:353`, `skills/excel/dedupe.py:94`, `buddy/inspector.py:132, 209, 357, 579`), a one-step turn reads the file about 7 times: proactive analysis, the step, the Inspector reading output and input, and analysis re-run on the final file and verified. It also writes once. I counted call sites; I didn't trace a turn. Scaling the table gives, before any LLM time:
+
+  | File size | One-step turn | Two-step chain |
+  |---|---|---|
+  | 5 MB | ~75 s | ~110 s |
+  | 10 MB | ~140 s | ~210 s |
+
+  So at 10 MB a two-step chain passes the 180 s deadline (Section 4.3) and ends as `failed`: honest, but a broken demo. 25 MB fails even single steps. 5 MB leaves roughly 40% margin for the chain, before the demo host's CPU speed (unknown) and Groq latency.
+- **Memory is bounded by the concurrent-turn cap, not by the per-IP rate.** Uploads are streamed to disk and never parsed at upload time (Section 6.2), so only running turns hold data in memory, and at most 2 run at once. [Likely] At 5 MB: about 300 MB baseline + 2 × about 310 MB per-turn peak ≈ **0.9–1.0 GB**. At 25 MB, extrapolating the 19 MB row (1.2 GB for one dedupe): ≈ 300 MB + 2 × ~1.5 GB ≈ **3.3 GB**, which rules out the 1–2 GB fallback hosts in frontend Section 11.3.
+- **Disk is bounded by the per-IP upload rate, not by the size cap.** Without an upload-specific bucket, `general` alone (60/min) allows 60 × 5 MB = 300 MB/min per IP (18 GB/hour), and at 25 MB, 90 GB/hour. That is why item 1 adds `uploads` (burst 5, 20/hour). Per IP per hour at 5 MB:
+  - uploads: 20 × 5 MB = 100 MB;
+  - outputs: 10 turns × at most 2 written files × ~5 MB ≈ 100 MB ([Possible] an output is about its input's size; unmeasured).
+  
+  That is ~200 MB/hour, or ~4.8 GB per IP held for the 24 h TTL if sustained. The per-session quotas (part 1) don't bound this, because sessions are free to create; the `uploads` and `turns` buckets do.
+  - The global data-root cap (part 1, `503 storage_full`) is what protects the disk. **Its number is still undecided:** it depends on the host's disk, which isn't chosen.
+  - [Certain] A handful of IPs at the maximum rate can fill a small cap within hours and lock out everyone until the sweep. The rate limits bound how fast that happens; they don't prevent it.
+- **Upload spool.** [Likely] Starlette parses a multipart body into a spooled temp file before the handler runs, so the handler's streaming check alone doesn't stop an oversized body reaching temp disk. The global body cap (Section 6.2) must be enforced on the raw request stream, before multipart parsing. The `uploads` burst of 5 bounds concurrent uploads per IP. PR-2 test: a body over the cap, with no `Content-Length` and with a false one, is cut off and leaves nothing in the temp directory.
+- **User cost.** At the measured shape, 5 MB is about 55,000 rows × 14 columns. [Guessing] Most sheets people try in a demo are smaller. A too-large file fails at once with a clear `413`, which is better than a turn that runs for three minutes and then fails.
+
+**Still open, said plainly:**
+- **Uncompressed-size guard.** Parse time follows the *uncompressed* XML (7× the file size here). Section 6.2's 200 MB guard would admit a highly compressible 5 MB file whose reads take ~40 s each, so ~7 reads miss the deadline. I recommend 40 MB for the demo (8× the cap), but this changes a Section 6.2 value, so it's **left for the user to decide**.
+- **Unmeasured:**
+  - the real pipeline end to end (the read count, LLM latency, `splink` if it's imported);
+  - process RSS with FastAPI and two concurrent turns;
+  - the demo host's CPU;
+  - other sheet shapes: wide sheets, long text, formulas and styles, several sheets;
+  - `.xls` through `xlrd`;
+  - output sizes.
+- **Evidence that would change this:** PR-2 live run 9 (below). If a two-step chain on a 5 MB fixture takes over 120 s through the API (two-thirds of the deadline), lower the default to 2 MB before deployment. If it takes under 60 s on the demo host, 10 MB can be reconsidered, but only after a 10 MB chain is measured under 120 s there.
+
+**Consequences:** the frontend's blob-download memory (frontend Section 14) is now bounded by 5 MB, not 25 MB. The uploads bucket (item 1) is part of this decision, not an extra.
+
+### 4. PR split, updated (adds to Section 8.3 and part 1's "Consequences")
+
+| Item | PR |
+|---|---|
+| Session response `limits` (`max_upload_bytes`, `accepted_extensions`, `max_message_chars`), all from the enforcing settings, with the boundary tests | **PR-2** |
+| `retention_hours` in the schema, always `null` | **PR-2** |
+| `retention_hours` populated from the TTL, plus the sweep test | **PR-4** |
+| `backend/openapi.json`, `backend/export_openapi.py`, the sync test, the `ErrorBody`-only error-schema test, `fastapi` minor pin | **PR-2** (each later PR regenerates the file and its diff is reviewed) |
+| Finished-turn union schema; the "all three set on finish" tests for delivered, not delivered, R6, Voice raise, deadline, integrity failure, restart repair | **PR-2** |
+| The same tests for reject and confirmation timeout; `steps` equals the executed Write-tier steps | **PR-3** |
+| `Retry-After` on `429 server_busy` (`WORKBUDDY_BUSY_RETRY_AFTER_S`) | **PR-2** |
+| Upload cap default 5 MiB, `413` message from the setting, raw-stream body cap and its temp-directory test | **PR-2** |
+| Live run 9: 5 MB fixture, "remove duplicate rows" and a two-step chain through the API; record wall time per turn and peak process RSS alongside the usual `CLAUDE.md` fields | **PR-2** |
+| `Authorization: Bearer`, the `401` body and `WWW-Authenticate`, `HTTPBearer(auto_error=False)`, the no-password-in-logs test | **PR-4** (PR-4a if split) |
+| The five buckets, strict counting, double count on the poll route, post-charge for non-`200` polls, exact `Retry-After` on `rate_limited`, the startup check, and tests 1–10 of item 1 | **PR-4** (PR-4a if split) |
+| Repeat live run 9 on the chosen demo host before the link goes public; apply the 2 MB fallback if it exceeds 120 s | **PR-4** (deployment checklist) |
+
+**Still undecided after this section:**
+- the uncompressed-size guard for the demo (item 3);
+- the global data-root byte cap (depends on the host);
+- how the frontend treats a `429` on a poll (frontend design, noted in item 1).
