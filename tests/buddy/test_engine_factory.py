@@ -2531,3 +2531,116 @@ def test_m1_the_analyzers_all_clear_is_qualified_next_to_a_residual(
     assert "It still has 2 duplicate row(s)." in reply
     assert "None of the other issues I check for were found." in reply
     assert "None of the issues I check for were found" not in reply
+
+
+# -- Verified outcome (PR-B fixes 2): re-review N1 and N2, end to end ----------------------
+
+_DEDUPE_LEAD_AND_GENERIC = (
+    "Partly done — removed 2 duplicate row(s). "
+    "I read part of your request as something I can't do yet."
+)
+
+
+@pytest.mark.parametrize("session_id", _SEEDS)
+@pytest.mark.parametrize("speaker_kind", _SPEAKERS)
+@pytest.mark.parametrize(
+    "extra", ["delete the file", "clean the data", "drop the sheet", "email me the report"]
+)
+def test_n1_a_real_unsupported_part_is_never_dropped_behind_a_done_lead(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    extra: str,
+    speaker_kind: str,
+    session_id: str,
+) -> None:
+    """Re-review N1 (x2, x3, x4, x5): Brain's unsupported entry is the whole message, which
+    names the dedupe that ran plus a part Buddy can't do. Verb and noun words like "delete"
+    or "file" must not be treated as filler: the not-done sentence stays."""
+    monkeypatch.chdir(tmp_path)
+    message = f"remove duplicates and {extra}"
+    brain = _brain_ledger_reply(
+        "remove_duplicate_rows",
+        ("remove_duplicate_rows", "remove duplicates"),
+        ("unsupported", message),
+    )
+
+    reply, delivered = _delivered_turn(
+        tmp_path, message, [brain, _THINK_PROCEEDS], speaker_kind, session_id
+    )
+
+    assert _counts(delivered) == (4, 0, 1)
+    assert _DEDUPE_LEAD_AND_GENERIC in reply, reply
+    assert not reply.startswith("Done —"), reply
+    assert "Done —" not in reply, reply
+
+
+@pytest.mark.parametrize("session_id", _SEEDS)
+@pytest.mark.parametrize("speaker_kind", _SPEAKERS)
+def test_n1_delete_the_file_alone_is_still_quoted_as_something_buddy_cant_do(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, speaker_kind: str, session_id: str
+) -> None:
+    """Re-review x6: a phrase that names no action is unchanged: quoted, not dropped."""
+    monkeypatch.chdir(tmp_path)
+    brain = _brain_ledger_reply(
+        "remove_duplicate_rows",
+        ("remove_duplicate_rows", "remove duplicates"),
+        ("unsupported", "delete the file"),
+    )
+
+    reply, _ = _delivered_turn(
+        tmp_path, "remove duplicates and delete the file", [brain, _THINK_PROCEEDS],
+        speaker_kind, session_id,
+    )
+
+    assert "I can't do this part yet: “delete the file”." in reply, reply
+    assert "Partly done — removed 2 duplicate row(s)." in reply, reply
+
+
+@pytest.mark.parametrize("session_id", _SEEDS)
+@pytest.mark.parametrize("speaker_kind", _SPEAKERS)
+def test_n1_a_dropped_entry_needs_only_function_words_left_over(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, speaker_kind: str, session_id: str
+) -> None:
+    """The entries the H2 fix meant to drop still are: only articles, politeness, negation
+    and keep/leave words are left once the action's own words are removed."""
+    monkeypatch.chdir(tmp_path)
+    brain = _brain_ledger_reply(
+        "remove_empty_rows",
+        ("remove_empty_rows", "remove the empty rows"),
+        ("unsupported", "don't remove the duplicates please"),
+    )
+
+    reply, _ = _delivered_turn(
+        tmp_path,
+        "remove the empty rows but don't remove the duplicates please",
+        [brain, _THINK_PROCEEDS],
+        speaker_kind,
+        session_id,
+    )
+
+    assert "can't do" not in reply, reply
+    assert "Removed 1 fully-empty row(s)" in reply or "emoved 1 fully-empty row(s)" in reply
+
+
+@pytest.mark.parametrize("session_id", _SEEDS)
+@pytest.mark.parametrize("speaker_kind", _SPEAKERS)
+def test_n2_unsupported_entries_alone_are_no_reading_to_compare_a_step_with(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, speaker_kind: str, session_id: str
+) -> None:
+    """Re-review N2 (x1, e1): Brain's only entry is an unsupported phrase, and the planner
+    ran the dedupe. "I didn't read that as part of your request" needs a supported Brain
+    action to compare the step with; without one the reply says nothing about it."""
+    monkeypatch.chdir(tmp_path)
+    brain = _brain_ledger_reply("multi_step_request", ("unsupported", "sort by amount"))
+    plan = _plan_reply(("spreadsheet.deduplicate", "remove duplicates"))
+
+    reply, delivered = _delivered_turn(
+        tmp_path, "remove duplicates and sort by amount", [brain, _THINK_PROCEEDS, plan],
+        speaker_kind, session_id,
+    )
+
+    assert _counts(delivered) == (4, 0, 1)
+    assert "didn't read that" not in reply, reply
+    assert "emoved 2 duplicate row(s)" in reply, reply
+    assert "I can't do this part yet: “sort by amount”." in reply, reply
+    _no_completion_claim(reply)

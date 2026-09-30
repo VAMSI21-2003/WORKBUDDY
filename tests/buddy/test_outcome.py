@@ -32,6 +32,7 @@ from buddy.models import (
     VerificationResult,
 )
 from buddy.outcome import (
+    _FILLER_WORDS,
     DONE,
     DONE_UNREQUESTED,
     FILE_STYLE_GENERATED,
@@ -850,3 +851,46 @@ def test_no_residual_sentence_when_the_delivered_file_could_not_be_read() -> Non
 
     assert report.residuals == ()
     assert "still has" not in render_outcome(report, FILE_STYLE_GENERATED)
+
+
+def test_n1_the_filler_set_holds_only_function_words() -> None:
+    """Guard: a dropped "unsupported" entry must have nothing but these left over, so no
+    content word (a verb like "delete", a noun like "file") may ever join the set. A verb
+    belongs in an action's mention pattern, attached to its object."""
+    allowed = {
+        "a", "an", "the", "please", "and", "then", "also", "just", "only",
+        "do", "dont", "don't", "not", "no", "never", "keep", "leave", "remove",
+    }  # fmt: skip
+
+    assert _FILLER_WORDS <= allowed, sorted(_FILLER_WORDS - allowed)
+    for content_word in ("delete", "drop", "clean", "file", "sheet", "data", "report", "rows"):
+        assert content_word not in _FILLER_WORDS
+
+
+def test_n1_a_leftover_content_word_keeps_the_generic_not_done_sentence() -> None:
+    def generic(phrase: str) -> list[str]:
+        report = _single_dedupe_turn(
+            _brain("remove_duplicate_rows", "remove duplicates", found=True),
+            _brain(UNSUPPORTED, phrase, found=True),
+        )
+        return [a.user_phrase for a in report.actions if a.reason == NO_SKILL]
+
+    assert generic("remove duplicates and delete the file") == [""]
+    assert generic("remove duplicates and clean the data") == [""]
+    assert generic("remove duplicates and drop the sheet") == [""]
+    assert generic("delete the duplicates") == [""]  # verb not in a mention pattern: keep
+    assert generic("remove all duplicates") == [""]  # unsure: keep
+    assert generic("keep the duplicates") == []  # function words only: dropped
+    assert generic("don't remove the duplicates please") == []
+    assert generic("but keep the duplicates") == [""]  # "but" is not in the closed set: keep
+
+
+def test_n2_unsupported_entries_alone_never_make_a_step_unrequested() -> None:
+    report = _single_dedupe_turn(_brain(UNSUPPORTED, "sort by amount", found=True))
+
+    assert [(a.capability, a.status, a.source) for a in report.actions if a.reason is None] == [
+        (_DEDUPE, DONE, "")
+    ]
+    assert report.lead_word is None
+    assert "didn't read that" not in render_outcome(report, FILE_STYLE_GENERATED)
+

@@ -295,7 +295,11 @@ def build_outcome_report(
         The ``OutcomeReport``.
     """
     ledger = requested_ledger(understanding or Understanding())
-    has_reading = any(entry.source in BRAIN_SOURCES for entry in ledger)
+    # "Brain's reading" is what a step is compared with; "unsupported" entries are
+    # not actions a step could be, so they alone give nothing to compare with.
+    has_reading = any(
+        entry.source in BRAIN_SOURCES and entry.action in ACTIONS_BY_NAME for entry in ledger
+    )
     ledger_by_capability = {
         ACTIONS_BY_NAME[entry.action].capability: entry
         for entry in reversed(ledger)  # the first entry for a capability wins
@@ -381,15 +385,16 @@ def build_outcome_report(
     )
 
 
-# Words that, left over once an action's own words are removed from an
-# "unsupported" phrase, don't ask for anything more ("remove the duplicate
-# rows", "keep the duplicates").
+# RULE for this set: an "unsupported" entry is dropped only when, once the action's
+# mention patterns and the words Brain quoted for a done action are removed, nothing
+# is left or only these remain. They are function words: articles, politeness,
+# connectives, negation, keep/leave, and "remove". NEVER add a content word here (no
+# verb like "delete" or "drop", no noun like "file", "sheet" or "data"): anything
+# else left over is a part of the request we may not have done, and the reply says
+# so. A verb belongs in an action's mention pattern, attached to its object ("delete
+# the duplicates"). When unsure, keep the not-done sentence.
 _FILLER_WORDS = frozenset(
-    "a an the this that these those it them its my our your all any every some "
-    "please pls just only also then and or but to of in on from for with without into "
-    "can could would you i we let lets do does dont don't not no never keep leave "
-    "remove removing delete deleting drop get rid clean clear erase strip "
-    "row rows line lines entry entries record records data file sheet spreadsheet report".split()
+    "a an the please and then also just only do dont don't not no never keep leave remove".split()
 )
 
 
@@ -407,9 +412,9 @@ def _no_skill_outcome(
     names an action (the mention detector's pattern, or the words Brain
     quoted for an action that passed):
 
-    - if nothing else is left in it once those words and filler are removed,
-      the entry is dropped: the action has its own sentence (or none, when it
-      ran and was said);
+    - if nothing else is left in it once those words and the function words in
+      ``_FILLER_WORDS`` are removed, the entry is dropped: the action has its
+      own sentence (or none, when it ran and was said);
     - otherwise the sentence is the generic, unquoted one, since a quote would
       include the named action.
     """
@@ -430,6 +435,7 @@ def _no_skill_outcome(
     if not names_action:
         quoted = _quoted_phrase(phrase) if entry.phrase_found else ""
         return ActionOutcome("", NOT_DONE, reason=NO_SKILL, source=entry.source, user_phrase=quoted)
+    lowered = lowered.replace("\u2019", "'")
     left_over = [w for w in re.findall(r"[\w']+", lowered) if w not in _FILLER_WORDS]
     if not left_over:
         return None
