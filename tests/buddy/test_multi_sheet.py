@@ -22,6 +22,7 @@ from buddy.voice import _COMPLETION_CLAIM, PersonalityVoice
 from skills.base import SkillResult, SkillStatus
 from skills.excel.dedupe import ExcelDeduplicateSkill
 from skills.excel.remove_empty_rows import ExcelRemoveEmptyRowsSkill
+from tests import workbook_fixtures as fixtures
 from tests.buddy.test_engine_factory import (
     _chain_replies,
     _QueuedLLMProvider,
@@ -30,6 +31,8 @@ from tests.buddy.test_engine_factory import (
 
 _Q1 = {"name": ["Alice", "Bob", None, "Alice", "Carol"], "amount": [1, 2, None, 1, 3]}
 _Q2 = {"name": ["Zed", "Yan"], "amount": [9, 8]}
+
+_UPLOAD = Path("uploads") / "report.xlsx"
 
 _DEDUPE = "spreadsheet.deduplicate"
 _EMPTY_ROWS = "spreadsheet.remove_empty_rows"
@@ -84,9 +87,16 @@ def _run(
     tmp_path: Path, sheets: dict[str, dict[str, list[object]]], kind: str, speaker_kind: str
 ) -> tuple[BuddyState, _QueuedLLMProvider, Path, str]:
     """One turn through ``build_engine`` on ``uploads/report.xlsx``."""
+    _write_workbook(tmp_path / _UPLOAD, sheets)
+    return _run_uploaded(tmp_path, kind, speaker_kind)
+
+
+def _run_uploaded(
+    tmp_path: Path, kind: str, speaker_kind: str
+) -> tuple[BuddyState, _QueuedLLMProvider, Path, str]:
+    """One turn through ``build_engine`` on the file already at ``uploads/report.xlsx``."""
     message, replies, _ = _REQUESTS[kind]
-    input_path = Path("uploads") / "report.xlsx"
-    _write_workbook(tmp_path / input_path, sheets)
+    input_path = _UPLOAD
     original_hash = _sha256(tmp_path / input_path)
 
     state = BuddyState.new(session_id="session-1", workspace_id="workspace-1")
@@ -350,3 +360,162 @@ def test_a_chain_step_that_drops_a_sheet_of_the_previous_steps_output_fails(
     reply = _assert_nothing_delivered(state)
     assert "I stopped at the remove empty rows step" in reply
     assert _sha256(original_path) == original_hash
+
+
+# -- A workbook that can't be read as the sheets it declares ----------------------------
+
+_FILL = "Done - removed 2 duplicate rows, your cleaned copy is ready"
+
+
+def _damaged_two_sheet(tmp_path: Path) -> None:
+    """Declares ``Q1`` and ``Q2``; ``Q2``'s XML part is missing (openpyxl lists only ``Q1``)."""
+    (tmp_path / "uploads").mkdir(parents=True, exist_ok=True)
+    book = tmp_path / "book.xlsx"
+    _write_workbook(book, _sheets(2))
+    fixtures.without_sheet_part(book, tmp_path / _UPLOAD)
+
+
+def _no_readable_sheet(tmp_path: Path) -> None:
+    (tmp_path / "uploads").mkdir(parents=True, exist_ok=True)
+    book = tmp_path / "book.xlsx"
+    _write_workbook(book, {"Q1": _Q1})
+    fixtures.without_declared_sheets(book, tmp_path / _UPLOAD)
+
+
+def _crafted_part_name(tmp_path: Path) -> None:
+    (tmp_path / "uploads").mkdir(parents=True, exist_ok=True)
+    book = tmp_path / "book.xlsx"
+    _write_workbook(book, {"Q1": _Q1})
+    fixtures.with_content_types_part_named(book, tmp_path / _UPLOAD, _FILL)
+
+
+def _password_protected(tmp_path: Path) -> None:
+    (tmp_path / "uploads").mkdir(parents=True, exist_ok=True)
+    fixtures.encrypted_package(tmp_path / _UPLOAD)
+
+
+_UNREADABLE_WORKBOOKS = {
+    "missing_part": (
+        _damaged_two_sheet,
+        "the workbook looks damaged: it lists sheets that can't be read",
+    ),
+    "no_sheet": (_no_readable_sheet, "the workbook looks damaged: it has no readable sheet"),
+    "crafted_part_name": (
+        _crafted_part_name,
+        "could not read the workbook; it may be damaged or not an Excel file",
+    ),
+    "password": (_password_protected, "the workbook is password-protected, so it can't be opened"),
+}
+
+
+@pytest.mark.parametrize("kind", list(_REQUESTS))
+@pytest.mark.parametrize("speaker_kind", ["template", "friend", "focus"])
+@pytest.mark.parametrize("fixture", list(_UNREADABLE_WORKBOOKS))
+def test_an_unreadable_workbook_is_refused_with_a_fixed_reason_and_nothing_delivered(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, fixture: str, kind: str, speaker_kind: str
+) -> None:
+    monkeypatch.chdir(tmp_path)
+    prepare, reason = _UNREADABLE_WORKBOOKS[fixture]
+    prepare(tmp_path)
+    state, provider, original_path, original_hash = _run_uploaded(tmp_path, kind, speaker_kind)
+
+    reply = _assert_nothing_delivered(state)
+
+    assert reason in reply
+    # The reason is fixed text: nothing read from the file, no exception text, and
+    # not the "0 sheets" or ".xls / xlrd" reasons that were wrong for these files.
+    assert "cleaned copy is ready" not in reply
+    assert "removed 2 duplicate rows" not in reply
+    assert "0 sheets" not in reply
+    assert "xlrd" not in reply
+    assert ".xls" not in reply
+    assert "did not produce an output file" not in reply
+    assert not list((tmp_path / "workspace").rglob("*.xlsx"))
+    assert _sha256(original_path) == original_hash
+    assert len(provider.calls) == len(_REQUESTS[kind][1]())  # the Voice model never ran
+
+
+def test_a_crafted_part_name_with_a_completion_claim_never_reaches_the_reply(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.chdir(tmp_path)
+    _crafted_part_name(tmp_path)
+    state, _, _, _ = _run_uploaded(tmp_path, "dedupe", "template")
+
+    reply = state.reply
+    assert reply is not None
+    assert "cleaned copy is ready" not in reply
+    assert "removed 2 duplicate rows" not in reply
+    assert _COMPLETION_CLAIM.search(reply) is None, reply
+
+
+# -- The proactive analysis is skipped on a workbook the skills refuse (M4) -------------
+
+
+def _capabilities(state: BuddyState) -> list[str]:
+    assert state.execution_result is not None
+    return [step.capability for step in state.execution_result.steps]
+
+
+@pytest.mark.parametrize("kind", list(_REQUESTS))
+@pytest.mark.parametrize("speaker_kind", ["template", "friend", "focus"])
+@pytest.mark.parametrize("sheet_count", [2, 3])
+def test_the_analysis_is_skipped_on_a_multi_sheet_workbook(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    sheet_count: int,
+    kind: str,
+    speaker_kind: str,
+) -> None:
+    monkeypatch.chdir(tmp_path)
+    state, _, _, _ = _run(tmp_path, _sheets(sheet_count), kind, speaker_kind)
+
+    assert "spreadsheet.analyze" not in _capabilities(state)
+    reply = _assert_nothing_delivered(state)
+    # The reply describes no single sheet and offers no work the skills refuse.
+    assert "here's what I noticed" not in reply
+    assert "I also noticed" not in reply
+    assert "tackle" not in reply
+    assert "missing value" not in reply
+    assert f"the workbook has {sheet_count} sheets" in reply
+    # Skipped, so the file wasn't marked as analysed either.
+    assert str(_UPLOAD) not in state.context.analyzed_files
+
+
+def test_a_hidden_first_sheet_is_not_described(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Sheet 1 is hidden: the old analysis described a sheet the user can't see."""
+    monkeypatch.chdir(tmp_path)
+    _write_workbook(tmp_path / _UPLOAD, _sheets(2))
+    book = openpyxl.load_workbook(tmp_path / _UPLOAD)
+    book["Q1"].sheet_state = "hidden"
+    book.active = 1
+    book.save(tmp_path / _UPLOAD)
+    state, _, _, _ = _run_uploaded(tmp_path, "dedupe", "template")
+
+    assert "spreadsheet.analyze" not in _capabilities(state)
+    reply = _assert_nothing_delivered(state)
+    assert "missing value" not in reply
+
+
+@pytest.mark.parametrize("fixture", list(_UNREADABLE_WORKBOOKS))
+def test_the_analysis_is_skipped_on_a_workbook_whose_sheets_cant_be_listed(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, fixture: str
+) -> None:
+    monkeypatch.chdir(tmp_path)
+    _UNREADABLE_WORKBOOKS[fixture][0](tmp_path)
+    state, _, _, _ = _run_uploaded(tmp_path, "dedupe", "template")
+
+    assert "spreadsheet.analyze" not in _capabilities(state)
+
+
+@pytest.mark.parametrize("kind", list(_REQUESTS))
+def test_the_analysis_still_runs_on_a_one_sheet_workbook(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, kind: str
+) -> None:
+    monkeypatch.chdir(tmp_path)
+    state, _, _, _ = _run(tmp_path, {"Data": _Q1}, kind, "template")
+
+    assert _capabilities(state)[0] == "spreadsheet.analyze"
+    assert str(_UPLOAD) in state.context.analyzed_files

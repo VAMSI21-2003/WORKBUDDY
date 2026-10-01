@@ -22,8 +22,10 @@ this script makes a real, billed-where-applicable API call.
 import argparse
 import hashlib
 import os
+import re
 import sys
 import time
+import zipfile
 from pathlib import Path
 
 import pandas as pd
@@ -88,17 +90,59 @@ def _write_two_sheet_fixture(path: Path) -> None:
         )
 
 
+def _write_damaged_fixture(path: Path) -> None:
+    """Write a two-sheet workbook whose ``Q2`` XML part is then removed from the zip.
+
+    ``workbook.xml`` still declares ``Q1`` and ``Q2``, but openpyxl and pandas
+    list only ``Q1``. Nothing should be delivered, and the reply should say the
+    workbook looks damaged.
+    """
+    _write_two_sheet_fixture(path)
+    with zipfile.ZipFile(path) as original:
+        parts = [(item, original.read(item.filename)) for item in original.infolist()]
+    with zipfile.ZipFile(path, "w") as damaged:
+        for item, data in parts:
+            if item.filename != "xl/worksheets/sheet2.xml":
+                damaged.writestr(item, data)
+
+
+def _write_password_protected_fixture(path: Path) -> None:
+    """Write a stand-in for a password-protected .xlsx: the OLE2 magic bytes plus the
+    UTF-16-LE stream name ``EncryptedPackage``, which is how Excel marks one. It is not
+    a real encrypted package, only what the check looks for."""
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_bytes(
+        b"\xd0\xcf\x11\xe0\xa1\xb1\x1a\xe1"
+        + b"\0" * 504
+        + "EncryptedPackage".encode("utf-16-le")
+        + b"\0" * 64
+    )
+
+
 _FIXTURES = {
     "default": (_write_fixture_with_duplicates, "duplicates and an empty row"),
     "no-duplicates": (_write_fixture_without_duplicates, "no duplicates and no empty rows"),
     "two-sheets": (_write_two_sheet_fixture, "sheets Q1 (default rows) and Q2 (2 rows)"),
+    "damaged": (_write_damaged_fixture, "declares Q1 and Q2, but Q2's XML part is missing"),
+    "password-protected": (_write_password_protected_fixture, "an OLE2 EncryptedPackage stand-in"),
 }
 
 
 def _sheet_names(path: Path) -> list[str]:
-    """Every sheet's name, read independently of the pipeline."""
-    with pd.ExcelFile(path) as book:
-        return list(book.sheet_names)
+    """Every sheet's name, read independently of the pipeline.
+
+    For a zip workbook, the sheets declared in ``workbook.xml`` (a library may
+    drop one whose part is missing); otherwise pandas, or a note if it can't.
+    """
+    if zipfile.is_zipfile(path):
+        with zipfile.ZipFile(path) as archive:
+            xml = archive.read("xl/workbook.xml").decode("utf-8")
+        return re.findall(r"<sheet\b[^>]*?\bname=\"([^\"]*)\"", xml)
+    try:
+        with pd.ExcelFile(path) as book:
+            return list(book.sheet_names)
+    except Exception as exc:  # noqa: BLE001 — a note for the human reading the output
+        return [f"(unreadable: {type(exc).__name__})"]
 
 
 def _sha256(path: Path) -> str:

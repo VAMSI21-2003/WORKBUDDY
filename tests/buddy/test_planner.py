@@ -4,7 +4,9 @@ from __future__ import annotations
 
 import json
 import logging
+from pathlib import Path
 
+import pandas as pd
 import pytest
 
 from buddy.llm import LLMMessage
@@ -20,6 +22,7 @@ from buddy.planner import (
 )
 from buddy.state import BuddyState
 from buddy.think import Reasoning
+from tests import workbook_fixtures as fixtures
 
 
 class _FakeLLMProvider:
@@ -829,6 +832,62 @@ def test_planner_build_request_omits_when_no_file_at_all() -> None:
     Planner(planner=_RecordingStrategy())(state)
 
     assert seen[0].unanalyzed_spreadsheet_files == ()
+
+
+def _unanalyzed_for(path: Path, monkeypatch: pytest.MonkeyPatch) -> tuple[str, ...]:
+    monkeypatch.chdir(path.parent)
+    state = BuddyState.new(session_id="session-1", workspace_id="workspace-1")
+    state.context.add_uploaded_file(path.name)
+    state.context.switch_active_file(path.name)
+    seen: list[PlanningRequest] = []
+
+    class _RecordingStrategy:
+        def __call__(self, request: PlanningRequest) -> tuple[PlanningStep, ...]:
+            seen.append(request)
+            return ()
+
+    Planner(planner=_RecordingStrategy())(state)
+    return seen[0].unanalyzed_spreadsheet_files
+
+
+def _workbook(path: Path, *names: str) -> Path:
+    with pd.ExcelWriter(path) as writer:
+        for name in names:
+            pd.DataFrame({"a": [1]}).to_excel(writer, sheet_name=name, index=False)
+    return path
+
+
+def test_planner_build_request_keeps_a_one_sheet_workbook_for_analysis(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    path = _workbook(tmp_path / "report.xlsx", "Data")
+
+    assert _unanalyzed_for(path, monkeypatch) == ("report.xlsx",)
+
+
+@pytest.mark.parametrize("names", [("Q1", "Q2"), ("Q1", "Q2", "Q3")])
+def test_planner_build_request_omits_a_multi_sheet_workbook(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, names: tuple[str, ...]
+) -> None:
+    path = _workbook(tmp_path / "report.xlsx", *names)
+
+    assert _unanalyzed_for(path, monkeypatch) == ()
+
+
+@pytest.mark.parametrize("kind", ["missing_part", "protected", "legacy"])
+def test_planner_build_request_omits_a_workbook_whose_sheets_cant_be_listed(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, kind: str
+) -> None:
+    if kind == "missing_part":
+        path = fixtures.without_sheet_part(
+            _workbook(tmp_path / "book.xlsx", "Q1", "Q2"), tmp_path / "report.xlsx"
+        )
+    elif kind == "protected":
+        path = fixtures.encrypted_package(tmp_path / "report.xlsx")
+    else:
+        path = fixtures.legacy_xls(tmp_path / "report.xls")
+
+    assert _unanalyzed_for(path, monkeypatch) == ()
 
 
 def test_planner_defaults_to_null_planner_when_none_configured() -> None:

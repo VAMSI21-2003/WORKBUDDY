@@ -91,3 +91,35 @@ In every run, the reply's "here's what I noticed" findings come from `spreadshee
 - It's followed by "Want me to tackle any of these?", which the row-cleaning skills can't do on this workbook.
 
 It's out of scope for this branch (the user chose the smallest fix: refuse in the two row-cleaning skills). It's listed under "Deferred" in `docs/reviews/fix-multi-sheet-impl.md` and in `docs/backlog.md` item 1a.
+
+# Fixed head: live runs after the review fixes
+
+Five runs with real Groq (`python scripts/run_dedupe_manually.py --mode focus --fixture <fixture> --message "<request>"`, key attached by the cloud proxy), on the working tree that adds `docs/reviews/fix-multi-sheet-fixes.md`. **No 429; all five runs completed.** The script writes a fresh fixture each run, so each run has its own hash. Each reply is quoted in full. Voice mode is `focus`; on a turn that delivers nothing, the reply is `TemplateSpeaker`'s factual one in any mode.
+
+The script gained two fixtures for these runs (`damaged`, `password-protected`) and now reads a zip workbook's sheet list from the declared `<sheet>` entries of `workbook.xml` for its independent check. The `password-protected` fixture is a stand-in (OLE2 magic bytes plus the UTF-16-LE stream name `EncryptedPackage`), not a file Excel encrypted.
+
+| # | Fixture | Message | Intent | `clarification_required` | Steps executed | Delivered | Independent check | False claim | Original hash before → after |
+|---|---|---|---|---|---|---|---|---|---|
+| 1 | `two-sheets` (Q1 6 rows, Q2 2 rows) | "remove the duplicate rows" | `remove_duplicate_rows` | false | deduplicate ✗ (refused). **No analyze step.** | no (0 files, none written) | original sheets `['Q1','Q2']` | none | `af78f20f…a3dd` → same |
+| 2 | `two-sheets` | "remove the empty rows and then remove duplicates" | `multi_step_request` | false | remove empty rows ✗ (refused), deduplicate skipped. **No analyze step.** | no | `['Q1','Q2']` | none | `b40d8c9c…f1ea` → same |
+| 3 | `damaged` (declares Q1 and Q2, `sheet2.xml` removed) | "remove the duplicate rows" | `remove_duplicate_rows` | false | deduplicate ✗ (refused). No analyze step. | no | declared sheets `['Q1','Q2']` (openpyxl and pandas would list only `Q1`) | none | `168e60c2…05ee` → same |
+| 4 | `password-protected` (stand-in) | "remove the duplicate rows" | `remove_duplicate_rows` | false | deduplicate ✗ (refused). No analyze step. | no | pandas can't read it (`ImportError`, no `xlrd`), so the check can only say "unreadable" | none | `fb3fb841…4248` → same |
+| 5 | `default` (one sheet, 6 rows, 2 duplicates, 1 empty row) | "remove the duplicate rows" | `remove_duplicate_rows` | false | analyze ✓, deduplicate ✓, re-check analyze ✓ | yes, 1 file, `['Sheet1']` | 6 rows → 4 rows, 0 duplicates left; 1 empty row left, which dedupe doesn't remove | none | `34baf36e…2f81` → same |
+
+Replies:
+
+1. "I ran into a problem partway through. The deduplicate step: the workbook has 2 sheets, and only single-sheet workbooks are supported for now. I stopped at the deduplicate step and no file was handed back; your original file is unchanged."
+2. "I ran into a problem partway through. The remove empty rows step: the workbook has 2 sheets, and only single-sheet workbooks are supported for now. I stopped at the remove empty rows step, so deduplicate never ran and no file was handed back; your original file is unchanged."
+3. "I ran into a problem partway through. The deduplicate step: the workbook looks damaged: it lists sheets that can't be read. I stopped at the deduplicate step and no file was handed back; your original file is unchanged."
+4. "I ran into a problem partway through. The deduplicate step: the workbook is password-protected, so it can't be opened. I stopped at the deduplicate step and no file was handed back; your original file is unchanged."
+5. "Done — removed 2 duplicate row(s). The copy has 4 row(s), 0 duplicate row(s) remaining. Your cleaned copy of manual_report.xlsx is ready. I also noticed: name: 1 missing value(s) (25.0%); amount: 1 missing value(s) (25.0%). Want me to tackle any of these?"
+
+What the runs show:
+- **M4 is fixed on real Groq.** Runs 1 and 2 are the same two-sheet requests as before (`here's what I noticed … (16.7%). Want me to tackle any of these?` led the replies then). The replies now hold only the refusal.
+- **H2 and M2 are fixed.** The damaged workbook in run 3 is refused as damaged. Before the fix it was delivered with one sheet and "Done — removed 2 duplicate row(s)…" (review §3.2).
+- **M1 is fixed for the stand-in.** Run 4 says "password-protected", not "an .xls workbook … xlrd isn't installed".
+- **One-sheet workbooks are unchanged** (run 5): analyzed, cleaned, delivered, 6 → 4 rows, the same reply as in the earlier live runs.
+- In every run the original's hash is unchanged, and runs 1 to 4 wrote nothing under `workspace/outputs/manual-workspace/`.
+- LLM calls: Brain and Think (and the planner in run 2). The Voice model wasn't called on the refused turns; run 5 is a delivered turn, where code renders the reply.
+
+**Not covered by a live run:** a real `msoffcrypto`/Excel-encrypted file (only the stand-in), a legacy `.xls`, and a crafted `[Content_Types].xml` (those three are covered by the faked-LLM tests through `build_engine`).

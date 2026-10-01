@@ -7,7 +7,6 @@ from dataclasses import dataclass, replace
 from datetime import datetime
 from typing import NamedTuple, Protocol
 
-import openpyxl
 import pandas as pd
 
 from buddy.models import (
@@ -22,6 +21,7 @@ from buddy.models import (
     VerificationResult,
 )
 from buddy.state import BuddyState
+from skills.excel.workbook import WorkbookRefused, sheet_names
 
 logger = logging.getLogger(__name__)
 
@@ -884,17 +884,12 @@ _WORKBOOK_SUFFIXES = (".xlsx", ".xlsm", ".xls")
 
 
 def _sheet_names(path: str) -> list[str]:
-    """Every sheet's name in the workbook at ``path``, read fresh and read-only."""
-    with open(path, "rb") as handle:
-        if handle.read(4) == b"PK\x03\x04":  # .xlsx content, whatever the extension
-            handle.seek(0)
-            book = openpyxl.load_workbook(handle, read_only=True)
-            try:
-                return list(book.sheetnames)  # chart sheets included
-            finally:
-                book.close()
-    with pd.ExcelFile(path) as book:
-        return list(book.sheet_names)
+    """Every sheet's name in the workbook at ``path``, read fresh and read-only.
+
+    The same declared-sheets reader the skills use, so a sheet a library
+    would silently drop still counts here.
+    """
+    return sheet_names(path)
 
 
 def _sheet_list_problem(step: StepResult) -> str | None:
@@ -920,9 +915,11 @@ def _sheet_list_problem(step: StepResult) -> str | None:
         return None
     try:
         before, after = _sheet_names(step.input_reference), _sheet_names(step.outputs[0])
-    except Exception as exc:  # noqa: BLE001 — surfaced as a finding, not raised
-        logger.exception("Inspector: failed to read the sheet names of %r", step.outputs[0])
+    except WorkbookRefused as exc:  # its text is fixed, so it can be shown
         return f"couldn't independently read the workbook's sheet names: {exc}"
+    except Exception:  # noqa: BLE001 — surfaced as a finding, not raised
+        logger.exception("Inspector: failed to read the sheet names of %r", step.outputs[0])
+        return "couldn't independently read the workbook's sheet names"
     if before == after:
         return None
     return (

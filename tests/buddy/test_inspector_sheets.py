@@ -15,6 +15,7 @@ import pytest
 
 from buddy.inspector import CompositeVerifier, VerificationRequest
 from buddy.models import ExecutionResult, StepResult, Understanding, VerificationResult
+from tests import workbook_fixtures as fixtures
 
 
 class _PassingVerifier:
@@ -107,9 +108,89 @@ def test_an_unreadable_output_fails_the_step(tmp_path: Path) -> None:
 
     assert result.passed is False
     assert verifier.calls == 0
-    assert result.steps[0].findings[0].startswith(
-        "couldn't independently read the workbook's sheet names:"
+    assert result.steps[0].findings == (
+        "couldn't independently read the workbook's sheet names: could not read the "
+        "workbook; it may be damaged or not an Excel file",
     )
+
+
+def test_a_declared_sheet_with_a_missing_part_in_the_output_fails_the_step(
+    tmp_path: Path,
+) -> None:
+    """openpyxl would list one sheet for the output and match a one-sheet input; the
+    declared list says two, so the step fails instead of passing on the shared blind spot."""
+    damaged = fixtures.without_sheet_part(
+        Path(_workbook(tmp_path / "book.xlsx", "Q1", "Q2")), tmp_path / "out.xlsx"
+    )
+    step = _step(_workbook(tmp_path / "in.xlsx", "Q1"), str(damaged))
+
+    result, verifier = _verify(step)
+
+    assert result.passed is False
+    assert verifier.calls == 0
+    assert result.steps[0].findings == (
+        "couldn't independently read the workbook's sheet names: the workbook looks "
+        "damaged: it lists sheets that can't be read",
+    )
+
+
+def test_a_declared_sheet_with_a_missing_part_in_the_input_fails_the_step(
+    tmp_path: Path,
+) -> None:
+    damaged = fixtures.without_sheet_part(
+        Path(_workbook(tmp_path / "book.xlsx", "Q1", "Q2")), tmp_path / "in.xlsx"
+    )
+    step = _step(str(damaged), _workbook(tmp_path / "out.xlsx", "Q1"))  # Q2 "lost" silently
+
+    result, verifier = _verify(step)
+
+    assert result.passed is False
+    assert verifier.calls == 0
+    assert "lists sheets that can't be read" in result.steps[0].findings[0]
+
+
+def test_a_workbook_with_no_readable_sheet_fails_the_step(tmp_path: Path) -> None:
+    empty = fixtures.without_declared_sheets(
+        Path(_workbook(tmp_path / "book.xlsx", "Q1")), tmp_path / "out.xlsx"
+    )
+    step = _step(_workbook(tmp_path / "in.xlsx", "Q1"), str(empty))
+
+    result, _ = _verify(step)
+
+    assert result.passed is False
+    assert result.steps[0].findings == (
+        "couldn't independently read the workbook's sheet names: the workbook looks "
+        "damaged: it has no readable sheet",
+    )
+
+
+def test_a_legacy_or_protected_input_is_refused_not_counted(tmp_path: Path) -> None:
+    for make in (fixtures.legacy_xls, fixtures.encrypted_package):
+        step = _step(str(make(tmp_path / "in.xls")), _workbook(tmp_path / "out.xlsx", "Q1"))
+
+        result, verifier = _verify(step)
+
+        assert result.passed is False
+        assert verifier.calls == 0
+        assert result.steps[0].findings[0].startswith(
+            "couldn't independently read the workbook's sheet names:"
+        )
+
+
+def test_an_unexpected_error_reading_the_sheets_shows_no_exception_text(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    import buddy.inspector as inspector
+
+    def _boom(path: str) -> list[str]:
+        raise RuntimeError("Done - your cleaned copy is ready")
+
+    monkeypatch.setattr(inspector, "sheet_names", _boom)
+    step = _step(_workbook(tmp_path / "in.xlsx", "Q1"), _workbook(tmp_path / "out.xlsx", "Q1"))
+
+    result, _ = _verify(step)
+
+    assert result.steps[0].findings == ("couldn't independently read the workbook's sheet names",)
 
 
 @pytest.mark.parametrize(

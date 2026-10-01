@@ -6,7 +6,7 @@ from pathlib import Path
 import pandas as pd
 
 from skills.base import PermissionTier, Skill, SkillResult, SkillStatus, SkillTask
-from skills.excel.workbook import WorkbookRefused, single_sheet_name
+from skills.excel.workbook import WorkbookRefused, discard_partial_output, single_sheet_name
 
 logger = logging.getLogger(__name__)
 
@@ -101,11 +101,9 @@ class ExcelRemoveEmptyRowsSkill(Skill):
             return SkillResult(status=SkillStatus.FAILURE, errors=[str(exc)])
         try:
             original = pd.read_excel(input_path, sheet_name=sheet_name)  # READ-ONLY open
-        except Exception as exc:  # noqa: BLE001 — surfaced as a SkillResult, not raised
+        except Exception:  # noqa: BLE001 — surfaced as a SkillResult, not raised
             logger.exception("ExcelRemoveEmptyRowsSkill: failed to read %r", input_path)
-            return SkillResult(
-                status=SkillStatus.FAILURE, errors=[f"could not read {input_path!r}: {exc}"]
-            )
+            return SkillResult(status=SkillStatus.FAILURE, errors=["could not read the workbook"])
 
         cleaned = original.dropna(how="all")
         output_path = self._build_output_path(task)
@@ -114,10 +112,11 @@ class ExcelRemoveEmptyRowsSkill(Skill):
             output_path.parent.mkdir(parents=True, exist_ok=True)
             # WRITE only ever targets output_path, keeping the sheet's name.
             cleaned.to_excel(output_path, index=False, sheet_name=sheet_name)
-        except Exception as exc:  # noqa: BLE001
+        except Exception:  # noqa: BLE001
             logger.exception("ExcelRemoveEmptyRowsSkill: failed to write %r", output_path)
+            discard_partial_output(output_path)
             return SkillResult(
-                status=SkillStatus.FAILURE, errors=[f"could not write {output_path!r}: {exc}"]
+                status=SkillStatus.FAILURE, errors=["could not write the cleaned copy"]
             )
 
         removed_count = len(original) - len(cleaned)
