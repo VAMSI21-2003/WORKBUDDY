@@ -586,3 +586,272 @@ Yes, in one shape, but with no false claim.
 - L-c: an unrequested step with only `unsupported` Brain entries is stated plainly, without "I didn't read that as part of your request".
 - The residual risks named at the end of section 6.
 - Carried over: L3, and the PR-A review's M3 and L1–L3.
+
+---
+
+# Re-review 3 (fixes commit `688f62b`)
+
+**Verdict: DON'T MERGE.** The fix closes P1, P2, P3 and Q1 as specified. All 32 of Re-review 2's scenarios now give the expected reply, and nothing else in the 532-turn harness changed. But the new location-phrase strip adds one false "Done —" (**R1**, HIGH, a regression against `3ec8a8c`). Brain flags "…across the workbook" (or "…in the workbook") as unsupported, and the strip removes the flag. On a two-sheet workbook the reply then says "Done — removed 2 duplicate row(s)." The delivered file holds only the first sheet, and the second sheet's duplicates were never touched. The fix is two words in `_LOCATION_PHRASE` (section 6).
+
+The mistake is in the specification, not the implementation. `across` and `workbook` were in Re-review 2's section 6, and `688f62b` implemented that section as written.
+
+> **Independence.** I'm a separate session, with no memory of writing PR-B, its fixes, or the earlier reviews. I didn't modify anything under `buddy/` or `tests/`. Mutations and the prototype fix were made in throwaway copies (`git archive`) in the session scratchpad.
+
+## Method
+
+- **Trees.** Head is `feat/verified-outcome-b` at `688f62b`. Two comparison trees, each a temporary `git worktree`: `origin/main` (`310f660`) and the previous head `3ec8a8c`.
+- **Harness.** `scripts/review_harness/harness.py` from `origin/review/pr-b-harness`, unchanged. 38 scenarios × 14 turns = 532 turns per tree.
+- **Adversarial set.** `scripts/review_harness/rereview3.py`, committed with this review. It uses the harness's own `P` fake, `brain()`, `plan()`, fixture and speaker loop, through `import harness`. Its run function differs in one way: it can write a second sheet (`Q2`: 4 rows, 2 duplicates) for the multi-sheet scenarios, and it records the delivered file's sheet names.
+  - It holds 77 scenarios: `rr2-*`, the 32 from Re-review 2 §4 rebuilt from the table, and `z01`–`z45`, new ones aimed at the `688f62b` code.
+  - That's 1078 turns per tree.
+  - Run it with `python scripts/review_harness/rereview3.py [--tree DIR] --summary [ID-prefix …]`.
+- **Scope.** The diff `3ec8a8c..688f62b` (`_no_skill_outcome`, `_FILLER_WORDS` and the new `_NEGATION_WORDS`, `_REMOVAL_VERBS`, `_DETERMINERS`, `_ACTION_WITH_VERB`, `_LOCATION_PHRASE` and `_TWO_REQUESTS`, plus their tests), and regression against `main` on undelivered paths. I didn't re-open earlier decisions (D2, H1, the L3 deferral, and the residuals Re-review 2 accepted).
+- **Not run:** live runs with Groq. They weren't in this review's scope. `fixes3.md` reports 4 of 4.
+
+## 1. Suite and lint
+
+| Check | Result |
+|---|---|
+| `python -m pytest -q` (head) | **1281 passed**, 0 failed (341 s) |
+| `ruff check buddy tests` | 22 on head and 22 on `main`. Compared by file and rule, ignoring line numbers, the lists are identical (15 E501, 3 UP017, 2 I001, 1 B905, 1 UP037). **No new lint errors.** `rereview3.py` is ruff-clean at line length 100. |
+| Implementer's pre-fix claim | Verified. Running head's tests against `3ec8a8c`'s `buddy/` fails all 54 P1–P3 cases, all 90 Q1 cases and the two edited unit tests. |
+
+## 2. Harness: head vs `main` and vs `3ec8a8c`
+
+| Check | Head | `main` | `3ec8a8c` |
+|---|---|---|---|
+| Turns, errors | 532, 0 | 532, 0 | 532, 0 |
+| Voice-model calls | **0** | 0 | 0 |
+| Original changed (rule 2) | **0 of 532** | 0 | 0 |
+| Delivered / undelivered | 504 / 28 | 504 / 28 | 504 / 28 |
+| Undelivered turns (`r-*`) equal to `main` (reply, steps, delivered) | **28 of 28** | | |
+| Replies changed vs `3ec8a8c` | **0 of 532** | | |
+
+**Undelivered paths.** The changed code is reachable only from `build_outcome_report`. Its one caller is `_verified_delivery_reply` (`buddy/voice.py:390`), which runs only on a delivered, verified turn. So the diff can't reach an undelivered reply, and `r-chain-stop` and `r-unclear` confirm it: they're byte-identical to `main`.
+
+**Adversarial set, all three trees:** 1064 turns per tree for z01–z44 and the 32 `rr2-*` scenarios, plus 14 for z45, run separately. 0 errors, 0 Voice calls, original unchanged in every turn.
+
+**Replies changed vs `3ec8a8c` (adversarial set, 14 of 14 turns each):**
+- Re-review 2 scenarios: `f10`, `f11`, `s22`, `t23` and `g26`–`g30`.
+- New scenarios: `z09`, `z10`, `z13`, `z15`, `z19`, `z20`, `z32`, `z40`, `z41`, `z43`, `z45`.
+- Every other scenario is identical.
+
+## 3. Re-review 2's 32 scenarios on head
+
+**Expected** is Re-review 2 §4's "Fix sketch" column. **Lead** counts the turns (of 14) that contain "Done —" or "Partly done", or that have no lead, plus the turns that contain "can't do". All 32 match. P1–P3 (`s22`, `t23`, `f10`) have no "Done —". Q1 (`g26`–`g30`) says "Done —" in 14 of 14 turns, with no "can't do".
+
+**Rebuild check:** on `3ec8a8c`, each rebuilt scenario reproduces Re-review 2's "Head" column, so the rebuild is faithful.
+
+| ID | Head reply, template (up to "The copy has") | Head | `3ec8a8c` | `main` | Expected | Match |
+|---|---|---|---|---|---|---|
+| `v01-delete-sheet` | Partly done — removed 2 duplicate row(s). I read part of your request as something I can't do yet. | Partly 14, can't-do 14 | Partly 14, can't-do 14 | Done 14 | Partly | yes |
+| `v02-rename-file` | Partly done — removed 2 duplicate row(s). I read part of your request as something I can't do yet. | Partly 14, can't-do 14 | Partly 14, can't-do 14 | Done 14 | Partly | yes |
+| `v03-archive-it` | Partly done — removed 2 duplicate row(s). I read part of your request as something I can't do yet. | Partly 14, can't-do 14 | Partly 14, can't-do 14 | Done 14 | Partly | yes |
+| `v04-mixed-case` | Partly done — removed 2 duplicate row(s). I read part of your request as something I can't do yet. | Partly 14, can't-do 14 | Partly 14, can't-do 14 | Done 14 | Partly | yes |
+| `v05-punct` | Partly done — removed 2 duplicate row(s). I read part of your request as something I can't do yet. | Partly 14, can't-do 14 | Partly 14, can't-do 14 | Done 14 | Partly | yes |
+| `v06-unsup-only-drop-sheet` | Partly done — removed 2 duplicate row(s). I read part of your request as something I can't do yet. | Partly 14, can't-do 14 | Partly 14, can't-do 14 | Done 14 | Partly | yes |
+| `f07-and-the-sheet` | Partly done — removed 2 duplicate row(s). I read part of your request as something I can't do yet. | Partly 14, can't-do 14 | Partly 14, can't-do 14 | Done 14 | Partly | yes |
+| `f08-remove-it` | Partly done — removed 2 duplicate row(s). I read part of your request as something I can't do yet. | Partly 14, can't-do 14 | Partly 14, can't-do 14 | Done 14 | Partly | yes |
+| `f09-remove-all` | Partly done — removed 2 duplicate row(s). I read part of your request as something I can't do yet. | Partly 14, can't-do 14 | Partly 14, can't-do 14 | Done 14 | Partly | yes |
+| `f10-keep-only-dups` | Partly done — removed 2 duplicate row(s). I read part of your request as something I can't do yet. | Partly 14, can't-do 14 | Done 14 | Done 14 | Partly | yes |
+| `f11-keep-only-dups-multi` | Removed 2 duplicate row(s). I read part of your request as something I can't do yet. | no lead, can't-do 14 | no lead | no lead | no lead | yes |
+| `f12-plain-filler` | Done — removed 2 duplicate row(s). | Done 14 | Done 14 | Done 14 | Done | yes |
+| `r13-remove-formatting` | Partly done — removed 2 duplicate row(s). I can't do this part yet: “remove the formatting”. | Partly 14, can't-do 14 | Partly 14, can't-do 14 | Done 14 | Partly | yes |
+| `r14-remove-column-b` | Partly done — removed 2 duplicate row(s). I can't do this part yet: “remove column B”. | Partly 14, can't-do 14 | Partly 14, can't-do 14 | Done 14 | Partly | yes |
+| `r15-remove-dups-and-col` | Partly done — removed 2 duplicate row(s). I read part of your request as something I can't do yet. | Partly 14, can't-do 14 | Partly 14, can't-do 14 | Done 14 | Partly | yes |
+| `n16-curly-dont-delete` | Partly done — removed 2 duplicate row(s). I can't do this part yet: “don’t delete the file”. | Partly 14, can't-do 14 | Partly 14, can't-do 14 | Done 14 | Partly | yes |
+| `n17-dont-delete-whole` | Partly done — removed 2 duplicate row(s). I read part of your request as something I can't do yet. | Partly 14, can't-do 14 | Partly 14, can't-do 14 | Done 14 | Partly | yes |
+| `n18-curly-dont-remove-dups` | Removed 1 fully-empty row(s). Your message mentions duplicate rows, but I didn't run the duplicate-row removal. I read your request as: remove empty rows. | no lead | no lead | Done 14 | no lead | yes |
+| `n19-never-delete-anything` | Partly done — removed 2 duplicate row(s). I read part of your request as something I can't do yet. | Partly 14, can't-do 14 | Partly 14, can't-do 14 | Done 14 | Partly | yes |
+| `s20-substring-dups` | Done — removed 2 duplicate row(s). | Done 14 | Done 14 | Done 14 | Done | yes |
+| `s21-substring-remove-the` | Partly done — removed 2 duplicate row(s). I can't do this part yet: “remove the”. | Partly 14, can't-do 14 | Partly 14, can't-do 14 | Done 14 | Partly | yes |
+| `s22-done-phrase-is-whole-msg` | Partly done — removed 2 duplicate row(s). I read part of your request as something I can't do yet. | Partly 14, can't-do 14 | Done 14 | Done 14 | Partly | yes |
+| `t23-paraphrase-empty-not-run` | Partly done — removed 2 duplicate row(s). I read part of your request as something I can't do yet. | Partly 14, can't-do 14 | Done 14 | Done 14 | Partly | yes |
+| `t24-found-empty-not-run` | Removed 2 duplicate row(s). Your message mentions empty rows, but I didn't run the empty-row removal. I read your request as: remove duplicate rows. | no lead | no lead | Done 14 | no lead | yes |
+| `t25-whole-msg-empty-not-run` | Removed 2 duplicate row(s). Your message mentions empty rows, but I didn't run the empty-row removal. I read your request as: remove duplicate rows. | no lead | no lead | Done 14 | no lead | yes |
+| `g26-remove-all-dups` | Done — removed 2 duplicate row(s). | Done 14 | Partly 14, can't-do 14 | Done 14 | Done | yes |
+| `g27-nearmiss-rich-phrase` | Done — removed 2 duplicate row(s). | Done 14 | Partly 14, can't-do 14 | Done 14 | Done | yes |
+| `g28-delete-the-dups` | Done — removed 2 duplicate row(s). | Done 14 | Partly 14, can't-do 14 | Done 14 | Done | yes |
+| `g29-can-you` | Done — removed 2 duplicate row(s). | Done 14 | Partly 14, can't-do 14 | Done 14 | Done | yes |
+| `g30-empty-nearmiss-rich` | Done — removed 1 fully-empty row(s). | Done 14 | Partly 14, can't-do 14 | Done 14 | Done | yes |
+| `p31-n2-planner-extra` | Removed 2 duplicate row(s). I can't do this part yet: “sort by amount”. Your message mentions empty rows, but I didn't run the empty-row removal. | no lead, can't-do 14 | no lead, can't-do 14 | no lead | no lead | yes |
+| `p32-n2-no-mention` | Removed 2 duplicate row(s). I can't do this part yet: “sort by amount please”. | no lead, can't-do 14 | no lead, can't-do 14 | no lead | no lead | yes |
+
+## 4. Adversarial scenarios against the new code (`z01`–`z45`)
+
+These target the removal-verb strip, the location strip, the joiner rule and the negation/keep rule.
+
+**Fixture:** the harness's 6 rows (2 duplicates, 1 empty row). Where a scenario says 2 sheets, there's also `Q2`.
+**Brain's entries:** the intent is `remove_duplicate_rows` unless the table says otherwise. An off-vocabulary action name (`remove_duplicates`, `dedupe`) is H2's near-miss case, which the parser turns into `unsupported`.
+**Final:** the delivered file's (rows, duplicates, empty rows), read by pandas. It's (4, 0, 1) everywhere except `z43` and `z44`, which give (3, 0, 0).
+**Verdict key:**
+- OK: no false statement.
+- MEDIUM-u: a false "can't do" about done work that a sensible, correct Brain reading can't reach (see section 5).
+
+| ID | User message | Brain's entries | Head reply, template (up to "The copy has") | Head | `3ec8a8c` | `main` | Verdict |
+|---|---|---|---|---|---|---|---|
+| `z01-del-file-from-sheet` | remove duplicates and delete the file from the sheet | `remove_duplicate_rows` “remove duplicates”; `unsupported` “delete the file from the sheet” | Partly done — removed 2 duplicate row(s). I can't do this part yet: “delete the file from the sheet”. | Partly 14, can't-do 14 | Partly 14, can't-do 14 | Done 14 | OK. The unsupported part is quoted. |
+| `z02-del-file-from-sheet-whole` | remove duplicates and delete the file from the sheet | `remove_duplicate_rows` “remove duplicates”; `unsupported` “remove duplicates and delete the file from the sheet” | Partly done — removed 2 duplicate row(s). I read part of your request as something I can't do yet. | Partly 14, can't-do 14 | Partly 14, can't-do 14 | Done 14 | OK. “delete … file” is left over, so the generic sentence is used. |
+| `z03-delete-dups-email-it` | delete the duplicates and email it | `remove_duplicate_rows` “delete the duplicates”; `unsupported` “email it” | Partly done — removed 2 duplicate row(s). I can't do this part yet: “email it”. | Partly 14, can't-do 14 | Partly 14, can't-do 14 | Done 14 | OK |
+| `z04-delete-dups-email-it-whole` | delete the duplicates and email it | `remove_duplicate_rows` “delete the duplicates”; `unsupported` “delete the duplicates and email it” | Partly done — removed 2 duplicate row(s). I read part of your request as something I can't do yet. | Partly 14, can't-do 14 | Partly 14, can't-do 14 | Done 14 | OK. The verb is attached to the done object; “email it” is left over. |
+| `z05-remove-and-delete-the-dups` | remove and delete the duplicates | `remove_duplicate_rows` “remove and delete the duplicates”; `unsupported` “remove and delete the duplicates” | Partly done — removed 2 duplicate row(s). I read part of your request as something I can't do yet. | Partly 14, can't-do 14 | Partly 14, can't-do 14 | Done 14 | MEDIUM-u: false “can't do”. Everything asked was done. “remove and” is left over because the verb strip only takes the verb next to the object. Needs a whole-message flag on a fully supported request. Same on `3ec8a8c`. |
+| `z06-dups-and-delete` | delete duplicates and delete | `remove_duplicate_rows` “delete duplicates”; `unsupported` “delete duplicates and delete” | Partly done — removed 2 duplicate row(s). I read part of your request as something I can't do yet. | Partly 14, can't-do 14 | Partly 14, can't-do 14 | Done 14 | OK. The bare trailing “delete” is left over. |
+| `z07-loc-and-sort` | remove duplicates from the sheet and sort it | `remove_duplicate_rows` “remove duplicates from the sheet”; `unsupported` “remove duplicates from the sheet and sort it” | Partly done — removed 2 duplicate row(s). I read part of your request as something I can't do yet. | Partly 14, can't-do 14 | Partly 14, can't-do 14 | Done 14 | OK |
+| `z08-loc-and-sort-unsup-only` | remove duplicates from the sheet and sort it | `unsupported` “remove duplicates from the sheet and sort it” | Partly done — removed 2 duplicate row(s). I read part of your request as something I can't do yet. | Partly 14, can't-do 14 | Partly 14, can't-do 14 | Done 14 | OK |
+| `z09-loc-across-workbook-2sheets` | remove duplicates across the workbook | `remove_duplicate_rows` “remove duplicates”; `unsupported` “remove duplicates across the workbook” | Done — removed 2 duplicate row(s). | Done 14 | Partly 14, can't-do 14 | Done 14 | **R1 HIGH.** Two-sheet workbook. The delivered file has only `Sheet1`, and Q2's 2 duplicates are gone with it. Brain's flag on the scope is dropped by the location strip. `3ec8a8c`: Partly. |
+| `z10-loc-across-workbook-1sheet` | remove duplicates across the workbook | `remove_duplicate_rows` “remove duplicates”; `unsupported` “remove duplicates across the workbook” | Done — removed 2 duplicate row(s). | Done 14 | Partly 14, can't-do 14 | Done 14 | True on a one-sheet file. Same cause as z09. |
+| `z11-loc-every-sheet` | remove duplicates in every sheet | `remove_duplicate_rows` “remove duplicates”; `unsupported` “remove duplicates in every sheet” | Partly done — removed 2 duplicate row(s). I read part of your request as something I can't do yet. | Partly 14, can't-do 14 | Partly 14, can't-do 14 | Done 14 | OK. “every” isn't in the location determiners. |
+| `z12-loc-on-the-file-move` | remove duplicates and move them on the file | `remove_duplicate_rows` “remove duplicates”; `unsupported` “remove duplicates and move them on the file” | Partly done — removed 2 duplicate row(s). I read part of your request as something I can't do yet. | Partly 14, can't-do 14 | Partly 14, can't-do 14 | Done 14 | OK |
+| `z13-drop-empty-not-run` | remove duplicates and drop the empty rows | `remove_duplicate_rows` “remove duplicates”; `unsupported` “drop the empty rows” | Removed 2 duplicate row(s). Your message mentions empty rows, but I didn't run the empty-row removal. I read your request as: remove duplicate rows. | no lead | Partly 14, can't-do 14 | Done 14 | OK. The mention sentence says the empty-row removal didn't run. (`3ec8a8c` added a vaguer generic sentence.) |
+| `z14-drop-empty-not-run-paraphrase` | remove duplicates and drop the rows with nothing in them | `remove_duplicate_rows` “remove duplicates”; `unsupported` “drop the empty rows” | Partly done — removed 2 duplicate row(s). I read part of your request as something I can't do yet. | Partly 14, can't-do 14 | Partly 14, can't-do 14 | Done 14 | OK (the P2 path). Brain's words for a step that didn't run are kept. |
+| `z15-drop-empty-only-misread` | drop the empty rows | `unsupported` “drop the empty rows” | Removed 2 duplicate row(s). Your message mentions empty rows, but I didn't run the empty-row removal. I read your request as: remove duplicate rows. | no lead | Partly 14, can't-do 14 | Done 14 | OK. Same as z13. Nothing is called done that wasn't. |
+| `z16-dups-and-empty-lumped` | remove duplicates and empty rows | `remove_duplicate_rows` “remove duplicates and empty rows”; `unsupported` “remove duplicates and empty rows” | Removed 2 duplicate row(s). Your message mentions empty rows, but I didn't run the empty-row removal. I read your request as: remove duplicate rows. | no lead | no lead | Done 14 | OK. The mention sentence reports the empty rows. |
+| `z17-dont-keep-empty-found` | remove duplicates and don't keep the empty rows | `remove_duplicate_rows` “remove duplicates”; `unsupported` “don't keep the empty rows” | Removed 2 duplicate row(s). Your message mentions empty rows, but I didn't run the empty-row removal. I read your request as: remove duplicate rows. | no lead | no lead | Done 14 | OK. The double negation is found in the message, and the mention sentence is true. |
+| `z18-dont-keep-empty-paraphrase` | remove duplicates and don't keep rows with nothing in them | `remove_duplicate_rows` “remove duplicates”; `unsupported` “don't keep the empty rows” | Done — removed 2 duplicate row(s). | Done 14 | Done 14 | Done 14 | **Residual (HIGH class, accepted in Re-review 2 §6).** False “Done —”: 1 empty row remains. Needs Brain to call an empty-row request unsupported, in words not in the message. Same on `3ec8a8c` and `main`. |
+| `z19-keep-dups-misread` | keep the duplicates | `unsupported` “keep the duplicates” | Partly done — removed 2 duplicate row(s). I read part of your request as something I can't do yet. | Partly 14, can't-do 14 | Done 14 | Done 14 | LOW (L-a). The reply honestly says “removed 2 duplicate row(s)”, but the lead is “Partly done”. `3ec8a8c`: Done (the P3 class). |
+| `z20-do-not-remove-dups-misread` | do not remove the duplicates | `unsupported` “do not remove the duplicates” | Partly done — removed 2 duplicate row(s). I read part of your request as something I can't do yet. | Partly 14, can't-do 14 | Done 14 | Done 14 | LOW (L-a), as z19. |
+| `z21-keep-dups-delete-file` | keep the duplicates, delete the file | `unsupported` “keep the duplicates, delete the file” | Partly done — removed 2 duplicate row(s). I read part of your request as something I can't do yet. | Partly 14, can't-do 14 | Partly 14, can't-do 14 | Done 14 | OK |
+| `z22-not-the-empty-rows` | remove the duplicates, not the empty rows | `remove_duplicate_rows` “remove the duplicates”; `unsupported` “not the empty rows” | Removed 2 duplicate row(s). Your message mentions empty rows, but I didn't run the empty-row removal. I read your request as: remove duplicate rows. | no lead | no lead | Done 14 | OK (H1 design) |
+| `z23-but-keep-blank-rows` | remove duplicates but keep the blank rows | `remove_duplicate_rows` “remove duplicates”; `unsupported` “keep the blank rows” | Removed 2 duplicate row(s). Your message mentions empty rows, but I didn't run the empty-row removal. I read your request as: remove duplicate rows. | no lead | no lead | Done 14 | OK (H1 design) |
+| `z24-dont-leave-dups-curly` | Don’t leave any duplicates | `remove_duplicate_rows` “Don’t leave any duplicates”; `unsupported` “Don’t leave any duplicates” | Partly done — removed 2 duplicate row(s). I read part of your request as something I can't do yet. | Partly 14, can't-do 14 | Partly 14, can't-do 14 | Done 14 | MEDIUM-u: false “can't do”. “Don't leave any duplicates” was done, and the double negation counts as a negation (the documented residual, inverted). Needs a whole-message flag. Same on `3ec8a8c`. |
+| `z25-caps-punct-delete-file` | REMOVE DUPLICATES, AND DELETE THE FILE!! | `remove_duplicate_rows` “REMOVE DUPLICATES”; `unsupported` “REMOVE DUPLICATES, AND DELETE THE FILE!!” | Partly done — removed 2 duplicate row(s). I read part of your request as something I can't do yet. | Partly 14, can't-do 14 | Partly 14, can't-do 14 | Done 14 | OK |
+| `z26-caps-semicolon-erase` | Remove the Duplicates; Erase The Sheet. | `remove_duplicate_rows` “Remove the Duplicates”; `unsupported` “Remove the Duplicates; Erase The Sheet.” | Partly done — removed 2 duplicate row(s). I read part of your request as something I can't do yet. | Partly 14, can't-do 14 | Partly 14, can't-do 14 | Done 14 | OK |
+| `z27-hyphen-de-dupe-nearmiss` | de-dupe the sheet | `dedupe` “de-dupe the sheet” | Partly done — removed 2 duplicate row(s). I read part of your request as something I can't do yet. | Partly 14, can't-do 14 | Partly 14, can't-do 14 | Done 14 | MEDIUM-u (Q1 class): near-miss name; “de” is left over from “de-dupe”. Same on `3ec8a8c`. |
+| `z28-said-in-longer-archive` | please remove the duplicate rows and then archive the workbook | `remove_duplicate_rows` “remove the duplicate rows”; `unsupported` “please remove the duplicate rows and then archive the workbook” | Partly done — removed 2 duplicate row(s). I read part of your request as something I can't do yet. | Partly 14, can't-do 14 | Partly 14, can't-do 14 | Done 14 | OK |
+| `z29-said-paraphrase-rename` | get rid of the repeated entries and then rename it | `remove_duplicate_rows` “get rid of the repeated entries”; `unsupported` “get rid of the repeated entries and then rename it” | Partly done — removed 2 duplicate row(s). I read part of your request as something I can't do yet. | Partly 14, can't-do 14 | Partly 14, can't-do 14 | Done 14 | OK. The said words are removed and “rename it” is left over. |
+| `z30-said-not-substring-whole` | get rid of the repeated entries and sort by amount | `remove_duplicate_rows` “remove duplicate rows”; `unsupported` “get rid of the repeated entries and sort by amount” | Partly done — removed 2 duplicate row(s). I can't do this part yet: “get rid of the repeated entries and sort by amount”. | Partly 14, can't-do 14 | Partly 14, can't-do 14 | Done 14 | MEDIUM-u: the quote includes the done part. Brain's dedupe phrase isn't the user's words, so it can't absorb them. Needs a whole-message flag. Same on `3ec8a8c`. |
+| `z31-said-delete-the-file-residual` | remove duplicates and delete the file | `remove_duplicate_rows` “delete the file”; `unsupported` “delete the file” | Done — removed 2 duplicate row(s). | Done 14 | Done 14 | Done 14 | **Residual (HIGH class, accepted in Re-review 2 §6).** False “Done —”. Needs Brain to give “delete the file” as the dedupe phrase. Same on `3ec8a8c` and `main`. |
+| `z32-said-with-joiner-lumped` | clean the repeated entries and the rest | `remove_duplicate_rows` “clean the repeated entries and the rest”; `unsupported` “clean the repeated entries and the rest” | Partly done — removed 2 duplicate row(s). I read part of your request as something I can't do yet. | Partly 14, can't-do 14 | Done 14 | Done 14 | OK. The joiner rule keeps “and the rest”. `3ec8a8c`: Done. |
+| `z33-dup-columns-misread` | remove duplicate columns | `unsupported` “remove duplicate columns” | Partly done — removed 2 duplicate row(s). I read part of your request as something I can't do yet. | Partly 14, can't-do 14 | Partly 14, can't-do 14 | Done 14 | OK. “columns” is left over. |
+| `z34-dup-sheet-misread` | delete the duplicate sheet | `unsupported` “delete the duplicate sheet” | Partly done — removed 2 duplicate row(s). I read part of your request as something I can't do yet. | Partly 14, can't-do 14 | Partly 14, can't-do 14 | Done 14 | OK. “sheet” is left over. |
+| `z35-dups-of-my-file` | delete the duplicates of my file | `remove_duplicate_rows` “delete the duplicates”; `unsupported` “delete the duplicates of my file” | Partly done — removed 2 duplicate row(s). I read part of your request as something I can't do yet. | Partly 14, can't-do 14 | Partly 14, can't-do 14 | Done 14 | MEDIUM-u: false “can't do”. “of my file” is left over (“of” isn't a location preposition). Needs a whole-message flag. Same on `3ec8a8c`. |
+| `z36-nearmiss-from-my-excel-file` | remove the duplicates from my excel file | `remove_duplicates` “remove the duplicates from my excel file” | Partly done — removed 2 duplicate row(s). I read part of your request as something I can't do yet. | Partly 14, can't-do 14 | Partly 14, can't-do 14 | Done 14 | MEDIUM-u (Q1 class): near-miss name; “excel” is left over. Same on `3ec8a8c`. |
+| `z37-nearmiss-removing` | removing duplicates please | `remove_duplicates` “removing duplicates” | Partly done — removed 2 duplicate row(s). I read part of your request as something I can't do yet. | Partly 14, can't-do 14 | Partly 14, can't-do 14 | Done 14 | MEDIUM-u (Q1 class): near-miss name; “removing” isn't a listed verb form. Same on `3ec8a8c`. |
+| `z38-nearmiss-for-me` | could you please remove the duplicate rows for me | `remove_duplicates` “could you please remove the duplicate rows for me” | Partly done — removed 2 duplicate row(s). I read part of your request as something I can't do yet. | Partly 14, can't-do 14 | Partly 14, can't-do 14 | Done 14 | MEDIUM-u (Q1 class): near-miss name; “for me” is left over. Same on `3ec8a8c`. |
+| `z39-nearmiss-dedupe-this-sheet` | dedupe this sheet | `dedupe` “dedupe this sheet” | Partly done — removed 2 duplicate row(s). I read part of your request as something I can't do yet. | Partly 14, can't-do 14 | Partly 14, can't-do 14 | Done 14 | MEDIUM-u (Q1 class): near-miss name; “this sheet” has no preposition. Same on `3ec8a8c`. |
+| `z40-nearmiss-in-the-data` | remove duplicates in the data | `remove_duplicates` “remove duplicates in the data” | Done — removed 2 duplicate row(s). | Done 14 | Partly 14, can't-do 14 | Done 14 | OK (fixed vs `3ec8a8c`) |
+| `z41-nearmiss-get-rid-all` | get rid of all the duplicates | `remove_duplicates` “get rid of all the duplicates” | Done — removed 2 duplicate row(s). | Done 14 | Partly 14, can't-do 14 | Done 14 | OK (fixed vs `3ec8a8c`) |
+| `z42-whole-flag-remove-them` | find the duplicates and remove them | `remove_duplicate_rows` “find the duplicates and remove them”; `unsupported` “find the duplicates and remove them” | Partly done — removed 2 duplicate row(s). I read part of your request as something I can't do yet. | Partly 14, can't-do 14 | Partly 14, can't-do 14 | Done 14 | MEDIUM-u: false “can't do”. “find … them” is left over. Needs a whole-message flag on a fully supported request. Same on `3ec8a8c`. |
+| `z43-multi-both-done-whole-flag` | remove duplicates and empty rows from the sheet | intent `multi_step_request`; `remove_duplicate_rows` “remove duplicates”; `remove_empty_rows` “empty rows”; `unsupported` “remove duplicates and empty rows from the sheet” | Done — removed 2 duplicate row(s). Removed 1 fully-empty row(s). | Done 14 | Partly 14, can't-do 14 | no lead | OK. Both steps passed and the location phrase is stripped. `3ec8a8c`: Partly. |
+| `z44-multi-both-done-delete-tail` | remove duplicates and empty rows, then delete the sheet | intent `multi_step_request`; `remove_duplicate_rows` “remove duplicates”; `remove_empty_rows` “empty rows”; `unsupported` “remove duplicates and empty rows, then delete the sheet” | Partly done — removed 2 duplicate row(s). Removed 1 fully-empty row(s). I read part of your request as something I can't do yet. | Partly 14, can't-do 14 | Partly 14, can't-do 14 | no lead | OK |
+| `z45-loc-in-the-workbook-2sheets` | remove duplicates in the workbook | `remove_duplicate_rows` “remove duplicates”; `unsupported` “remove duplicates in the workbook” | Done — removed 2 duplicate row(s). | Done 14 | Partly 14, can't-do 14 | Done 14 | **R1 HIGH**, as z09 (“workbook” is a location noun). |
+
+**Where the new rules hold:**
+- **Verbs across a joiner** (`z01`–`z06`, `z25`, `z26`): a removal verb is absorbed only when it sits right in front of the action's object. A verb aimed at another object ("delete the file", "Erase The Sheet", a bare trailing "delete") is always left over.
+- **Location phrases** (`z07`, `z08`, `z11`, `z12`): they never hide a verb or another noun.
+- **An object plus a verb for a step that didn't run:**
+  - When the object is in the message (`z13`, `z15`, `z16`), the mention entry gives a true "didn't run" sentence, and there's no lead word.
+  - When it's only in Brain's words (`z14`), `named_silent` keeps the generic sentence.
+- **Negation and keep:**
+  - Next to a done action (`z19`, `z20`, `z21`), the flag is kept.
+  - Next to an action that didn't run but is in the message (`z17`, `z22`, `z23`), the mention sentence covers it.
+- **The joiner rule:** Brain's quoted words are not removed when they span "and" (`z32`).
+
+## 5. Findings
+
+### R1 (HIGH, introduced by `688f62b`): "across the workbook" / "in the workbook" is stripped as a location, so a correct scope flag gives "Done —" (`z09`, `z45`)
+
+**Where:** `_LOCATION_PHRASE` in `buddy/outcome.py`. The prepositions include `across` and the nouns include `workbook`.
+
+**Scenario:** "remove duplicates across the workbook" on a workbook with sheets `Q1` and `Q2`, each with 2 duplicate rows. Brain gives `remove_duplicate_rows` “remove duplicates” and `unsupported` “remove duplicates across the workbook”, which is a correct flag: the skills read only the first sheet. The code then:
+1. strips "remove duplicates" (the pattern);
+2. strips "across the workbook" (the location);
+3. finds nothing left, and drops the entry.
+
+**Reply:** "Done — removed 2 duplicate row(s). The copy has 4 row(s), 0 duplicate row(s) remaining." in 14 of 14 turns. The delivered file's sheets are `['Sheet1']`, so `Q2` and its 2 duplicates are gone, and nothing says so. `z45` ("…in the workbook") gives the same reply.
+
+**Compare:**
+- `3ec8a8c`: "Partly done — … I read part of your request as something I can't do yet." in 14 of 14 turns, which is correct.
+- `main`: "Done —", but `main` has no ledger at all.
+
+**Why it's HIGH, and how reachable:**
+- It's a false completion claim, and the signal that would have stopped it (Brain's flag) is discarded by the new code. That's the N1/P1–P3 class that blocked the last two rounds.
+- It needs Brain to put the scope in an `unsupported` entry. Brain's prompt defines `unsupported` as an action, not a scope, so this is plausible rather than likely.
+- Without that flag the reply is "Done —" anyway on every tree. That's backlog item 1a (M3: multi-sheet workbooks lose every sheet after the first), which is already HIGH. R1 removes the one path on which PR-B would have caught it.
+
+### Residuals already accepted in Re-review 2 §6 (HIGH class; not regressions)
+
+- **`z18`** "remove duplicates and don't keep rows with nothing in them". Brain gives `unsupported` “don't keep the empty rows” in its own words. The reply is "Done —", and 1 empty row remains.
+- **`z31`** Brain gives "delete the file" as the dedupe phrase. The reply is "Done —".
+
+Both need a gross misread by Brain, both are documented in the code comment on `_no_skill_outcome`, and both are identical on `3ec8a8c` and `main`. I'm leaving them deferred, as Re-review 2 did. **The user should know these are still false "Done —" paths.**
+
+### MEDIUM, not reachable from a sensible, correct Brain reading: a false "can't do" on fully done work
+
+**Q1-class leftovers** (`z27`, `z36`–`z39`) need an off-vocabulary action name (H2's near-miss), and then a word outside the lists:
+- "de-dupe" leaves "de";
+- "removing" isn't a listed verb form;
+- "for me";
+- "this sheet", which has no preposition;
+- "my excel file".
+
+**Whole-message flags on a fully supported request** (`z05`, `z24`, `z30`, `z35`, `z42`) need Brain to list an `unsupported` entry for something it can do:
+- "remove and delete the duplicates";
+- "Don't leave any duplicates" (the double-negation residual, inverted);
+- "find the duplicates and remove them";
+- "of my file";
+- in `z30`, the quote includes the done part, because Brain's dedupe phrase isn't the user's words.
+
+**Reachability:** a correct Brain reading of an ordinary single-sentence request uses a vocabulary name, and has no `unsupported` entry when everything is supported. Then `_no_skill_outcome` never runs. So none of these is reachable from a sensible, correct reading.
+
+All of them reply "Partly done … I can't do yet" in 14 of 14 turns, the same as on `3ec8a8c`, so none was introduced here; `688f62b` narrows the class (`g26`–`g30`, `z40`, `z41`, `z43` now say "Done"). They're the safe side of the word lists, as `fixes3.md` "Limits" says.
+
+### LOW
+
+- **L-d: the new word lists have no guard test.** The guard covers `_FILLER_WORDS` only. In a scratch copy I added `sort|email` to `_REMOVAL_VERBS` and `amount` to `_LOCATION_PHRASE`'s nouns, and all 618 tests in `test_outcome.py` and `test_engine_factory.py` still passed. A future edit could put a non-removal verb or a content noun in either list unnoticed. Section 6 includes a guard.
+- **L-a widened** (`z19`, `z20`). With a misread intent, "keep the duplicates" or "do not remove the duplicates" now gives "Partly done — removed 2 duplicate row(s). I read part of your request as something I can't do yet." `3ec8a8c` said "Done —". It's honest about the removal, but the lead word is wrong. That's the P3 fix working as specified, and it's better than "Done —".
+- **L-b** (`s21`) is unchanged.
+
+## 6. Exact fix needed (R1)
+
+In `buddy/outcome.py`, change `_LOCATION_PHRASE` to drop `across` from the prepositions and `workbook` from the nouns:
+
+```python
+_LOCATION_PHRASE = re.compile(
+    r"\b(?:from|in|on)\s+(?:(?:the|this|that|my|our|your)\s+)?"
+    r"(?:sheet|file|spreadsheet|table|data)\b"
+)
+```
+
+- Add a comment saying the location strip must never take a phrase that names more than the one sheet the skills read ("across", "workbook", "every", "all").
+- Add the guard from L-d: a unit test that pins `_REMOVAL_VERBS`, `_DETERMINERS` and `_LOCATION_PHRASE` to their current closed lists, in the same style as `test_n1_the_filler_set_holds_only_function_words`.
+- Add an engine test like `z09`: a two-sheet workbook, all three speakers. "remove duplicates across the workbook", with `unsupported` “remove duplicates across the workbook”, must not contain "Done —".
+
+**Prototype, in a scratch copy:** I made only the two-word change.
+- `python -m pytest -q`: 1281 passed.
+- Harness: 532 of 532 turns byte-identical to head.
+- Adversarial set: only `z09`, `z10` and `z45` change, to "Partly done … can't do yet".
+- `ruff check buddy/outcome.py`: clean.
+
+**The cost:** `z10` (a one-sheet file) also becomes "Partly done", although that file was fully deduplicated. That's a false "can't do", but only after Brain flags the scope (MEDIUM-u). It's the safe side, and the right trade until M3 makes the skills multi-sheet aware.
+
+**Who should review it:** I wrote this prototype, so I must not review the real fix. A separate session should re-run the harness and `rereview3.py`.
+
+## 7. Is the guard test vacuous?
+
+No. In a scratch copy I added `delete` to `_FILLER_WORDS`:
+- `test_n1_the_filler_set_holds_only_function_words` failed, with "Extra items in the left set: 'delete'" (1 failed, 54 passed in `test_outcome.py`).
+- Without the mutation it passes.
+
+The guard is the only test that notices. All 270 N1/P1–P3/Q1 engine cases still passed under that mutation, because the scenarios that would be affected keep another content word ("file"). The guard is also blind to the other lists (L-d above).
+
+## 8. Verdict: DON'T MERGE
+
+1. **R1 (HIGH, introduced by `688f62b`, via Re-review 2's specification).** A correct `unsupported` flag on a multi-sheet scope ("across the workbook", "in the workbook") is stripped as a location, so the reply says "Done —" for a workbook whose second sheet wasn't touched and isn't in the delivered file. `3ec8a8c` said "Partly done".
+2. **Fix:** section 6, a two-word change plus two tests. After it, a separate session should re-run the harness and `rereview3.py`, and the live runs should be repeated per `CLAUDE.md`.
+3. **Everything else in scope passes:**
+   - P1, P2, P3 and Q1 are fixed as specified.
+   - No new lint errors; Voice calls 0; the original is unchanged in every turn.
+   - Undelivered paths equal `main`.
+   - No reachable MEDIUM from a sensible, correct Brain reading.
+
+## Deferred
+
+- **Residual HIGH-class paths** accepted in Re-review 2 §6, still present and unchanged since `3ec8a8c`:
+  - `z31`: a done action's phrase that is itself an unsupported verb phrase;
+  - `z18`: a double negation in a paraphrase.
+  - Both need a gross Brain misread. Closing them needs the ledger-recall measurement (backlog item 1, design 6.8).
+- **MEDIUM-u:** a false "can't do" on fully done work after a near-miss action name (`z27`, `z36`–`z39`) or a whole-message `unsupported` flag on a supported request (`z05`, `z24`, `z30`, `z35`, `z42`). It's not reachable from a correct reading and is unchanged from `3ec8a8c`.
+- **L-d:** no guard test on `_REMOVAL_VERBS`, `_DETERMINERS` or `_LOCATION_PHRASE`. Section 6 asks for it with the R1 fix; if it doesn't land with that fix, it stays here.
+- **L-a** (now also `z19`, `z20`), **L-b** and **L-c**, unchanged.
+- Carried over: L3, and the PR-A review's M3 (backlog 1a). M3 is what makes R1 a false claim, and it stays HIGH on its own.
