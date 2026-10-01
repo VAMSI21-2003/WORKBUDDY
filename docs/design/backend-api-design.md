@@ -797,3 +797,271 @@ Separately, importing `buddy.engine_factory`, the excel skills and `ydata_profil
 - the uncompressed-size guard for the demo (item 3);
 - the global data-root byte cap (depends on the host);
 - how the frontend treats a `429` on a poll (frontend design, noted in item 1).
+
+---
+
+## Decisions (2026-10-01)
+
+This section covers only what the revised frontend design needs from the backend (`docs/design/frontend-design.md` on `design/frontend`, revised 2026-10-01). It follows the owner's decision:
+- the UI is htmx with Jinja templates, served by this FastAPI process;
+- the demo password is exchanged once for an HttpOnly, Secure, SameSite=Strict cookie.
+
+Where this section conflicts with an earlier one, **this section wins**. Earlier text isn't edited. Item 8 lists exactly which statements are superseded.
+
+### 1. The access cookie (replaces Bearer for the browser)
+
+**The route: `POST /api/v1/access`.**
+- **Request:** `application/x-www-form-urlencoded`, with one field, `password`. That's what an HTML form and htmx send by default, and `python-multipart` is already a dependency. Any other content type gets `422 invalid_request`.
+- **The check** is the same function Bearer uses: `hmac.compare_digest` on UTF-8 bytes, against `WORKBUDDY_DEMO_PASSWORD`.
+- **Responses:**
+  - `204 No Content` with `Set-Cookie`, on success.
+  - `401`, for a wrong or missing password. It has the same header and body as every other `401` (part 2, ask 4): `WWW-Authenticate: Bearer realm="workbuddy-demo"` and `{ "error": { "code": "unauthorized", "message": "The demo password is missing or wrong." } }`.
+  - `403 forbidden_origin`, when the `Origin` check fails (item 2).
+  - `429 rate_limited`, per item 3.
+- **In `WORKBUDDY_ENV=dev`** with no password set, the route issues a cookie without checking anything, so the UI flow is the same in dev.
+- **In `openapi.json`,** it's documented with its form body, the `204`, and `ErrorBody` for `401`, `403`, `422` and `429`.
+
+**The cookie:**
+
+```
+Set-Cookie: __Host-wb_access=<token>; Path=/; Secure; HttpOnly; SameSite=Strict
+```
+
+- **The `__Host-` prefix.** [Likely] Browsers accept a cookie with this prefix only if it has `Secure`, `Path=/` and no `Domain`. So a sibling subdomain can't set or overwrite it.
+- **No `Max-Age` or `Expires`,** so the browser drops the cookie when it closes, which helps on shared machines (frontend Section 6).
+- **The server enforces the lifetime itself:** an absolute expiry of `WORKBUDDY_ACCESS_TTL_HOURS` from issue (default 12). It isn't renewed by use.
+- **`Secure` needs HTTPS.** In production, the app refuses to start unless `WORKBUDDY_PUBLIC_ORIGIN` is an `https://` origin (item 2).
+- **The value** is `secrets.token_urlsafe(32)` (256 bits). It's never the password and never derived from it.
+
+**The token store:**
+- **In memory,** like all other live state (one worker).
+  - The key is the token's SHA-256, so the store never holds the cookie's value.
+  - The value is the expiry time.
+- **Bounded:** at most `WORKBUDDY_ACCESS_MAX_TOKENS` live tokens (default 10,000).
+  - When the store is full, the token closest to expiry is evicted, and its user sees the gate again.
+  - Expired tokens are dropped when looked up, and by a periodic sweep.
+  - The `access` bucket (item 3) limits how fast tokens can be created.
+- **[Certain] A restart invalidates every cookie,** so users see the gate again.
+  - That's also how the password is rotated: changing `WORKBUDDY_DEMO_PASSWORD` and restarting (part 1, "honest limits") ends every existing cookie.
+  - On an ephemeral-disk host, a restart loses the sessions anyway, so nothing more is lost.
+- **No logout route in the demo.** It's deferred.
+
+**Which routes accept which credential:**
+- **Need a valid credential:** every `/api/v1` route except `/healthz` and `/api/v1/access`, and every HTML route (`/ui/*`) the frontend adds. A credential is either:
+  - the access cookie; or
+  - `Authorization: Bearer <password>`.
+- **Bearer is kept for scripts, tests and live runs,** unchanged from part 2, ask 4. That's simpler: the test suite and the live-run scripts need no cookie jar and no `Origin` header.
+- **Precedence.** If an `Authorization` header is present, only that header is checked, and the cookie is ignored. A wrong Bearer therefore gets `401` even alongside a valid cookie. Without an `Authorization` header, the cookie is checked.
+- **Need no credential:** `GET /healthz`, `POST /api/v1/access`, `/static/*`, and `GET /`. Without a valid credential, `GET /` renders the gate. It renders the workspace only with one, decided by the same function.
+- **One function decides:** `check_credential(request) -> CredentialResult(valid: bool, kind: "bearer" | "cookie" | None)`. The auth dependency, the rate limiter (item 3) and the CSRF check (item 2) all use it, so they can't disagree.
+- **One failure response.** The `401` header and body are unchanged, and are the same for every failure: a missing credential, a wrong Bearer, an unknown or expired cookie, or another scheme. A caller can't tell an expired cookie from a wrong password.
+- **Logs:**
+  - the redaction filter (Section 6.4) gains a pattern for `__Host-wb_access=…`;
+  - the API never logs `Cookie` or `Set-Cookie` headers;
+  - the PR-4 test that the password never appears in a response or a log is extended to the token value.
+
+### 2. CSRF for cookie authentication
+
+The browser sends a cookie automatically, so a request that the cookie authenticates needs CSRF protection. A Bearer request doesn't: a page on another origin can't add an `Authorization` header without a CORS preflight, and CORS is empty in the demo deployment. The protection has four parts:
+
+1. **SameSite=Strict** on the cookie (item 1). [Likely] Current browsers don't send it on any request that another *site* starts.
+2. **An exact `Origin` check,** because SameSite is about the site, not the origin. [Possible] If the host's parent domain (for example `hf.space`) isn't on the Public Suffix List, every other app on that domain counts as the same site.
+   - **Which requests:** every request with a method other than `GET`, `HEAD` or `OPTIONS` that the cookie authenticates. `POST /api/v1/access` is checked too, even though it takes no credential.
+   - **The rule:** the `Origin` header must equal `WORKBUDDY_PUBLIC_ORIGIN` exactly (scheme, host and port), compared after lower-casing the scheme and host.
+   - **On failure** (a missing `Origin`, `Origin: null`, or any other value), the response is `403` with `{ "error": { "code": "forbidden_origin", "message": "This request didn't come from the demo page." } }`, and the handler doesn't run.
+   - [Likely] Current browsers send `Origin` on every POST, including same-origin ones. The frontend's e2e tests run in Chromium and would show it if not.
+   - **`WORKBUDDY_PUBLIC_ORIGIN`** is required in production: the app refuses to start without it, as it does without the password. It must be `https://`. In dev it defaults to `http://127.0.0.1:8000`. It's configuration, and never derived from the `Host` header, which a proxy can rewrite.
+   - **The check runs in the router-wide dependency that does auth,** so a new route can't skip it.
+3. **No GET route changes state.**
+   - `GET /` doesn't create a session. The page creates it with `POST /ui/sessions`.
+   - Polls, downloads and session reads only read.
+   - Each route declares whether it's mutating (item 3), and a startup check refuses a `GET` route declared mutating.
+4. **Clickjacking.** The CSP has `frame-ancestors 'none'`. Part 1, item 1 adds a CSP for the static frontend, and frontend Section 11.2 gives the exact policy.
+
+**Not used: a synchronizer CSRF token.** With Strict cookies, the exact `Origin` check and no GET route that changes state, it would add code without closing any gap I can name. Evidence that would change this: a supported browser that leaves out `Origin` on a same-origin POST.
+
+### 3. Rate limits, kept consistent with part 2
+
+Part 2's numbers and rules stand. What changes is how a request is classified, plus two new buckets.
+
+1. **"Valid password" now means "valid credential".** Where part 1 and part 2 say that a request has a valid password, or a missing or wrong one, read "credential", as `check_credential` decides it (item 1). That covers the `poll` bucket's condition and the double count. A valid cookie or a valid Bearer is a valid credential. An unknown or expired cookie counts as a wrong password, and takes 2 tokens from `general`.
+2. **A new `access` bucket** (burst 10, refill 20/hour).
+   - `POST /api/v1/access` takes 1 token from `general` (2 if the password is wrong, as on every route) and 1 from `access`, whatever the response.
+   - A legitimate browser needs one exchange per browser session. It needs another after a restart, or after arriving from a link (frontend 1.2).
+   - Guessing is limited to 10 in a burst and then 20 an hour per IP, far below the 30/min that `general`'s double count allows on its own.
+   - [Certain] Users behind one IP share this bucket, as they share every bucket. So 20/hour is how many new browser sessions an office NAT can start in an hour.
+3. **A new `page` bucket,** for `GET /` and `/static/*` (burst 30, refill 1/s). These requests don't touch `general`. A page load (the page and three static files) costs 4 tokens. Reloads therefore can't use up the `general` budget a turn needs, just as `healthz` keeps probes out of it.
+4. **The HTML routes map onto the existing buckets** by what they do, not by their path:
+
+   | HTML route (frontend Section 2) | Charged as |
+   |---|---|
+   | `POST /ui/sessions` | `POST /sessions`: `general` |
+   | `POST /ui/s/{sid}/files` | `POST …/files`: `general` + `uploads` |
+   | `POST /ui/s/{sid}/turns` | `POST …/turns`: `general` + `turns` |
+   | `GET /ui/s/{sid}/turns/{tid}/poll` | The poll route: `poll` with a valid credential, plus one `general` token after a non-`200` (part 2 item 1, rule 1) |
+   | `POST /ui/s/{sid}/turns/{tid}/confirmation` | `POST …/confirmation`: `general` |
+   | `GET /ui/s/{sid}/transcript` | `GET /sessions/{id}`: `general` |
+
+   - Strict counting (part 2, rule 2) and "a `429` consumes nothing" (rule 4) apply unchanged.
+   - A request refused with `403 forbidden_origin` counts as a mutating request. It takes 1 token from `general` (plus `turns` or `uploads` where the table lists them), not 2, because its credential was valid.
+5. **Every route declares its buckets, and whether it's mutating,** in route metadata the limiter reads. The app refuses to start if any route lacks the declaration. This replaces part 2's classification "by method, route template and whether the password is valid" with an explicit list, so no HTML route that FE-1 adds can slip through without a bucket.
+6. **The poll numbers still hold, with more margin.** Part 2 sized `poll` for a frontend that polls once a second. The revised frontend polls every 2 s, then every 3 s (frontend 1.6), so two unfinished turns need at most 1 poll/s against a refill of 3/s. The startup check (poll refill at least the concurrent-turn cap) is unchanged.
+
+**Tests (PR-4, with part 2's injected clock):**
+- a full turn through the HTML routes with the cookie, at the frontend's cadence for 300 s, plus a page load, an upload, a confirmation and a download, gets no `429`;
+- of 11 wrong passwords in a burst on `/api/v1/access`, the 11th gets `429`, and each one took 2 `general` tokens;
+- an expired cookie on a poll takes 2 `general` tokens, and none from `poll`;
+- page loads don't touch `general`;
+- `create_app` fails for a route without a bucket declaration.
+
+### 4. Plan text: chain-aware steps and a fixed plan-level line (frontend M2)
+
+This supersedes the template wording in Section 1.5 ("…and save the result as a new file."), and the example prompts in part 1 item 2 and part 2 ask 1.
+
+**Why the old wording was wrong.**
+- [Certain] Step 2 of a chain runs on step 1's output, not on the upload (`buddy/hands.py:208`: `input_reference = chain_input or request.target`).
+- Only the chain's final file is handed back (`CLAUDE.md`).
+- The old template named the upload in every step, and promised a new file for each one.
+
+**Templates.** Each capability has two fixed templates in `backend/confirmation.py`, reviewed like the phrase catalog:
+
+| Capability | First step | A later step, at position *k* |
+|---|---|---|
+| `spreadsheet.deduplicate` | "Remove duplicate rows from {input_name}." | "Then remove duplicate rows from the result of step {k−1}." |
+| `spreadsheet.remove_empty_rows` | "Remove empty rows from {input_name}." | "Then remove empty rows from the result of step {k−1}." |
+| Any other (the fallback) | "Run {capability} on {input_name}." | "Then run {capability} on the result of step {k−1}." |
+
+- **`k`** is the step's position in `steps`, counting from 1. `steps` holds only the Write-tier steps, in execution order (part 2, ask 1). The frontend renders `steps` as a numbered list in that order, so "step {k−1}" names the row above.
+- **What no template says:** "save", "new file", or anything about the original. None states a result.
+- **Why every later step uses the "Then" template:** every multi-step plan runs as a chain (`CLAUDE.md`: "Multi-step requests run as a chain").
+
+**`plan_note`.** `pending_confirmation` gains `plan_note: string | null`:
+- **For two or more steps,** it's the fixed constant `PLAN_NOTE_CHAIN`: "The steps run in this order, each on the previous step's result. Only the final file is handed back."
+- **For one step,** it's `null`.
+- **Where it comes from:** a constant in `backend/confirmation.py`, never built from request data.
+- **What it deliberately leaves out:**
+  - "nothing runs if you reject", because `spreadsheet.analyze` (READ tier) runs either way;
+  - "your original won't change", a promise the card can't verify.
+
+**Tests (PR-3):**
+- every registered Write-tier capability has both templates;
+- for a two-step chain:
+  - `steps[0].prompt` names the upload;
+  - `steps[1].prompt` names "the result of step 1", and not the upload's name;
+  - `plan_note` equals `PLAN_NOTE_CHAIN`;
+- for one step, `plan_note` is `null`;
+- no prompt or note contains "save" or "new file";
+- a spy on `Hands` shows that, in the same run, each step k ≥ 2 takes step k−1's output as its input, so the wording matches the wiring. If a future planner produces a multi-step plan that isn't a chain, this test fails, and the wording has to be revisited before that ships.
+
+### 5. `pending_confirmation` in the public schema: compatibility fields dropped (frontend M3)
+
+This supersedes Section 1.5's object, and its sentence that `capability`, `permission_tier` and `prompt` "describe the first step for compatibility". The public shape is now:
+
+```json
+{
+  "confirmation_id": "c_5e1d…",
+  "steps": [
+    { "capability": "spreadsheet.deduplicate",
+      "prompt": "Remove duplicate rows from report.xlsx." },
+    { "capability": "spreadsheet.remove_empty_rows",
+      "prompt": "Then remove empty rows from the result of step 1." }
+  ],
+  "plan_note": "The steps run in this order, each on the previous step's result. Only the final file is handed back.",
+  "expires_at": "2026-10-01T10:03:00Z"
+}
+```
+
+- **Removed from the public schema:** the top-level `capability`, `permission_tier`, `input_name` and `prompt`.
+  - Nothing reads them: the frontend renders only `steps` and `plan_note`.
+  - A client that falls back to step 1's `prompt` is exactly what M3 warns about: a user could approve a two-step plan after seeing one step.
+  - The provider keeps whatever it needs internally, such as the published plan's tiers for part 1's "a tier not in the published plan is refused" guard.
+- **`steps` is required and non-empty** whenever `pending_confirmation` isn't `null`. The schema says `minItems: 1`, and a test asserts the provider never publishes an empty plan. Part 1 item 2, step 5 already says nothing is published without a Write-tier step.
+- **`openapi.json`** is regenerated in PR-3, and the diff is reviewed (part 2, ask 3).
+- **The same shape everywhere:** `GET …/turns/{id}`, `GET /sessions/{id}` and the confirmation response.
+
+### 6. Refusing a multi-sheet `.xlsx` at upload (a stopgap for backlog 1a, frontend H3)
+
+[Certain, from backlog 1a / verified-outcome-a M3] Dedupe and remove-empty-rows read only the first sheet and write a single sheet, and the reply calls the result "your cleaned copy". Until per-sheet cleaning exists (backlog 1a), uploads refuse any workbook with more than one sheet, so the public demo can't produce that reply.
+
+**The check (PR-2, in `backend/uploads.py`).** It runs after the content sniff, in the same pass as the zip-bomb guard (Section 6.2), which already reads the ZIP's central directory (`ZipFile.infolist()`) without extracting anything. It counts two kinds of entry:
+- **worksheets:** names matching `^xl/worksheets/[^/]+\.xml$`, which includes hidden and very hidden sheets;
+- **other sheet types,** which the skills would also drop: names matching `^xl/(chartsheets|dialogsheets|macrosheets)/[^/]+\.xml$`.
+
+| What's in the directory | Result |
+|---|---|
+| Exactly one worksheet, and no other sheet | Accepted |
+| More than one sheet in total | `422` with `{ "error": { "code": "multiple_sheets", "message": "This demo works on one sheet at a time, and this workbook has more than one. Save the sheet you want in its own workbook and upload that." } }` |
+| No worksheet at all | `422 invalid_file`, with Section 6.2's existing message. The structural check failed: the file may store its sheets somewhere non-standard, and the demo doesn't guess |
+
+- **Repeated names count separately.** A ZIP that repeats an entry name counts each copy, so the check fails closed.
+- **No parsing.** Nothing is decompressed, and `openpyxl` and `pandas` still never run at upload (Section 6.2, "No parsing at upload").
+- **A refused upload stores nothing.** There's no `file_id`, and the partial file is deleted, as for every refused upload.
+- **It's charged like any refused upload:** `general` + `uploads` (part 2 item 1, rule 2).
+- **`multiple_sheets` joins the closed enum** of error codes.
+
+**What I checked, and what I didn't:**
+- [Certain] I ran openpyxl 3.1.5 and pandas 2.3.3 in this container:
+  - a three-sheet workbook from openpyxl, with one sheet hidden, stores `xl/worksheets/sheet1.xml` to `sheet3.xml`;
+  - a workbook with a chartsheet stores it as `xl/chartsheets/sheet1.xml`;
+  - a single-sheet file from `DataFrame.to_excel` has exactly one `xl/worksheets/*.xml`.
+- [Likely] Excel, LibreOffice and Google Sheets exports use the same part names.
+- **The real names come from the workbook's relationships file, which this check doesn't read.** A producer that put a second sheet under another path would get through. I haven't seen one, so the remaining risk is a multi-sheet file from an unusual producer.
+
+**`.xls` isn't covered.**
+- An `.xls` file is an OLE2 container with no ZIP directory. Counting its sheets would mean parsing the workbook stream, which Section 6.2 forbids at upload.
+- This section doesn't change part 1 item 4 (`.xls` is accepted), or part 2 ask 2 (`.xls` is listed only in the PR that has its fixture test).
+- Whether `.xls` may be turned on for the public link before its sheets can be checked is the owner's decision. It's listed in the frontend design's deployment preconditions (Section 13.2, item 3), and isn't decided here.
+
+**When backlog 1a lands,** that PR removes this refusal (or keeps it on purpose, as a product limit) and inverts its tests. Until then, the tests below stay.
+
+**Tests (PR-2),** with fixtures generated in the test by openpyxl:
+- one sheet: accepted;
+- two sheets: `422 multiple_sheets`, with the fixed message;
+- one visible and one hidden sheet: `422 multiple_sheets`;
+- one worksheet plus a chartsheet: `422 multiple_sheets`;
+- a ZIP with `[Content_Types].xml` and no worksheet: `422 invalid_file`;
+- after each refusal, nothing is left under the data root or in the temp directory;
+- each refusal used up a token from `general` and from `uploads`.
+
+### 7. Which PR does what
+
+| Item | PR |
+|---|---|
+| The multi-sheet refusal (item 6), the `multiple_sheets` code, and its tests | **PR-2** |
+| Chain-aware templates, `plan_note`, the removed compatibility fields, `minItems: 1`, the regenerated `openapi.json`, and their tests (items 4 and 5) | **PR-3** |
+| `POST /api/v1/access`, the cookie and token store, `check_credential`, Bearer kept with its precedence, and log redaction (item 1) | **PR-4** (PR-4a if split) |
+| The `Origin` check, `WORKBUDDY_PUBLIC_ORIGIN`, and the startup check for mutating GET routes (item 2) | **PR-4** (PR-4a if split) |
+| The `access` and `page` buckets, the per-route bucket declarations, the HTML-route mapping, classification by credential, and their tests (item 3) | **PR-4** (PR-4a if split) |
+
+FE-1 merges after PR-4a (frontend 13.1), because its gate needs the access route and its H2 handling needs the real buckets. The HTML routes belong to FE-1. PR-4a provides the dependency they attach to and the mechanism for declaring buckets. FE-1's tests cover the HTML-route rows of the table in item 3.
+
+### 8. What this section supersedes
+
+Earlier text isn't edited. These statements no longer hold as written:
+- **Part 2, ask 4** ("Decided: `Authorization: Bearer <password>`"), as the browser's mechanism.
+  - The browser uses the access cookie (item 1). Bearer stays for scripts and tests, parsed the same way, and `X-Demo-Password` is still not accepted. The `401` header and body are unchanged.
+  - "The static frontend and `/healthz` are not behind it; every `/api/v1` route is" now reads: `/healthz`, `/static/*`, `POST /api/v1/access` and the gate view of `GET /` aren't behind it; every other `/api/v1` route, and every HTML route, is.
+- **Part 1, item 1** ("Checked on **every** API route except `GET /healthz`", and "Sent as `Authorization: Bearer <password>` (or a header named `X-Demo-Password`…)"). The password is now also sent once, in the body of `POST /api/v1/access`, the only route that accepts it there.
+- **Part 1, item 1 and part 2, item 1:** in the rate-limit rules, "valid password" and "password is missing or wrong" are read as "credential" (item 3).
+- **Part 2, item 1** ("chosen by method, route template and whether the password is valid"). Buckets are now declared per route (item 3, point 5), and the table gains `access` and `page`. Its numbers are unchanged.
+- **Part 2, item 1, "Why these numbers"** ("the frontend polls at most 1/s per turn"). The frontend now polls at most once every 2 s. The numbers stand, with more margin.
+- **Part 2, ask 3** ("The frontend's build and CI generate types from this file"). The frontend no longer generates types (htmx). The committed `openapi.json` and its sync test stay, because scripts and reviews read them.
+- **Part 2, item 3, "Consequences"** (blob-download memory in the frontend). It no longer applies, because downloads are plain links.
+- **Section 1.5:** the `pending_confirmation` object, its example prompt ("…and save the result as a new file.") and the compatibility sentence are replaced by items 4 and 5.
+- **Part 1, item 2 and part 2, ask 1:** the example prompts. The `{ capability, prompt }` entry shape is unchanged, and the wording is now item 4's.
+- **Section 1.2's upload errors and Section 6.2's table** gain `422 multiple_sheets` and the sheet-count check (item 6). No existing row changes.
+
+Not changed: same-origin deployment with empty CORS (Section 6.1, part 1 item 1), the 5 MiB upload cap, the five original buckets and their numbers, and every rule-1 and rule-2 invariant in Section 5.
+
+### 9. Still undecided
+
+**Owner decisions:**
+- whether `.xls` may be on for the public link before its sheets can be checked (frontend 13.2, item 3);
+- going public while PR-B / verified-outcome-a M2 is open (frontend 13.2, item 4). It's to be recorded in a later Decisions section;
+- code visibility, and with it the host (frontend 11.3 and 13.2, item 5).
+
+**Still open from part 2:**
+- the uncompressed-size guard (40 MB recommended);
+- the global byte cap on the data root, which depends on the host.
+
+**Not addressed here: the frontend review's C5.** The plan is built before `Hands` runs, but a step's permission tier is only known after dispatch (`buddy/hands.py:240-252`; `CapabilityRequest` has no tier). PR-3 must resolve tiers through the Dispatcher before publishing the plan, or the plan can list the wrong steps. That's for PR-3's design and review.
