@@ -2644,3 +2644,143 @@ def test_n2_unsupported_entries_alone_are_no_reading_to_compare_a_step_with(
     assert "emoved 2 duplicate row(s)" in reply, reply
     assert "I can't do this part yet: “sort by amount”." in reply, reply
     _no_completion_claim(reply)
+
+
+# -- Verified outcome (PR-B fixes 3): re-review 2 P1, P2, P3 and Q1, end to end ------------
+
+_P_CANT_DO_GENERIC = "I read part of your request as something I can't do yet."
+
+
+@pytest.mark.parametrize("session_id", _SEEDS)
+@pytest.mark.parametrize("speaker_kind", _SPEAKERS)
+@pytest.mark.parametrize(
+    ("case", "message", "entries", "counts"),
+    [
+        (  # P1: the done action's phrase is the whole message, "delete the file" included
+            "s22",
+            "get rid of the repeated entries and delete the file",
+            [
+                ("remove_duplicate_rows", "get rid of the repeated entries and delete the file"),
+                ("unsupported", "get rid of the repeated entries and delete the file"),
+            ],
+            (4, 0, 1),
+        ),
+        (  # P2: Brain's own words for an empty-row request that never ran
+            "t23",
+            "dedupe and get rid of rows with nothing in them",
+            [("remove_duplicate_rows", "dedupe"), ("unsupported", "remove empty rows")],
+            (4, 0, 1),
+        ),
+        (  # P3: "keep"/"only" are not filler when the named action ran
+            "f10",
+            "keep only the duplicate rows",
+            [("unsupported", "keep only the duplicate rows")],
+            (4, 0, 1),
+        ),
+    ],
+    ids=["s22", "t23", "f10"],
+)
+def test_p1_p2_p3_a_flagged_part_is_never_dropped_behind_a_done_lead(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    case: str,
+    message: str,
+    entries: list[tuple[str, str]],
+    counts: tuple[int, int, int],
+    speaker_kind: str,
+    session_id: str,
+) -> None:
+    """Re-review 2 (s22, t23, f10): Brain flagged part of the request as unsupported and
+    the dedupe ran. The reply must not lead "Done —"; it says part of the request is
+    something Buddy can't do yet."""
+    monkeypatch.chdir(tmp_path)
+    brain = _brain_ledger_reply("remove_duplicate_rows", *entries)
+
+    reply, delivered = _delivered_turn(
+        tmp_path, message, [brain, _THINK_PROCEEDS], speaker_kind, session_id
+    )
+
+    assert _counts(delivered) == counts, case
+    assert "Done —" not in reply, reply
+    assert _P_CANT_DO_GENERIC in reply, reply
+
+
+@pytest.mark.parametrize("session_id", _SEEDS)
+@pytest.mark.parametrize("speaker_kind", _SPEAKERS)
+@pytest.mark.parametrize(
+    ("case", "message", "intent", "entries", "counts", "removed"),
+    [
+        (
+            "g26",
+            "please remove all duplicates",
+            "remove_duplicate_rows",
+            [
+                ("remove_duplicate_rows", "remove all duplicates"),
+                ("unsupported", "please remove all duplicates"),
+            ],
+            (4, 0, 1),
+            "removed 2 duplicate row(s).",
+        ),
+        (  # near-miss action name, rich phrase
+            "g27",
+            "remove all the duplicate rows from my sheet",
+            "remove_duplicate_rows",
+            [("remove_duplicates", "remove all the duplicate rows from my sheet")],
+            (4, 0, 1),
+            "removed 2 duplicate row(s).",
+        ),
+        (
+            "g28",
+            "delete the duplicates",
+            "remove_duplicate_rows",
+            [
+                ("remove_duplicate_rows", "delete the duplicates"),
+                ("unsupported", "delete the duplicates"),
+            ],
+            (4, 0, 1),
+            "removed 2 duplicate row(s).",
+        ),
+        (
+            "g29",
+            "can you remove the duplicates",
+            "remove_duplicate_rows",
+            [("deduplicate", "can you remove the duplicates")],
+            (4, 0, 1),
+            "removed 2 duplicate row(s).",
+        ),
+        (
+            "g30",
+            "remove the empty rows from this sheet",
+            "remove_empty_rows",
+            [("remove_blank_rows", "remove the empty rows from this sheet")],
+            (5, 2, 0),
+            "removed 1 fully-empty row(s).",
+        ),
+    ],
+    ids=["g26", "g27", "g28", "g29", "g30"],
+)
+def test_q1_a_fully_done_request_leads_done_with_no_cant_do(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    case: str,
+    message: str,
+    intent: str,
+    entries: list[tuple[str, str]],
+    counts: tuple[int, int, int],
+    removed: str,
+    speaker_kind: str,
+    session_id: str,
+) -> None:
+    """Re-review 2 (g26-g30): ordinary words around the action ("all", "from my sheet",
+    "can you", "delete") don't make a completed request "Partly done … can't do yet"."""
+    monkeypatch.chdir(tmp_path)
+    brain = _brain_ledger_reply(intent, *entries)
+
+    reply, delivered = _delivered_turn(
+        tmp_path, message, [brain, _THINK_PROCEEDS], speaker_kind, session_id
+    )
+
+    assert _counts(delivered) == counts, case
+    assert f"Done — {removed}" in reply, reply  # the lead, then the count
+    assert "Done —" in reply, reply  # an opener may precede the lead
+    assert "can't do" not in reply and "Partly done" not in reply, reply

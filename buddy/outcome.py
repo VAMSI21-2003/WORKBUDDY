@@ -386,16 +386,35 @@ def build_outcome_report(
 
 
 # RULE for this set: an "unsupported" entry is dropped only when, once the action's
-# mention patterns and the words Brain quoted for a done action are removed, nothing
-# is left or only these remain. They are function words: articles, politeness,
-# connectives, negation, keep/leave, and "remove". NEVER add a content word here (no
-# verb like "delete" or "drop", no noun like "file", "sheet" or "data"): anything
-# else left over is a part of the request we may not have done, and the reply says
-# so. A verb belongs in an action's mention pattern, attached to its object ("delete
-# the duplicates"). When unsure, keep the not-done sentence.
+# mention patterns (with a removal verb and determiners in front) and the words Brain
+# quoted for a done action are removed, nothing is left or only these remain. They are
+# function words: articles, politeness, connectives, pronouns, auxiliaries and negation.
+# NEVER add a content word here (no verb like "remove", "delete" or "drop", no noun like
+# "file", "sheet" or "data"): anything else left over is a part of the request we may not
+# have done, and the reply says so. A verb belongs in the removal-verb list below,
+# attached to an action's object. When unsure, keep the not-done sentence.
 _FILLER_WORDS = frozenset(
-    "a an the please and then also just only do dont don't not no never keep leave remove".split()
+    "a an the please pls and then also just only so but can could would will you i we to do "
+    "dont don't not no never keep leave".split()
 )
+# Words that say "don't do it" or "leave it". With a done action they may be the very
+# request that was not carried out (an inverted reading), so the entry is kept then.
+_NEGATION_WORDS = frozenset("dont don't not no never keep leave".split())
+# A removal verb and determiners in front of an action's object belong to that action.
+_REMOVAL_VERBS = r"remove|delete|drop|clear|erase|eliminate|get\s+rid\s+of|take\s+out"
+_DETERMINERS = r"all|any|every|each|the|these|those|this|that|my|our|your|of"
+_ACTION_WITH_VERB = {
+    action.name: re.compile(
+        rf"(?:\b(?:{_REMOVAL_VERBS})\s+(?:(?:{_DETERMINERS})\s+)*)?(?:{action.mention.pattern})",
+        re.IGNORECASE,
+    )
+    for action in ACTIONS_BY_NAME.values()
+}
+_LOCATION_PHRASE = re.compile(
+    r"\b(?:from|in|on|across)\s+(?:(?:the|this|that|my|our|your)\s+)?"
+    r"(?:sheet|file|spreadsheet|workbook|table|data)\b"
+)
+_TWO_REQUESTS = re.compile(r"\b(?:and|then|also|plus)\b|[,;&+]")
 
 
 def _no_skill_outcome(
@@ -409,37 +428,62 @@ def _no_skill_outcome(
     slip (a whole-message phrase, a near-miss action name) can hang it on
     words that name an action Buddy does have. "I can't do this part yet"
     would then sit next to a sentence saying it was done. So when the phrase
-    names an action (the mention detector's pattern, or the words Brain
-    quoted for an action that passed):
+    names an action (the mention detector's pattern, with a removal verb and
+    determiners in front, or the words Brain quoted for an action that passed):
 
-    - if nothing else is left in it once those words and the function words in
-      ``_FILLER_WORDS`` are removed, the entry is dropped: the action has its
-      own sentence (or none, when it ran and was said);
-    - otherwise the sentence is the generic, unquoted one, since a quote would
-      include the named action.
+    - the sentence is the generic, unquoted one (a quote would include the
+      named action) if a word is left over once those words and the function
+      words in ``_FILLER_WORDS`` are removed, or if a negation/keep word is
+      present next to an action that ran (the request may be the opposite of
+      what was done), or if a named action didn't pass and has no ledger
+      entry of its own (nothing else will say it wasn't done), unless a
+      negation word is present;
+    - otherwise the entry is dropped: the action has its own sentence (or
+      none, when it ran and was said).
+
+    Residual risks (both need a gross misread by Brain; closing them needs the
+    ledger-recall measurement, backlog item 1, design 6.8, not more words):
+
+    - A done action's phrase with no joiner that contains an unsupported verb
+      (Brain gives "delete the file" as the dedupe phrase) is still dropped.
+    - A double negation in a paraphrase ("don't keep the empty rows") counts
+      as a negation.
     """
     phrase = entry.source_phrase
-    lowered = phrase.casefold()
-    names_action = False
+    lowered = phrase.casefold().replace("\u2019", "'")
+    names_action = named_passed = named_silent = False
     for action in ACTIONS_BY_NAME.values():
-        remaining = action.mention.sub(" ", lowered)
-        if remaining != lowered:
-            names_action, lowered = True, remaining
+        remaining = _ACTION_WITH_VERB[action.name].sub(" ", lowered)
+        if remaining == lowered:
+            continue
+        names_action, lowered = True, remaining
+        if action.capability in passed_capabilities:
+            named_passed = True
+        elif all(other.action != action.name for other in ledger):
+            named_silent = True
+    lowered = _LOCATION_PHRASE.sub(" ", lowered, count=1)
     for other in ledger:
         other_action = ACTIONS_BY_NAME.get(other.action)
         if other_action is None or other_action.capability not in passed_capabilities:
             continue
-        said = other.source_phrase.casefold().strip()
-        if said and said in lowered:
-            names_action, lowered = True, lowered.replace(said, " ")
+        said = other.source_phrase.casefold().replace("\u2019", "'").strip()
+        if not said or said not in lowered:
+            continue
+        names_action = True
+        if not _TWO_REQUESTS.search(said):
+            named_passed, lowered = True, lowered.replace(said, " ")
     if not names_action:
         quoted = _quoted_phrase(phrase) if entry.phrase_found else ""
         return ActionOutcome("", NOT_DONE, reason=NO_SKILL, source=entry.source, user_phrase=quoted)
-    lowered = lowered.replace("\u2019", "'")
-    left_over = [w for w in re.findall(r"[\w']+", lowered) if w not in _FILLER_WORDS]
-    if not left_over:
-        return None
-    return ActionOutcome("", NOT_DONE, reason=NO_SKILL, source=entry.source)
+    words = re.findall(r"[\w']+", lowered)
+    negated = any(w in _NEGATION_WORDS for w in words)
+    if (
+        any(w not in _FILLER_WORDS for w in words)
+        or (negated and named_passed)
+        or (named_silent and not negated)
+    ):
+        return ActionOutcome("", NOT_DONE, reason=NO_SKILL, source=entry.source)
+    return None
 
 
 def _quoted_phrase(phrase: str) -> str:

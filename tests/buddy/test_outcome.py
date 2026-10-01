@@ -858,12 +858,15 @@ def test_n1_the_filler_set_holds_only_function_words() -> None:
     content word (a verb like "delete", a noun like "file") may ever join the set. A verb
     belongs in an action's mention pattern, attached to its object."""
     allowed = {
-        "a", "an", "the", "please", "and", "then", "also", "just", "only",
-        "do", "dont", "don't", "not", "no", "never", "keep", "leave", "remove",
+        "a", "an", "the", "please", "pls", "and", "then", "also", "just", "only", "so", "but",
+        "can", "could", "would", "will", "you", "i", "we", "to", "do",
+        "dont", "don't", "not", "no", "never", "keep", "leave",
     }  # fmt: skip
 
     assert _FILLER_WORDS <= allowed, sorted(_FILLER_WORDS - allowed)
-    for content_word in ("delete", "drop", "clean", "file", "sheet", "data", "report", "rows"):
+    for content_word in (
+        "remove", "delete", "drop", "clean", "file", "sheet", "data", "report", "rows",
+    ):
         assert content_word not in _FILLER_WORDS
 
 
@@ -878,11 +881,11 @@ def test_n1_a_leftover_content_word_keeps_the_generic_not_done_sentence() -> Non
     assert generic("remove duplicates and delete the file") == [""]
     assert generic("remove duplicates and clean the data") == [""]
     assert generic("remove duplicates and drop the sheet") == [""]
-    assert generic("delete the duplicates") == [""]  # verb not in a mention pattern: keep
-    assert generic("remove all duplicates") == [""]  # unsure: keep
-    assert generic("keep the duplicates") == []  # function words only: dropped
-    assert generic("don't remove the duplicates please") == []
-    assert generic("but keep the duplicates") == [""]  # "but" is not in the closed set: keep
+    assert generic("delete the duplicates") == []  # removal verb + object: the action's words
+    assert generic("remove all duplicates") == []
+    assert generic("keep the duplicates") == [""]  # keep word next to a done action: keep
+    assert generic("don't remove the duplicates please") == [""]  # negation, same
+    assert generic("but keep the duplicates") == [""]
 
 
 def test_n2_unsupported_entries_alone_never_make_a_step_unrequested() -> None:
