@@ -388,3 +388,201 @@ N1, d2 and c8 show "It still has 2 duplicate row(s)." followed by "None of the *
 ## Deferred
 
 - N2 if not fixed now; L3; `b6`; carried over from the PR-A review: M3 and its L1–L3.
+
+# Re-review 2 (fixes commit `3ec8a8c`)
+
+**Verdict: DON'T MERGE.** N1 as reported (x2, x3, x4) is fixed, and so is N2. But the same function still has three paths to a false "Done —" (HIGH; they were there at `ef3166f` too, and `main` says "Done —" in all of them). The N1 fix also adds a new false "Partly done … I can't do yet" on fully completed requests, H2's own near-miss-name case among them (MEDIUM; `ef3166f` and `main` both say "Done —"). The exact fix is below. A prototype of it in a scratch copy closes all eight cases and leaves the 532 harness turns unchanged.
+
+> **Independence.** This was run by a separate session with no memory of writing PR-B or its fixes, as `CLAUDE.md` requires. I didn't modify anything under `buddy/` or `tests/` in the repository. The prototype fix and the guard-test mutation were done in throwaway copies (`git archive HEAD`) in the session scratchpad, and are not committed. Because I wrote the prototype, I must not review the real fix.
+
+## Method
+
+- **Trees.** Head is `origin/feat/verified-outcome-b` at `3ec8a8c`. Comparison trees, each a temporary `git worktree`: `origin/main` (`310f660`) and the previous head `ef3166f`.
+- **Harness.** `scripts/review_harness` from `origin/review/pr-b-harness`, used as is: the real `build_engine` and real skills and verifiers, with a fake LLM routed by system prompt. It runs 38 scenarios × 14 turns (template, friend × 12 session ids, focus) = 532 turns per tree. It isn't committed to this branch.
+- **Adversarial set.** 32 new scenarios (448 turns per tree), with the same mechanics as the harness. The script and its output are in the session scratchpad, and every scenario is in the table below, so the set can be rebuilt from this document. Fixture: the harness's 6 rows (2 duplicates, 1 empty row).
+- **Scope.** The diff `ef3166f..3ec8a8c` (`_FILLER_WORDS`, the curly apostrophe and `has_reading` in `buddy/outcome.py`), plus `_no_skill_outcome` as a whole, because N1's claim ("a real unsupported part is never dropped behind a Done lead") is a claim about that function. I didn't re-open earlier decisions (D2, H1's `DONE_UNREQUESTED`, the L3 deferral).
+- **Not run:** live runs with Groq. They weren't part of this review's scope, and the verdict doesn't depend on them.
+
+## 1. Suite and lint
+
+| Check | Result |
+|---|---|
+| `python -m pytest -q` | **1137 passed**, 0 failed (262 s) |
+| `ruff check buddy tests` | 22 errors on head, 22 on `main`. Compared by file and rule with line numbers removed, the two lists are identical: 15 E501, 3 UP017, 2 I001, 1 B905, 1 UP037. **No new lint errors.** |
+
+## 2. Harness: head vs `main` (and `ef3166f`)
+
+| Check | Head | `main` | `ef3166f` |
+|---|---|---|---|
+| Turns, errors | 532, 0 | 532, 0 | 532, 0 |
+| Voice-model calls | **0** | 0 | 0 |
+| Original changed (rule 2) | **0 of 532** | 0 | 0 |
+| Delivered / undelivered | 504 / 28 | 504 / 28 | 504 / 28 |
+| Undelivered turns (`r-chain-stop`, `r-unclear`) equal to `main` (reply, steps, delivered) | **28 of 28** | | |
+
+Between `ef3166f` and head, replies changed only in `x2`, `x3`, `x4` (N1) and `a3`, `x1`, `e1` (N2), 14 of 14 turns each. Every other scenario is byte-identical.
+
+The adversarial set gives the same picture: 448 turns per tree, 0 Voice calls and the original unchanged in every turn on all three trees.
+
+## 3. N1: fixed as reported
+
+| ID | Head, 14 turns | "Done —" |
+|---|---|---|
+| `x2` "…and delete the file" | "Partly done — removed 2 duplicate row(s). I read part of your request as something I can't do yet." 14/14 | 0 |
+| `x3` "…and clean the data" | same, 14/14 | 0 |
+| `x4` "…and drop the sheet" (Brain's only entry is `unsupported`) | same, 14/14 | 0 |
+| `x5`, `x6` | unchanged and correct ("Partly done"; x6 quotes “delete the file”) | 0 |
+
+**The guard test isn't vacuous.** I added `"delete"` to `_FILLER_WORDS` in a copy of head, and `test_n1_the_filler_set_holds_only_function_words` failed (`assert _FILLER_WORDS <= allowed`), along with one more N1 unit test. Without the mutation it passes. The limit is that the guard only catches words outside its `allowed` list. `remove`, `keep` and `leave` are verbs inside that list (see P3).
+
+**N2 is fixed as reported:** `a3`, `x1` and `e1` no longer say "didn't read that". `x1` and `e1` say "Removed 2 duplicate row(s). I can't do this part yet: “sort by amount”." There's no lead word, and no "Done".
+
+## 4. Adversarial scenarios (Brain returns an `unsupported` phrase; a step passed)
+
+"Head" etc. count the 14 turns that lead with "Done —" or "Partly done". **Fix sketch** is the prototype in section 6. Bold IDs are findings.
+
+| ID | User message | Fake Brain (and plan, if called) | Head reply, template (up to "The copy has") | Head | `ef3166f` | `main` | Fix sketch |
+|---|---|---|---|---|---|---|---|
+| `v01-delete-sheet` | remove duplicates and delete the sheet | intent `remove_duplicate_rows`; `remove_duplicate_rows` “remove duplicates”; `unsupported` “remove duplicates and delete the sheet” | Partly done — removed 2 duplicate row(s). I read part of your request as something I can't do yet. | Partly 14/14 | Done 14/14 | Done 14/14 | Partly 14/14 |
+| `v02-rename-file` | remove duplicates and rename the file | intent `remove_duplicate_rows`; `remove_duplicate_rows` “remove duplicates”; `unsupported` “remove duplicates and rename the file” | Partly done — removed 2 duplicate row(s). I read part of your request as something I can't do yet. | Partly 14/14 | Partly 14/14 | Done 14/14 | Partly 14/14 |
+| `v03-archive-it` | remove duplicates and archive it | intent `remove_duplicate_rows`; `remove_duplicate_rows` “remove duplicates”; `unsupported` “remove duplicates and archive it” | Partly done — removed 2 duplicate row(s). I read part of your request as something I can't do yet. | Partly 14/14 | Partly 14/14 | Done 14/14 | Partly 14/14 |
+| `v04-mixed-case` | Remove Duplicates And DELETE The File | intent `remove_duplicate_rows`; `remove_duplicate_rows` “remove duplicates”; `unsupported` “Remove Duplicates And DELETE The File” | Partly done — removed 2 duplicate row(s). I read part of your request as something I can't do yet. | Partly 14/14 | Done 14/14 | Done 14/14 | Partly 14/14 |
+| `v05-punct` | remove duplicates, then delete the file! | intent `remove_duplicate_rows`; `remove_duplicate_rows` “remove duplicates”; `unsupported` “remove duplicates, then delete the file!” | Partly done — removed 2 duplicate row(s). I read part of your request as something I can't do yet. | Partly 14/14 | Done 14/14 | Done 14/14 | Partly 14/14 |
+| `v06-unsup-only-drop-sheet` | Remove duplicates; drop the sheet. | intent `remove_duplicate_rows`; `unsupported` “Remove duplicates; drop the sheet.” | Partly done — removed 2 duplicate row(s). I read part of your request as something I can't do yet. | Partly 14/14 | Done 14/14 | Done 14/14 | Partly 14/14 |
+| `f07-and-the-sheet` | remove duplicates and the sheet | intent `remove_duplicate_rows`; `remove_duplicate_rows` “remove duplicates”; `unsupported` “remove duplicates and the sheet” | Partly done — removed 2 duplicate row(s). I read part of your request as something I can't do yet. | Partly 14/14 | Done 14/14 | Done 14/14 | Partly 14/14 |
+| `f08-remove-it` | remove duplicates and remove it | intent `remove_duplicate_rows`; `remove_duplicate_rows` “remove duplicates”; `unsupported` “remove duplicates and remove it” | Partly done — removed 2 duplicate row(s). I read part of your request as something I can't do yet. | Partly 14/14 | Done 14/14 | Done 14/14 | Partly 14/14 |
+| `f09-remove-all` | remove duplicates and then remove all | intent `remove_duplicate_rows`; `remove_duplicate_rows` “remove duplicates”; `unsupported` “remove duplicates and then remove all” | Partly done — removed 2 duplicate row(s). I read part of your request as something I can't do yet. | Partly 14/14 | Done 14/14 | Done 14/14 | Partly 14/14 |
+| **`f10-keep-only-dups`** | keep only the duplicate rows | intent `remove_duplicate_rows`; `unsupported` “keep only the duplicate rows” | Done — removed 2 duplicate row(s). | Done 14/14 | Done 14/14 | Done 14/14 | Partly 14/14 |
+| `f11-keep-only-dups-multi` | keep only the duplicate rows | intent `multi_step_request`; `unsupported` “keep only the duplicate rows”; plan: dedupe “duplicate rows” | Removed 2 duplicate row(s). | no lead | no lead | no lead | no lead |
+| `f12-plain-filler` | Please, just remove the DUPLICATES. | intent `remove_duplicate_rows`; `remove_duplicate_rows` “remove the DUPLICATES”; `unsupported` “Please, just remove the DUPLICATES.” | Done — removed 2 duplicate row(s). | Done 14/14 | Done 14/14 | Done 14/14 | Done 14/14 |
+| `r13-remove-formatting` | remove duplicates and remove the formatting | intent `remove_duplicate_rows`; `remove_duplicate_rows` “remove duplicates”; `unsupported` “remove the formatting” | Partly done — removed 2 duplicate row(s). I can't do this part yet: “remove the formatting”. | Partly 14/14 | Partly 14/14 | Done 14/14 | Partly 14/14 |
+| `r14-remove-column-b` | remove duplicates and remove column B | intent `remove_duplicate_rows`; `remove_duplicate_rows` “remove duplicates”; `unsupported` “remove column B” | Partly done — removed 2 duplicate row(s). I can't do this part yet: “remove column B”. | Partly 14/14 | Partly 14/14 | Done 14/14 | Partly 14/14 |
+| `r15-remove-dups-and-col` | remove duplicates and column B | intent `remove_duplicate_rows`; `remove_duplicate_rows` “remove duplicates”; `unsupported` “remove duplicates and column B” | Partly done — removed 2 duplicate row(s). I read part of your request as something I can't do yet. | Partly 14/14 | Partly 14/14 | Done 14/14 | Partly 14/14 |
+| `n16-curly-dont-delete` | remove duplicates but don’t delete the file | intent `remove_duplicate_rows`; `remove_duplicate_rows` “remove duplicates”; `unsupported` “don’t delete the file” | Partly done — removed 2 duplicate row(s). I can't do this part yet: “don’t delete the file”. | Partly 14/14 | Partly 14/14 | Done 14/14 | Partly 14/14 |
+| `n17-dont-delete-whole` | remove duplicates but don't delete the file | intent `remove_duplicate_rows`; `remove_duplicate_rows` “remove duplicates”; `unsupported` “remove duplicates but don't delete the file” | Partly done — removed 2 duplicate row(s). I read part of your request as something I can't do yet. | Partly 14/14 | Done 14/14 | Done 14/14 | Partly 14/14 |
+| `n18-curly-dont-remove-dups` | remove the empty rows but don’t remove the duplicates | intent `remove_empty_rows`; `remove_empty_rows` “remove the empty rows”; `unsupported` “don’t remove the duplicates”; plan: dedupe “the duplicates”, empty-rows “remove the empty rows” | Removed 1 fully-empty row(s). Your message mentions duplicate rows, but I didn't run the duplicate-row removal. I read your request as: remove empty rows. | no lead | Partly 14/14 | Done 14/14 | no lead |
+| `n19-never-delete-anything` | remove duplicates and never delete anything | intent `remove_duplicate_rows`; `remove_duplicate_rows` “remove duplicates”; `unsupported` “remove duplicates and never delete anything” | Partly done — removed 2 duplicate row(s). I read part of your request as something I can't do yet. | Partly 14/14 | Partly 14/14 | Done 14/14 | Partly 14/14 |
+| `s20-substring-dups` | remove the duplicate rows | intent `remove_duplicate_rows`; `remove_duplicate_rows` “remove the duplicate rows”; `unsupported` “duplicate rows” | Done — removed 2 duplicate row(s). | Done 14/14 | Done 14/14 | Done 14/14 | Done 14/14 |
+| `s21-substring-remove-the` | remove the duplicate rows | intent `remove_duplicate_rows`; `remove_duplicate_rows` “remove the duplicate rows”; `unsupported` “remove the” | Partly done — removed 2 duplicate row(s). I can't do this part yet: “remove the”. | Partly 14/14 | Partly 14/14 | Done 14/14 | Partly 14/14 |
+| **`s22-done-phrase-is-whole-msg`** | get rid of the repeated entries and delete the file | intent `remove_duplicate_rows`; `remove_duplicate_rows` “get rid of the repeated entries and delete the file”; `unsupported` “get rid of the repeated entries and delete the file” | Done — removed 2 duplicate row(s). | Done 14/14 | Done 14/14 | Done 14/14 | Partly 14/14 |
+| **`t23-paraphrase-empty-not-run`** | dedupe and get rid of rows with nothing in them | intent `remove_duplicate_rows`; `remove_duplicate_rows` “dedupe”; `unsupported` “remove empty rows” | Done — removed 2 duplicate row(s). | Done 14/14 | Done 14/14 | Done 14/14 | Partly 14/14 |
+| `t24-found-empty-not-run` | remove duplicates and remove empty rows | intent `remove_duplicate_rows`; `remove_duplicate_rows` “remove duplicates”; `unsupported` “remove empty rows” | Removed 2 duplicate row(s). Your message mentions empty rows, but I didn't run the empty-row removal. I read your request as: remove duplicate rows. | no lead | no lead | Done 14/14 | no lead |
+| `t25-whole-msg-empty-not-run` | remove duplicates and remove empty rows | intent `remove_duplicate_rows`; `remove_duplicate_rows` “remove duplicates”; `unsupported` “remove duplicates and remove empty rows” | Removed 2 duplicate row(s). Your message mentions empty rows, but I didn't run the empty-row removal. I read your request as: remove duplicate rows. | no lead | no lead | Done 14/14 | no lead |
+| **`g26-remove-all-dups`** | please remove all duplicates | intent `remove_duplicate_rows`; `remove_duplicate_rows` “remove all duplicates”; `unsupported` “please remove all duplicates” | Partly done — removed 2 duplicate row(s). I read part of your request as something I can't do yet. | Partly 14/14 | Done 14/14 | Done 14/14 | Done 14/14 |
+| **`g27-nearmiss-rich-phrase`** | remove all the duplicate rows from my sheet | intent `remove_duplicate_rows`; `remove_duplicates` “remove all the duplicate rows from my sheet” | Partly done — removed 2 duplicate row(s). I read part of your request as something I can't do yet. | Partly 14/14 | Done 14/14 | Done 14/14 | Done 14/14 |
+| **`g28-delete-the-dups`** | delete the duplicates | intent `remove_duplicate_rows`; `remove_duplicate_rows` “delete the duplicates”; `unsupported` “delete the duplicates” | Partly done — removed 2 duplicate row(s). I read part of your request as something I can't do yet. | Partly 14/14 | Done 14/14 | Done 14/14 | Done 14/14 |
+| **`g29-can-you`** | can you remove the duplicates | intent `remove_duplicate_rows`; `deduplicate` “can you remove the duplicates” | Partly done — removed 2 duplicate row(s). I read part of your request as something I can't do yet. | Partly 14/14 | Done 14/14 | Done 14/14 | Done 14/14 |
+| **`g30-empty-nearmiss-rich`** | remove the empty rows from this sheet | intent `remove_empty_rows`; `remove_blank_rows` “remove the empty rows from this sheet” | Partly done — removed 1 fully-empty row(s). I read part of your request as something I can't do yet. | Partly 14/14 | Done 14/14 | Done 14/14 | Done 14/14 |
+| `p31-n2-planner-extra` | remove the empty rows and sort by amount | intent `multi_step_request`; `unsupported` “sort by amount”; plan: dedupe “remove the empty rows” | Removed 2 duplicate row(s). I can't do this part yet: “sort by amount”. Your message mentions empty rows, but I didn't run the empty-row removal. | no lead | no lead | no lead | no lead |
+| `p32-n2-no-mention` | sort by amount please | intent `multi_step_request`; `unsupported` “sort by amount please”; plan: dedupe “sort by amount please” | Removed 2 duplicate row(s). I can't do this part yet: “sort by amount please”. | no lead | no lead | no lead | no lead |
+
+Where Brain's `remove_duplicate_rows` phrase isn't shown, it's “remove duplicates”. In `g27`, `g29` and `g30`, Brain's action name is off the vocabulary, so the parser turns it into `unsupported` (H2's case).
+
+## 5. Findings
+
+### P1 (HIGH, N1 class, present since `ef3166f`): a done action's quoted words swallow the unsupported part (`s22`)
+
+**Where:** `_no_skill_outcome`, second loop (`if said and said in lowered: … lowered.replace(said, " ")`).
+**Scenario:** "get rid of the repeated entries and delete the file". Brain gives the whole message as the phrase for both `remove_duplicate_rows` and `unsupported`. The dedupe passed, its phrase covers the whole unsupported phrase, nothing is left over, and the entry is dropped.
+**Reply:** "Done — removed 2 duplicate row(s)." in 14 of 14 turns. The file wasn't deleted (Buddy can't), and Brain flagged it.
+**Likelihood:** it needs Brain to give a whole-message phrase to a supported action. Live run 7 shows whole-message phrases happen (for `unsupported`).
+
+### P2 (HIGH, N1 class, present since `ef3166f`): an action that didn't run is "named", so the request for it vanishes (`t23`)
+
+**Where:** `_no_skill_outcome`, first loop. It removes the mention pattern of **every** action, not only those that passed or that have their own sentence.
+**Scenario:** "dedupe and get rid of rows with nothing in them". Brain lists the dedupe and `unsupported` “remove empty rows” (its own words, not found in the message, so the mention detector adds nothing). "empty rows" is removed, "remove" is a filler word, and the entry is dropped.
+**Reply:** "Done — removed 2 duplicate row(s)." in 14 of 14 turns. The delivered file still has 1 fully-empty row (pandas read: `(4, 0, 1)`), and the reply says nothing about it.
+**Compare:** when the phrase *is* in the message (`t24`, `t25`), the mention entry gives "Your message mentions empty rows, but I didn't run the empty-row removal. … It still has 1 fully-empty row(s)." That's correct, so only the paraphrase case is broken.
+
+### P3 (HIGH, N1 class, present since `ef3166f`): "keep"/"only" are filler even when the named action ran (`f10`)
+
+**Where:** `_FILLER_WORDS` contains `keep`, `leave`, `only` and the negations without a condition.
+**Scenario:** "keep only the duplicate rows". Brain's intent is `remove_duplicate_rows` (a misread), and it also lists `unsupported` “keep only the duplicate rows”. After "duplicate rows" is removed, only "keep only the" is left, so the entry is dropped.
+**Reply:** "Done — removed 2 duplicate row(s)." in 14 of 14 turns. Buddy did the opposite of the request and calls it done, although Brain flagged the request. It needs a Brain misread, but the one signal against it is the entry this rule throws away.
+**Also:** the same drop silences `f11` (Brain's only entry is that `unsupported` phrase): "Removed 2 duplicate row(s)." and nothing else. That's not a false claim (see section 7).
+
+### Q1 (MEDIUM, introduced by `3ec8a8c`): "Partly done … I can't do yet" on a request that was fully done (`g26`–`g30`)
+
+**Where:** the reduced `_FILLER_WORDS`. "remove" is in it, but no other removal verb, determiner or preposition is.
+**Scenarios and replies** (14 of 14 turns each; `ef3166f` and `main` both say "Done —"):
+- `g26` "please remove all duplicates" ("all" is left over)
+- `g28` "delete the duplicates" ("delete")
+- `g27` near-miss action `remove_duplicates`, phrase “remove all the duplicate rows from my sheet” ("all", "from", "my", "sheet")
+- `g29` near-miss `deduplicate`, “can you remove the duplicates” ("can", "you")
+- `g30` near-miss `remove_blank_rows`, “remove the empty rows from this sheet” (the empty-row action)
+
+Each gives "Partly done — removed N … row(s). I read part of your request as something I can't do yet." Everything the user asked for was done.
+
+**Why it matters:**
+- `g27`, `g29` and `g30` are H2's near-miss-name case, the original High. The H2 tests (`k-*`) only use the all-filler phrase “remove the duplicate rows”, so they still pass, but any ordinary word in Brain's phrase brings back a "can't do" next to "removed".
+- `fixes2.md` "Limits" accepted the trade for words like "but" and "all". It didn't consider this path, and the rubric for this review counts a "can't do" about done work as MEDIUM.
+
+### Low
+
+- **L-a** (`n16`, `n17`, `n19`): a negated unsupported clause ("don't delete the file", "never delete anything") gives "Partly done" and either "I can't do this part yet: “don’t delete the file”" or the generic sentence. Nothing done is called not done, but the lead word is misleading. `n17` was "Done —" at `ef3166f`. Parsing the scope of a negation safely is out of reach for a word list, so this stays flat on purpose.
+- **L-b** (`s21`): an `unsupported` phrase of only function words that names no action ("remove the") is quoted as "I can't do this part yet: “remove the”". It's the same as `b6` and unchanged since `ef3166f`.
+- **L-c** (N2's opposite side; see section 7).
+- **Observation, out of scope** (unchanged since `ef3166f`): `k-multi-nearmiss` says "I also removed 2 duplicate row(s), though I didn't read that as part of your request." Brain did read it, under a near-miss name. This follows from the H1 decision, so I'm only listing it.
+
+## 6. Exact fix needed (P1, P2, P3, Q1)
+
+All of it is in `buddy/outcome.py` / `_no_skill_outcome`; nothing else changes. I prototyped it in a scratch copy:
+- **Suite:** 1135 passed. The only 2 failures are the tests that pin the old behaviour (listed below).
+- **Harness:** all 532 turns byte-identical to head.
+- **Adversarial set:** P1–P3 → "Partly done", Q1 → "Done —", `f11` gains the generic sentence, and the other 23 scenarios are unchanged.
+- **Ruff:** clean on the file.
+
+1. **Normalise first:** `lowered = phrase.casefold().replace("’", "'")`, before any matching.
+2. **Strip an action as verb + object, not just object (Q1).** Strip each action's object with an optional removal verb and determiners in front: `(?:\b(?:remove|delete|drop|clear|erase|eliminate|get\s+rid\s+of|take\s+out)\s+(?:(?:all|any|every|each|the|these|those|this|that|my|our|your|of)\s+)*)?(?:<action.mention.pattern>)`.
+   - Then remove one location phrase, `\b(?:from|in|on|across)\s+(?:(?:the|this|that|my|our|your)\s+)?(?:sheet|file|spreadsheet|workbook|table|data)\b`.
+   - "remove" leaves `_FILLER_WORDS`. A bare "remove it" / "remove all" is then left over, so the generic sentence stays.
+3. **Function words only.** `_FILLER_WORDS` = `a an the please pls and then also just only so but can could would will you i we to do dont don't not no never keep leave`. Still no verb or noun. Update the guard test's `allowed` set to match.
+4. **Only actions that have a sentence can absorb words (P2).** In the pattern loop, record `named_passed` (the action's capability passed) and `named_silent` (it didn't pass and has no ledger entry of its own).
+5. **A done action's quoted words (P1):**
+   - Run this loop **after** the pattern loop.
+   - If `said` occurs in the phrase, set `names_action = True`, so done work is never quoted as "can't do".
+   - Remove `said` only when it can't span two requests: no `\b(?:and|then|also|plus)\b` and no `[,;&+]`. When it is removed, set `named_passed = True`.
+6. **Drop only when it's safe (P2, P3).** Return the generic `NO_SKILL` outcome if any of these hold: a word is left over; a negation or keep word (`dont don't not no never keep leave`) is present and `named_passed`; or `named_silent` and no negation word is present. Otherwise return `None`.
+
+**Tests to change** (both pin the old behaviour):
+- In `test_n1_a_leftover_content_word_keeps_the_generic_not_done_sentence`, "delete the duplicates" and "remove all duplicates" become `[]`. In that unit's setup the dedupe passed, so "keep the duplicates" and "don't remove the duplicates please" become `[""]`.
+- `test_n1_the_filler_set_holds_only_function_words`: the new `allowed` set.
+
+**Tests to add** (`build_engine`, 3 speakers × 6 session ids, like the N1 tests):
+- `s22`, `t23` and `f10` must not contain "Done —", and must contain "I read part of your request as something I can't do yet."
+- `g26`–`g30` must lead "Done —", with no "can't do".
+- `x2`–`x6`, `e2`, `k-*`, `b5` and the existing N1 engine cases stay as they are.
+
+**Residual risk, to note in the code comment:**
+- A done action's phrase with no joiner that contains an unsupported verb (Brain gives "delete the file" as the dedupe phrase) is still dropped.
+- A double negation in a paraphrase ("don't keep the empty rows") counts as a negation.
+- Both need a gross misread by Brain. Closing them needs the ledger-recall measurement (backlog item 1, design 6.8), not more words.
+
+## 7. N2: does the change hide a true "I didn't read that as part of your request"?
+
+Yes, in one shape, but with no false claim.
+
+**The shape:** Brain's only entries are `unsupported`, and the planner runs an action the user never asked for.
+- `p31` "remove the empty rows and sort by amount", where the planner ran the dedupe.
+- `p32` "sort by amount please", where the planner ran the dedupe.
+- `f11` "keep only the duplicate rows".
+
+**What changed:**
+- `ef3166f` said "I removed 2 duplicate row(s), though I didn't read that as part of your request." That was true and useful.
+- Head says "Removed 2 duplicate row(s)." with no lead word, no closer and no "Done". In `p31` it adds "Your message mentions empty rows, but I didn't run the empty-row removal." That's the same as `main`'s "Removed 2 duplicate row(s).", and the reply makes no false claim.
+
+**Rating: LOW (L-c).** It's a lost caveat, not a false statement. Any fix would bring back N2 for `a3`/`x1`/`e1`, unless it uses the mention detector, which H1 showed can't confirm a request. I'm deferring it to the ledger-recall work.
+
+## 8. Verdict: DON'T MERGE
+
+1. **P1, P2, P3 (HIGH).** A false "Done —" is still reachable through `_no_skill_outcome` while Brain flags part of the request as unsupported. None of them is a regression against `main` (which says "Done —" everywhere). But they're the same class as N1, which blocked the last round, and the N1 fix's own comment claims this can't happen.
+2. **Q1 (MEDIUM, introduced here).** "Partly done … I can't do yet" on requests that were fully done, including H2's near-miss case. This one *is* a regression against both `ef3166f` and `main`.
+3. **Fix:** section 6, a single-function change. After it, a separate session should re-review using the harness plus this section's 32 scenarios. The live runs should be repeated per `CLAUDE.md`.
+
+## Deferred
+
+- L-a: negated unsupported clauses render "Partly done" (flat, intentional).
+- L-b / `b6`: function-word-only `unsupported` phrases are quoted.
+- L-c: an unrequested step with only `unsupported` Brain entries is stated plainly, without "I didn't read that as part of your request".
+- The residual risks named at the end of section 6.
+- Carried over: L3, and the PR-A review's M3 and L1–L3.
