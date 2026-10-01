@@ -41,6 +41,13 @@ Open work, in priority order. Each item follows the working method in `CLAUDE.md
 - Per-sheet cleaning (keep every sheet and clean each one, or the one the user named). It needs per-sheet measurements in the Inspector and Outcome code.
 - A real `.xls` can't be cleaned without `xlrd`, which isn't a dependency. The skills now say so.
 
+**Review (`docs/reviews/fix-multi-sheet-review.md`): DON'T MERGE until H1, H2, M1, M2 and M3 are fixed** (count the sheets declared in `workbook.xml`, refuse all OLE2 files with a password-protected or legacy-`.xls` reason, and put no raw exception text in user-facing errors). Don't add `xlrd` before that fix: with `xlrd`, a `.xls` chart sheet or macro sheet is silently dropped. Deferred from that review:
+- L2: a failed write leaves a partial output file under `workspace/outputs/`.
+- L3: crafted sheet names Excel forbids fail at the write, and names over 31 characters are written as is.
+- L4: Inspector wording for a reorder ("lost or renamed") and for a non-workbook output (raw pandas text).
+- L5: say "(including hidden sheets)" when hidden sheets push the count above one.
+- L6: `buddy/think.py:247` still says the capabilities read "only the first sheet".
+
 **Problem:** `skills/excel/dedupe.py` and `skills/excel/remove_empty_rows.py` read only the first sheet (`pd.read_excel(input_path)`) and write one sheet named `Sheet1`. For a workbook with sheets `Q1` and `Q2`, the delivered file has one sheet, and the reply says "Your cleaned copy of report.xlsx is ready." and "The copy has 2 row(s)…". Nothing tells the user that `Q2` was dropped, and no verifier notices.
 
 **Acceptance criteria:**
