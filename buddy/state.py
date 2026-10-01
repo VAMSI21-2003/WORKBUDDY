@@ -25,6 +25,25 @@ if TYPE_CHECKING:
     from buddy.think import Reasoning
 
 
+@dataclass(frozen=True)
+class StageFailure:
+    """Which stage of the cognitive cycle raised during a turn.
+
+    Recorded by the Engine when a stage raises, so Voice can still give an
+    honest reply. Deliberately carries no exception message and no
+    traceback: an LLM or pandas error text can contain file contents or
+    request fragments, and nothing here may reach the user. The traceback
+    is logged server side only (``core.engine.Engine.run``).
+
+    Attributes:
+        stage: The ``CognitiveCycle`` slot that raised, e.g. ``"inspector"``.
+        error_type: The exception's class name, e.g. ``"ValueError"``.
+    """
+
+    stage: str
+    error_type: str
+
+
 @dataclass
 class BuddyState:
     """Buddy's complete working memory for a unit of work.
@@ -99,6 +118,15 @@ class BuddyState:
             stage, if it has run yet.
         reply: The message Buddy will send back to the user, produced
             during the Speak stage.
+        failure: Set by the Engine when a stage raised this turn. Voice
+            then gives a fixed failure reply, and nothing from the turn
+            counts as a verified delivery, whatever ``execution_result``
+            and ``verification_result`` hold.
+        turn_output_dir: The folder this turn's skills write their output
+            files into, copied onto every ``SkillTask`` by Hands. ``None``
+            keeps each skill's legacy path. A caller that runs several
+            turns in one session sets a fresh folder per turn, so a later
+            turn can't overwrite a file handed back earlier.
     """
 
     context: Context
@@ -118,6 +146,8 @@ class BuddyState:
     outputs: list[dict[str, Any]] = field(default_factory=list)
     verification_result: VerificationResult | None = None
     reply: str | None = None
+    failure: StageFailure | None = None
+    turn_output_dir: str | None = None
 
     @classmethod
     def new(cls, session_id: str, workspace_id: str) -> "BuddyState":
@@ -207,3 +237,5 @@ class BuddyState:
         self.outputs = []
         self.verification_result = None
         self.reply = None
+        self.failure = None
+        self.turn_output_dir = None

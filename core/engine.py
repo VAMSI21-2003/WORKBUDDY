@@ -6,7 +6,7 @@ import logging
 from dataclasses import dataclass
 from typing import Protocol
 
-from buddy.state import BuddyState
+from buddy.state import BuddyState, StageFailure
 
 logger = logging.getLogger(__name__)
 
@@ -74,6 +74,25 @@ class CognitiveCycle:
             self.voice,
         )
 
+    def named_stages(self) -> tuple[tuple[str, Stage], ...]:
+        """Return ``(slot name, stage)`` pairs in the order the Engine runs them."""
+        return tuple(zip(_STAGE_NAMES, self.stages(), strict=True))
+
+
+# The CognitiveCycle slot names, in run order. A ``StageFailure.stage`` is
+# always one of these, so the set of stage labels Voice can see is closed.
+_STAGE_NAMES = (
+    "eyes",
+    "brain",
+    "think",
+    "planner",
+    "delegate",
+    "hands",
+    "inspector",
+    "voice",
+)
+VOICE_STAGE = "voice"
+
 
 class Engine:
     """Orchestrates Buddy's cognitive cycle over a ``BuddyState``.
@@ -98,27 +117,40 @@ class Engine:
     def run(self, state: BuddyState) -> BuddyState:
         """Run one full pass of the cognitive cycle over ``state``.
 
+        A stage that raises doesn't end the turn without a reply
+        (``docs/WORKBUDDY_ARCHITECTURE.md`` Section 17): the Engine logs it
+        with its traceback, records a ``StageFailure`` on ``state.failure``,
+        skips every remaining stage except Voice, and still runs Voice,
+        which gives a fixed failure reply that claims nothing
+        (``buddy.voice.Voice``). The exception's message is never put on
+        the state.
+
         Args:
             state: The ``BuddyState`` to run the cycle against.
 
         Returns:
-            The state after every stage has run.
+            The state after the cycle. ``state.failure`` is set if a stage
+            other than Voice raised.
 
         Raises:
-            Exception: Whatever the failing stage itself raises. The
-                Engine does not interpret or suppress stage failures — it
-                only logs which stage failed before propagating the error.
+            Exception: Only what Voice itself raises. With no stage left to
+                give a reply, that is the caller's to handle.
         """
         logger.info("Starting cognitive cycle for session %r", state.session_id)
-        for stage in self._cycle.stages():
+        for name, stage in self._cycle.named_stages():
+            if state.failure is not None and name != VOICE_STAGE:
+                logger.debug("Skipping stage %r after a failure in %r", name, state.failure.stage)
+                continue
             stage_name = getattr(stage, "__name__", type(stage).__name__)
             logger.debug("Running stage %r for session %r", stage_name, state.session_id)
             try:
                 state = stage(state)
-            except Exception:
+            except Exception as exc:
                 logger.exception(
                     "Stage %r failed for session %r", stage_name, state.session_id
                 )
-                raise
+                if name == VOICE_STAGE:
+                    raise
+                state.failure = StageFailure(stage=name, error_type=type(exc).__name__)
         logger.info("Completed cognitive cycle for session %r", state.session_id)
         return state

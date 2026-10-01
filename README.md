@@ -114,7 +114,7 @@ WorkBuddy/
 
 ## Engineering Standards
 
-- Python 3.13
+- Python 3.11 or newer (`requires-python = ">=3.11"`)
 - PEP 8, enforced via `ruff` and `black`
 - Type hints everywhere, checked with `mypy --strict`
 - Dataclasses and enums where they clarify intent

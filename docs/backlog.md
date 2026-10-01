@@ -71,6 +71,8 @@ Open work, in priority order. Each item follows the working method in `CLAUDE.md
 
 ## 4. Backend API design, including F5 (per-turn output folders) and R6 (a crash still gets a reply)
 
+**Status (2026-10-01):** design on `design/backend-api` (`docs/design/backend-api-design.md`). PR-1 (`feat/pipeline-failure-and-output-dir`, not merged, not yet independently reviewed) implements the pipeline half: R6 in the engine and Voice, F5's `SkillTask.output_dir` / `BuddyState.turn_output_dir`, `Context.to_dict` / `from_dict`, an explicit LLM request timeout, and `build_engine(confirmation_provider=...)`. See `docs/reviews/pipeline-failure-and-output-dir-impl.md`. PR-2 to PR-4 (the API itself) are open. The acceptance criteria below are met at the pipeline level only; the API-level tests are PR-2's.
+
 **Scope:** a design doc, and then an implementation, for the API a frontend will use:
 - upload a file;
 - run a turn;
@@ -101,8 +103,13 @@ Each item has its own acceptance criterion: fixed with a test, or explicitly clo
 - **M2 fallback / F4 real fix:** when the stated order can't be confirmed, the model's order still runs (now stated in the reply). Consider asking the user instead, before a non-commutative skill is added.
 - **verified-outcome-a L1 (Low):** a Skill's self-reported near-duplicate string, including its "match probability 0.97", reaches a delivered reply after "I also noticed:". It's labelled "(self-reported, not independently re-checked)", but it's a number the verifier didn't measure. Either keep numbers out of self-reported findings, or state them as the Skill's claim. The property test in `tests/buddy/test_outcome.py` excludes analysis findings, so it doesn't catch this.
 - **verified-outcome-a L2 (Low):** `turn_index` is always 0. `PersonalityVoice` seeds its phrase choice with `Context.buddy_reply_count()`, and nothing in `buddy/`, `core/` or `scripts/` calls `Context.record_buddy_reply`, so a session's seed never changes. Harmless to truthfulness; wire the call in when the engine records replies (item 4).
+- **pipeline-failure-and-output-dir D1 (Low, not reachable through Voice):** `build_outcome_report` (`buddy/outcome.py`) doesn't look at `BuddyState.failure`. The design (Section 4.2) asks for it, but `buddy/outcome.py` was off limits for PR-1 (another branch is editing it). Voice returns the failure reply before any speaker or `build_outcome_report` runs, and `_verified_delivery` is false on a failure, so no reply path reaches it today. Add the guard once that branch has merged.
+- **pipeline-failure-and-output-dir D2 (Low):** `Engine.run` skips every stage but Voice whenever `state.failure` is already set, including a stale one from a previous turn. `reset_transient()` clears it, and PR-2's turn procedure calls that first; a caller that reuses a state without it gets a failure reply for a turn that never ran.
+- **pipeline-failure-and-output-dir D3 (product question for PR-2):** in a live two-turn run, "now remove the empty rows" ran on the original upload, not on the first turn's deduplicated file. The reply was accurate about its own file, but a user saying "now … too" may expect the changes to add up. This belongs with PR-2's multi-turn live run 7.
 - **verified-outcome-a L3 (Low):** `_delivered_file_name` (`buddy/voice.py`) falls back to the *output's* name when no step has an `input_reference`, giving "Your cleaned copy of out.xlsx is ready." with the output presented as the original. Not reachable through `build_engine` (Hands always records steps), but `test_personality_voice_is_unaffected_by_a_failing_provider` enshrines it. Fix the fallback and the test together.
 
 ## 6. Decide the supported Python version
 
-`pyproject.toml` requires Python 3.13 (`requires-python = ">=3.13"`), but cloud sessions default to Python 3.11. Decide which version the project supports, then make `pyproject.toml`, the docs and the cloud setup agree.
+**Status (2026-10-01):** decided: 3.11 and newer (backend design, "Decisions (2026-09-30)" item 3). PR-1 (`feat/pipeline-failure-and-output-dir`) sets `requires-python = ">=3.11"` and the black, ruff and mypy targets, updates the README, and pins `setuptools<81` (a fresh 3.12+ install otherwise can't import `ydata_profiling`). The full suite passed on 3.11.15 and 3.13.14. Closes when PR-1 merges. Still open: CI that runs both versions (there is no CI yet).
+
+`pyproject.toml` required Python 3.13 (`requires-python = ">=3.13"`), but cloud sessions default to Python 3.11.

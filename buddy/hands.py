@@ -592,6 +592,7 @@ class Hands:
             description=f"Apply {request.capability} to {input_reference}",
             input_references=[input_reference],
             parameters=dict(request.parameters),
+            output_dir=state.turn_output_dir,
         )
 
     @staticmethod

@@ -23,6 +23,11 @@ openpyxl>=3.1
 # scripts/spike_tools_test.py for the real-tool spike that validated both.
 ydata-profiling>=4.10
 splink>=4,<5
+# ydata-profiling (4.18.4) imports pkg_resources, which comes from
+# setuptools and is gone from setuptools 84 (checked; 80.10.2 still has
+# it). Python 3.12+ venvs don't include setuptools, so without this line a
+# fresh install can't import skills/excel/analyze.py.
+setuptools>=68,<81
 
 # --- Development & quality tooling ---
 black>=24.0

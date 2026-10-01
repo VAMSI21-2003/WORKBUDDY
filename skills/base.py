@@ -41,6 +41,10 @@ class SkillTask:
             resources the skill is authorized to read.
         parameters: Task-specific parameters needed to perform the work.
         permission: The permission tier granted for this invocation.
+        output_dir: The folder to write output files into. ``None`` keeps
+            the skill's legacy path, ``workspace/outputs/{workspace_id}/``.
+            Set per turn by Hands from ``BuddyState.turn_output_dir``, so
+            two turns in one session never write to the same path.
     """
 
     task_id: str
@@ -50,6 +54,7 @@ class SkillTask:
     input_references: list[str] = field(default_factory=list)
     parameters: dict[str, Any] = field(default_factory=dict)
     permission: PermissionTier = PermissionTier.READ
+    output_dir: str | None = None
 
 
 @dataclass
