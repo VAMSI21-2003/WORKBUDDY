@@ -123,3 +123,16 @@ What the runs show:
 - LLM calls: Brain and Think (and the planner in run 2). The Voice model wasn't called on the refused turns; run 5 is a delivered turn, where code renders the reply.
 
 **Not covered by a live run:** a real `msoffcrypto`/Excel-encrypted file (only the stand-in), a legacy `.xls`, and a crafted `[Content_Types].xml` (those three are covered by the faked-LLM tests through `build_engine`).
+
+# Re-review: live runs by the independent re-reviewer
+
+Two runs with real Groq on head `04315d3`, by the session that wrote `fix-multi-sheet-review2.md` (full per-run details are in its §6). **No 429; 2 of 2 completed.**
+
+| # | Fixture | Mode | Message | Intent | `clarification_required` | Steps executed | Delivered | Independent check | False claim | Original hash before → after |
+|---|---|---|---|---|---|---|---|---|---|---|
+| 1 | `two-sheets` | focus | "remove the duplicate rows and then remove the empty rows" | `multi_step_request` | false | deduplicate ✗ (refused: "the workbook has 2 sheets…"), remove empty rows skipped. No analyze step. | no (0 files, none written) | original sheets `['Q1','Q2']` | none | `0b38afd3…41ea` → same |
+| 2 | `password-protected` (stand-in) | friend | "remove the duplicate rows" | `remove_duplicate_rows` | false | deduplicate ✗ (refused: "the workbook is password-protected, so it can't be opened"). No analyze step. | no (0 files, none written) | script: `(unreadable: ImportError)`; reviewer: 608-byte stand-in, not a valid OLE2 container (real `msoffcrypto` files get the same reply in the re-review grid) | none | `fb3fb841…4248` → same |
+
+Replies:
+1. "I ran into a problem partway through. The deduplicate step: the workbook has 2 sheets, and only single-sheet workbooks are supported for now. I stopped at the deduplicate step, so remove empty rows never ran and no file was handed back; your original file is unchanged."
+2. "I ran into a problem partway through. The deduplicate step: the workbook is password-protected, so it can't be opened. I stopped at the deduplicate step and no file was handed back; your original file is unchanged."
