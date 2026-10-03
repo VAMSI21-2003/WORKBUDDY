@@ -1817,12 +1817,19 @@ def _run_ledger_turn(
     speaker_kind: str,
     model_reply: str,
     session_id: str = "session-1",
+    second_sheet: bool = False,
 ) -> tuple[BuddyState, _QueuedLLMProvider, Path, bytes]:
     """One turn on the review's fixture. ``speaker_kind``: ``"template"``, or a mode
-    for ``PersonalityVoice`` (given the same provider, so any Voice call would show)."""
+    for ``PersonalityVoice`` (given the same provider, so any Voice call would show).
+    ``second_sheet`` adds a second sheet with duplicates of its own."""
     (tmp_path / "uploads").mkdir()
     input_path = Path("uploads") / "report.xlsx"
-    pd.DataFrame(_REVIEW_ROWS).to_excel(tmp_path / input_path, index=False)
+    if second_sheet:
+        with pd.ExcelWriter(tmp_path / input_path) as writer:
+            pd.DataFrame(_REVIEW_ROWS).to_excel(writer, sheet_name="Q1", index=False)
+            pd.DataFrame(_REVIEW_ROWS).to_excel(writer, sheet_name="Q2", index=False)
+    else:
+        pd.DataFrame(_REVIEW_ROWS).to_excel(tmp_path / input_path, index=False)
     original_bytes = (tmp_path / input_path).read_bytes()
     state = BuddyState.new(session_id=session_id, workspace_id="workspace-1")
     state.user_message = message
@@ -2784,3 +2791,62 @@ def test_q1_a_fully_done_request_leads_done_with_no_cant_do(
     assert f"Done — {removed}" in reply, reply  # the lead, then the count
     assert "Done —" in reply, reply  # an opener may precede the lead
     assert "can't do" not in reply and "Partly done" not in reply, reply
+
+
+_R1_MESSAGE = "remove duplicates across the workbook"
+_R1_BRAIN = _brain_ledger_reply(
+    "remove_duplicate_rows",
+    ("remove_duplicate_rows", "remove duplicates"),
+    ("unsupported", _R1_MESSAGE),
+)
+
+
+@pytest.mark.parametrize("session_id", _SEEDS)
+@pytest.mark.parametrize("speaker_kind", _SPEAKERS)
+def test_r1_a_two_sheet_workbook_delivers_nothing_and_the_reply_never_says_done(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, speaker_kind: str, session_id: str
+) -> None:
+    """Re-review 3 (z09): the skills refuse a workbook with more than one sheet, so nothing
+    is handed back, and no reply may lead "Done —" whatever Brain flagged."""
+    monkeypatch.chdir(tmp_path)
+
+    state, provider, original_path, original_bytes = _run_ledger_turn(
+        tmp_path, _R1_MESSAGE, [_R1_BRAIN, _THINK_PROCEEDS], speaker_kind, _MODEL_REPLY,
+        session_id, second_sheet=True,
+    )
+
+    assert state.execution_result is not None
+    assert state.execution_result.outputs == ()  # nothing delivered
+    reply = state.reply
+    assert reply is not None
+    assert "Done —" not in reply, reply
+    assert _MODEL_REPLY not in reply
+    assert provider._replies == [_MODEL_REPLY]  # the Voice model was never called
+    assert original_path.read_bytes() == original_bytes  # rule 2
+
+
+@pytest.mark.parametrize("session_id", _SEEDS)
+@pytest.mark.parametrize("speaker_kind", _SPEAKERS)
+@pytest.mark.parametrize("scope", ["across the workbook", "in the workbook"])
+def test_r1_a_flagged_workbook_scope_is_partly_done_not_done_on_a_one_sheet_file(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, scope: str, speaker_kind: str, session_id: str
+) -> None:
+    """Re-review 3 (z09, z10, z45): Brain flags a workbook-wide scope as unsupported. The
+    location strip must not take it, so the reply is "Partly done" and never "Done —", even
+    when the one sheet was fully deduplicated."""
+    monkeypatch.chdir(tmp_path)
+    message = f"remove duplicates {scope}"
+    brain = _brain_ledger_reply(
+        "remove_duplicate_rows",
+        ("remove_duplicate_rows", "remove duplicates"),
+        ("unsupported", message),
+    )
+
+    reply, delivered = _delivered_turn(
+        tmp_path, message, [brain, _THINK_PROCEEDS], speaker_kind, session_id
+    )
+
+    assert _counts(delivered) == (4, 0, 1)
+    assert "Partly done — removed 2 duplicate row(s)." in reply, reply
+    assert "Done —" not in reply, reply
+    assert _P_CANT_DO_GENERIC in reply, reply

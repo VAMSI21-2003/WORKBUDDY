@@ -32,7 +32,10 @@ from buddy.models import (
     VerificationResult,
 )
 from buddy.outcome import (
+    _DETERMINERS,
     _FILLER_WORDS,
+    _LOCATION_PHRASE,
+    _REMOVAL_VERBS,
     DONE,
     DONE_UNREQUESTED,
     FILE_STYLE_GENERATED,
@@ -868,6 +871,28 @@ def test_n1_the_filler_set_holds_only_function_words() -> None:
         "remove", "delete", "drop", "clean", "file", "sheet", "data", "report", "rows",
     ):
         assert content_word not in _FILLER_WORDS
+
+
+def test_r1_the_dropping_word_lists_are_pinned() -> None:
+    """Guard: the three lists that decide whether an "unsupported" entry is dropped. A new
+    verb or noun here can hide a real request behind a done lead, so adding one must be a
+    deliberate edit of this test, reviewed. The location strip must never take a phrase
+    that names more than the one sheet the skills read: "across", "workbook", "every",
+    "all" (re-review 3, R1)."""
+    assert set(_REMOVAL_VERBS.split("|")) == {
+        "remove", "delete", "drop", "clear", "erase", "eliminate",
+        r"get\s+rid\s+of", r"take\s+out",
+    }  # fmt: skip
+    assert set(_DETERMINERS.split("|")) == {
+        "all", "any", "every", "each", "the", "these", "those", "this", "that", "my", "our",
+        "your", "of",
+    }  # fmt: skip
+    assert _LOCATION_PHRASE.pattern == (
+        r"\b(?:from|in|on)\s+(?:(?:the|this|that|my|our|your)\s+)?"
+        r"(?:sheet|file|spreadsheet|table|data)\b"
+    )
+    for scope in ("across the workbook", "in the workbook", "in every sheet", "in all sheets"):
+        assert _LOCATION_PHRASE.search(scope) is None, scope
 
 
 def test_n1_a_leftover_content_word_keeps_the_generic_not_done_sentence() -> None:

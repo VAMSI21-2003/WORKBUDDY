@@ -410,9 +410,13 @@ _ACTION_WITH_VERB = {
     )
     for action in ACTIONS_BY_NAME.values()
 }
+# The location strip must never take a phrase that names more than the one sheet the
+# skills read: no "across", no "workbook", no "every", no "all". Brain flagging
+# "remove duplicates across the workbook" as unsupported is a correct flag, because the
+# skills touch only the first sheet; stripping it would turn "Partly done" into "Done".
 _LOCATION_PHRASE = re.compile(
-    r"\b(?:from|in|on|across)\s+(?:(?:the|this|that|my|our|your)\s+)?"
-    r"(?:sheet|file|spreadsheet|workbook|table|data)\b"
+    r"\b(?:from|in|on)\s+(?:(?:the|this|that|my|our|your)\s+)?"
+    r"(?:sheet|file|spreadsheet|table|data)\b"
 )
 _TWO_REQUESTS = re.compile(r"\b(?:and|then|also|plus)\b|[,;&+]")
 
