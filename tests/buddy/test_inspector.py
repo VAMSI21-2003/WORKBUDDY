@@ -6,6 +6,7 @@ from dataclasses import replace
 from pathlib import Path
 
 import pandas as pd
+import pytest
 
 from buddy.inspector import (
     CompositeVerifier,
@@ -988,9 +989,20 @@ def test_composite_verifier_relays_a_steps_failure_reason_without_verifying_it()
     assert result.steps[1].findings == ("couldn't be run because no available skill can do it",)
 
 
-def test_composite_verifier_does_not_fail_the_turn_on_a_failed_re_check() -> None:
+def _write_one_sheet_workbooks(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    """Real ``orig.xlsx`` and ``final.xlsx`` with the same one sheet, so the
+    structural sheet-list check passes and the fake verifiers decide."""
+    monkeypatch.chdir(tmp_path)
+    for name in ("orig.xlsx", "final.xlsx"):
+        pd.DataFrame({"name": ["Alice"]}).to_excel(name, index=False)
+
+
+def test_composite_verifier_does_not_fail_the_turn_on_a_failed_re_check(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
     """M1: the chain's steps and the final file passed; only the re-check of
     the final file failed. The delivered file is still verified."""
+    _write_one_sheet_workbooks(tmp_path, monkeypatch)
     passing = _FakeVerifier(VerificationResult(passed=True, confidence=1.0, findings=("ok",)))
     failing = _FakeVerifier(
         VerificationResult(
@@ -1043,9 +1055,12 @@ def test_composite_verifier_records_each_steps_input_reference() -> None:
 
 
 
-def test_composite_verifier_does_not_fail_the_turn_on_a_failed_read_only_step() -> None:
+def test_composite_verifier_does_not_fail_the_turn_on_a_failed_read_only_step(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
     """R4: a READ-tier step on the original (proactive analysis) is outside
     the chain. Its failure is recorded but doesn't fail the turn."""
+    _write_one_sheet_workbooks(tmp_path, monkeypatch)
     passing = _FakeVerifier(VerificationResult(passed=True, confidence=1.0))
     failing = _FakeVerifier(VerificationResult(passed=False, confidence=1.0, findings=("x",)))
     steps = (

@@ -243,9 +243,11 @@ changes it, and hands back the result. The user never runs anything.
 Your strategy must never tell the user to run code, write a script, use a
 library, or follow manual steps; describe what Buddy will do.
 
-Buddy's available capabilities, and their real limits (each reads only the
-first sheet of an uploaded spreadsheet, writes its result to a new file,
-and never modifies the original). When a request needs more than one of
+Buddy's available capabilities, and their real limits (the two that change
+a spreadsheet work only on a workbook with a single sheet: they refuse one
+with more than one sheet rather than clean part of it, write their result
+to a new file, and never modify the original; the analysis reads only the
+first sheet). When a request needs more than one of
 them, they run in the order the user stated, each working on the previous
 one's result, and the user gets one final file; if any step fails, the
 rest don't run:

@@ -23,6 +23,12 @@ openpyxl>=3.1
 # scripts/spike_tools_test.py for the real-tool spike that validated both.
 ydata-profiling>=4.10
 splink>=4,<5
+# ydata-profiling (4.18.4) imports pkg_resources, which comes from
+# setuptools and is missing from setuptools 82 and later (80.10.2 still has
+# it). The failure happens when the analysis runs, not when
+# skills/excel/analyze.py is imported. A fresh uv venv on Python 3.11 lacks
+# setuptools too, so without this line the analysis fails there as well.
+setuptools>=68,<81
 
 # --- Development & quality tooling ---
 black>=24.0

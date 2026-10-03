@@ -2,7 +2,8 @@
 
 from __future__ import annotations
 
-from datetime import datetime, timedelta, timezone
+import json
+from datetime import UTC, datetime, timedelta, timezone
 from itertools import count
 
 import pytest
@@ -419,3 +420,109 @@ def test_clear_completed_work_clears_only_active_task() -> None:
     assert context.active_file == "report.xlsx"
     assert context.active_document == "Sheet1"
     assert context.active_sheet == "Data"
+
+
+# -- to_dict / from_dict ------------------------------------------------------
+
+
+def _populated_context() -> Context:
+    context = _make_context()
+    context.add_uploaded_file("uploads/a.xlsx")
+    context.add_uploaded_file("uploads/b.xlsx")
+    context.mark_analyzed("uploads/b.xlsx")
+    context.mark_analyzed("uploads/a.xlsx")
+    context.switch_active_file("uploads/a.xlsx", document="doc", sheet="Sheet1")
+    context.switch_active_task("task-7")
+    context.set_current_topic("cleanup")
+    context.set_mode("focus")
+    context.set_metadata("source", {"kind": "upload", "ids": [1, 2]})
+    context.record_user_message("remove duplicate rows")
+    context.record_buddy_reply("Done — removed 2 duplicate row(s).")
+    context.record_user_message("now the empty rows")
+    context.record_execution("ran spreadsheet.deduplicate")
+    return context
+
+
+def _history(context: Context) -> tuple[list[object], list[object]]:
+    return context.recent_conversation(limit=1000), context.recent_execution(limit=1000)
+
+
+def test_to_dict_from_dict_round_trip_through_json_keeps_everything() -> None:
+    original = _populated_context()
+
+    data = json.loads(json.dumps(original.to_dict()))
+    restored = Context.from_dict(data)
+
+    assert restored == original  # every compared field
+    assert restored.analyzed_files == frozenset({"uploads/a.xlsx", "uploads/b.xlsx"})
+    assert _history(restored) == _history(original)  # roles, text and timestamps
+    assert restored.created_at == original.created_at
+    assert restored.last_updated_at == original.last_updated_at
+    assert restored.buddy_reply_count() == 1
+    assert restored.to_dict() == original.to_dict()
+
+
+def test_from_dict_uses_the_injected_clock_only_after_the_restore() -> None:
+    original = _populated_context()
+    later = datetime(2030, 5, 5, tzinfo=UTC)
+
+    restored = Context.from_dict(original.to_dict(), clock=lambda: later)
+
+    assert _history(restored) == _history(original)  # replayed with the stored times
+    assert restored.last_updated_at == original.last_updated_at
+    restored.record_buddy_reply("a new reply")
+    assert restored.recent_conversation()[-1].timestamp == later
+    assert restored.last_updated_at == later
+
+
+def test_a_restored_context_is_independent_of_the_dict_it_came_from() -> None:
+    data = _populated_context().to_dict()
+
+    restored = Context.from_dict(data)
+    data["uploaded_files"].append("uploads/c.xlsx")
+    data["metadata"]["source"]["ids"].append(3)
+
+    assert restored.uploaded_files == ["uploads/a.xlsx", "uploads/b.xlsx"]
+    assert restored.metadata == {"source": {"kind": "upload", "ids": [1, 2]}}
+
+
+def test_an_empty_context_round_trips() -> None:
+    original = _make_context()
+
+    restored = Context.from_dict(json.loads(json.dumps(original.to_dict())))
+
+    assert restored == original
+    assert _history(restored) == ([], [])
+    assert restored.analyzed_files == frozenset()
+
+
+def test_from_dict_rejects_an_unknown_format_version() -> None:
+    data = _populated_context().to_dict()
+    data["version"] = 99
+
+    with pytest.raises(ValueError, match="version"):
+        Context.from_dict(data)
+
+
+def test_from_dict_rejects_an_invalid_mode() -> None:
+    data = _populated_context().to_dict()
+    data["mode"] = "chaos"
+
+    with pytest.raises(ValueError):
+        Context.from_dict(data)
+
+
+def test_from_dict_rejects_an_unknown_role() -> None:
+    data = _populated_context().to_dict()
+    data["conversation_history"][0]["role"] = "system"
+
+    with pytest.raises(ValueError):
+        Context.from_dict(data)
+
+
+def test_from_dict_rejects_a_missing_key() -> None:
+    data = _populated_context().to_dict()
+    del data["analyzed_files"]
+
+    with pytest.raises(KeyError):
+        Context.from_dict(data)

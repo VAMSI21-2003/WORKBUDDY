@@ -9,6 +9,7 @@ import pytest
 
 from buddy.llm import (
     DEFAULT_GROQ_MODEL,
+    DEFAULT_REQUEST_TIMEOUT_S,
     ClaudeProvider,
     GroqProvider,
     LLMConfigurationError,
@@ -328,3 +329,23 @@ def test_groq_provider_satisfies_the_llmprovider_contract_used_by_the_other_stag
     )
 
     assert isinstance(reply, str)
+
+
+# -- request timeout -----------------------------------------------------------
+
+
+def test_every_provider_sets_an_explicit_request_timeout_by_default() -> None:
+    """Not left to each SDK's own default (600 s for ``anthropic`` 1.11)."""
+    claude = ClaudeProvider(api_key="sk-test-explicit")
+    groq_provider = GroqProvider(api_key="gsk-test-explicit")
+
+    assert claude._client.timeout == DEFAULT_REQUEST_TIMEOUT_S
+    assert groq_provider._client.timeout == DEFAULT_REQUEST_TIMEOUT_S
+    assert 0 < DEFAULT_REQUEST_TIMEOUT_S <= 120
+
+
+@pytest.mark.parametrize("provider_class", [ClaudeProvider, GroqProvider])
+def test_a_provider_accepts_a_custom_request_timeout(provider_class: type) -> None:
+    provider = provider_class(api_key="test-explicit", timeout=7.5)
+
+    assert provider._client.timeout == 7.5

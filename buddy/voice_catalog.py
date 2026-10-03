@@ -209,3 +209,59 @@ def _pick(candidates: tuple[Phrase, ...], key: str) -> Phrase:
     # Every (mode, slot) has an always-eligible entry, so this is never empty.
     digest = hashlib.sha256(key.encode("utf-8")).digest()
     return candidates[int.from_bytes(digest[:8], "big") % len(candidates)]
+
+
+# -- Failure replies (R6) ------------------------------------------------------
+#
+# Fixed text for a turn that couldn't finish, reviewed like the phrases above.
+# No model writes them and they carry no per-request content, so they can't
+# make a claim about the work. They say only what code knows for certain:
+# nothing can be confirmed, and no file from this turn is handed back. They
+# never say the original is unchanged: that is a fact about the file that
+# nothing re-checked on this path. ``tests/buddy/test_voice_catalog.py``
+# checks every one against ``buddy.voice._COMPLETION_CLAIM``.
+
+# Where in the turn things went wrong, by ``StageFailure.stage``. A closed map:
+# a stage not listed here gets FAILURE_STAGE_LABEL_DEFAULT.
+FAILURE_STAGE_LABELS: dict[str, str] = {
+    "eyes": "while reading your message",
+    "brain": "while working out what you asked for",
+    "think": "while working out what you asked for",
+    "planner": "while planning the steps",
+    "delegate": "while planning the steps",
+    "hands": "while running the steps",
+    "inspector": "while checking the result",
+}
+FAILURE_STAGE_LABEL_DEFAULT = "while I was working on this"
+
+_FAILURE_REPLY_TEMPLATE = (
+    "Something went wrong {where}, so I can't confirm that any change was made. "
+    "I haven't handed back any file from this turn."
+)
+
+# The pipeline's own failure reply when no stage is known, and the API's
+# last-resort reply when the pipeline produced none (Voice raised, a deadline
+# passed). Same wording either way.
+FALLBACK_PIPELINE_ERROR = _FAILURE_REPLY_TEMPLATE.format(where=FAILURE_STAGE_LABEL_DEFAULT)
+
+# The API's reply when an upload's hash changed during the turn (rule 2's
+# runtime check, docs/design/backend-api-design.md Section 5.2). Defined here
+# so it is reviewed with the rest; nothing in the pipeline uses it.
+FALLBACK_INTEGRITY_FAILURE = (
+    "I can't vouch for this result: your original file changed while I was working. "
+    "I've held back every file from this turn."
+)
+
+
+def failure_reply(stage: str | None) -> str:
+    """The fixed reply for a turn in which ``stage`` raised.
+
+    Args:
+        stage: ``StageFailure.stage``, or ``None`` if unknown.
+
+    Returns:
+        One of a closed set of texts: the template with the stage's label,
+        or ``FALLBACK_PIPELINE_ERROR`` for an unknown stage.
+    """
+    where = FAILURE_STAGE_LABELS.get(stage or "", FAILURE_STAGE_LABEL_DEFAULT)
+    return _FAILURE_REPLY_TEMPLATE.format(where=where)

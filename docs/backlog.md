@@ -37,6 +37,28 @@ Open work, in priority order. Each item follows the working method in `CLAUDE.md
 
 **Source:** `docs/reviews/verified-outcome-a-review.md`, M3. It exists on `main` too; it isn't introduced by PR-A. It's a rule 1 breach, so it comes right after PR-B.
 
+**Status (2026-10-01):** `fix/multi-sheet` (not merged; re-review `fix-multi-sheet-review2.md`: MERGE) takes the "refuse" option. Both skills refuse a workbook with more than one sheet, the reply says why, and the verifier compares each step's sheet names with its input's. See `docs/reviews/fix-multi-sheet-impl.md`, `fix-multi-sheet-review.md`, `fix-multi-sheet-fixes.md` and `fix-multi-sheet-live-runs.md`.
+
+**Fixed after the review (`fix-multi-sheet-fixes.md`):** H1, H2, M1, M2, M3 (the sheet list is the one *declared* in `workbook.xml`, shared by the skills and the Inspector; OLE2 files are refused as password-protected or legacy `.xls`, never counted; no exception text in user-facing errors), M4 (no proactive analysis on a workbook the skills refuse), L2 (partial output deleted on a failed write) and L6 (`think.py` wording).
+
+**Still open:**
+- L3: crafted sheet names Excel forbids fail at the write, and names over 31 characters are written as is.
+- L4: Inspector wording for a reorder ("lost or renamed") and for a non-workbook output (raw pandas text).
+- L5: say "(including hidden sheets)" when hidden sheets push the count above one.
+- An *explicit* request to analyse a multi-sheet workbook still analyses the first sheet only, without naming it.
+- Per-sheet cleaning (keep every sheet and clean each one, or the one the user named). It needs per-sheet measurements in the Inspector and Outcome code.
+- A real `.xls` can't be cleaned. The skills refuse it ("older .xls workbooks … aren't supported yet"). Don't add `xlrd` until the sheet count includes chart sheets, macro sheets and VB modules, which `xlrd` skips.
+- A test with a hostile `workbook.xml` (entity expansion). The re-review measured a billion-laughs, a quadratic blowup and two XXE files: all refused in under 0.05 s with fixed text (expat 2.6.1); there's still no test in the suite.
+- Real encrypted-file coverage in the suite: the tests and the live run use an `EncryptedPackage` stand-in. The re-review confirmed real `msoffcrypto`-encrypted files are caught.
+
+**Deferred from the re-review (`docs/reviews/fix-multi-sheet-review2.md`), in this order:**
+- N1 (Medium): a valid one-sheet workbook whose workbook part is typed by a `<Default>` entry (not an `<Override>`) is refused as "may be damaged"; `main` cleans it. Template content types are probably refused too. Mirror `openpyxl.reader.excel._find_workbook_part` in `_declared_sheet_names`, plus a test.
+- N4 (Low): the write error "could not write the cleaned copy" matches `_COMPLETION_CLAIM`; use "could not write the new file", plus an engine-level write-failure test.
+- N2 (Medium): a vague (`unclear`) turn on a multi-sheet or unreadable workbook now gets "I wasn't able to confirm that worked. No verifier has been configured." (pre-existing text for an empty plan, newly reachable). Give the empty plan an honest reply, or skip the analysis only when a file-changing step is planned.
+- N3 (Low): `EncryptedPackage` in `.xls` cell text (with a character above U+00FF) makes the file "password-protected"; match only at an OLE2 directory-entry position (`(offset - 512) % 128 == 0`, name length 34 at `offset + 64`).
+- N5 (Low): any non-encrypted OLE2 file (e.g. a renamed Word `.doc`) is called an "older .xls workbook".
+- N6 (Low): the live script's `password-protected` fixture is a stand-in, and its independent check prints only "unreadable".
+
 **Problem:** `skills/excel/dedupe.py` and `skills/excel/remove_empty_rows.py` read only the first sheet (`pd.read_excel(input_path)`) and write one sheet named `Sheet1`. For a workbook with sheets `Q1` and `Q2`, the delivered file has one sheet, and the reply says "Your cleaned copy of report.xlsx is ready." and "The copy has 2 row(s)…". Nothing tells the user that `Q2` was dropped, and no verifier notices.
 
 **Acceptance criteria:**
@@ -73,6 +95,8 @@ Open work, in priority order. Each item follows the working method in `CLAUDE.md
 
 ## 4. Backend API design, including F5 (per-turn output folders) and R6 (a crash still gets a reply)
 
+**Status (2026-10-01):** design on `design/backend-api` (`docs/design/backend-api-design.md`). PR-1 (`feat/pipeline-failure-and-output-dir`, not merged, not yet independently reviewed) implements the pipeline half: R6 in the engine and Voice, F5's `SkillTask.output_dir` / `BuddyState.turn_output_dir`, `Context.to_dict` / `from_dict`, an explicit LLM request timeout, and `build_engine(confirmation_provider=...)`. See `docs/reviews/pipeline-failure-and-output-dir-impl.md`. PR-2 to PR-4 (the API itself) are open. The acceptance criteria below are met at the pipeline level only; the API-level tests are PR-2's.
+
 **Scope:** a design doc, and then an implementation, for the API a frontend will use:
 - upload a file;
 - run a turn;
@@ -103,8 +127,17 @@ Each item has its own acceptance criterion: fixed with a test, or explicitly clo
 - **M2 fallback / F4 real fix:** when the stated order can't be confirmed, the model's order still runs (now stated in the reply). Consider asking the user instead, before a non-commutative skill is added.
 - **verified-outcome-a L1 (Low):** a Skill's self-reported near-duplicate string, including its "match probability 0.97", reaches a delivered reply after "I also noticed:". It's labelled "(self-reported, not independently re-checked)", but it's a number the verifier didn't measure. Either keep numbers out of self-reported findings, or state them as the Skill's claim. The property test in `tests/buddy/test_outcome.py` excludes analysis findings, so it doesn't catch this.
 - **verified-outcome-a L2 (Low):** `turn_index` is always 0. `PersonalityVoice` seeds its phrase choice with `Context.buddy_reply_count()`, and nothing in `buddy/`, `core/` or `scripts/` calls `Context.record_buddy_reply`, so a session's seed never changes. Harmless to truthfulness; wire the call in when the engine records replies (item 4).
+- **pipeline-failure-and-output-dir D1 (Low, not reachable through Voice):** `build_outcome_report` (`buddy/outcome.py`) doesn't look at `BuddyState.failure`. The design (Section 4.2) asks for it, but `buddy/outcome.py` was off limits for PR-1 (another branch is editing it). Voice returns the failure reply before any speaker or `build_outcome_report` runs, and `_verified_delivery` is false on a failure, so no reply path reaches it today. Add the guard once that branch has merged.
+- **pipeline-failure-and-output-dir D2 (Low):** `Engine.run` skips every stage but Voice whenever `state.failure` is already set, including a stale one from a previous turn. `reset_transient()` clears it, and PR-2's turn procedure calls that first; a caller that reuses a state without it gets a failure reply for a turn that never ran.
+- **pipeline-failure-and-output-dir D3 (product question for PR-2):** in a live two-turn run, "now remove the empty rows" ran on the original upload, not on the first turn's deduplicated file. The reply was accurate about its own file, but a user saying "now … too" may expect the changes to add up. This belongs with PR-2's multi-turn live run 7.
+- **pipeline-failure-and-output-dir review M1 (Medium, PR-2 obligation):** when Voice raises, `Engine.run` re-raises and leaves `state.failure` as `None`, with `execution_result.outputs` naming a real file and `verification_result.passed` true. PR-2 must treat any raise from `engine.run` as a failed turn and discard the state (design 3.3 step 7), never call `delivered_files` on it, and test that. Recommended hardening: set `StageFailure("voice", …)` before the re-raise. See `docs/reviews/pipeline-failure-and-output-dir-review.md`.
+- **pipeline-failure-and-output-dir review M2 (Medium, PR-2):** `Context.from_dict` raises `TypeError` and `AttributeError` as well as the documented `ValueError` and `KeyError`. It also silently accepts wrongly typed data: a string `uploaded_files` becomes one file per character, `active_file` doesn't have to be one of the uploads, and timestamps without a time zone are accepted. Validate when restoring `session.json`, or catch every exception there (design 7.2: "a clean error, not a crash").
+- **pipeline-failure-and-output-dir review L3 (Low, pre-existing):** the writing skills put `task_id` (and so `session_id`) into the output name unchecked. A `../` session id made the dedupe skill overwrite an upload. Not reachable with server-generated `token_urlsafe` ids. Add a `resolve()` / `is_relative_to(output_dir)` check in `_build_output_path`.
+- **pipeline-failure-and-output-dir review D-R1 (pre-existing, with item 2):** when Brain and Think fail (for example on a provider timeout), the reply is "None of the issues I check for were found. No changes were made to any file this turn." That's true, but it doesn't say the request wasn't understood or carried out, so a user who asked to remove duplicates may read it as "no duplicates found". Reproduced on `main`.
 - **verified-outcome-a L3 (Low):** `_delivered_file_name` (`buddy/voice.py`) falls back to the *output's* name when no step has an `input_reference`, giving "Your cleaned copy of out.xlsx is ready." with the output presented as the original. Not reachable through `build_engine` (Hands always records steps), but `test_personality_voice_is_unaffected_by_a_failing_provider` enshrines it. Fix the fallback and the test together.
 
 ## 6. Decide the supported Python version
 
-`pyproject.toml` requires Python 3.13 (`requires-python = ">=3.13"`), but cloud sessions default to Python 3.11. Decide which version the project supports, then make `pyproject.toml`, the docs and the cloud setup agree.
+**Status (2026-10-01):** decided: 3.11 and newer (backend design, "Decisions (2026-09-30)" item 3). PR-1 (`feat/pipeline-failure-and-output-dir`) sets `requires-python = ">=3.11"` and the black, ruff and mypy targets, updates the README, and pins `setuptools<81` (a fresh 3.12+ install otherwise can't import `ydata_profiling`). The full suite passed on 3.11.15 and 3.13.14. Closes when PR-1 merges. Still open: CI that runs both versions (there is no CI yet).
+
+`pyproject.toml` required Python 3.13 (`requires-python = ">=3.13"`), but cloud sessions default to Python 3.11.

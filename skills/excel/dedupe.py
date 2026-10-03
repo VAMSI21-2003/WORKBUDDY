@@ -6,6 +6,7 @@ from pathlib import Path
 import pandas as pd
 
 from skills.base import PermissionTier, Skill, SkillResult, SkillStatus, SkillTask
+from skills.excel.workbook import WorkbookRefused, discard_partial_output, single_sheet_name
 
 logger = logging.getLogger(__name__)
 
@@ -67,7 +68,8 @@ class ExcelDeduplicateSkill(Skill):
 
         Reads ``task.input_references[0]`` read-only via
         ``pandas.read_excel`` and writes the deduplicated result to a new
-        path under ``workspace/outputs/{workspace_id}/``. The original
+        path under ``workspace/outputs/{workspace_id}/`` (or
+        ``task.output_dir``, when set). The original
         upload is never opened with write intent, and the output path is
         always freshly constructed — never derived from, or equal to, the
         input path.
@@ -91,23 +93,30 @@ class ExcelDeduplicateSkill(Skill):
 
         input_path = task.input_references[0]
         try:
-            original = pd.read_excel(input_path)  # READ-ONLY open of the upload
-        except Exception as exc:  # noqa: BLE001 — surfaced as a SkillResult, not raised
+            # Only one sheet is read and written, so any other sheet would be
+            # lost: refuse a workbook that has more than one.
+            sheet_name = single_sheet_name(input_path)
+        except WorkbookRefused as exc:
+            logger.info("%s: refused %r: %s", type(self).__name__, input_path, exc)
+            return SkillResult(status=SkillStatus.FAILURE, errors=[str(exc)])
+        try:
+            original = pd.read_excel(input_path, sheet_name=sheet_name)  # READ-ONLY open
+        except Exception:  # noqa: BLE001 — surfaced as a SkillResult, not raised
             logger.exception("ExcelDeduplicateSkill: failed to read %r", input_path)
-            return SkillResult(
-                status=SkillStatus.FAILURE, errors=[f"could not read {input_path!r}: {exc}"]
-            )
+            return SkillResult(status=SkillStatus.FAILURE, errors=["could not read the workbook"])
 
         deduped = original.drop_duplicates()
         output_path = self._build_output_path(task)
 
         try:
             output_path.parent.mkdir(parents=True, exist_ok=True)
-            deduped.to_excel(output_path, index=False)  # WRITE only ever targets output_path
-        except Exception as exc:  # noqa: BLE001
+            # WRITE only ever targets output_path, keeping the sheet's name.
+            deduped.to_excel(output_path, index=False, sheet_name=sheet_name)
+        except Exception:  # noqa: BLE001
             logger.exception("ExcelDeduplicateSkill: failed to write %r", output_path)
+            discard_partial_output(output_path)
             return SkillResult(
-                status=SkillStatus.FAILURE, errors=[f"could not write {output_path!r}: {exc}"]
+                status=SkillStatus.FAILURE, errors=["could not write the cleaned copy"]
             )
 
         removed_count = len(original) - len(deduped)
@@ -156,6 +165,9 @@ class ExcelDeduplicateSkill(Skill):
         Section C for the naming convention and the alternatives
         considered.
 
+        When ``task.output_dir`` is set (one folder per turn), the file
+        goes there instead, under the same name.
+
         Args:
             task: The task to build an output path for.
 
@@ -163,9 +175,7 @@ class ExcelDeduplicateSkill(Skill):
             The output path. Its parent directory is not yet created.
         """
         input_stem = Path(task.input_references[0]).stem
-        return (
-            Path("workspace")
-            / "outputs"
-            / task.workspace_id
-            / f"{input_stem}_deduplicated_{task.task_id}.xlsx"
-        )
+        name = f"{input_stem}_deduplicated_{task.task_id}.xlsx"
+        if task.output_dir is not None:
+            return Path(task.output_dir) / name
+        return Path("workspace") / "outputs" / task.workspace_id / name

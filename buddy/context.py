@@ -1,7 +1,8 @@
 """Context — maintains Buddy's current working context."""
 
+import copy
 import logging
-from collections.abc import Callable
+from collections.abc import Callable, Mapping
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
 from enum import Enum
@@ -18,6 +19,11 @@ def _default_clock() -> datetime:
     deterministic replacement in its place.
     """
     return datetime.now(timezone.utc)
+
+
+# The format ``Context.to_dict`` writes and ``Context.from_dict`` reads.
+# Bump it, and keep reading the old one, whenever a key changes meaning.
+SERIALIZATION_VERSION = 1
 
 
 class ConversationRole(Enum):
@@ -418,6 +424,111 @@ class Context:
             "created_at": self.created_at,
             "last_updated_at": self.last_updated_at,
         }
+
+    # -- Persistence ------------------------------------------------------------------
+
+    def to_dict(self) -> dict[str, Any]:
+        """Return everything needed to restore this context, JSON-ready.
+
+        Unlike ``snapshot()``, this includes ``analyzed_files`` and both
+        histories, and writes timestamps as ISO 8601 strings. Dropping
+        ``analyzed_files`` would make a restored session re-queue proactive
+        analysis for a file already analyzed. ``metadata`` is copied as is,
+        so it is JSON-ready only if its values are; nothing in the
+        pipeline writes to it today. The clock is not stored.
+
+        Returns:
+            A plain dictionary that ``Context.from_dict`` turns back into
+            an equal context.
+        """
+        return {
+            "version": SERIALIZATION_VERSION,
+            "active_workspace": self.active_workspace,
+            "current_session": self.current_session,
+            "active_task": self.active_task,
+            "active_file": self.active_file,
+            "active_document": self.active_document,
+            "active_sheet": self.active_sheet,
+            "uploaded_files": list(self.uploaded_files),
+            "analyzed_files": sorted(self.analyzed_files),
+            "current_topic": self.current_topic,
+            "mode": self.mode,
+            "metadata": copy.deepcopy(self.metadata),
+            "created_at": self.created_at.isoformat(),
+            "last_updated_at": self.last_updated_at.isoformat(),
+            "conversation_history": [
+                {
+                    "role": turn.role.value,
+                    "message": turn.message,
+                    "timestamp": turn.timestamp.isoformat(),
+                }
+                for turn in self._conversation_history
+            ],
+            "execution_history": [
+                {"description": record.description, "timestamp": record.timestamp.isoformat()}
+                for record in self._execution_history
+            ],
+        }
+
+    @classmethod
+    def from_dict(
+        cls, data: Mapping[str, Any], *, clock: Callable[[], datetime] = _default_clock
+    ) -> "Context":
+        """Restore a context written by ``to_dict``.
+
+        Rebuilt through the same public methods the pipeline uses
+        (``mark_analyzed``, ``append_conversation_turn``, and so on), not
+        by writing private fields. While it replays, the context's clock
+        returns each entry's original timestamp, so the histories keep
+        their times; ``created_at`` and ``last_updated_at`` are then set to
+        the stored values, and ``clock`` takes over.
+
+        Args:
+            data: A dictionary from ``to_dict``, possibly after a JSON
+                round trip.
+            clock: The time source for the restored context from now on.
+
+        Returns:
+            The restored context.
+
+        Raises:
+            ValueError: If ``data`` is from an unknown format version, or
+                holds an invalid mode, role or timestamp.
+            KeyError: If a required key is missing.
+        """
+        version = data.get("version")
+        if version != SERIALIZATION_VERSION:
+            raise ValueError(f"unsupported Context format version: {version!r}")
+
+        replay_at = [datetime.fromisoformat(data["created_at"])]
+        context = cls(
+            active_workspace=data["active_workspace"],
+            current_session=data["current_session"],
+            clock=lambda: replay_at[0],
+        )
+        context.set_mode(data["mode"])
+        for file_reference in data["uploaded_files"]:
+            context.add_uploaded_file(file_reference)
+        for file_reference in data["analyzed_files"]:
+            context.mark_analyzed(file_reference)
+        context.switch_active_file(
+            data["active_file"], document=data["active_document"], sheet=data["active_sheet"]
+        )
+        context.switch_active_task(data["active_task"])
+        context.set_current_topic(data["current_topic"])
+        for key, value in data["metadata"].items():
+            context.set_metadata(key, copy.deepcopy(value))
+        for turn in data["conversation_history"]:
+            replay_at[0] = datetime.fromisoformat(turn["timestamp"])
+            context.append_conversation_turn(ConversationRole(turn["role"]), turn["message"])
+        for record in data["execution_history"]:
+            replay_at[0] = datetime.fromisoformat(record["timestamp"])
+            context.record_execution(record["description"])
+
+        context.created_at = datetime.fromisoformat(data["created_at"])
+        context.last_updated_at = datetime.fromisoformat(data["last_updated_at"])
+        context.clock = clock
+        return context
 
     # -- Clearing -------------------------------------------------------------------
 

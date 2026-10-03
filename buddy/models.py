@@ -179,7 +179,9 @@ class StepResult:
             with no capability id — set when there is no Skill result for
             a Verifier to check (no Skill could run it, confirmation was
             declined) or when the result couldn't be used (its output
-            couldn't feed the chain). ``""`` otherwise. Inspector relays it
+            couldn't feed the chain), or, for a chain step whose Skill
+            reported failure, the Skill's own errors (a reason it failed,
+            never a claim of success). ``""`` otherwise. Inspector relays it
             as the step's finding instead of running a Verifier.
         recheck: ``True`` for a read-only step Hands re-ran on the chain's
             final file after the chain completed (see
