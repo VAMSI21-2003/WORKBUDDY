@@ -365,6 +365,10 @@ class Hands:
                 read_requests.append(request)
                 continue
             if result.status is not SkillStatus.SUCCESS:
+                if result.status is SkillStatus.FAILURE and result.errors:
+                    # The Skill's own reason (e.g. a workbook it refuses) is
+                    # what the reply should say, not "no output file".
+                    step_results[-1] = replace(step, failure_reason="; ".join(result.errors))
                 stopped_because = f"{request.capability} did not complete"
                 stopped_at = request.capability
                 continue

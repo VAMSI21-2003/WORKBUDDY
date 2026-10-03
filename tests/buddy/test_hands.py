@@ -697,6 +697,37 @@ def test_hands_stops_the_chain_when_a_step_reports_failure() -> None:
     assert "boom" in state.execution_result.errors
 
 
+def test_hands_records_a_failing_chain_steps_own_errors_as_its_failure_reason() -> None:
+    """Backlog 1a: the Skill's reason (e.g. a refused multi-sheet workbook)
+    is what Inspector relays, instead of "did not produce an output file"."""
+    a = _NamedSkill(
+        "skill.a",
+        capability="cap.a",
+        status=SkillStatus.FAILURE,
+        outputs=[],
+        errors=["the workbook has 2 sheets", "second reason"],
+    )
+    state = _requests("cap.a", "cap.b")
+
+    Hands(dispatcher=_chain_dispatcher(a, _step_b()))(state)
+
+    assert state.execution_result is not None
+    assert state.execution_result.steps[0].failure_reason == (
+        "the workbook has 2 sheets; second reason"
+    )
+
+
+def test_hands_leaves_the_failure_reason_empty_without_skill_errors_or_off_the_chain() -> None:
+    silent = _NamedSkill("skill.a", capability="cap.a", status=SkillStatus.FAILURE, outputs=[])
+    reader = _reader(status=SkillStatus.FAILURE, errors=["analysis failed"])
+    state = _requests("cap.read", "cap.a")
+
+    Hands(dispatcher=_chain_dispatcher(reader, silent))(state)
+
+    assert state.execution_result is not None
+    assert [s.failure_reason for s in state.execution_result.steps] == ["", ""]
+
+
 def test_hands_stops_the_chain_when_a_step_fails_its_well_formedness_check() -> None:
     a = _NamedSkill("skill.a", capability="cap.a", outputs=["out/a.xlsx"], verify_result=False)
     b = _step_b()

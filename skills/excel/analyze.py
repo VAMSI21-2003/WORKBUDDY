@@ -351,11 +351,9 @@ class SpreadsheetAnalysisSkill(Skill):
         input_path = task.input_references[0]
         try:
             df = pd.read_excel(input_path)  # READ-ONLY open of the upload
-        except Exception as exc:  # noqa: BLE001 — surfaced as a SkillResult, not raised
+        except Exception:  # noqa: BLE001 — surfaced as a SkillResult, not raised
             logger.exception("SpreadsheetAnalysisSkill: failed to read %r", input_path)
-            return SkillResult(
-                status=SkillStatus.FAILURE, errors=[f"could not read {input_path!r}: {exc}"]
-            )
+            return SkillResult(status=SkillStatus.FAILURE, errors=["could not read the workbook"])
 
         near_duplicate_findings: tuple[str, ...] = ()
         total_finding_count = 0
