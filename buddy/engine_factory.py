@@ -7,7 +7,7 @@ import logging
 from buddy.brain import Brain, ClaudeInterpreter
 from buddy.delegate import Delegate, MechanicalDelegator
 from buddy.eyes import Eyes
-from buddy.hands import Hands, NullConfirmationProvider
+from buddy.hands import ConfirmationProvider, Hands, NullConfirmationProvider
 from buddy.inspector import (
     CompositeVerifier,
     Inspector,
@@ -75,7 +75,10 @@ def _build_registry() -> SkillRegistry:
 
 
 def build_engine(
-    *, llm_provider: LLMProvider | None = None, speaker: Speaker | None = None
+    *,
+    llm_provider: LLMProvider | None = None,
+    speaker: Speaker | None = None,
+    confirmation_provider: ConfirmationProvider | None = None,
 ) -> Engine:
     """Build the real, end-to-end Engine for the "remove duplicate rows" slice.
 
@@ -87,9 +90,9 @@ def build_engine(
     ``docs/design/multi-step-planner-design.md``), the Delegate stage, a
     Dispatcher backed by a registry containing ``ExcelDeduplicateSkill``,
     ``ExcelRemoveEmptyRowsSkill``, and ``SpreadsheetAnalysisSkill``, Hands
-    wired to ``NullConfirmationProvider`` (auto-approves every Write/
-    External-Effect task — there is no user-facing surface to ask through
-    yet; see ``buddy.hands.NullConfirmationProvider``), and a
+    wired to ``confirmation_provider`` (by default
+    ``NullConfirmationProvider``, which auto-approves every Write/
+    External-Effect task; see ``buddy.hands.NullConfirmationProvider``), and a
     ``CompositeVerifier`` dispatching each step to its own independent
     check — ``SpreadsheetDedupeVerifier`` for ``spreadsheet.deduplicate``,
     ``SpreadsheetEmptyRowsVerifier`` for ``spreadsheet.remove_empty_rows``,
@@ -113,6 +116,11 @@ def build_engine(
             behavior is unchanged. Pass a ``PersonalityVoice`` (see
             ``buddy.voice``) to exercise the friend/focus personality
             modes instead.
+        confirmation_provider: Asked before each Write/External-Effect
+            step. Defaults to ``NullConfirmationProvider`` (auto-approve),
+            so every existing caller's behavior is unchanged. A caller
+            with a real user to ask (the backend API) passes its own,
+            one per turn.
 
     Returns:
         An ``Engine`` ready to run the full, real cognitive cycle.
@@ -149,7 +157,11 @@ def build_engine(
         # whole turn, final file included, in Inspector.
         hands=Hands(
             dispatcher=dispatcher,
-            confirmation_provider=NullConfirmationProvider(),
+            confirmation_provider=(
+                confirmation_provider
+                if confirmation_provider is not None
+                else NullConfirmationProvider()
+            ),
             step_verifier=verifier,
         ),
         inspector=Inspector(verifier=verifier),

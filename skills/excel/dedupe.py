@@ -68,7 +68,8 @@ class ExcelDeduplicateSkill(Skill):
 
         Reads ``task.input_references[0]`` read-only via
         ``pandas.read_excel`` and writes the deduplicated result to a new
-        path under ``workspace/outputs/{workspace_id}/``. The original
+        path under ``workspace/outputs/{workspace_id}/`` (or
+        ``task.output_dir``, when set). The original
         upload is never opened with write intent, and the output path is
         always freshly constructed — never derived from, or equal to, the
         input path.
@@ -164,6 +165,9 @@ class ExcelDeduplicateSkill(Skill):
         Section C for the naming convention and the alternatives
         considered.
 
+        When ``task.output_dir`` is set (one folder per turn), the file
+        goes there instead, under the same name.
+
         Args:
             task: The task to build an output path for.
 
@@ -171,9 +175,7 @@ class ExcelDeduplicateSkill(Skill):
             The output path. Its parent directory is not yet created.
         """
         input_stem = Path(task.input_references[0]).stem
-        return (
-            Path("workspace")
-            / "outputs"
-            / task.workspace_id
-            / f"{input_stem}_deduplicated_{task.task_id}.xlsx"
-        )
+        name = f"{input_stem}_deduplicated_{task.task_id}.xlsx"
+        if task.output_dir is not None:
+            return Path(task.output_dir) / name
+        return Path("workspace") / "outputs" / task.workspace_id / name

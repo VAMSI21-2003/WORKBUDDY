@@ -20,6 +20,16 @@ DEFAULT_MODEL = "claude-sonnet-5"
 # trusting this value; it's whatever Groq recommended as of 2026-09.
 DEFAULT_GROQ_MODEL = "openai/gpt-oss-120b"
 
+# Seconds one HTTP request to a provider may take before it's abandoned.
+# Set explicitly rather than inherited from each SDK's default, which
+# differs (``anthropic`` 1.11: 600 s read; ``groq`` 1.7: 60 s) and can
+# change with an upgrade. The SDKs retry a timed-out request (twice by
+# default), so one ``complete`` call can take up to about three times this.
+# A timeout raises from ``complete``. Brain, Think and ``ClaudePlanner``
+# already catch a failed call and degrade honestly (no intent, a
+# clarification, no plan); any other caller's stage fails (R6).
+DEFAULT_REQUEST_TIMEOUT_S = 60.0
+
 
 @dataclass(frozen=True)
 class LLMMessage:
@@ -79,7 +89,13 @@ class ClaudeProvider:
     through them.
     """
 
-    def __init__(self, *, api_key: str | None = None, model: str = DEFAULT_MODEL) -> None:
+    def __init__(
+        self,
+        *,
+        api_key: str | None = None,
+        model: str = DEFAULT_MODEL,
+        timeout: float = DEFAULT_REQUEST_TIMEOUT_S,
+    ) -> None:
         """Initialize the provider.
 
         Args:
@@ -88,6 +104,7 @@ class ClaudeProvider:
                 explicitly in tests; production code should rely on the
                 environment variable.
             model: The Claude model to call.
+            timeout: Seconds one request may take before it's abandoned.
 
         Raises:
             LLMConfigurationError: If no API key is available from either
@@ -99,7 +116,7 @@ class ClaudeProvider:
             raise LLMConfigurationError(
                 "ANTHROPIC_API_KEY is not set and no api_key was provided."
             )
-        self._client = anthropic.Anthropic(api_key=resolved_key)
+        self._client = anthropic.Anthropic(api_key=resolved_key, timeout=timeout)
         self._model = model
 
     def complete(
@@ -149,7 +166,13 @@ class GroqProvider:
     since spreadsheet content and other user data may pass through them.
     """
 
-    def __init__(self, *, api_key: str | None = None, model: str = DEFAULT_GROQ_MODEL) -> None:
+    def __init__(
+        self,
+        *,
+        api_key: str | None = None,
+        model: str = DEFAULT_GROQ_MODEL,
+        timeout: float = DEFAULT_REQUEST_TIMEOUT_S,
+    ) -> None:
         """Initialize the provider.
 
         Args:
@@ -158,6 +181,7 @@ class GroqProvider:
                 explicitly in tests; production code should rely on the
                 environment variable.
             model: The Groq model to call.
+            timeout: Seconds one request may take before it's abandoned.
 
         Raises:
             LLMConfigurationError: If no API key is available from either
@@ -166,7 +190,7 @@ class GroqProvider:
         resolved_key = api_key if api_key is not None else os.environ.get("GROQ_API_KEY")
         if not resolved_key:
             raise LLMConfigurationError("GROQ_API_KEY is not set and no api_key was provided.")
-        self._client = groq.Groq(api_key=resolved_key)
+        self._client = groq.Groq(api_key=resolved_key, timeout=timeout)
         self._model = model
 
     def complete(

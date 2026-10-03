@@ -202,3 +202,68 @@ def test_verify_false_when_output_file_missing(tmp_path: Path) -> None:
     )
 
     assert skill.verify(task, fabricated_result) is False
+
+
+# -- output_dir (F5) ------------------------------------------------------------
+
+
+def test_execute_writes_into_task_output_dir_when_set(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.chdir(tmp_path)
+    input_path = tmp_path / "uploads" / "report.xlsx"
+    input_path.parent.mkdir(parents=True)
+    _write_fixture_with_empty_rows(input_path)
+    original_bytes = input_path.read_bytes()
+    turn_dir = tmp_path / "outputs" / "session-1" / "t0002"
+    task = _make_task(input_path, task_id="session-1-task-1")
+    task.output_dir = str(turn_dir)
+
+    result = ExcelRemoveEmptyRowsSkill().execute(task)
+
+    assert result.status is SkillStatus.SUCCESS
+    assert result.outputs == [str(turn_dir / "report_no_empty_rows_session-1-task-1.xlsx")]
+    assert Path(result.outputs[0]).is_file()
+    assert not (tmp_path / "workspace").exists()  # the legacy folder isn't touched
+    assert input_path.read_bytes() == original_bytes
+
+
+def test_two_tasks_with_the_same_id_in_different_output_dirs_never_collide(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Two turns in one session give a step the same task id; only the turn
+    folder tells them apart, and the first file must survive the second."""
+    monkeypatch.chdir(tmp_path)
+    input_path = tmp_path / "uploads" / "report.xlsx"
+    input_path.parent.mkdir(parents=True)
+    _write_fixture_with_empty_rows(input_path)
+    skill = ExcelRemoveEmptyRowsSkill()
+
+    first_task = _make_task(input_path, task_id="session-1-task-1")
+    first_task.output_dir = str(tmp_path / "outputs" / "t0001")
+    first = Path(skill.execute(first_task).outputs[0])
+    first_bytes = first.read_bytes()
+    second_task = _make_task(input_path, task_id="session-1-task-1")
+    second_task.output_dir = str(tmp_path / "outputs" / "t0002")
+    second = Path(skill.execute(second_task).outputs[0])
+
+    assert first.name == second.name
+    assert first.parent != second.parent
+    assert first.read_bytes() == first_bytes
+
+
+def test_output_dir_defaults_to_none_and_keeps_the_legacy_path(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.chdir(tmp_path)
+    input_path = tmp_path / "uploads" / "report.xlsx"
+    input_path.parent.mkdir(parents=True)
+    _write_fixture_with_empty_rows(input_path)
+    task = _make_task(input_path, task_id="t-1", workspace_id="workspace-9")
+
+    result = ExcelRemoveEmptyRowsSkill().execute(task)
+
+    assert task.output_dir is None
+    assert result.outputs == [
+        str(Path("workspace") / "outputs" / "workspace-9" / "report_no_empty_rows_t-1.xlsx")
+    ]

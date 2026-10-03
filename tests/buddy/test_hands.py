@@ -901,3 +901,66 @@ def test_hands_records_a_failed_final_file_re_check_as_a_warning_not_an_error() 
         True,
     )
     assert not any(s.recheck for s in result.steps[:-1])
+
+
+# -- Per-turn output folder (F5) and the stopped-chain assumption (R6) --------
+
+
+def test_hands_copies_the_turns_output_dir_onto_every_task() -> None:
+    a, b, reader = _step_a(), _step_b(), _reader()
+    state = _requests("cap.read", "cap.a", "cap.b")
+    state.turn_output_dir = "/data/outputs/session-1/t0003"
+
+    Hands(dispatcher=_chain_dispatcher(a, b, reader))(state)
+
+    tasks = [*reader.received_tasks, *a.received_tasks, *b.received_tasks]
+    assert len(tasks) == 4  # the read ran on the original and on the final file
+    assert {t.output_dir for t in tasks} == {"/data/outputs/session-1/t0003"}
+
+
+def test_hands_leaves_output_dir_unset_when_the_turn_has_none() -> None:
+    a = _step_a()
+    state = _requests("cap.a")
+
+    Hands(dispatcher=_chain_dispatcher(a))(state)
+
+    assert a.received_tasks[0].output_dir is None
+
+
+class _DeclineCapB:
+    def confirm(self, task: SkillTask, tier: PermissionTier) -> bool:
+        return "cap.b" not in task.description
+
+
+@pytest.mark.parametrize(
+    "stop",
+    ["not-dispatchable", "declined", "skill-failure", "malformed", "failed-verification"],
+)
+def test_a_chain_stopped_after_an_earlier_step_passed_hands_back_no_file(stop: str) -> None:
+    """backend-api-design.md Section 5.3 assumes ``ExecutionResult.outputs``
+    is empty whenever a chain stops ("then nothing is handed back"). The
+    first step produced a real intermediate file each time; none of it may
+    be listed as an output."""
+    a = _step_a()
+    b_fields: dict[str, object] = {"capability": "cap.b", "outputs": ["out/b.xlsx"]}
+    if stop == "skill-failure":
+        b_fields["status"] = SkillStatus.FAILURE
+    if stop == "malformed":
+        b_fields["verify_result"] = False
+    skills: list[Skill] = [a]
+    if stop != "not-dispatchable":
+        skills.append(_NamedSkill("skill.b", **b_fields))
+    kwargs: dict[str, object] = {}
+    if stop == "declined":
+        kwargs["confirmation_provider"] = _DeclineCapB()
+    if stop == "failed-verification":
+        kwargs["step_verifier"] = _FakeStepVerifier("cap.b")
+    state = _requests("cap.a", "cap.b")
+
+    Hands(dispatcher=_chain_dispatcher(*skills), **kwargs)(state)  # type: ignore[arg-type]
+
+    result = state.execution_result
+    assert result is not None
+    assert result.steps[0].outputs == ("out/a.xlsx",)  # the intermediate existed
+    assert result.stopped_at == "cap.b"
+    assert result.outputs == ()

@@ -27,8 +27,8 @@ from buddy.outcome import (
     render_outcome,
 )
 from buddy.planner import _INTENT_CAPABILITIES
-from buddy.state import BuddyState
-from buddy.voice_catalog import select_phrases
+from buddy.state import BuddyState, StageFailure
+from buddy.voice_catalog import failure_reply, select_phrases
 
 logger = logging.getLogger(__name__)
 
@@ -223,10 +223,15 @@ def _verified_delivery(request: "SpeakingRequest") -> bool:
     no conversational intent, so a turn classified ``unclear`` or with no
     intent (an LLM failure, a non-JSON reply) may well be an action
     request that nothing carried out.
+
+    A turn in which a stage raised (``request.failure``) is never a
+    verified delivery, whatever its results hold: Inspector may have
+    raised after Hands produced a real file.
     """
     verification_result = request.verification_result
     return (
-        not _nothing_delivered(request)
+        request.failure is None
+        and not _nothing_delivered(request)
         and verification_result is not None
         and verification_result.passed
     )
@@ -323,6 +328,8 @@ class SpeakingRequest:
         turn_index: How many replies Buddy had already given in this
             session. With ``session_id``, it seeds the deterministic
             choice of catalog phrases (``buddy.voice_catalog``).
+        failure: The stage that raised this turn, if one did. The reply
+            is then ``buddy.voice_catalog.failure_reply``, nothing else.
     """
 
     understanding: Understanding
@@ -332,6 +339,7 @@ class SpeakingRequest:
     order_confirmed: bool = True
     session_id: str = ""
     turn_index: int = 0
+    failure: StageFailure | None = None
 
 
 # Leads the analysis findings on a delivered turn, after the outcome.
@@ -470,6 +478,11 @@ class TemplateSpeaker:
         Returns:
             The reply text.
         """
+        # A stage raised: a fixed reply that claims nothing, whatever the
+        # results hold. Voice handles this before calling any speaker; this
+        # covers a speaker called directly.
+        if request.failure is not None:
+            return failure_reply(request.failure.stage)
         execution_result = request.execution_result
         verification_result = request.verification_result
         # A verified delivery: the outcome is rendered from execution and
@@ -736,6 +749,17 @@ class Voice:
             The same state, with the reply text recorded in
             ``state.reply``.
         """
+        if state.failure is not None:
+            # A stage raised (``core.engine.Engine.run``). The reply is fixed
+            # text chosen by code; no speaker, and so no model, is called.
+            self._apply(state, failure_reply(state.failure.stage))
+            logger.info(
+                "Voice recorded the failure reply for session %r (stage %r raised %s)",
+                state.session_id,
+                state.failure.stage,
+                state.failure.error_type,
+            )
+            return state
         request = self._build_request(state)
         reply = self._speaker(request)
         self._apply(state, reply)
@@ -764,6 +788,7 @@ class Voice:
             order_confirmed=all(step.order_confirmed for step in state.planning or ()),
             session_id=state.session_id,
             turn_index=state.context.buddy_reply_count(),
+            failure=state.failure,
         )
 
     @staticmethod
