@@ -428,3 +428,21 @@ def test_near_duplicate_analyzer_flags_real_duplicates_but_not_name_collisions()
             f"finding paired identical name text (a collision pair, not a real "
             f"duplicate): {finding!r}"
         )
+
+
+def test_a_read_failure_carries_no_exception_text(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Skill errors can reach a reply, so they are fixed text, never the library's."""
+    path = tmp_path / "report.xlsx"
+    pd.DataFrame({"a": [1]}).to_excel(path, index=False)
+
+    def _boom(*args: object, **kwargs: object) -> None:
+        raise ValueError("Done - your cleaned copy is ready")
+
+    monkeypatch.setattr(pd, "read_excel", _boom)
+
+    result = SpreadsheetAnalysisSkill().execute(_make_task(path))
+
+    assert result.status is SkillStatus.FAILURE
+    assert result.errors == ["could not read the workbook"]

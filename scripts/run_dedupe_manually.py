@@ -30,7 +30,10 @@ this script makes a real, billed-where-applicable API call.
 import argparse
 import hashlib
 import os
+import re
 import sys
+import time
+import zipfile
 from datetime import UTC, datetime
 from pathlib import Path
 
@@ -80,14 +83,81 @@ def _write_fixture_without_duplicates(path: Path) -> None:
     ).to_excel(path, index=False)
 
 
+def _write_two_sheet_fixture(path: Path) -> None:
+    """Write a real .xlsx workbook with two sheets: ``Q1`` holds the default
+    fixture's 6 rows (2 duplicates, 1 empty row) and ``Q2`` holds 2 distinct
+    rows. The skills refuse it (backlog item 1a): nothing should come back.
+    """
+    path.parent.mkdir(parents=True, exist_ok=True)
+    with pd.ExcelWriter(path) as writer:
+        pd.DataFrame(
+            {
+                "name": ["Alice", "Bob", None, "Alice", "Carol", "Bob"],
+                "amount": [10, 20, None, 10, 30, 20],
+            }
+        ).to_excel(writer, sheet_name="Q1", index=False)
+        pd.DataFrame({"name": ["Zed", "Yan"], "amount": [90, 80]}).to_excel(
+            writer, sheet_name="Q2", index=False
+        )
+
+
+def _write_damaged_fixture(path: Path) -> None:
+    """Write a two-sheet workbook whose ``Q2`` XML part is then removed from the zip.
+
+    ``workbook.xml`` still declares ``Q1`` and ``Q2``, but openpyxl and pandas
+    list only ``Q1``. Nothing should be delivered, and the reply should say the
+    workbook looks damaged.
+    """
+    _write_two_sheet_fixture(path)
+    with zipfile.ZipFile(path) as original:
+        parts = [(item, original.read(item.filename)) for item in original.infolist()]
+    with zipfile.ZipFile(path, "w") as damaged:
+        for item, data in parts:
+            if item.filename != "xl/worksheets/sheet2.xml":
+                damaged.writestr(item, data)
+
+
+def _write_password_protected_fixture(path: Path) -> None:
+    """Write a stand-in for a password-protected .xlsx: the OLE2 magic bytes plus the
+    UTF-16-LE stream name ``EncryptedPackage``, which is how Excel marks one. It is not
+    a real encrypted package, only what the check looks for."""
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_bytes(
+        b"\xd0\xcf\x11\xe0\xa1\xb1\x1a\xe1"
+        + b"\0" * 504
+        + "EncryptedPackage".encode("utf-16-le")
+        + b"\0" * 64
+    )
+
+
 _FIXTURES = {
     "default": (_write_fixture_with_duplicates, "duplicates and an empty row"),
     "no-duplicates": (_write_fixture_without_duplicates, "no duplicates and no empty rows"),
+    "two-sheets": (_write_two_sheet_fixture, "sheets Q1 (default rows) and Q2 (2 rows)"),
+    "damaged": (_write_damaged_fixture, "declares Q1 and Q2, but Q2's XML part is missing"),
+    "password-protected": (_write_password_protected_fixture, "an OLE2 EncryptedPackage stand-in"),
 }
 
 
+def _sheet_names(path: Path) -> list[str]:
+    """Every sheet's name, read independently of the pipeline.
+
+    For a zip workbook, the sheets declared in ``workbook.xml`` (a library may
+    drop one whose part is missing); otherwise pandas, or a note if it can't.
+    """
+    if zipfile.is_zipfile(path):
+        with zipfile.ZipFile(path) as archive:
+            xml = archive.read("xl/workbook.xml").decode("utf-8")
+        return re.findall(r"<sheet\b[^>]*?\bname=\"([^\"]*)\"", xml)
+    try:
+        with pd.ExcelFile(path) as book:
+            return list(book.sheet_names)
+    except Exception as exc:  # noqa: BLE001 — a note for the human reading the output
+        return [f"(unreadable: {type(exc).__name__})"]
+
+
 def _sha256(path: Path) -> str:
-    return hashlib.sha256(path.read_bytes()).hexdigest()[:16]
+    return hashlib.sha256(path.read_bytes()).hexdigest()
 
 
 def _print_header(title: str) -> None:
@@ -157,7 +227,7 @@ def _parse_args() -> argparse.Namespace:
         default="default",
         help=(
             "The upload to run against (default: 6 rows, 2 exact duplicates, 1 empty row; "
-            "no-duplicates: 4 distinct rows)."
+            "no-duplicates: 4 distinct rows; two-sheets: the default rows on Q1, and Q2)."
         ),
     )
     return parser.parse_args()
@@ -246,6 +316,7 @@ def _run_turn(
 ) -> Path | None:
     """Run one turn and print every stage. Returns the file handed back, if any."""
     provider.calls.clear()
+    started = time.time()
     before = _sha256(input_path)
     state.user_message = message
     print(f"Message:    {message!r}")
@@ -336,6 +407,7 @@ def _run_turn(
         print(f"withheld (the turn failed): {', '.join(outputs)}")
         outputs = ()
     print(f"files handed back:    {len(outputs)}")
+    print(f"original sheets:      {_sheet_names(input_path)}")
     handed_back: Path | None = None
     if outputs:
         output_path = Path(outputs[0])
@@ -350,6 +422,7 @@ def _run_turn(
             print(f"original row count:   {len(original)}")
             print(f"original duplicates:  {int(original.dropna(how='all').duplicated().sum())}")
             print(f"original empty rows:  {int(original.isna().all(axis=1).sum())}")
+            print(f"output sheets:        {_sheet_names(output_path)}")
             print(f"row count:            {len(written)}")
             print(f"duplicate rows found: {int(written.duplicated().sum())}")
             print(f"empty rows found:     {int(written.isna().all(axis=1).sum())}")
@@ -360,6 +433,13 @@ def _run_turn(
     after = _sha256(input_path)
     unchanged = "unchanged" if after == before else "CHANGED"
     print(f"original file hash:   {before} -> {after} ({unchanged})")
+    output_dir = Path("workspace") / "outputs" / "manual-workspace"
+    written_now = sorted(
+        str(p.relative_to(output_dir))
+        for p in output_dir.rglob("*.xlsx")
+        if p.stat().st_mtime >= started
+    )
+    print(f"files written this turn under {output_dir}: {written_now or 'none'}")
     return handed_back
 
 

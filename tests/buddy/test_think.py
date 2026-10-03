@@ -291,6 +291,19 @@ def test_system_prompt_names_every_registered_capability() -> None:
     assert missing == [], f"capabilities missing from Think's system prompt: {missing}"
 
 
+def test_system_prompt_states_the_real_sheet_limit() -> None:
+    """The cleaning capabilities refuse a multi-sheet workbook; they don't read
+    "only the first sheet" of it (which would have them clean part of it)."""
+    from buddy.think import _SYSTEM_PROMPT
+
+    flat = " ".join(_SYSTEM_PROMPT.split())
+    assert "each reads only the first sheet" not in flat
+    assert (
+        "work only on a workbook with a single sheet: they refuse one with more than one "
+        "sheet rather than clean part of it" in flat
+    )
+
+
 def test_system_prompt_keeps_never_shown_contents_rule() -> None:
     from buddy.think import _SYSTEM_PROMPT
 

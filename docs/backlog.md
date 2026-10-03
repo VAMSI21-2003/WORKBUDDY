@@ -36,6 +36,28 @@ Open work, in priority order. Each item follows the working method in `CLAUDE.md
 
 **Source:** `docs/reviews/verified-outcome-a-review.md`, M3. It exists on `main` too; it isn't introduced by PR-A. It's a rule 1 breach, so it comes right after PR-B.
 
+**Status (2026-10-01):** `fix/multi-sheet` (not merged; re-review `fix-multi-sheet-review2.md`: MERGE) takes the "refuse" option. Both skills refuse a workbook with more than one sheet, the reply says why, and the verifier compares each step's sheet names with its input's. See `docs/reviews/fix-multi-sheet-impl.md`, `fix-multi-sheet-review.md`, `fix-multi-sheet-fixes.md` and `fix-multi-sheet-live-runs.md`.
+
+**Fixed after the review (`fix-multi-sheet-fixes.md`):** H1, H2, M1, M2, M3 (the sheet list is the one *declared* in `workbook.xml`, shared by the skills and the Inspector; OLE2 files are refused as password-protected or legacy `.xls`, never counted; no exception text in user-facing errors), M4 (no proactive analysis on a workbook the skills refuse), L2 (partial output deleted on a failed write) and L6 (`think.py` wording).
+
+**Still open:**
+- L3: crafted sheet names Excel forbids fail at the write, and names over 31 characters are written as is.
+- L4: Inspector wording for a reorder ("lost or renamed") and for a non-workbook output (raw pandas text).
+- L5: say "(including hidden sheets)" when hidden sheets push the count above one.
+- An *explicit* request to analyse a multi-sheet workbook still analyses the first sheet only, without naming it.
+- Per-sheet cleaning (keep every sheet and clean each one, or the one the user named). It needs per-sheet measurements in the Inspector and Outcome code.
+- A real `.xls` can't be cleaned. The skills refuse it ("older .xls workbooks … aren't supported yet"). Don't add `xlrd` until the sheet count includes chart sheets, macro sheets and VB modules, which `xlrd` skips.
+- A test with a hostile `workbook.xml` (entity expansion). The re-review measured a billion-laughs, a quadratic blowup and two XXE files: all refused in under 0.05 s with fixed text (expat 2.6.1); there's still no test in the suite.
+- Real encrypted-file coverage in the suite: the tests and the live run use an `EncryptedPackage` stand-in. The re-review confirmed real `msoffcrypto`-encrypted files are caught.
+
+**Deferred from the re-review (`docs/reviews/fix-multi-sheet-review2.md`), in this order:**
+- N1 (Medium): a valid one-sheet workbook whose workbook part is typed by a `<Default>` entry (not an `<Override>`) is refused as "may be damaged"; `main` cleans it. Template content types are probably refused too. Mirror `openpyxl.reader.excel._find_workbook_part` in `_declared_sheet_names`, plus a test.
+- N4 (Low): the write error "could not write the cleaned copy" matches `_COMPLETION_CLAIM`; use "could not write the new file", plus an engine-level write-failure test.
+- N2 (Medium): a vague (`unclear`) turn on a multi-sheet or unreadable workbook now gets "I wasn't able to confirm that worked. No verifier has been configured." (pre-existing text for an empty plan, newly reachable). Give the empty plan an honest reply, or skip the analysis only when a file-changing step is planned.
+- N3 (Low): `EncryptedPackage` in `.xls` cell text (with a character above U+00FF) makes the file "password-protected"; match only at an OLE2 directory-entry position (`(offset - 512) % 128 == 0`, name length 34 at `offset + 64`).
+- N5 (Low): any non-encrypted OLE2 file (e.g. a renamed Word `.doc`) is called an "older .xls workbook".
+- N6 (Low): the live script's `password-protected` fixture is a stand-in, and its independent check prints only "unreadable".
+
 **Problem:** `skills/excel/dedupe.py` and `skills/excel/remove_empty_rows.py` read only the first sheet (`pd.read_excel(input_path)`) and write one sheet named `Sheet1`. For a workbook with sheets `Q1` and `Q2`, the delivered file has one sheet, and the reply says "Your cleaned copy of report.xlsx is ready." and "The copy has 2 row(s)…". Nothing tells the user that `Q2` was dropped, and no verifier notices.
 
 **Acceptance criteria:**
