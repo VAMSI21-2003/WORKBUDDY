@@ -33,3 +33,17 @@ with `sheets=2` adds a second sheet `Q2` to the fixture and records the delivere
 
     python scripts/review_harness/rereview3.py --summary                 # this checkout
     python scripts/review_harness/rereview3.py --tree ../other --out o.json z09 rr2-s22
+
+## Round 5 probes (head `d0b32c4`: R1 fix and the merge of `origin/main`)
+
+Run each from the repo root; `--tree DIR` (a `git worktree` of another commit) works for `round5.py`.
+
+    python scripts/review_harness/round5.py --out r5.json          # 228 turns, 38 scenarios
+    python scripts/review_harness/round5.py a0 c-fail d0           # some scenarios only (prefix match)
+    python scripts/review_harness/scope_diff.py [TREE]             # 41,412 generated `unsupported` phrases through _no_skill_outcome
+    python scripts/review_harness/sheetname_probe.py               # crafted sheet names: does output's sheet list differ from input's?
+    TREE=../main python scripts/review_harness/formulas_probe.py   # formulas, formatting and merged cells through dedupe
+
+`round5.py` scenarios: `a*` multi-sheet and R1 scope phrases; `b*` odd workbooks (hostile/long/XML sheet
+names, corrupt, not Excel, OLE2, encrypted, empty); `c-fail-*` a stage raises (all stages, with a secret in the
+exception text); `d*` per-turn output folder and confirmation provider (decline, raise).

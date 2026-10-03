@@ -855,3 +855,92 @@ The guard is the only test that notices. All 270 N1/P1–P3/Q1 engine cases stil
 - **L-d:** no guard test on `_REMOVAL_VERBS`, `_DETERMINERS` or `_LOCATION_PHRASE`. Section 6 asks for it with the R1 fix; if it doesn't land with that fix, it stays here.
 - **L-a** (now also `z19`, `z20`), **L-b** and **L-c**, unchanged.
 - Carried over: L3, and the PR-A review's M3 (backlog 1a). M3 is what makes R1 a false claim, and it stays HIGH on its own.
+
+---
+
+# Review round 5 (commit d0b32c4)
+
+**Verdict: MERGE.** R1 is fixed, with my own evidence. I found no HIGH in `_no_skill_outcome` or anywhere in the diff since `688f62b`, and no MEDIUM that an ordinary request reaches. The merge of `origin/main` brought in no regression: every undelivered path equals `main`, every reply I produced makes only claims the verifier supports, and the original was byte-identical in every run. The items below are Deferred; two are pre-existing on `main` and worth the owner's attention (formula/format loss, analytics beacon). Live runs with Groq are still required on this head before merging (`CLAUDE.md`); I didn't do them.
+
+> **Independence.** I'm a fresh reviewer agent with no memory of writing or reviewing this branch. I changed nothing under `buddy/`, `core/`, `skills/`, `backend/` or `tests/`. Mutations were made in a throwaway `git archive` copy; comparison trees were temporary worktrees (removed). Last reviewed commit: `688f62b`. Head: `d0b32c4` (R1 fix `d0b32c4`, merge `59bcce5` of `origin/main` = `6d000c5`).
+
+## 1. Suite and lint
+
+- `python -m pytest -q`: **1568 passed**, 11 warnings, 329 s. Matches `fixes4.md`.
+- `ruff check buddy tests`: **22 errors** on head and on `origin/main`. I diffed the counts by file and rule: identical. Nothing new.
+
+## 2. R1: fixed [Certain]
+
+- **The diff.** `git diff 688f62b HEAD -- buddy/outcome.py` is exactly the change I specified: `across` and `workbook` removed from `_LOCATION_PHRASE`, plus a comment. Nothing else in `outcome.py` changed.
+- **Differential over 41,412 generated phrases** (`scope_diff.py`: 7 removal phrases × 12 prepositions × 17 determiners × 29 nouns, each passed as Brain's `unsupported` entry next to a passed dedupe). Count of phrases whose entry is dropped although the part after the verb holds a scope word (all, every, each, both, other, second, remaining, workbook, across, sheets, tabs, worksheet, whole, entire, rest, "sheet 2", q2, a number): **0 on head, 378 on `688f62b`.** So no phrase of this family can still turn a scope flag into "Done".
+- **Harness, 532 turns.** Head against `688f62b`: 0 differing replies. Head against `main`: the 351 differences are all in scenarios where the ledger changes the reply (expected); `r-*` (undelivered) are identical to `main`. Voice-model calls 0, original changed 0, errors 0.
+- **`rereview3.py`, 1078 turns.** Head against `688f62b`: only `z09`, `z10`, `z11`, `z45` differ, all expected.
+  - `z10` (one-sheet, "remove duplicates across the workbook" flagged): "Partly done — removed 2 duplicate row(s). I read part of your request as something I can't do yet. The copy has 4 row(s), 0 duplicate row(s) remaining." The file has 4 rows, 0 duplicates, 1 empty row: the numbers match. This is the accepted MEDIUM-u cost (a false "can't do" on a file that was fully deduplicated, reachable only after Brain's flag).
+  - `z09`, `z11`, `z45` (two sheets): now "I ran into a problem partway through. The deduplicate step: the workbook has 2 sheets, and only single-sheet workbooks are supported for now. I stopped … no file was handed back; your original file is unchanged." No file is delivered, so nothing false is claimed. (On `688f62b` the skills still read one sheet, which is why those scenarios were "Partly done" there.)
+  - All 32 `rr2-*` and the other 41 `z*` scenarios: identical replies on head and `688f62b`.
+- **Tests, mutation.** I put `buddy/outcome.py` back to the `688f62b` version in a scratch copy: `-k r1` gives **37 failed** (the guard plus the 36 one-sheet cases) and 18 passed. The 18 are the two-sheet cases, which pass on old code because the skills refuse the workbook first, as `fixes4.md` says. They pin that behaviour, not the strip.
+- **Guard test, not vacuous.** In the scratch copy, each of these made `test_outcome.py` fail on its first failing case: add `sort` to `_REMOVAL_VERBS`; add `amount` to the location nouns; add `across` back; add `workbook` back; add `sheets` to the nouns; add `sort` to `_DETERMINERS`; add `delete` to `_FILLER_WORDS`. This closes L-d. (The guard pins the exact pattern strings, so any edit trips it; that is brittle by design.)
+- **`_no_skill_outcome` two-rounds rule.** I found no HIGH in it this round, so the writer's "remove the dropping logic" fallback isn't triggered.
+
+## 3. The merge of `origin/main` (diff `688f62b..HEAD` outside `outcome.py`)
+
+Files: `core/engine.py`, `buddy/{state,voice,voice_catalog,hands,engine_factory,inspector,planner,think,context,llm,models}.py`, `skills/excel/{workbook,dedupe,remove_empty_rows,analyze}.py`, `skills/base.py`. That code was reviewed on `main` (`fix-multi-sheet-review*.md`, `pipeline-failure-and-output-dir-review.md`). I checked it only where it meets PR-B's ledger, outcome and reply code.
+
+`scripts/review_harness/round5.py`: 38 scenarios, 228 turns, template + friend ×4 + focus, real `build_engine`, only the LLM faked. Same run on `origin/main` for comparison. Voice calls 0, original changed 0 (SHA-256 before and after, every turn).
+
+| Case | What happened | Reply (all three speakers) | Rule 1 |
+|---|---|---|---|
+| 2-sheet workbook, plain dedupe / empty rows / chain / "across the workbook" flag / "every sheet" (`a01 a04 a08 a09 a10 a13`) | Skill refuses, nothing delivered, no analysis lead | "I ran into a problem partway through. The deduplicate step: the workbook has 2 sheets, and only single-sheet workbooks are supported for now. I stopped … no file was handed back; your original file is unchanged." Chain adds "so remove empty rows never ran". | True; same as `main` |
+| Hidden second sheet (`a11`) | Counted as a sheet, refused | same | True |
+| One-sheet file, scope flagged "across/in the workbook", "on all sheets" (`a02 a03 a05 a07`) | Delivered, 4 rows, 0 duplicates | "Partly done — removed 2 duplicate row(s). I read part of your request as something I can't do yet. The copy has 4 row(s), 0 duplicate row(s) remaining." | Numbers match the file; "can't do" is the accepted MEDIUM-u |
+| Quoted flag "the workbook" (`a06`) | same file | "…I can't do this part yet: “the workbook”." | Honest |
+| Hostile / 40-char / XML-escaped sheet name (`b01 b02 b03`, chain `b10`) | Delivered, name preserved | "Done — removed 2 duplicate row(s)…"; the sheet name never appears in any reply | True |
+| Corrupt zip, text file named .xlsx (`b04 b05`) | Refused | "could not read the workbook; it may be damaged or not an Excel file" | True, hedged |
+| OLE2 `.xls`, password-protected (`b06 b07 b11`) | Refused | fixed texts | True (see Deferred: ".xlsx will work") |
+| Empty sheet, secret cell text (`b08 b09`) | Delivered | "Done — there were no duplicate rows to remove. The copy has 0 row(s)…"; "removed 1 duplicate row(s)… 1 row(s)" | Numbers match; no cell text in any reply |
+| Stage raises: eyes, brain, think, planner, delegate, hands, inspector, inspector in a chain (`c-fail-*`), exception text "SECRET_EXC_TEXT cell=Alice" | `state.failure` = stage name and class only | "Something went wrong {where}, so I can't confirm that any change was made. I haven't handed back any file from this turn." (5 distinct texts over 40 turns; the secret appears in no reply) | True. Voice model not called |
+| Voice's speaker raises (`c-fail-voice-speaker`) | `Engine.run` re-raises (by design); original unchanged | no reply | The caller must handle it (PR-2) |
+| Per-turn output folder, single and chain (`d01 d02`) | File written under `turn_outputs/t1/`, none under `workspace/outputs/` | "Done — …Saved as `report_deduplicated_session-1-task-1.xlsx`" | True |
+| Confirmation declined, first or second step (`d03 d05`) | Nothing delivered | "…The deduplicate step: wasn't confirmed, so it didn't run. I stopped … no file was handed back" | True |
+| Confirmation provider raises (`d04`) | Stage failure at hands | failure reply | True |
+
+Other checks on the merged code:
+
+- **File text in replies.** `Hands` now relays a skill's `errors` as the step's finding. All three skills return fixed strings (`could not read the workbook`, `could not write the cleaned copy`, the `WorkbookRefused` texts); the one dynamic string, "cannot handle task '<task_id>'", is built from the session id and never reached a reply in my runs (a `.csv` upload gives "couldn't be run because no available skill can do it"). The Inspector's `_sheet_list_problem` finding does put sheet names in text, but it needs the output's sheet list to differ from the input's. `sheetname_probe.py` ran 23 crafted names (quotes, RTL mark, emoji, tab, newline, padding, 32 and 80 characters, XML-special, NUL) through the real skill: no mismatch, so that text is unreachable [Likely].
+- **Context persistence.** `to_dict`/`from_dict`: JSON round trip equal, reply count equal, version 2 and an invalid mode raise `ValueError`. Nothing crosses sessions.
+- **Failure reply vs. ledger.** `Voice.__call__` returns `failure_reply` before any speaker or outcome code runs, and `_verified_delivery` also requires `failure is None`, so the ledger can't render "Done —" after a stage failed. In `c-fail-inspector` a real file exists on disk and in `execution_result`, and the reply says none is handed back (see Deferred).
+
+## 4. Design document
+
+No new deviation. `verified-outcome-design.md` has nothing on location phrases, multi-sheet or stage failure; the earlier-round deviations are unchanged.
+
+## 5. Findings
+
+**No HIGH. No MEDIUM reachable from an ordinary request in this diff.**
+
+Pre-existing on `main` and outside this diff (I'm listing them because a reader of the review would otherwise assume "Done" is complete):
+
+- **P-1 (MEDIUM-HIGH by the severity table, [Certain], identical on `main`): a delivered one-sheet file silently loses formulas, formatting, widths, merged cells and rows above the header.** `scripts/review_harness/formulas_probe.py`: a sheet with formulas, a bold red header, a merged note cell and a wide column. Reply: "Done — removed 1 duplicate row(s). The copy has 3 row(s), 0 duplicate row(s) remaining." The delivered file has formulas as empty/static values, the merged note cell turned into an "Unnamed: 3" column, and formatting gone. Reachable by any spreadsheet that has formulas or formatting. Not caused by this branch, so it doesn't change my verdict, but a "your formulas and formatting are not kept" sentence (or an openpyxl-based writer) is needed before a public launch.
+- **P-2 (LOW-MEDIUM, [Certain], `main`): analytics beacon.** `ydata-profiling` 4.18.4 requests `https://packages.ydata.ai/ydata-profiling?…&nrows=…&ncols=…` on each analysis (1,637 blocked connection attempts during my runs). It carries counts, not cell values. Set `YDATA_PROFILING_NO_ANALYTICS=1`.
+
+## 6. Deferred (all added to `docs/backlog.md`)
+
+- P-1 and P-2 above.
+- **Failure reply and the delivered file (LOW, [Certain]):** after a failure past Hands (`c-fail-inspector`) `state.execution_result.outputs` holds a real file while the reply says none is handed back. The API must key on `state.failure`.
+- **".xlsx will work" (LOW):** the legacy-`.xls` refusal promises something unchecked; a multi-sheet file saved as .xlsx is still refused.
+- **Chart sheet (LOW):** a workbook with a chart sheet openpyxl can't read in read-only mode is refused as "may be damaged" (`a12`; my fixture was an empty chart sheet made by openpyxl, so [Possible] for real files).
+- **"your original file is unchanged" (LOW):** `_chain_stop_sentence` says it with no runtime check; the failure replies deliberately don't. Same wording as `main`.
+- **R1 test coverage (LOW):** the two-sheet engine test pins the skills' refusal, not the strip, so only the 36 one-sheet cases and the guard protect R1.
+- **Carried over, unchanged:** residual HIGH-class paths `z18` and `z31` (gross Brain misreads, need ledger-recall measurement); MEDIUM-u (false "can't do" after a near-miss name or whole-message flag); L-a, L-b, L-c, L3.
+
+## 7. Not run
+
+- **Live runs with Groq** (`CLAUDE.md`, required before merge on this head; no key available to me).
+- **`.xls` reading with xlrd** (not installed); OLE2 files were fake headers only.
+- **Real Excel files** (cached formula values, charts, macros, tables): I only had files made by pandas and openpyxl.
+- **The backend** (`backend/` is empty on this branch), so the API-side handling of `state.failure` and of a raising Voice wasn't exercised.
+- A full re-run of the suite on `origin/main`.
+
+## Probe scripts (this round)
+
+`scripts/review_harness/round5.py`, `scope_diff.py`, `sheetname_probe.py`, `formulas_probe.py`; usage in `scripts/review_harness/README.md`.
