@@ -18,8 +18,9 @@ from fastapi import FastAPI
 from backend.errors import file_too_large_message, install_error_handlers
 from backend.logging_filter import install_log_redaction
 from backend.middleware import RequestGuardMiddleware, SecurityHeadersMiddleware
-from backend.routes import health_router
+from backend.routes import health_router, router
 from backend.schemas import ErrorBody
+from backend.sessions import SessionRegistry
 from backend.settings import Settings
 from buddy.engine_factory import build_engine
 from buddy.hands import ConfirmationProvider
@@ -121,9 +122,11 @@ def create_app(
     app.state.settings = settings
     app.state.llm_configured = configured
     app.state.engine_factory = engine_factory
+    app.state.registry = SessionRegistry(settings)
 
     install_error_handlers(app)
     app.include_router(health_router)
+    app.include_router(router)
     # Added innermost first: the security headers wrap everything, including
     # the guard's own 413 and 500 responses.
     app.add_middleware(
