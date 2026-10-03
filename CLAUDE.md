@@ -12,8 +12,11 @@ Any change that could affect either rule counts as rule-touching (see below).
 ## Working method
 
 - **Every change goes on its own branch** from `main`. Never commit to `main` directly.
-- **The session that wrote the code never reviews it.** Reviews are done by a separate session with no memory of writing it.
+- **Whoever wrote the code never reviews it.** A review is done by a reviewer with no memory of writing the code: a fresh reviewer agent started by the working session, or a separate session. The full procedure is in `docs/process/review-loop.md`. Follow it exactly.
 - **Big or rule-touching changes get an independent review** written to `docs/reviews/<branch>-review.md`. Fixes for a review get their own `docs/reviews/<branch>-fixes*.md`. Items left open are listed under a "Deferred" heading in the review, and in `docs/backlog.md`.
+- **One session runs the whole loop for such a change:** write, review, fix, review again, until a reviewer's verdict is MERGE. There is no fixed number of rounds: one is enough if the first reviewer finds nothing blocking, and a change that needs more gets more. Every round uses a new reviewer agent.
+- **The writer can't overrule a reviewer.** A finding is closed by a fix that the next reviewer confirms. The writer never downgrades a finding, edits a review, or writes a verdict.
+- **Changes that are neither big nor rule-touching** (scaffolding, CI, README, deployment config, visual polish) need the test suite and lint, not the review loop. If in doubt, treat the change as rule-touching.
 - **Live runs with Groq before merging** (see below), with the results written to `docs/reviews/<branch>-live-runs.md`. Report, for each run: the intent, `clarification_required`, the steps executed, whether a file was delivered, an independent check of the file, the reply, whether it makes any false claim, and the original file's hash before and after. If you hit a 429, stop and report how many runs completed.
 - **Only the user merges to `main`.** Don't merge unless the user explicitly asks in the current conversation.
 - Report results faithfully. If tests fail or a step was skipped, say so.
