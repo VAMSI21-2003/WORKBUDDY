@@ -7,7 +7,8 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Protocol
 
-from buddy.inspector import FINAL_OUTPUT_CAPABILITY, SKIPPED_FINDING
+from buddy.actions import INTENT_CAPABILITIES
+from buddy.inspector import FINAL_OUTPUT_CAPABILITY, NO_ANALYSIS_FINDINGS, SKIPPED_FINDING
 from buddy.llm import LLMProvider
 from buddy.models import (
     DECLINED_STATUS,
@@ -26,7 +27,6 @@ from buddy.outcome import (
     build_outcome_report,
     render_outcome,
 )
-from buddy.planner import _INTENT_CAPABILITIES
 from buddy.state import BuddyState, StageFailure
 from buddy.voice_catalog import failure_reply, select_phrases
 
@@ -58,7 +58,7 @@ _FINDING_TAG_PREFIX = re.compile(r"^(?:\[[\w.]+\]\s*)+")
 # any id in a known capability domain, so an id with no registered skill is
 # caught too — but not a file name such as "spreadsheet.xlsx".
 _CAPABILITY_DOMAINS = sorted(
-    {c.split(".", 1)[0] for c in (*_INTENT_CAPABILITIES.values(), "spreadsheet.analyze")}
+    {c.split(".", 1)[0] for c in (*INTENT_CAPABILITIES.values(), "spreadsheet.analyze")}
 )
 _CAPABILITY_ID = re.compile(
     r"\b(?:" + "|".join(map(re.escape, _CAPABILITY_DOMAINS)) + r")\.(?!(?:xlsx|xlsm|xls|csv)\b)"
@@ -345,6 +345,8 @@ class SpeakingRequest:
 # Leads the analysis findings on a delivered turn, after the outcome.
 DELIVERED_ANALYSIS_LEAD = "I also noticed: "
 ANALYSIS_QUESTION = "Want me to tackle any of these?"
+# The analyzer's all-clear, when a residual count says the file still has something.
+_OTHER_ISSUES_NOTE = "none of the other issues I check for were found"
 
 
 def _verified_delivery_reply(
@@ -354,7 +356,8 @@ def _verified_delivery_reply(
 
     In order (design decision D3): the opener, the outcome block, the
     analysis findings, the closer. The outcome block comes from
-    ``buddy.outcome`` (execution and verifier data only); the opener and
+    ``buddy.outcome`` (execution and verifier data, checked against the
+    requested-actions ledger on ``request.understanding``); the opener and
     closer from ``buddy.voice_catalog``, chosen by code, and only when a
     ``mode`` is given. No model writes any of it.
 
@@ -395,11 +398,18 @@ def _verified_delivery_reply(
     report = build_outcome_report(
         execution_result,
         verification_result,
-        request.understanding.intent,
+        request.understanding,
         order_used=_order_used_sentence(request),
         delivered_file=_delivered_file_name(request),
         open_findings=len(open_findings),
     )
+    if any(m.remaining for m in report.residuals):
+        # "It still has 2 duplicate row(s)." can't be followed by an
+        # unqualified all-clear: the analysis doesn't check for that.
+        analysis_notes = [
+            _OTHER_ISSUES_NOTE if note == NO_ANALYSIS_FINDINGS else note
+            for note in analysis_notes
+        ]
     opener = closer = ""
     if mode is not None:
         opener_phrase, closer_phrase = select_phrases(

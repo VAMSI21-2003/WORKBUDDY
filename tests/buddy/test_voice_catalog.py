@@ -3,16 +3,34 @@
 from __future__ import annotations
 
 import re
+from dataclasses import replace
 
 import pytest
 
-from buddy.models import DUPLICATE_ROWS_TARGET, EMPTY_ROWS_TARGET, StepMeasurement
-from buddy.outcome import DONE, ActionOutcome, OutcomeReport
+from buddy.models import (
+    DUPLICATE_ROWS_TARGET,
+    EMPTY_ROWS_TARGET,
+    LEDGER_FROM_BRAIN,
+    LEDGER_FROM_INTENT,
+    LEDGER_FROM_MENTION,
+    StepMeasurement,
+)
+from buddy.outcome import (
+    DONE,
+    DONE_UNREQUESTED,
+    NO_SKILL,
+    NOT_DONE,
+    NOT_PLANNED,
+    NOT_READ_AS_REQUEST,
+    ActionOutcome,
+    OutcomeReport,
+)
 from buddy.voice import _COMPLETION_CLAIM
 from buddy.voice_catalog import CATALOG, MODES, SLOTS, eligible_phrases, select_phrases
 
 _DEDUPE = "spreadsheet.deduplicate"
 _EMPTY = "spreadsheet.remove_empty_rows"
+_BRAIN, _INTENT, _MENTION = LEDGER_FROM_BRAIN, LEDGER_FROM_INTENT, LEDGER_FROM_MENTION
 
 
 def _report(*actions: ActionOutcome, open_findings: int = 0) -> OutcomeReport:
@@ -103,29 +121,172 @@ def test_blank_rows_needs_a_done_empty_row_removal_that_removed_rows() -> None:
         assert phrase not in _eligible_ids(report)
 
 
-def test_no_entry_claims_there_was_nothing_to_remove() -> None:
-    """A catalog opener can't know every requested action ran: PR-A has no
-    ledger of what was requested, so "nothing to remove" could be false (the
-    planner may have dropped one of the actions). The outcome block states
-    per-step zeros; whole-turn lines wait for the PR-B ledger."""
-    assert "friend.opener.nothing_to_remove" not in {p.id for p in CATALOG}
-    assert not [p.id for p in CATALOG if "nothing to remove" in p.text.lower()]
+# -- Entries whose truth depends on what was requested (PR-B ledger) -------------------
+
+_REQUEST_DEPENDENT = {
+    "friend.opener.nothing_to_remove",
+    "friend.closer.anything_else",
+    "friend.closer.whats_next",
+    "focus.closer.anything_else",
+}
 
 
-def test_no_closer_implies_the_request_is_finished() -> None:
-    """M1: "Anything else?" / "What's next on the list?" presuppose that the
-    request is done, and PR-A has no ledger of what was requested. Closers come
-    back only when the ledger confirms every requested action is DONE (PR-B)."""
-    removed = {
+def _ledger_done(capability: str, removed: int | None, source: str = _BRAIN) -> ActionOutcome:
+    return replace(_done(capability, removed), source=source)
+
+
+def _not_done(capability: str, reason: str, source: str = _BRAIN) -> ActionOutcome:
+    return ActionOutcome(capability, NOT_DONE, reason=reason, source=source)
+
+
+# Reports where the request is NOT complete, though every step that ran passed.
+_INCOMPLETE = {
+    # PR-A review's C1 variant: the planner dropped empty-row removal; dedupe found nothing.
+    "C1-nothing-to-dedupe": _report(
+        _ledger_done(_DEDUPE, 0), _not_done(_EMPTY, NOT_PLANNED)
+    ),
+    "C1": _report(_ledger_done(_DEDUPE, 2), _not_done(_EMPTY, NOT_PLANNED)),
+    # C3 / N1: only the mention detector has the unrun action.
+    "C3": _report(
+        _ledger_done(_DEDUPE, 2), _not_done(_EMPTY, NOT_READ_AS_REQUEST, _MENTION)
+    ),
+    "N1": _report(
+        _ledger_done(_EMPTY, 0), _not_done(_DEDUPE, NOT_READ_AS_REQUEST, _MENTION)
+    ),
+    # N5: unrequested work ran, the requested action didn't.
+    "N5": _report(
+        ActionOutcome(
+            _DEDUPE, DONE_UNREQUESTED, StepMeasurement(DUPLICATE_ROWS_TARGET, 4, 0, removed=0)
+        ),
+        _not_done(_EMPTY, NOT_PLANNED),
+    ),
+    "unrequested-extra": _report(
+        _ledger_done(_EMPTY, 0),
+        ActionOutcome(
+            _DEDUPE, DONE_UNREQUESTED, StepMeasurement(DUPLICATE_ROWS_TARGET, 4, 0, removed=0)
+        ),
+    ),
+    "dedupe-and-sort": _report(_ledger_done(_DEDUPE, 0), _not_done("", NO_SKILL)),
+    # No reading of the request at all (PR-A's only case): nothing is confirmed.
+    "no-reading": _report(_done(_DEDUPE, 0), _done(_EMPTY, 0)),
+    # H1: a mention entry never confirms a request, even when Brain gave no reading.
+    "mention-only-done": _report(_ledger_done(_DEDUPE, 2, _MENTION)),
+    "mention-and-brain-done": _report(_ledger_done(_EMPTY, 1), _ledger_done(_DEDUPE, 2, _MENTION)),
+}
+
+# Reports where every requested action is done and nothing else ran.
+_COMPLETE = {
+    "single": _report(_ledger_done(_DEDUPE, 2)),
+    "single-nothing": _report(_ledger_done(_DEDUPE, 0, _INTENT)),
+    "chain": _report(_ledger_done(_EMPTY, 1), _ledger_done(_DEDUPE, 2, _INTENT)),
+    "chain-nothing": _report(_ledger_done(_EMPTY, 0), _ledger_done(_DEDUPE, 0)),
+    "no-count": _report(_ledger_done(_DEDUPE, None)),
+}
+
+
+@pytest.mark.parametrize("name", sorted(_INCOMPLETE))
+def test_no_request_dependent_entry_is_eligible_unless_the_request_is_complete(name: str) -> None:
+    """Review M1 and PR-A's dropped "nothing to remove": these entries presuppose
+    that every requested action is done, so a report with anything NOT_DONE,
+    anything DONE_UNREQUESTED, or no ledger at all never makes them eligible."""
+    report = _INCOMPLETE[name]
+    assert not report.request_complete
+
+    assert not _REQUEST_DEPENDENT & _eligible_ids(report)
+    for mode in MODES:
+        assert [p.text for p in eligible_phrases(report, mode, "closer")] == [""]
+
+
+@pytest.mark.parametrize("name", sorted(_COMPLETE))
+def test_closers_come_back_when_the_request_is_complete(name: str) -> None:
+    report = _COMPLETE[name]
+    assert report.request_complete
+
+    closers = _eligible_ids(report) & _REQUEST_DEPENDENT - {"friend.opener.nothing_to_remove"}
+    assert closers == {
         "friend.closer.anything_else",
         "friend.closer.whats_next",
         "focus.closer.anything_else",
     }
-    assert not removed & {p.id for p in CATALOG}
-    assert [p.text for p in CATALOG if p.slot == "closer"] == ["", ""]
-    for report in _REPORTS:
-        for mode in MODES:
-            assert [p.text for p in eligible_phrases(report, mode, "closer")] == [""]
+    # ... but never as a second question after the analysis findings' own.
+    with_findings = replace(report, open_findings=1)
+    for mode in MODES:
+        assert [p.text for p in eligible_phrases(with_findings, mode, "closer")] == [""]
+
+
+def test_nothing_to_remove_needs_every_requested_action_done_with_a_confirmed_zero() -> None:
+    phrase = "friend.opener.nothing_to_remove"
+    assert phrase in _eligible_ids(_COMPLETE["single-nothing"])
+    assert phrase in _eligible_ids(_COMPLETE["chain-nothing"])
+    for report in (
+        _COMPLETE["single"],  # something was removed
+        _COMPLETE["chain"],
+        _COMPLETE["no-count"],  # the count isn't confirmed
+        _report(_ledger_done(_EMPTY, 0), _ledger_done(_DEDUPE, 2)),  # one step removed rows
+    ):
+        assert phrase not in _eligible_ids(report)
+
+
+def test_partial_opener_follows_the_partly_done_lead_word() -> None:
+    """Decision D2: an action only the mention detector found (C3, N1) never
+    makes the reply "partly done"."""
+    phrase = "friend.opener.partial"
+    for name, report in {**_INCOMPLETE, **_COMPLETE}.items():
+        expected = report.lead_word == "Partly done"
+        assert (phrase in _eligible_ids(report)) is expected, name
+    assert phrase in _eligible_ids(_INCOMPLETE["C1"])
+    assert phrase in _eligible_ids(_INCOMPLETE["dedupe-and-sort"])
+    assert phrase not in _eligible_ids(_INCOMPLETE["C3"])
+    assert phrase not in _eligible_ids(_INCOMPLETE["N1"])
+    assert phrase not in _eligible_ids(_INCOMPLETE["N5"])
+
+
+# What each entry's text claims, stated independently of its predicate: an
+# entry may be eligible only when its claim holds for what ran AND what was
+# requested. Entries that claim nothing map to None.
+def _all_requested_done(report: OutcomeReport) -> bool:
+    ledger = [a for a in report.actions if a.source]
+    return bool(ledger) and len(ledger) == len(report.actions) and all(
+        a.status == DONE for a in ledger
+    )
+
+
+_CLAIMS = {
+    "friend.opener.neutral": None,
+    "friend.opener.rundown": None,
+    "friend.opener.seeing_double": lambda r: any(
+        a.capability == _DEDUPE and a.status == DONE and (a.measurement.removed_data or 0) >= 1
+        for a in r.actions
+        if a.measurement is not None
+    ),
+    "friend.opener.blank_rows": lambda r: any(
+        a.capability == _EMPTY and a.status == DONE and (a.measurement.removed or 0) >= 1
+        for a in r.actions
+        if a.measurement is not None
+    ),
+    "friend.opener.nothing_to_remove": lambda r: _all_requested_done(r)
+    and all(a.measurement is not None and a.measurement.removed == 0 for a in r.actions),
+    "friend.opener.partial": lambda r: any(
+        a.status == DONE and a.source for a in r.actions
+    )
+    and any(a.status == NOT_DONE and a.source in (_BRAIN, _INTENT) for a in r.actions),
+    "friend.closer.none": None,
+    "friend.closer.anything_else": _all_requested_done,
+    "friend.closer.whats_next": _all_requested_done,
+    "focus.opener.none": None,
+    "focus.closer.none": None,
+    "focus.closer.anything_else": _all_requested_done,
+}
+
+
+def test_every_entry_is_eligible_only_when_its_text_is_true() -> None:
+    assert set(_CLAIMS) == {p.id for p in CATALOG}  # a new entry needs a stated claim
+    reports = (*_REPORTS, *_INCOMPLETE.values(), *_COMPLETE.values())
+    for phrase in CATALOG:
+        claim = _CLAIMS[phrase.id]
+        for report in reports:
+            if claim is not None and phrase.when(report):
+                assert claim(report), (phrase.id, report)
 
 
 def test_seeing_double_does_not_fire_for_repeated_blank_rows_alone() -> None:

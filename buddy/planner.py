@@ -7,6 +7,7 @@ import re
 from dataclasses import dataclass, replace
 from typing import Protocol
 
+from buddy.actions import INTENT_CAPABILITIES
 from buddy.llm import LLMMessage, LLMProvider
 from buddy.models import PlanningStep, Understanding
 from buddy.state import BuddyState
@@ -96,12 +97,6 @@ class NullPlanner:
         return ()
 
 
-_INTENT_CAPABILITIES: dict[str, str] = {
-    "remove_duplicate_rows": "spreadsheet.deduplicate",
-    "remove_empty_rows": "spreadsheet.remove_empty_rows",
-}
-
-
 class RuleBasedPlanner:
     """A ``PlanningStrategy`` that mechanically maps known intents to one step.
 
@@ -130,7 +125,7 @@ class RuleBasedPlanner:
             available; otherwise an empty tuple.
         """
         intent = request.understanding.intent
-        capability = _INTENT_CAPABILITIES.get(intent) if intent else None
+        capability = INTENT_CAPABILITIES.get(intent) if intent else None
         target_file = request.active_file or (
             request.uploaded_files[-1] if request.uploaded_files else None
         )

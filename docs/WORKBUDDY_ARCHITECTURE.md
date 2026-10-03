@@ -147,13 +147,22 @@ the tone rules in `BUDDY_PERSONALITY.md`. Speak is the only stage that
 produces user-facing language.
 
 No model writes reply text. On a turn that delivered a verified file, the
-outcome (what was done, the counts the verifiers measured, the order used
-when it couldn't be confirmed, and the file) is rendered by code
-(`buddy/outcome.py`) from `ExecutionResult` and `VerificationResult`, and
-the personality around it is an opener and a closer chosen by code from a
-reviewed phrase catalog (`buddy/voice_catalog.py`). Every other turn gets
+outcome (what was done, the counts the verifiers measured, what was
+requested but not done and why, what ran without being requested, what's
+still in the file, the order used when it couldn't be confirmed, and the
+file) is rendered by code (`buddy/outcome.py`) from `ExecutionResult`,
+`VerificationResult` and the requested-actions ledger, and the personality
+around it is an opener and a closer chosen by code from a reviewed phrase
+catalog (`buddy/voice_catalog.py`). Every other turn gets
 `TemplateSpeaker`'s factual reply. See
 `docs/design/verified-outcome-design.md`.
+
+The ledger lists what the user asked for: Brain's `requested_actions`
+(a closed vocabulary with the user's own words), its single-action intent,
+and anything a deterministic mention detector (`MentionCrossCheck`) finds in
+the message that Brain didn't list. The action table in `buddy/actions.py`
+is the one place an action's capability, wording and mention pattern live.
+The ledger never changes routing: the planner follows Brain's intent.
 
 ## 5. BuddyState
 

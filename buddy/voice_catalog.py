@@ -7,8 +7,16 @@ picks reply text (``docs/design/verified-outcome-design.md``, decision D1).
 
 Every entry is reviewed together with its eligibility predicate. An entry
 that says anything about the file or the work is eligible only when the
-``OutcomeReport`` makes it true. Entries carry no placeholders and no
-numbers, so a count can only ever come from the outcome block.
+``OutcomeReport`` makes it true, given both what ran and what was
+requested (the requested-actions ledger). Entries carry no placeholders and
+no numbers, so a count can only ever come from the outcome block.
+
+Two kinds of entry depend on the whole request, not just on what ran:
+closers that presuppose the request is finished ("Anything else?", "What's
+next on the list?") and the "nothing to remove" opener. They are eligible
+only when ``OutcomeReport.request_complete`` holds: every ledger action is
+``DONE`` and nothing ran that the ledger doesn't have (review M1 and the
+dropped ``nothing_to_remove`` of PR-A).
 
 Adding an entry: give it a unique id (``<mode>.<slot>.<name>``), keep its
 text free of completion claims (``buddy.voice._COMPLETION_CLAIM``; the
@@ -21,7 +29,7 @@ import hashlib
 from collections.abc import Callable
 from dataclasses import dataclass
 
-from buddy.outcome import DONE, OutcomeReport
+from buddy.outcome import DONE, LEAD_PARTLY_DONE, OutcomeReport
 
 OPENER = "opener"
 CLOSER = "closer"
@@ -71,6 +79,39 @@ def _removed_some(capability: str) -> Callable[[OutcomeReport], bool]:
     return predicate
 
 
+def _nothing_to_remove(report: OutcomeReport) -> bool:
+    """Eligible when every requested action ran, and each measurably removed nothing.
+
+    ``request_complete`` means the ledger has nothing that wasn't done and
+    nothing ran that it doesn't have; ``removed == 0`` is the verifier's
+    confirmed count (``None`` never qualifies), repeated blank rows included.
+    """
+    return report.request_complete and all(
+        action.measurement is not None and action.measurement.removed == 0
+        for action in report.actions
+    )
+
+
+def _request_complete_and_nothing_asked(report: OutcomeReport) -> bool:
+    """Eligible when the request is complete and the reply asks nothing else.
+
+    For closers that presuppose the request is finished ("What's next on
+    the list?"). ``open_findings == 0`` keeps them from asking a second
+    question after "Want me to tackle any of these?".
+    """
+    return report.request_complete and report.open_findings == 0
+
+
+def _partly_done(report: OutcomeReport) -> bool:
+    """Eligible exactly when the outcome block leads with "Partly done —".
+
+    That is, part of Brain's reading of the request was done and part
+    wasn't. An action only the mention detector found never makes it
+    eligible (decision D2).
+    """
+    return report.lead_word == LEAD_PARTLY_DONE
+
+
 CATALOG: tuple[Phrase, ...] = (
     # Friend mode: warm, with a light touch that's specific to what happened.
     Phrase("friend.opener.neutral", "friend", OPENER, "Here's where things landed.", _always),
@@ -89,10 +130,45 @@ CATALOG: tuple[Phrase, ...] = (
         "Those blank rows were just taking up space.",
         _removed_some("spreadsheet.remove_empty_rows"),
     ),
+    Phrase(
+        "friend.opener.nothing_to_remove",
+        "friend",
+        OPENER,
+        "Short one: there was nothing to remove.",
+        _nothing_to_remove,
+    ),
+    Phrase(
+        "friend.opener.partial",
+        "friend",
+        OPENER,
+        "Heads-up: only part of this went through.",
+        _partly_done,
+    ),
     Phrase("friend.closer.none", "friend", CLOSER, "", _always),
+    Phrase(
+        "friend.closer.anything_else",
+        "friend",
+        CLOSER,
+        "Anything else you want me to look at?",
+        _request_complete_and_nothing_asked,
+    ),
+    Phrase(
+        "friend.closer.whats_next",
+        "friend",
+        CLOSER,
+        "What's next on the list?",
+        _request_complete_and_nothing_asked,
+    ),
     # Focus mode: no opener, and at most a two-word closer.
     Phrase("focus.opener.none", "focus", OPENER, "", _always),
     Phrase("focus.closer.none", "focus", CLOSER, "", _always),
+    Phrase(
+        "focus.closer.anything_else",
+        "focus",
+        CLOSER,
+        "Anything else?",
+        _request_complete_and_nothing_asked,
+    ),
 )
 
 
