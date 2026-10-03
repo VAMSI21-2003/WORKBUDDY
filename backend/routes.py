@@ -8,17 +8,23 @@ session's (threading) lock never blocks the event loop.
 
 from __future__ import annotations
 
+import hashlib
+import logging
 from typing import Annotated, Any
+from urllib.parse import quote
 
 from fastapi import APIRouter, File, Request, UploadFile
+from fastapi.responses import Response
 from starlette.concurrency import run_in_threadpool
 
 from backend import views
+from backend.delivery import check_turn_file
 from backend.errors import ApiError, ErrorCode
 from backend.schemas import (
     CreateSessionRequest,
     CreateTurnRequest,
     ErrorBody,
+    FileList,
     FinishedTurn,
     Health,
     RunningTurn,
@@ -39,8 +45,12 @@ from backend.settings import Settings
 from backend.turns import TurnRunner
 from backend.uploads import check_extension, discard_folder, sanitize_name, store_upload
 
+logger = logging.getLogger(__name__)
+
 health_router = APIRouter()
 router = APIRouter(prefix="/api/v1")
+
+XLSX_MEDIA_TYPE = "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
 
 _DESCRIPTIONS = {
     404: "Not found",
@@ -223,3 +233,57 @@ def get_turn(request: Request, session_id: str, turn_id: str) -> RunningTurn | F
         if turn is None:
             raise ApiError(ErrorCode.TURN_NOT_FOUND)
         return views.turn_out(session_id, turn)
+
+
+@router.get(
+    "/sessions/{session_id}/files",
+    response_model=FileList,
+    responses=errors(404),
+    tags=["files"],
+)
+def list_files(request: Request, session_id: str) -> FileList:
+    """Uploads (not downloadable) and the files finished turns delivered (downloadable)."""
+    record = session_of(request, session_id)
+    with record.lock:
+        return views.file_list(record)
+
+
+@router.get(
+    "/sessions/{session_id}/files/{file_id}/download",
+    response_class=Response,
+    responses={
+        200: {
+            "description": "The delivered file",
+            "content": {XLSX_MEDIA_TYPE: {"schema": {"type": "string", "format": "binary"}}},
+        },
+        **errors(404, 410),
+    },
+    tags=["files"],
+)
+def download_file(request: Request, session_id: str, file_id: str) -> Response:
+    """A file a finished turn delivered. Uploads and anything else are ``404``.
+
+    The file is re-checked first: if it's gone, or its SHA-256 no longer
+    matches the one recorded when it was delivered, the answer is ``410``.
+    The bytes sent are the bytes checked.
+    """
+    settings = settings_of(request)
+    record = session_of(request, session_id)
+    if not valid_id(file_id):
+        raise ApiError(ErrorCode.FILE_NOT_FOUND)
+    with record.lock:
+        delivered = next((d for d in record.delivered() if d.file_id == file_id), None)
+        if delivered is None:
+            raise ApiError(ErrorCode.FILE_NOT_FOUND)
+        turn_dir = record.turn_dir(settings, delivered.turn_id)
+    checked = check_turn_file(delivered.path, turn_dir)
+    if checked is None or hashlib.sha256(checked[1]).hexdigest() != delivered.sha256:
+        logger.warning("Delivered file %s of session %s is unavailable", file_id, record.key)
+        raise ApiError(ErrorCode.FILE_UNAVAILABLE)
+    name = sanitize_name(delivered.name) or "download.xlsx"
+    media_type = XLSX_MEDIA_TYPE if name.lower().endswith(".xlsx") else "application/octet-stream"
+    return Response(
+        content=checked[1],
+        media_type=media_type,
+        headers={"Content-Disposition": f"attachment; filename*=UTF-8''{quote(name, safe='')}"},
+    )
