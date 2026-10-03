@@ -6,7 +6,9 @@ import logging
 
 import pytest
 
+from buddy.models import ExecutionResult, VerificationResult
 from buddy.state import BuddyState, StageFailure
+from buddy.voice import is_verified_delivery
 from core.engine import CognitiveCycle, Engine
 
 
@@ -133,6 +135,22 @@ def test_voice_raising_still_propagates() -> None:
 
     with pytest.raises(RuntimeError, match="voice broke"):
         engine.run(state)
+
+
+def test_voice_raising_sets_failure_before_propagating() -> None:
+    """Review M1 (pipeline-failure-and-output-dir): the state Voice leaves
+    behind must not look like a verified delivery."""
+    engine = Engine(_cycle([], voice=_raises("voice broke")))
+    state = BuddyState.new(session_id="session-1", workspace_id="workspace-1")
+    state.execution_result = ExecutionResult(success=True, outputs=("out.xlsx",))
+    state.verification_result = VerificationResult(passed=True)
+
+    with pytest.raises(RuntimeError, match="voice broke"):
+        engine.run(state)
+
+    assert state.failure == StageFailure(stage="voice", error_type="RuntimeError")
+    assert state.reply is None
+    assert is_verified_delivery(state) is False
 
 
 def test_voice_raising_after_an_earlier_failure_still_propagates() -> None:

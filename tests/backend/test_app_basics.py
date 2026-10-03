@@ -162,6 +162,12 @@ def test_redact_masks_each_secret_pattern(secret: str) -> None:
     assert redacted.startswith("before ") and redacted.endswith(" after")
 
 
+def test_redact_masks_a_session_id_in_a_request_path() -> None:
+    line = 'GET /api/v1/sessions/s_AbC-123_xyz/turns/t0001 HTTP/1.1" 200'
+
+    assert redact(line) == f'GET /api/v1/sessions/{REDACTED}/turns/t0001 HTTP/1.1" 200'
+
+
 def test_installed_redaction_masks_messages_args_and_tracebacks(
     caplog: pytest.LogCaptureFixture,
 ) -> None:

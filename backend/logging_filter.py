@@ -18,11 +18,14 @@ from typing import Any
 
 REDACTED = "[REDACTED]"
 
+# (pattern, replacement). A session id is a bearer secret too: it appears in
+# request paths, which an access log records, so it is masked there.
 _PATTERNS = (
-    re.compile(r"gsk_[A-Za-z0-9]+"),
-    re.compile(r"sk-ant-[A-Za-z0-9_\-]+"),
-    re.compile(r"(?i)\bBearer\s+[^\s'\",;]+"),
-    re.compile(r"(?i)\bapi[_-]?key\s*[=:]\s*['\"]?[^\s'\",;]+"),
+    (re.compile(r"gsk_[A-Za-z0-9]+"), REDACTED),
+    (re.compile(r"sk-ant-[A-Za-z0-9_\-]+"), REDACTED),
+    (re.compile(r"(?i)\bBearer\s+[^\s'\",;]+"), REDACTED),
+    (re.compile(r"(?i)\bapi[_-]?key\s*[=:]\s*['\"]?[^\s'\",;]+"), REDACTED),
+    (re.compile(r"(/sessions/)[A-Za-z0-9_\-%.]+"), r"\1" + REDACTED),
 )
 
 _lock = threading.Lock()
@@ -30,9 +33,9 @@ _installed = False
 
 
 def redact(text: str) -> str:
-    """``text`` with every match of a secret pattern replaced by ``[REDACTED]``."""
-    for pattern in _PATTERNS:
-        text = pattern.sub(REDACTED, text)
+    """``text`` with every secret (a key, a bearer token, a session id in a path) masked."""
+    for pattern, replacement in _PATTERNS:
+        text = pattern.sub(replacement, text)
     return text
 
 
