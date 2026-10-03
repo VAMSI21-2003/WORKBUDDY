@@ -179,7 +179,12 @@ class SessionRegistry:
                 raise RuntimeError("session key collision")
             self._sessions[key] = record
         if self._store is not None:
-            self._store.create_session(record)
+            try:
+                self._store.create_session(record)
+            except BaseException:
+                with self._lock:
+                    self._sessions.pop(key, None)
+                raise
         logger.info("Created session %s", key)
         return session_id, record
 

@@ -21,6 +21,7 @@ from backend.routes import health_router, router
 from backend.schemas import ErrorBody
 from backend.sessions import SessionRegistry
 from backend.settings import Settings
+from backend.store import SessionStore
 from backend.turns import EngineFactory, TurnRunner
 from buddy.engine_factory import build_engine
 from buddy.hands import ConfirmationProvider
@@ -116,7 +117,9 @@ def create_app(
     )
     app.state.settings = settings
     app.state.llm_configured = configured
-    registry = SessionRegistry(settings)
+    for folder in (settings.uploads_dir, settings.outputs_dir, settings.sessions_dir):
+        folder.mkdir(parents=True, exist_ok=True, mode=0o700)
+    registry = SessionRegistry(settings, SessionStore(settings))
     app.state.registry = registry
     app.state.runner = TurnRunner(settings, engine_factory, registry)
 

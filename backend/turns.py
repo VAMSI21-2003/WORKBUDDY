@@ -213,14 +213,19 @@ class TurnRunner:
                     ErrorCode.SERVER_BUSY,
                     headers={"Retry-After": str(settings.busy_retry_after_s)},
                 )
+            turn: TurnRecord | None = None
+            turn_dir: Path | None = None
             try:
-                turn_id = f"t{record.next_seq:04d}"
+                seq = record.next_seq
+                # The number is used up even if what follows fails, so a retry
+                # never lands on a folder this attempt created.
+                record.next_seq += 1
+                turn_id = f"t{seq:04d}"
                 turn_dir = record.turn_dir(settings, turn_id)
                 turn_dir.parent.mkdir(parents=True, exist_ok=True, mode=0o700)
                 # A folder that already exists means something is wrong: refuse
                 # rather than reuse it (design Section 3.4).
                 turn_dir.mkdir(mode=0o700, exist_ok=False)
-                record.next_seq += 1
 
                 expected = {f.file_id: (f.path, f.sha256) for f in record.files.values()}
                 work = copy.deepcopy(record.state)
@@ -235,7 +240,7 @@ class TurnRunner:
 
                 turn = TurnRecord(
                     turn_id=turn_id,
-                    seq=record.next_seq - 1,
+                    seq=seq,
                     message=message,
                     mode=work.context.mode,
                     started_at=self._clock(),
@@ -245,6 +250,10 @@ class TurnRunner:
                 record.running_turn_id = turn_id
                 self._registry.saved(record, turn)
             except BaseException:
+                if turn is not None and turn in record.turns:
+                    record.turns.remove(turn)
+                    record.running_turn_id = None
+                    _remove_empty(turn_dir)
                 self._release_slot()
                 raise
 
@@ -350,7 +359,12 @@ class TurnRunner:
             turn.finished_at = now
             turn.status = FINISHED
             record.running_turn_id = None
-            self._registry.saved(record, turn)
+            try:
+                self._registry.saved(record, turn)
+            except Exception:
+                # The finished turn stands in memory; only its durable copy is
+                # missing, and a restart will report it as interrupted.
+                logger.exception("Turn %s: the finished record couldn't be saved", turn.turn_id)
         logger.info(
             "Turn %s for session %s finished: %s (%s)",
             turn.turn_id,
@@ -375,3 +389,12 @@ def _file_id_for(record: SessionRecord, path: str | None) -> str | None:
     if path is None:
         return None
     return next((f.file_id for f in record.files.values() if str(f.path) == path), None)
+
+
+def _remove_empty(folder: Path | None) -> None:
+    if folder is None:
+        return
+    try:
+        folder.rmdir()
+    except OSError:
+        pass

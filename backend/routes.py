@@ -179,12 +179,25 @@ async def upload_file(
             if record.busy:  # a turn started while the file was being written
                 discard_folder(folder)
                 raise ApiError(ErrorCode.SESSION_BUSY)
-            record.files[file_id] = upload
             context = record.state.context
+            rollback = (
+                list(context.uploaded_files),
+                context.active_file,
+                record.active_file_id,
+            )
+            record.files[file_id] = upload
             context.add_uploaded_file(str(upload.path))
             context.switch_active_file(str(upload.path))
             record.active_file_id = file_id
-            registry_of(request).saved(record)
+            try:
+                registry_of(request).saved(record)
+            except BaseException:
+                del record.files[file_id]
+                context.uploaded_files[:] = rollback[0]
+                context.switch_active_file(rollback[1])
+                record.active_file_id = rollback[2]
+                discard_folder(folder)
+                raise
 
     await run_in_threadpool(register)
     return views.uploaded_file(upload)
