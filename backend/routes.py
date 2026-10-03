@@ -8,9 +8,10 @@ session's (threading) lock never blocks the event loop.
 
 from __future__ import annotations
 
-from typing import Any
+from typing import Annotated, Any
 
-from fastapi import APIRouter, Request
+from fastapi import APIRouter, File, Request, UploadFile
+from starlette.concurrency import run_in_threadpool
 
 from backend import views
 from backend.errors import ApiError, ErrorCode
@@ -20,9 +21,17 @@ from backend.schemas import (
     Health,
     SessionCreated,
     SessionState,
+    UploadedFile,
 )
-from backend.sessions import SessionRecord, SessionRegistry
+from backend.sessions import (
+    SessionRecord,
+    SessionRegistry,
+    UploadRecord,
+    new_file_id,
+    utc_now,
+)
 from backend.settings import Settings
+from backend.uploads import check_extension, discard_folder, sanitize_name, store_upload
 
 health_router = APIRouter()
 router = APIRouter(prefix="/api/v1")
@@ -101,3 +110,61 @@ def get_session(request: Request, session_id: str) -> SessionState:
     record = session_of(request, session_id)
     with record.lock:
         return views.session_state(session_id, record, settings_of(request))
+
+
+@router.post(
+    "/sessions/{session_id}/files",
+    status_code=201,
+    response_model=UploadedFile,
+    responses=errors(404, 409, 413, 415, 422),
+    tags=["files"],
+)
+async def upload_file(
+    request: Request, session_id: str, file: Annotated[UploadFile, File()]
+) -> UploadedFile:
+    """Upload one ``.xlsx`` (one part named ``file``). It becomes the active file.
+
+    The stored name is sanitized, so it may differ from what was sent. The
+    file is never modified afterwards, and isn't downloadable through the
+    API (the user already has it).
+    """
+    settings = settings_of(request)
+    record = await run_in_threadpool(session_of, request, session_id)
+    form = await request.form()
+    if len(form.getlist("file")) != 1 or any(
+        key != "file" and not isinstance(value, str) for key, value in form.multi_items()
+    ):
+        raise ApiError(ErrorCode.INVALID_REQUEST)
+    with record.lock:
+        if record.busy:
+            raise ApiError(ErrorCode.SESSION_BUSY)
+    name = sanitize_name(file.filename or "")
+    check_extension(name, settings)
+    assert name is not None
+
+    file_id = new_file_id()
+    folder = record.upload_dir(settings, file_id)
+    stored = await run_in_threadpool(store_upload, file.file, folder, name, settings)
+    upload = UploadRecord(
+        file_id=file_id,
+        name=stored.name,
+        size=stored.size,
+        sha256=stored.sha256,
+        uploaded_at=utc_now(),
+        path=stored.path,
+    )
+
+    def register() -> None:
+        with record.lock:
+            if record.busy:  # a turn started while the file was being written
+                discard_folder(folder)
+                raise ApiError(ErrorCode.SESSION_BUSY)
+            record.files[file_id] = upload
+            context = record.state.context
+            context.add_uploaded_file(str(upload.path))
+            context.switch_active_file(str(upload.path))
+            record.active_file_id = file_id
+            registry_of(request).saved(record)
+
+    await run_in_threadpool(register)
+    return views.uploaded_file(upload)

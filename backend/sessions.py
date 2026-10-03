@@ -183,6 +183,11 @@ class SessionRegistry:
         logger.info("Created session %s", key)
         return session_id, record
 
+    def saved(self, record: SessionRecord) -> None:
+        """Persist ``record`` after a change. The caller holds its lock."""
+        if self._store is not None:
+            self._store.save_session(record)
+
     def get(self, session_id: str) -> SessionRecord | None:
         """The session for ``session_id``, or ``None`` if there isn't one.
 
