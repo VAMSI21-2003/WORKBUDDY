@@ -1065,3 +1065,27 @@ Not changed: same-origin deployment with empty CORS (Section 6.1, part 1 item 1)
 - the global byte cap on the data root, which depends on the host.
 
 **Not addressed here: the frontend review's C5.** The plan is built before `Hands` runs, but a step's permission tier is only known after dispatch (`buddy/hands.py:240-252`; `CapabilityRequest` has no tier). PR-3 must resolve tiers through the Dispatcher before publishing the plan, or the plan can list the wrong steps. That's for PR-3's design and review.
+
+---
+
+## Decisions (2026-10-04)
+
+An owner decision, recorded with PR-2 (`feat/backend-api-core`). Where this section conflicts with an earlier one, **this section wins**. Earlier text isn't edited.
+
+### 1. `.xls` is out of scope
+
+- **Accepted extensions are `[".xlsx"]` only.** That is the upload validator's allowlist itself (`backend/settings.py`, `ACCEPTED_EXTENSIONS`), and what `limits.accepted_extensions` reports in the session response, from the same object.
+- **`xlrd` is not added** to `requirements.txt` or `pyproject.toml`.
+- **An `.xls` upload is refused** with `415 unsupported_file_type` and a fixed message of its own (`backend/errors.py`, `XLS_MESSAGE`): "Older .xls workbooks aren't supported. Save the file as .xlsx (Excel Workbook) and upload that." The check is on the sanitized name's extension, case-insensitively, before anything is written. Every other extension outside the allowlist gets the code's general message ("Only .xlsx files can be uploaded."). OLE2 content under an `.xlsx` name fails the content sniff (`422 invalid_file`), so an `.xls` can't get in renamed either.
+
+### What this supersedes
+
+- **Part 1, item 4** (".xls is accepted", "PR-1 adds `xlrd`", the `.xls` fixture test for PR-2/PR-3, and "a missing `xlrd` is a startup failure"). None of it applies: there is no `.xls` path.
+- **Section 6.2**: the extension row ("`.xlsx`, `.xls` … `.xls` is accepted only if `xlrd` imports at startup") now reads `.xlsx` only, and the `.xls` half of the content-sniff row (OLE2 header) no longer applies.
+- **Part 2, ask 2**: the example `"accepted_extensions": [".xlsx", ".xls"]` is `[".xlsx"]`, and "`.xls` is in it only in the PR that adds the `.xls` fixture test" no longer arises.
+- **Section 9.1, item 3** (whether `.xls` ships now): answered, no.
+- **"Decisions (2026-10-01)", item 6, ".xls isn't covered"**, and **item 9's owner question** (whether `.xls` may be on for the public link before its sheets can be checked): answered, no. The multi-sheet refusal only ever has to handle `.xlsx`.
+
+### Not changed
+
+The skills still refuse an OLE2 workbook inside a turn ("older .xls workbooks … aren't supported yet"), and backlog 1a's note stands: don't add `xlrd` until the sheet count covers chart sheets, macro sheets and VB modules, which `xlrd` skips. Turning `.xls` on later needs a new owner decision, that work, and a fixture test that an `.xls` upload is cleaned, delivered under the name and format the reply states, and left byte-identical.

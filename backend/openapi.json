@@ -1,0 +1,1529 @@
+{
+  "components": {
+    "schemas": {
+      "Body_upload_file_api_v1_sessions__session_id__files_post": {
+        "properties": {
+          "file": {
+            "contentMediaType": "application/octet-stream",
+            "title": "File",
+            "type": "string"
+          }
+        },
+        "required": [
+          "file"
+        ],
+        "title": "Body_upload_file_api_v1_sessions__session_id__files_post",
+        "type": "object"
+      },
+      "CreateSessionRequest": {
+        "additionalProperties": false,
+        "properties": {
+          "mode": {
+            "default": "friend",
+            "enum": [
+              "friend",
+              "focus"
+            ],
+            "title": "Mode",
+            "type": "string"
+          }
+        },
+        "title": "CreateSessionRequest",
+        "type": "object"
+      },
+      "CreateTurnRequest": {
+        "additionalProperties": false,
+        "properties": {
+          "file_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "File Id"
+          },
+          "message": {
+            "title": "Message",
+            "type": "string"
+          },
+          "mode": {
+            "anyOf": [
+              {
+                "enum": [
+                  "friend",
+                  "focus"
+                ],
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Mode"
+          }
+        },
+        "required": [
+          "message"
+        ],
+        "title": "CreateTurnRequest",
+        "type": "object"
+      },
+      "DeliveredFileOut": {
+        "properties": {
+          "download_url": {
+            "title": "Download Url",
+            "type": "string"
+          },
+          "file_id": {
+            "title": "File Id",
+            "type": "string"
+          },
+          "name": {
+            "title": "Name",
+            "type": "string"
+          },
+          "sha256": {
+            "title": "Sha256",
+            "type": "string"
+          },
+          "size": {
+            "title": "Size",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "file_id",
+          "name",
+          "size",
+          "sha256",
+          "download_url"
+        ],
+        "title": "DeliveredFileOut",
+        "type": "object"
+      },
+      "ErrorBody": {
+        "description": "The body of every non-2xx response.",
+        "properties": {
+          "error": {
+            "$ref": "#/components/schemas/ErrorDetail"
+          }
+        },
+        "required": [
+          "error"
+        ],
+        "title": "ErrorBody",
+        "type": "object"
+      },
+      "ErrorCode": {
+        "description": "Every error code the API returns. Nothing outside this enum is ever sent.",
+        "enum": [
+          "session_not_found",
+          "file_not_found",
+          "turn_not_found",
+          "not_found",
+          "method_not_allowed",
+          "file_too_large",
+          "request_too_large",
+          "unsupported_file_type",
+          "invalid_file",
+          "multiple_sheets",
+          "invalid_request",
+          "session_busy",
+          "server_busy",
+          "file_unavailable",
+          "internal_error"
+        ],
+        "title": "ErrorCode",
+        "type": "string"
+      },
+      "ErrorDetail": {
+        "properties": {
+          "code": {
+            "$ref": "#/components/schemas/ErrorCode"
+          },
+          "message": {
+            "title": "Message",
+            "type": "string"
+          }
+        },
+        "required": [
+          "code",
+          "message"
+        ],
+        "title": "ErrorDetail",
+        "type": "object"
+      },
+      "FileList": {
+        "properties": {
+          "files": {
+            "items": {
+              "$ref": "#/components/schemas/SessionFile"
+            },
+            "title": "Files",
+            "type": "array"
+          }
+        },
+        "required": [
+          "files"
+        ],
+        "title": "FileList",
+        "type": "object"
+      },
+      "FinishedTurn": {
+        "properties": {
+          "delivered_files": {
+            "items": {
+              "$ref": "#/components/schemas/DeliveredFileOut"
+            },
+            "title": "Delivered Files",
+            "type": "array"
+          },
+          "detail": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/TurnDetail"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "finished_at": {
+            "format": "date-time",
+            "title": "Finished At",
+            "type": "string"
+          },
+          "message": {
+            "title": "Message",
+            "type": "string"
+          },
+          "mode": {
+            "enum": [
+              "friend",
+              "focus"
+            ],
+            "title": "Mode",
+            "type": "string"
+          },
+          "outcome": {
+            "enum": [
+              "delivered",
+              "not_delivered",
+              "failed",
+              "integrity_failure"
+            ],
+            "title": "Outcome",
+            "type": "string"
+          },
+          "pending_confirmation": {
+            "title": "Pending Confirmation",
+            "type": "null"
+          },
+          "reply": {
+            "title": "Reply",
+            "type": "string"
+          },
+          "reply_source": {
+            "enum": [
+              "pipeline",
+              "pipeline_fallback"
+            ],
+            "title": "Reply Source",
+            "type": "string"
+          },
+          "seq": {
+            "title": "Seq",
+            "type": "integer"
+          },
+          "started_at": {
+            "format": "date-time",
+            "title": "Started At",
+            "type": "string"
+          },
+          "status": {
+            "const": "finished",
+            "title": "Status",
+            "type": "string"
+          },
+          "turn_id": {
+            "title": "Turn Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "turn_id",
+          "seq",
+          "message",
+          "mode",
+          "started_at",
+          "delivered_files",
+          "status",
+          "outcome",
+          "finished_at",
+          "reply",
+          "reply_source"
+        ],
+        "title": "FinishedTurn",
+        "type": "object"
+      },
+      "FinishedTurnSummary": {
+        "properties": {
+          "delivered_files": {
+            "items": {
+              "$ref": "#/components/schemas/DeliveredFileOut"
+            },
+            "title": "Delivered Files",
+            "type": "array"
+          },
+          "finished_at": {
+            "format": "date-time",
+            "title": "Finished At",
+            "type": "string"
+          },
+          "message": {
+            "title": "Message",
+            "type": "string"
+          },
+          "mode": {
+            "enum": [
+              "friend",
+              "focus"
+            ],
+            "title": "Mode",
+            "type": "string"
+          },
+          "outcome": {
+            "enum": [
+              "delivered",
+              "not_delivered",
+              "failed",
+              "integrity_failure"
+            ],
+            "title": "Outcome",
+            "type": "string"
+          },
+          "pending_confirmation": {
+            "title": "Pending Confirmation",
+            "type": "null"
+          },
+          "reply": {
+            "title": "Reply",
+            "type": "string"
+          },
+          "reply_source": {
+            "enum": [
+              "pipeline",
+              "pipeline_fallback"
+            ],
+            "title": "Reply Source",
+            "type": "string"
+          },
+          "seq": {
+            "title": "Seq",
+            "type": "integer"
+          },
+          "started_at": {
+            "format": "date-time",
+            "title": "Started At",
+            "type": "string"
+          },
+          "status": {
+            "const": "finished",
+            "title": "Status",
+            "type": "string"
+          },
+          "turn_id": {
+            "title": "Turn Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "turn_id",
+          "seq",
+          "message",
+          "mode",
+          "started_at",
+          "delivered_files",
+          "status",
+          "outcome",
+          "finished_at",
+          "reply",
+          "reply_source"
+        ],
+        "title": "FinishedTurnSummary",
+        "type": "object"
+      },
+      "Health": {
+        "properties": {
+          "llm_configured": {
+            "title": "Llm Configured",
+            "type": "boolean"
+          },
+          "ok": {
+            "title": "Ok",
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "ok",
+          "llm_configured"
+        ],
+        "title": "Health",
+        "type": "object"
+      },
+      "Limits": {
+        "description": "The limits the server enforces, read from the same settings it enforces them with.",
+        "properties": {
+          "accepted_extensions": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Accepted Extensions",
+            "type": "array"
+          },
+          "max_message_chars": {
+            "title": "Max Message Chars",
+            "type": "integer"
+          },
+          "max_upload_bytes": {
+            "title": "Max Upload Bytes",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "max_upload_bytes",
+          "accepted_extensions",
+          "max_message_chars"
+        ],
+        "title": "Limits",
+        "type": "object"
+      },
+      "RunningTurn": {
+        "properties": {
+          "delivered_files": {
+            "items": {
+              "$ref": "#/components/schemas/DeliveredFileOut"
+            },
+            "title": "Delivered Files",
+            "type": "array"
+          },
+          "detail": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/TurnDetail"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "finished_at": {
+            "title": "Finished At",
+            "type": "null"
+          },
+          "message": {
+            "title": "Message",
+            "type": "string"
+          },
+          "mode": {
+            "enum": [
+              "friend",
+              "focus"
+            ],
+            "title": "Mode",
+            "type": "string"
+          },
+          "outcome": {
+            "title": "Outcome",
+            "type": "null"
+          },
+          "pending_confirmation": {
+            "title": "Pending Confirmation",
+            "type": "null"
+          },
+          "reply": {
+            "title": "Reply",
+            "type": "null"
+          },
+          "reply_source": {
+            "title": "Reply Source",
+            "type": "null"
+          },
+          "seq": {
+            "title": "Seq",
+            "type": "integer"
+          },
+          "started_at": {
+            "format": "date-time",
+            "title": "Started At",
+            "type": "string"
+          },
+          "status": {
+            "const": "running",
+            "title": "Status",
+            "type": "string"
+          },
+          "turn_id": {
+            "title": "Turn Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "turn_id",
+          "seq",
+          "message",
+          "mode",
+          "started_at",
+          "delivered_files",
+          "status"
+        ],
+        "title": "RunningTurn",
+        "type": "object"
+      },
+      "RunningTurnSummary": {
+        "properties": {
+          "delivered_files": {
+            "items": {
+              "$ref": "#/components/schemas/DeliveredFileOut"
+            },
+            "title": "Delivered Files",
+            "type": "array"
+          },
+          "finished_at": {
+            "title": "Finished At",
+            "type": "null"
+          },
+          "message": {
+            "title": "Message",
+            "type": "string"
+          },
+          "mode": {
+            "enum": [
+              "friend",
+              "focus"
+            ],
+            "title": "Mode",
+            "type": "string"
+          },
+          "outcome": {
+            "title": "Outcome",
+            "type": "null"
+          },
+          "pending_confirmation": {
+            "title": "Pending Confirmation",
+            "type": "null"
+          },
+          "reply": {
+            "title": "Reply",
+            "type": "null"
+          },
+          "reply_source": {
+            "title": "Reply Source",
+            "type": "null"
+          },
+          "seq": {
+            "title": "Seq",
+            "type": "integer"
+          },
+          "started_at": {
+            "format": "date-time",
+            "title": "Started At",
+            "type": "string"
+          },
+          "status": {
+            "const": "running",
+            "title": "Status",
+            "type": "string"
+          },
+          "turn_id": {
+            "title": "Turn Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "turn_id",
+          "seq",
+          "message",
+          "mode",
+          "started_at",
+          "delivered_files",
+          "status"
+        ],
+        "title": "RunningTurnSummary",
+        "type": "object"
+      },
+      "SessionCreated": {
+        "properties": {
+          "created_at": {
+            "format": "date-time",
+            "title": "Created At",
+            "type": "string"
+          },
+          "limits": {
+            "$ref": "#/components/schemas/Limits"
+          },
+          "mode": {
+            "enum": [
+              "friend",
+              "focus"
+            ],
+            "title": "Mode",
+            "type": "string"
+          },
+          "retention_hours": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Hours an idle session is kept. Always null until a retention sweep exists.",
+            "title": "Retention Hours"
+          },
+          "session_id": {
+            "title": "Session Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "session_id",
+          "mode",
+          "created_at",
+          "limits",
+          "retention_hours"
+        ],
+        "title": "SessionCreated",
+        "type": "object"
+      },
+      "SessionFile": {
+        "properties": {
+          "delivered_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Delivered At"
+          },
+          "downloadable": {
+            "title": "Downloadable",
+            "type": "boolean"
+          },
+          "file_id": {
+            "title": "File Id",
+            "type": "string"
+          },
+          "kind": {
+            "enum": [
+              "upload",
+              "delivered"
+            ],
+            "title": "Kind",
+            "type": "string"
+          },
+          "name": {
+            "title": "Name",
+            "type": "string"
+          },
+          "size": {
+            "title": "Size",
+            "type": "integer"
+          },
+          "turn_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Turn Id"
+          },
+          "uploaded_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Uploaded At"
+          }
+        },
+        "required": [
+          "file_id",
+          "name",
+          "size",
+          "kind",
+          "downloadable"
+        ],
+        "title": "SessionFile",
+        "type": "object"
+      },
+      "SessionState": {
+        "properties": {
+          "active_file_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Active File Id"
+          },
+          "busy": {
+            "title": "Busy",
+            "type": "boolean"
+          },
+          "files": {
+            "items": {
+              "$ref": "#/components/schemas/UploadedFile"
+            },
+            "title": "Files",
+            "type": "array"
+          },
+          "limits": {
+            "$ref": "#/components/schemas/Limits"
+          },
+          "mode": {
+            "enum": [
+              "friend",
+              "focus"
+            ],
+            "title": "Mode",
+            "type": "string"
+          },
+          "pending_confirmation": {
+            "title": "Pending Confirmation",
+            "type": "null"
+          },
+          "retention_hours": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Retention Hours"
+          },
+          "session_id": {
+            "title": "Session Id",
+            "type": "string"
+          },
+          "turns": {
+            "items": {
+              "discriminator": {
+                "mapping": {
+                  "finished": "#/components/schemas/FinishedTurnSummary",
+                  "running": "#/components/schemas/RunningTurnSummary"
+                },
+                "propertyName": "status"
+              },
+              "oneOf": [
+                {
+                  "$ref": "#/components/schemas/RunningTurnSummary"
+                },
+                {
+                  "$ref": "#/components/schemas/FinishedTurnSummary"
+                }
+              ]
+            },
+            "title": "Turns",
+            "type": "array"
+          }
+        },
+        "required": [
+          "session_id",
+          "mode",
+          "busy",
+          "active_file_id",
+          "files",
+          "turns",
+          "limits",
+          "retention_hours"
+        ],
+        "title": "SessionState",
+        "type": "object"
+      },
+      "StepDetail": {
+        "properties": {
+          "capability": {
+            "title": "Capability",
+            "type": "string"
+          },
+          "input_name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Input Name"
+          },
+          "output_names": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Output Names",
+            "type": "array"
+          },
+          "permission_tier": {
+            "title": "Permission Tier",
+            "type": "string"
+          },
+          "recheck": {
+            "title": "Recheck",
+            "type": "boolean"
+          },
+          "status": {
+            "title": "Status",
+            "type": "string"
+          },
+          "verified": {
+            "title": "Verified",
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "capability",
+          "permission_tier",
+          "status",
+          "verified",
+          "recheck",
+          "input_name",
+          "output_names"
+        ],
+        "title": "StepDetail",
+        "type": "object"
+      },
+      "TurnDetail": {
+        "description": "The structured data behind a turn. No Skill prose, no exception text, no paths.",
+        "properties": {
+          "clarification_required": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Clarification Required"
+          },
+          "intent": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Intent"
+          },
+          "steps": {
+            "items": {
+              "$ref": "#/components/schemas/StepDetail"
+            },
+            "title": "Steps",
+            "type": "array"
+          },
+          "stopped_at": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Stopped At"
+          }
+        },
+        "required": [
+          "intent",
+          "clarification_required",
+          "steps",
+          "stopped_at"
+        ],
+        "title": "TurnDetail",
+        "type": "object"
+      },
+      "UploadedFile": {
+        "properties": {
+          "file_id": {
+            "title": "File Id",
+            "type": "string"
+          },
+          "kind": {
+            "const": "upload",
+            "default": "upload",
+            "title": "Kind",
+            "type": "string"
+          },
+          "name": {
+            "title": "Name",
+            "type": "string"
+          },
+          "sha256": {
+            "title": "Sha256",
+            "type": "string"
+          },
+          "size": {
+            "title": "Size",
+            "type": "integer"
+          },
+          "uploaded_at": {
+            "format": "date-time",
+            "title": "Uploaded At",
+            "type": "string"
+          }
+        },
+        "required": [
+          "file_id",
+          "name",
+          "size",
+          "sha256",
+          "uploaded_at"
+        ],
+        "title": "UploadedFile",
+        "type": "object"
+      }
+    }
+  },
+  "info": {
+    "title": "WorkBuddy API",
+    "version": "0.1.0"
+  },
+  "openapi": "3.1.0",
+  "paths": {
+    "/api/v1/sessions": {
+      "post": {
+        "description": "Start a session. Its id is the only credential: keep it secret.",
+        "operationId": "create_session_api_v1_sessions_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "anyOf": [
+                  {
+                    "$ref": "#/components/schemas/CreateSessionRequest"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "title": "Body"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SessionCreated"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "413": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "Too large"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "Invalid request or file"
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "Internal error"
+          }
+        },
+        "summary": "Create Session",
+        "tags": [
+          "sessions"
+        ]
+      }
+    },
+    "/api/v1/sessions/{session_id}": {
+      "get": {
+        "description": "The whole session, for a page load or a reconnect.",
+        "operationId": "get_session_api_v1_sessions__session_id__get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "session_id",
+            "required": true,
+            "schema": {
+              "title": "Session Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SessionState"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "Not found"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "Invalid request or file"
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "Internal error"
+          }
+        },
+        "summary": "Get Session",
+        "tags": [
+          "sessions"
+        ]
+      }
+    },
+    "/api/v1/sessions/{session_id}/files": {
+      "get": {
+        "description": "Uploads (not downloadable) and the files finished turns delivered (downloadable).",
+        "operationId": "list_files_api_v1_sessions__session_id__files_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "session_id",
+            "required": true,
+            "schema": {
+              "title": "Session Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/FileList"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "Not found"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "Invalid request or file"
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "Internal error"
+          }
+        },
+        "summary": "List Files",
+        "tags": [
+          "files"
+        ]
+      },
+      "post": {
+        "description": "Upload one ``.xlsx`` (one part named ``file``). It becomes the active file.\n\nThe stored name is sanitized, so it may differ from what was sent. The\nfile is never modified afterwards, and isn't downloadable through the\nAPI (the user already has it).",
+        "operationId": "upload_file_api_v1_sessions__session_id__files_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "session_id",
+            "required": true,
+            "schema": {
+              "title": "Session Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "multipart/form-data": {
+              "schema": {
+                "$ref": "#/components/schemas/Body_upload_file_api_v1_sessions__session_id__files_post"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/UploadedFile"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "Not found"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "Conflict"
+          },
+          "413": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "Too large"
+          },
+          "415": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "Unsupported file type"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "Invalid request or file"
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "Internal error"
+          }
+        },
+        "summary": "Upload File",
+        "tags": [
+          "files"
+        ]
+      }
+    },
+    "/api/v1/sessions/{session_id}/files/{file_id}/download": {
+      "get": {
+        "description": "A file a finished turn delivered. Uploads and anything else are ``404``.\n\nThe file is re-checked first: if it's gone, or its SHA-256 no longer\nmatches the one recorded when it was delivered, the answer is ``410``.\nThe bytes sent are the bytes checked.",
+        "operationId": "download_file_api_v1_sessions__session_id__files__file_id__download_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "session_id",
+            "required": true,
+            "schema": {
+              "title": "Session Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "file_id",
+            "required": true,
+            "schema": {
+              "title": "File Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet": {
+                "schema": {
+                  "format": "binary",
+                  "type": "string"
+                }
+              }
+            },
+            "description": "The delivered file"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "Not found"
+          },
+          "410": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "Gone"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "Invalid request or file"
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "Internal error"
+          }
+        },
+        "summary": "Download File",
+        "tags": [
+          "files"
+        ]
+      }
+    },
+    "/api/v1/sessions/{session_id}/turns": {
+      "post": {
+        "description": "Start a turn. Returns at once, ``running``; poll the turn until it's ``finished``.\n\nOne turn at a time per session (``409 session_busy``), and a global cap\non running turns (``429 server_busy``, with ``Retry-After``). A refused\nrequest creates no turn.",
+        "operationId": "start_turn_api_v1_sessions__session_id__turns_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "session_id",
+            "required": true,
+            "schema": {
+              "title": "Session Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreateTurnRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "202": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RunningTurn"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "Not found"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "Conflict"
+          },
+          "413": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "Too large"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "Invalid request or file"
+          },
+          "429": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "Too many running turns",
+            "headers": {
+              "Retry-After": {
+                "description": "Seconds to wait before retrying (a hint, not a promise).",
+                "schema": {
+                  "minimum": 1,
+                  "type": "integer"
+                }
+              }
+            }
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "Internal error"
+          }
+        },
+        "summary": "Start Turn",
+        "tags": [
+          "turns"
+        ]
+      }
+    },
+    "/api/v1/sessions/{session_id}/turns/{turn_id}": {
+      "get": {
+        "description": "One turn, with ``detail``. Poll this after starting a turn; a finished turn never changes.",
+        "operationId": "get_turn_api_v1_sessions__session_id__turns__turn_id__get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "session_id",
+            "required": true,
+            "schema": {
+              "title": "Session Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "turn_id",
+            "required": true,
+            "schema": {
+              "title": "Turn Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "discriminator": {
+                    "mapping": {
+                      "finished": "#/components/schemas/FinishedTurn",
+                      "running": "#/components/schemas/RunningTurn"
+                    },
+                    "propertyName": "status"
+                  },
+                  "oneOf": [
+                    {
+                      "$ref": "#/components/schemas/RunningTurn"
+                    },
+                    {
+                      "$ref": "#/components/schemas/FinishedTurn"
+                    }
+                  ],
+                  "title": "Response Get Turn Api V1 Sessions  Session Id  Turns  Turn Id  Get"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "Not found"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "Invalid request or file"
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "Internal error"
+          }
+        },
+        "summary": "Get Turn",
+        "tags": [
+          "turns"
+        ]
+      }
+    },
+    "/healthz": {
+      "get": {
+        "description": "Liveness, and whether an LLM provider is configured. Booleans only.",
+        "operationId": "healthz_healthz_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Health"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "Internal error"
+          }
+        },
+        "summary": "Healthz",
+        "tags": [
+          "health"
+        ]
+      }
+    }
+  }
+}

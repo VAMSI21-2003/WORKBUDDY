@@ -9,10 +9,13 @@ factory backed by a fake provider, and still run the real pipeline.
 
 from __future__ import annotations
 
+import json
 import logging
 import os
+from typing import Any
 
 from fastapi import FastAPI
+from fastapi.openapi.utils import get_openapi
 
 from backend.errors import file_too_large_message, install_error_handlers
 from backend.logging_filter import install_log_redaction
@@ -134,4 +137,37 @@ def create_app(
         file_too_large_message=file_too_large_message(settings.max_upload_bytes),
     )
     app.add_middleware(SecurityHeadersMiddleware)
+    app.openapi = lambda: _openapi_with_our_error_bodies(app)  # type: ignore[method-assign]
     return app
+
+
+_ERROR_BODY_REF = "#/components/schemas/ErrorBody"
+
+
+def _openapi_with_our_error_bodies(app: FastAPI) -> dict[str, Any]:
+    """The OpenAPI schema, with FastAPI's own validation-error body replaced by ours.
+
+    FastAPI documents ``HTTPValidationError`` for ``422`` on any route with
+    parameters, but every validation error this app returns is an
+    ``ErrorBody`` (``backend.errors.validation_error_handler``). The schema
+    must describe the real bodies (design "Decisions (2026-09-30, part 2)",
+    ask 3), so those entries are rewritten and the unused schemas dropped.
+    """
+    if app.openapi_schema is not None:
+        return app.openapi_schema
+    schema = get_openapi(
+        title=app.title, version=app.version, routes=app.routes, description=app.description
+    )
+    for operations in schema.get("paths", {}).values():
+        for operation in operations.values():
+            response = operation.get("responses", {}).get("422")
+            if response is not None and "HTTPValidationError" in json.dumps(response):
+                operation["responses"]["422"] = {
+                    "description": "Invalid request or file",
+                    "content": {"application/json": {"schema": {"$ref": _ERROR_BODY_REF}}},
+                }
+    components = schema.get("components", {}).get("schemas", {})
+    for unused in ("HTTPValidationError", "ValidationError"):
+        components.pop(unused, None)
+    app.openapi_schema = schema
+    return schema

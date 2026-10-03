@@ -608,6 +608,8 @@ def test_the_second_turns_brain_prompt_carries_the_first_turn(settings: Settings
     assert "remove duplicate rows" in brain_prompt
     assert first["reply"] in brain_prompt
     assert "now remove the empty rows too" in brain_prompt
+    # Backlog L2: replies are recorded, so PersonalityVoice's seed moves on.
+    assert _context_of(client).state.context.buddy_reply_count() == 2
 
 
 def test_the_mode_given_on_a_turn_becomes_the_sessions_mode(settings: Settings) -> None:
