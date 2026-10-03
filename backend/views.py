@@ -135,6 +135,20 @@ def _turn_fields(session_id: str, turn: TurnRecord) -> dict[str, object]:
     }
 
 
+def turn_as_started(turn: TurnRecord) -> RunningTurn:
+    """The ``202`` body of ``POST .../turns``: the turn, ``running``, whatever it is now."""
+    return RunningTurn(
+        turn_id=turn.turn_id,
+        seq=turn.seq,
+        message=turn.message,
+        mode=turn.mode,  # type: ignore[arg-type]
+        started_at=turn.started_at,
+        delivered_files=[],
+        status="running",
+        detail=None,
+    )
+
+
 def turn_summary(session_id: str, turn: TurnRecord) -> RunningTurnSummary | FinishedTurnSummary:
     fields = _turn_fields(session_id, turn)
     if turn.finished:

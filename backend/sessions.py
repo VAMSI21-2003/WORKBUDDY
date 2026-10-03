@@ -183,9 +183,11 @@ class SessionRegistry:
         logger.info("Created session %s", key)
         return session_id, record
 
-    def saved(self, record: SessionRecord) -> None:
-        """Persist ``record`` after a change. The caller holds its lock."""
+    def saved(self, record: SessionRecord, turn: TurnRecord | None = None) -> None:
+        """Persist ``record`` (and ``turn``, first) after a change. The caller holds its lock."""
         if self._store is not None:
+            if turn is not None:
+                self._store.save_turn(record, turn)
             self._store.save_session(record)
 
     def get(self, session_id: str) -> SessionRecord | None:

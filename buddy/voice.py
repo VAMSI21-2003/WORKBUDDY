@@ -802,6 +802,17 @@ class Voice:
         state.reply = reply
 
 
+def is_verified_delivery(state: BuddyState) -> bool:
+    """Whether the reply for ``state``'s turn says a verified file was handed back.
+
+    The same predicate the speakers use (``_verified_delivery``), on the
+    request Voice builds from ``state``. A caller that hands files to the
+    user (the backend API) checks it, so what it hands back can never
+    disagree with what the reply says. False whenever a stage raised.
+    """
+    return _verified_delivery(Voice._build_request(state))
+
+
 class PersonalityVoice:
     """A ``Speaker`` with a selectable personality: Friend or Focus mode.
 

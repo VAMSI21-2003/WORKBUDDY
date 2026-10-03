@@ -17,10 +17,14 @@ from backend import views
 from backend.errors import ApiError, ErrorCode
 from backend.schemas import (
     CreateSessionRequest,
+    CreateTurnRequest,
     ErrorBody,
+    FinishedTurn,
     Health,
+    RunningTurn,
     SessionCreated,
     SessionState,
+    Turn,
     UploadedFile,
 )
 from backend.sessions import (
@@ -29,8 +33,10 @@ from backend.sessions import (
     UploadRecord,
     new_file_id,
     utc_now,
+    valid_id,
 )
 from backend.settings import Settings
+from backend.turns import TurnRunner
 from backend.uploads import check_extension, discard_folder, sanitize_name, store_upload
 
 health_router = APIRouter()
@@ -69,6 +75,10 @@ def settings_of(request: Request) -> Settings:
 
 def registry_of(request: Request) -> SessionRegistry:
     return request.app.state.registry  # type: ignore[no-any-return]
+
+
+def runner_of(request: Request) -> TurnRunner:
+    return request.app.state.runner  # type: ignore[no-any-return]
 
 
 def session_of(request: Request, session_id: str) -> SessionRecord:
@@ -168,3 +178,48 @@ async def upload_file(
 
     await run_in_threadpool(register)
     return views.uploaded_file(upload)
+
+
+@router.post(
+    "/sessions/{session_id}/turns",
+    status_code=202,
+    response_model=RunningTurn,
+    responses=errors(404, 409, 413, 422, 429),
+    tags=["turns"],
+)
+def start_turn(request: Request, session_id: str, body: CreateTurnRequest) -> RunningTurn:
+    """Start a turn. Returns at once, ``running``; poll the turn until it's ``finished``.
+
+    One turn at a time per session (``409 session_busy``), and a global cap
+    on running turns (``429 server_busy``, with ``Retry-After``). A refused
+    request creates no turn.
+    """
+    settings = settings_of(request)
+    record = session_of(request, session_id)
+    message = body.message.strip()
+    if not 1 <= len(message) <= settings.max_message_chars:
+        raise ApiError(ErrorCode.INVALID_REQUEST)
+    if body.file_id is not None and not valid_id(body.file_id):
+        raise ApiError(ErrorCode.FILE_NOT_FOUND)
+    turn = runner_of(request).start(record, message, body.mode, body.file_id)
+    with record.lock:
+        # The turn as it started, even if a fast pipeline has already finished it.
+        return views.turn_as_started(turn)
+
+
+@router.get(
+    "/sessions/{session_id}/turns/{turn_id}",
+    response_model=Turn,
+    responses=errors(404),
+    tags=["turns"],
+)
+def get_turn(request: Request, session_id: str, turn_id: str) -> RunningTurn | FinishedTurn:
+    """One turn, with ``detail``. Poll this after starting a turn; a finished turn never changes."""
+    record = session_of(request, session_id)
+    if not valid_id(turn_id):
+        raise ApiError(ErrorCode.TURN_NOT_FOUND)
+    with record.lock:
+        turn = record.turn(turn_id)
+        if turn is None:
+            raise ApiError(ErrorCode.TURN_NOT_FOUND)
+        return views.turn_out(session_id, turn)

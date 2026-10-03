@@ -11,7 +11,6 @@ from __future__ import annotations
 
 import logging
 import os
-from collections.abc import Callable
 
 from fastapi import FastAPI
 
@@ -22,6 +21,7 @@ from backend.routes import health_router, router
 from backend.schemas import ErrorBody
 from backend.sessions import SessionRegistry
 from backend.settings import Settings
+from backend.turns import EngineFactory, TurnRunner
 from buddy.engine_factory import build_engine
 from buddy.hands import ConfirmationProvider
 from buddy.llm import ClaudeProvider, GroqProvider, LLMConfigurationError, LLMProvider
@@ -29,11 +29,6 @@ from buddy.voice import PersonalityVoice
 from core.engine import Engine
 
 logger = logging.getLogger(__name__)
-
-# Builds the engine for one turn, given that turn's confirmation provider
-# (design Section 3.5). Called on the turn's worker thread, so an error
-# here fails the turn like any other.
-EngineFactory = Callable[[ConfirmationProvider], Engine]
 
 API_VERSION = "0.1.0"
 
@@ -121,8 +116,9 @@ def create_app(
     )
     app.state.settings = settings
     app.state.llm_configured = configured
-    app.state.engine_factory = engine_factory
-    app.state.registry = SessionRegistry(settings)
+    registry = SessionRegistry(settings)
+    app.state.registry = registry
+    app.state.runner = TurnRunner(settings, engine_factory, registry)
 
     install_error_handlers(app)
     app.include_router(health_router)
