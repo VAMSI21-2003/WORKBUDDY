@@ -221,7 +221,7 @@ class Driver:
         response.raise_for_status()
         return dict(response.json())
 
-    def turn(self, session_id: str, message: str, timeout_s: float = 400) -> dict[str, Any]:
+    def turn(self, session_id: str, message: str, timeout_s: float = 1200) -> dict[str, Any]:
         time.sleep(PAUSE_S)
         started = time.monotonic()
         response = self.client.post(
