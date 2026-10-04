@@ -6,7 +6,9 @@ until PR-3) and a fresh data root under ``scratch/live-api/``, then drives
 it over HTTP: sessions, uploads, turns, polling, downloads. Runs 1, 2, 5,
 6, 7, 8 and 9 of design 7.5 (3 and 4 need PR-3's confirmation), plus "R":
 the delivered copy downloaded, uploaded again, and "now remove the empty
-rows too" on it (review round 3's suggestion).
+rows too" on it (review round 3's suggestion), and "9b": run 9's two turns
+on a fixture just under the 2 MiB default cap ("Decisions (2026-10-04)",
+item 3), at the default deadline.
 
 For each turn it prints what ``CLAUDE.md`` asks for: the intent,
 ``clarification_required``, the steps, whether a file was delivered, an
@@ -45,7 +47,8 @@ import pandas as pd
 
 REPO_ROOT = Path(__file__).resolve().parent.parent
 SCRATCH = REPO_ROOT / "scratch" / "live-api"
-MAX_UPLOAD = 5 * 1024 * 1024
+MAX_UPLOAD = 5 * 1024 * 1024  # run 9's fixture: the old default cap
+MAX_UPLOAD_2MB = 2 * 1024 * 1024  # run 9b's fixture: the current default cap
 PAUSE_S = 8.0
 # Every session id created, to check none reaches a server log.
 SESSION_IDS: list[str] = []
@@ -79,13 +82,17 @@ def no_duplicates_fixture() -> bytes:
 def five_mb_fixture() -> bytes:
     """The design's measured shape: 14 columns (6 floats, 3 ints, 4 short strings, 1 date),
     5% duplicate rows, plus a few fully empty rows, as large as fits under 5 MiB."""
-    rows = 52_000
+    return sized_fixture(MAX_UPLOAD, 52_000)
+
+
+def sized_fixture(cap: int, rows: int) -> bytes:
+    """The wide frame, as large as fits under ``cap`` (between 95% and 100% of it)."""
     for _ in range(4):
         data = _xlsx(_wide_frame(rows))
-        if 0.95 * MAX_UPLOAD <= len(data) <= MAX_UPLOAD:
+        if 0.95 * cap <= len(data) <= cap:
             return data
-        rows = int(rows * MAX_UPLOAD / len(data) * 0.98)
-    if len(data) > MAX_UPLOAD:
+        rows = int(rows * cap / len(data) * 0.98)
+    if len(data) > cap:
         raise SystemExit("couldn't build a fixture under the upload cap")
     return data
 
@@ -125,10 +132,13 @@ def sha(data: bytes) -> str:
 
 
 class Server:
-    def __init__(self, data_dir: Path, port: int, log_path: Path) -> None:
+    def __init__(
+        self, data_dir: Path, port: int, log_path: Path, extra_env: dict[str, str] | None = None
+    ) -> None:
         self.data_dir = data_dir
         self.port = port
         self.log_path = log_path
+        self.extra_env = extra_env or {}
         self.process: subprocess.Popen[bytes] | None = None
         self.base = f"http://127.0.0.1:{port}"
 
@@ -137,6 +147,7 @@ class Server:
         env["WORKBUDDY_DATA_DIR"] = str(self.data_dir)
         env["WORKBUDDY_AUTO_APPROVE"] = "1"
         env["PYTHONUNBUFFERED"] = "1"
+        env.update(self.extra_env)
         log = open(self.log_path, "ab")
         self.process = subprocess.Popen(
             [sys.executable, "-m", "backend", "--port", str(self.port)],
@@ -367,13 +378,13 @@ def _same(left: pd.DataFrame, right: pd.DataFrame) -> bool:
 
 def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("--runs", default="1,2,5,6,7,R,8,9")
+    parser.add_argument("--runs", default="1,2,5,6,7,R,8,9,9b")
     parser.add_argument("--port", type=int, default=8765)
     parser.add_argument(
         "--pause", type=float, default=8.0, help="seconds between turns, to spare the rate limit"
     )
     args = parser.parse_args()
-    runs = [r if r == "R" else int(r) for r in args.runs.split(",")]
+    runs = [r if r in ("R", "9b") else int(r) for r in args.runs.split(",")]
     global PAUSE_S
     PAUSE_S = args.pause
     stamp = datetime.now(UTC).strftime("%Y%m%dT%H%M%S")
@@ -487,7 +498,14 @@ def main() -> None:
         if 9 in runs:
             server.stop()
             driver.check_rate_limit()
-            server = Server(root / "data9", args.port, root / "server9.log")
+            # The 5 MB measurement needs the old cap; the default is 2 MiB now
+            # (review round 4, R4-L1).
+            server = Server(
+                root / "data9",
+                args.port,
+                root / "server9.log",
+                extra_env={"WORKBUDDY_MAX_UPLOAD_BYTES": str(MAX_UPLOAD)},
+            )
             server.start()
             driver = Driver(server)
             data = five_mb_fixture()
@@ -504,6 +522,27 @@ def main() -> None:
                 entry["server_peak_rss_mb"] = server.peak_rss_mb()
                 results.append(entry)
             completed.append(9)
+        if "9b" in runs:
+            # The current default cap, on a fresh server with the default deadline.
+            server.stop()
+            driver.check_rate_limit()
+            server = Server(root / "data9b", args.port, root / "server9b.log")
+            server.start()
+            driver = Driver(server)
+            data = sized_fixture(MAX_UPLOAD_2MB, 24_000)
+            print(f"2 MB fixture: {len(data)} bytes")
+            for message, expected in (
+                ("remove duplicate rows", "dedupe"),
+                ("remove duplicate rows, then remove empty rows", "both"),
+            ):
+                session = driver.session("focus")
+                upload = driver.upload(session, data, "big_report.xlsx")
+                turn = driver.turn(session, message)
+                entry = report_turn(driver, "9b", session, upload, data, turn, expected)
+                entry["fixture_bytes"] = len(data)
+                entry["server_peak_rss_mb"] = server.peak_rss_mb()
+                results.append(entry)
+            completed.append("9b")
     except RateLimited:
         print(f"STOPPED: the provider rate-limited (429). Runs completed: {completed}")
     finally:
