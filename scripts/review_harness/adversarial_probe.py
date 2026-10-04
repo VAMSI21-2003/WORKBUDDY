@@ -473,7 +473,9 @@ def restart(speaker: str) -> dict[str, Any]:
     """Finish a turn, leave a second one 'running' on disk, rebuild the app, read back."""
     if speaker != "template":
         return {}
-    with tempfile.TemporaryDirectory() as tmp:
+    # ignore_cleanup_errors: the old app's worker is released at the end and may still be
+    # writing while the folder is removed (round 3 saw "Directory not empty" under load).
+    with tempfile.TemporaryDirectory(ignore_cleanup_errors=True) as tmp:
         llm = h.FakeLLM(h.single("remove_duplicate_rows"))
         client, settings, factory = app(tmp, llm, speaker)
         sid = session(client, speaker)
@@ -482,6 +484,8 @@ def restart(speaker: str) -> dict[str, Any]:
         t1 = run_turn(client, sid, "remove duplicate rows", path)
         listed = client.get(f"/api/v1/sessions/{sid}/files").json()["files"]
         delivered = [f for f in listed if f["kind"] == "delivered"]
+        t1_files = client.get(f"/api/v1/sessions/{sid}/turns/{t1['turn_id']}").json()["delivered_files"]
+        t1_sha = t1_files[0]["sha256"] if t1_files else None
         # A turn that never finishes (the process "dies" mid-turn).
         gate = threading.Event()
         llm.add([lambda s, t: (gate.wait(30), h.understand("unclear"))[1], h.think()])
@@ -497,6 +501,7 @@ def restart(speaker: str) -> dict[str, Any]:
         intact = uploads_intact(client2, settings, sid)
         t3.pop("detail", None)
         gate.set()
+        time.sleep(1.5)  # let the old app's worker finish before reading the disk
         session_dir = settings.sessions_dir
         on_disk_text = "\n".join(p.read_text() for p in session_dir.rglob("*.json"))
         outputs = [p.name for p in settings.outputs_dir.rglob("*") if p.is_file()]
@@ -506,7 +511,7 @@ def restart(speaker: str) -> dict[str, Any]:
             "get_session": s.status_code,
             "turns": [(t["turn_id"], t["status"], t.get("outcome"), t.get("reply_source")) for t in body.get("turns", [])],
             "download_after_restart": dl.status_code if dl else None,
-            "download_same_bytes": h.sha(dl.content) == delivered[0] and None if dl else None,
+            "download_same_bytes": h.sha(dl.content) == t1_sha if dl else None,
             "t3_after_restart": (t3.get("turn_id"), t3.get("outcome"), t3.get("reply")),
             "session_id_on_disk": sid in on_disk_text or any(sid in n for n in outputs),
             "t2_id": t2.get("turn_id"),

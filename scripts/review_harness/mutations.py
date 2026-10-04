@@ -272,6 +272,75 @@ ROUND2: dict[str, Any] = {
 }
 MUTATIONS.update(ROUND2)
 
+
+# Round 3: the round-2 fixes (R2-M1 per-upload count, R2-L1 redaction, R2-L2 BaseException).
+# Some round-2 mutations above target code that changed ("NOT APPLIED"); these retarget them.
+_R3_COUNT = (
+    "                work.earlier_deliveries = sum(\n"
+    "                    len(t.delivered_files)\n"
+    "                    for t in record.turns\n"
+    "                    if t.finished\n"
+    "                    and t.outcome == DELIVERED\n"
+    "                    and target_id is not None\n"
+    "                    and t.target_file_id == target_id\n"
+    "                )\n"
+)
+_R3_TARGET = "                target_id = file_id if file_id is not None else record.active_file_id\n"
+ROUND3: dict[str, Any] = {
+    "r3_m2_not_set": ("backend/turns.py", _R3_COUNT, ""),
+    "r3_m2_counts_every_turn": (
+        "backend/turns.py",
+        _R3_COUNT,
+        "                work.earlier_deliveries = len(record.turns)\n",
+    ),
+    "r3_m2_whole_session": (  # round 2's rule: any delivery in the session
+        "backend/turns.py",
+        "                    and t.target_file_id == target_id\n",
+        "",
+    ),
+    "r3_m2_target_ignores_file_id": (
+        "backend/turns.py",
+        _R3_TARGET,
+        "                target_id = record.active_file_id\n",
+    ),
+    "r3_m2_target_only_file_id": (
+        "backend/turns.py",
+        _R3_TARGET,
+        "                target_id = file_id\n",
+    ),
+    "r3_m2_no_outcome_filter": (  # expected equivalent: only delivered turns list files
+        "backend/turns.py",
+        "                    and t.outcome == DELIVERED\n",
+        "",
+    ),
+    "r3_l1_redact_msg_first": (
+        "backend/logging_filter.py",
+        "    try:\n        original = record.getMessage()\n",
+        "    if isinstance(record.msg, str):\n        record.msg = redact(record.msg)\n    try:\n        original = record.getMessage()\n",
+    ),
+    "r3_l1_never_collapse": (
+        "backend/logging_filter.py",
+        "            if reformatted != redacted:\n",
+        "            if False:\n",
+    ),
+    "r3_l1_always_collapse": (
+        "backend/logging_filter.py",
+        "            if reformatted != redacted:\n",
+        "            if True:\n",
+    ),
+    "r3_l1_unformattable_unredacted": (
+        "backend/logging_filter.py",
+        "        if isinstance(record.msg, str):\n            record.msg = redact(record.msg)\n        record.args = _redacted_args(record.args)\n    else:",
+        "        pass\n    else:",
+    ),
+    "r3_l2_exception_only": (
+        "backend/turns.py",
+        "        except BaseException:\n            # Any failure, even a BaseException",
+        "        except Exception:\n            # Any failure, even a BaseException",
+    ),
+}
+MUTATIONS.update(ROUND3)
+
 TEST_PATHS = [
     "tests/backend",
     "tests/core/test_engine.py",

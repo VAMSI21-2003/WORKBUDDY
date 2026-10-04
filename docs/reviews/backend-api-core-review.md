@@ -499,3 +499,233 @@ R2-L1 to R2-L4 above, added to `docs/backlog.md`. Round 1's L9, L10, L12 and P1 
 - **The demo host, Windows, and a non-root user** (the `0o444` permissions), as in round 1.
 - **Real thread interleavings for M3's lock-held I/O.** I didn't measure how long `GET` waits while a finished record is written under the session lock. It's one small atomic write, so I expect it to be short.
 - **The full suite on my two prototypes** (R2-M1, R2-L1). I ran only the affected test files (129 and 39 passed). The prototypes were throwaway worktrees and aren't committed.
+
+---
+
+# Review round 3 (commit 7be9949)
+
+**Verdict: MERGE.** There's no HIGH finding and no MEDIUM finding. R2-M1 is fixed, and so are R2-L1, R2-L2 and R2-L3. The LOW findings below are deferred to `docs/backlog.md`.
+
+**Reviewer:** a fresh reviewer agent, with no part in writing the code, the earlier fixes, or the earlier reviews. **Base:** `origin/main` (`6d000c5`). **Design:** `docs/design/backend-api-design.md`. **Scope:**
+- the diff since the last reviewed commit, `0276e7c..7be9949`. The code part is `9e4866a..7be9949`: `backend/logging_filter.py`, `backend/turns.py`, two test files, the design addendum, the backlog and the fixes file (7 files, +238/−20). `9e4866a` adds only the round-2 review, its probe scripts and its backlog items.
+- every finding round 2 left open;
+- regression against the base, and against `0276e7c`.
+
+I treated `docs/reviews/backend-api-core-fixes2.md` as unverified. Each claim below comes from my own run and is marked [Certain], [Likely] or [Possible]. My probes ran on head, on a worktree of `0276e7c` (the code round 2 reviewed), and, for the pipeline, on a worktree of `origin/main`.
+
+## R3.1 Tests and lint
+
+| Check | Result |
+|---|---|
+| `python -m pytest -q`, Python 3.11.15, head `7be9949` | **1317 passed**, 11 warnings, 174 s, exit 0. Round 2 had 1301, so 16 tests were added; the fixes file's count matches. |
+| `ruff check buddy tests` | 22 errors on head and 22 on `origin/main`. Grouped by file and rule, the two sets are **identical**. **No new lint errors.** |
+| `ruff check backend core skills scripts tests/backend` | clean, including my new and changed `scripts/review_harness/` files |
+| `python -m backend.export_openapi --check` | in sync (exit 0) |
+
+## R3.2 Round-2 findings: are they fixed?
+
+| Finding | Status | My evidence |
+|---|---|---|
+| **R2-M1** the from-original sentence followed a delivery from any upload | **Fixed** [Certain] | `round3_probe.py --only m2_targets` (10 cases) and `round2_probe.py --only m2_from_original`, all 3 speakers, on head and on `0276e7c`. On head the sentence appears **only** when the same upload already had a copy handed back: the same-upload follow-up, a follow-up after a restart, a chain after a delivery, going back to an earlier upload with `file_id` (also after a restart), and an explicit `file_id` on both turns. It's absent for a re-upload of Buddy's copy (round 2's scenario), an unrelated second upload, a delivery on another upload only, two uploads with the same name, a chain's copy re-uploaded, after a failed turn, after Voice raised, and after a turn that passed its deadline while its late worker wrote a file. Where it appears, my own model of the skill, applied to every upload and every earlier delivered file, shows the copy was made from that upload and from no earlier delivered file, so the sentence is true. On `0276e7c` the sentence also appeared on the second upload's first delivery (cases A, H, J), on the re-uploaded copy (C, I), and on the re-uploaded original (B). The only case where head's change removed a true sentence is B; see R3-L5. |
+| **R2-L1** redacting the format string on its own dropped placeholders | **Fixed** [Certain], **with a narrower gap (R3-L1)** | `l1_placeholder_probe.py` prints all three shapes redacted, with no "Logging error". `round3_probe.py --only l1_logging` (20 records): `"Authorization: Bearer %s"` and `"100%% at /sessions/%s"` leak the raw argument to stderr on `0276e7c` and are masked on head. The real server (`server_probe.py`) formats every ordinary access line as `/api/v1/sessions/[REDACTED]/…`, and the session id appears nowhere in its log. |
+| **R2-L2** a `BaseException` from the finished save left the turn running | **Fixed** [Certain] | `round3_probe.py --only l2_base_exception`: a custom `BaseException` once or always, `KeyboardInterrupt` and `SystemExit` from `save_turn` for the finished record. On head every case finishes `failed` with `FALLBACK_PIPELINE_ERROR`, no files, the session not busy, the next turn `202`, and a restart reports the same. On `0276e7c` all four stayed `running` and the next turn got `409`. |
+| **R2-L3** `earlier_deliveries` missing from the design | **Fixed** [Certain] | "Decisions (2026-10-04)", item 2, describes the field, where it's set, why, the per-upload rule, and that option (a) is still the owner's to decide. Each statement matches `backend/turns.py:240-252`, `buddy/state.py:157,249` and `buddy/voice.py:419`. |
+| R2-L4 | **Open, deferred** as round 2 decided. Unchanged on head and still in `docs/backlog.md`. | `m1_nothing_ran` gives `NOTHING_RAN_REPLY` for "remove duplicate rows" before any upload, and for a later turn where Think asks for clarification. |
+| L9, L10, L12, P1 (round 1) | **Open, deferred**. Unchanged. | — |
+
+Everything round 1 fixed still holds on head: `round2_probe.py` (M1, M2, M3, L1, L8, L11 probes) gives the same results round 2 recorded, apart from R2-M1's intended change.
+
+## R3.3 The fixes against the design
+
+- The per-upload counting rule matches the design's new implementation note, word for word in effect. The note is correctly labelled "not an owner decision", and leaves option (a) to the owner.
+- `_save_finished` catching `BaseException` keeps invariant 7 (one finalization step under the session lock), and memory and disk still agree (my restart checks).
+- The new `_redact_record` is still a pattern filter that never reads a key's value (design 6.4).
+- No other departure from the design in this diff.
+
+## R3.4 Probes through the real pipeline, and the base comparison
+
+- **`api_probe.py`** (13 scenarios × 3 speakers) on head. In all 39 runs:
+  - the API's reply equals the pipeline's own reply, or the fallback when Voice raised;
+  - `outcome == "delivered"` exactly when files were listed;
+  - every download's SHA-256 matches its listing;
+  - the original's SHA-256 is unchanged.
+
+  The replies are the ones round 2 recorded. This diff can't change a single-turn reply: the only `turns.py` change outside the save is the count, which is 0 on a session's first delivery.
+- **`adversarial_probe.py`** (all probes, 3 speakers) on head. Hostile names, upload structure and size, concurrency and isolation (another session's files `404`, the cap `429` with `Retry-After`), the deadline, the integrity failure (fail closed), corrupt restore (`404`), 8 rounds of concurrent correctness, the delivery mismatch, and the restart (the interrupted turn reads `failed` / fallback, the earlier file still downloads byte for byte, no session id on disk) all behave as in round 2. `multi_turn` T3 carries the sentence (same upload).
+- **`round2_probe.py`** (all probes, 3 speakers) on head: as in round 2, except the re-upload case, which no longer has the sentence (R2-M1).
+- **`pipeline_compare.py --diff`**, head against an `origin/main` worktree, 7 scenarios × 3 speakers. Every reply is byte-identical except the three differences round 2 recorded: `no_file` and the "thanks" turn of `two_turns_then_thanks` (`NOTHING_RAN_REPLY` instead of the verifier wording), and `voice_raises` (round 1's hardening sets `failure`). The pipeline run on its own never sets `earlier_deliveries`.
+
+## R3.5 Adversarial cases aimed at the new code
+
+Every case below ran in all three speakers unless it says otherwise. Each delivered file was read independently with openpyxl. "Made from" is my own model of the skill (exact-duplicate removal, fully-empty-row removal) applied to every upload and every earlier delivered file of the session; it lists the ones that give exactly the delivered rows.
+
+| Case (`round3_probe.py`) | What happened (head) | Handed back (my read) | Reply (focus; friend adds an opener, template says "Saved as `…`" instead of naming the input) |
+|---|---|---|---|
+| A. Dedupe `report.xlsx`; upload `budget.xlsx` and dedupe it; `file_id` = report, "now remove the empty rows from report.xlsx too" | T2: no sentence (on `0276e7c`: sentence). T3: sentence. | T3: 5 rows, 2 duplicates, 0 empty. Made from: the report upload only. | T3: "Done — removed 1 fully-empty row(s). The copy has 5 row(s), 0 fully-empty row(s) remaining. Your cleaned copy of report.xlsx is ready. I made this copy from your original upload, not from a file I handed back earlier." True. |
+| B. Dedupe; upload **the same bytes** again (`report.xlsx`, same SHA-256); "now remove the empty rows too" | No sentence (on `0276e7c`: sentence). | 5 rows, **2 duplicates**, 0 empty. | "Done — removed 1 fully-empty row(s). The copy has 5 row(s), 0 fully-empty row(s) remaining. Your cleaned copy of report.xlsx is ready. None of the issues I check for were found." → **R3-L5**. "None of the issues…" with 2 duplicates is backlog L-4 (pre-existing). |
+| C. Dedupe; re-upload Buddy's copy; "now remove the empty rows"; then "and remove duplicate rows again" | T2: no sentence (fixed). T3: sentence. | T2: 3 rows, 0 duplicates, 0 empty. T3: 4 rows, 0 duplicates, 1 empty, made from the re-upload (the steps show `deduplicate:report_deduplicated_…`). | T3: "Done — there were no duplicate rows to remove. The copy has 4 row(s), 0 duplicate row(s) remaining. Your cleaned copy of report_deduplicated_…-task-1.xlsx is ready. I made this copy from your original upload, not from a file I handed back earlier." True in the API's terms (T2's change isn't in it); see R3-L7 on the word "original". |
+| D. Same upload, `file_id` sent explicitly on both turns | T2: sentence | 5 rows, 2 duplicates | as A's T3. True. |
+| E. Dedupe report; upload budget; **restart**; `file_id` = report, "now … too" | sentence | 5 rows, 2 duplicates, made from the report upload | as A's T3. True. |
+| F. T1 passes its 4 s deadline while Think is blocked; the late worker then writes its file; T2 dedupe | T1 `failed` / fallback; T2 delivered, **no sentence** | T2: 4 rows. The late file is never listed. | T1: `FALLBACK_PIPELINE_ERROR`. T2: the ordinary dedupe reply. True: nothing was handed back before. |
+| G. Voice raises on T1; T2 dedupe | T1 `failed`; T2 no sentence | T2: 4 rows | True. |
+| H. Two uploads both named `report.xlsx`, different content; dedupe the second; `file_id` = the first, "now … too" | T2 no sentence; T3 sentence | T3: 5 rows, 2 duplicates, made from the first upload | True. The two files share a name, which was so before this diff. |
+| I. Chain on the original; re-upload the chain's copy as `report_clean.xlsx`; dedupe | no sentence | 3 rows, 0 duplicates, 0 empty | "Done — there were no duplicate rows to remove. … Your cleaned copy of report_clean.xlsx is ready…" True. |
+| J. Two uploads; dedupe the second; then `file_id` = the first | no sentence | 4 rows, made from the first upload | True: the first upload had no copy yet. |
+| BaseException from the finished save (4 kinds), from the session save | see R3.2; a session-save `BaseException` leaves the turn `delivered` in memory and on disk (the turn record was saved first), and the next turn runs | — | — |
+| `uploads_unchanged` or `make_read_only` raising inside `_finalize` (not new code) | the turn stays `running`, the next turn is `409` until a restart (identical on `0276e7c`) | nothing | none → **R3-L4** |
+| 20 odd log records (`l1_logging`), on head and `0276e7c` | see R3-L1 to R3-L3 | — | — |
+| The real server, `GET /healthz?api_key=`, `GET /healthz?x=Bearer`, `GET /api/v1/sessions/<id>?api_key=` | each answered `200`; each printed a "--- Logging error ---" block instead of its access line (identical on `0276e7c`) | — | no secret and no session id in the log → **R3-L3** |
+
+**Rule 1, every reply produced in this round.**
+- **Delivered replies:** every number matches my openpyxl read:
+  - removed 2 → 4 rows, 0 duplicates;
+  - removed 1 empty → 5 rows;
+  - the re-uploaded copy → 3 rows;
+  - "no duplicate rows to remove" → 4 rows (C) and 3 rows (I), 0 duplicates;
+  - budget → 2 rows;
+  - chain → 3 rows;
+  - 25.0% = 1 of 4, 16.7% = 1 of 6.
+- **The from-original sentence** appears only where the copy was made from an upload that already had a copy handed back, and from no earlier delivered file (my model, every case above). It never appears on a first delivery.
+- **Not-delivered and failed replies** claim no change. No exception or key text reached a reply or `detail`.
+- **Misleading by omission:** case B (R3-L5). "None of the issues I check for were found" on a file with duplicates is backlog L-4, pre-existing.
+
+**Rule 2:** the original's SHA-256 was unchanged, before and after, in every run: 69 turn checks in `m2_targets`, 6 in the deadline case, 7 in the `BaseException` probe, 39 in `api_probe`, 75 in `round2_probe` and 31 in `adversarial_probe`. The four exceptions are the integrity probes, which change the upload on purpose; the API caught each one and released nothing.
+
+## R3.6 Do the new tests catch what they guard?
+
+- **Against the old code.** I copied head's `tests/backend/test_turns.py` and `tests/backend/test_app_basics.py` (the only changed test files) into the `0276e7c` worktree and ran the 16 new tests. **10 fail:**
+  - the re-upload test (a) and the other-upload test (c), in all 3 speakers;
+  - the `BaseException` test;
+  - all 3 split-secret logging tests.
+
+  The 6 that pass are test (b), "a first delivery after a turn that delivered nothing". Round 2's count, `len(record.delivered())`, already gave 0 there; (b) exists to kill the "count every turn" mutation, which it does (below).
+- **Mutations** (`mutations.py`, now 56, run against `TEST_PATHS`): **47 killed, 5 survived, 4 not applied.** The 4 not applied are round 2's `m2_not_set_at_start`, `m2_counts_every_turn`, `l1_always_collapse` and `l1_never_collapse`, whose target lines changed. I retargeted each as an `r3_` mutation, and all four are killed.
+
+Every new round-3 guard is killed:
+- `r3_m2_not_set`, `r3_m2_target_only_file_id`: by the follow-up tests;
+- `r3_m2_counts_every_turn`, and `r3_m2_whole_session` (round 2's rule): by the re-upload test;
+- `r3_l1_redact_msg_first` (round 2's code shape): by the split-secret tests;
+- `r3_l1_never_collapse`, `r3_l1_always_collapse`: by the non-string-argument test and the uvicorn formatter test;
+- `r3_l2_exception_only`: by the `BaseException` test.
+
+| Survivor | Effect | Assessment |
+|---|---|---|
+| `start_no_reset_transient` | redundant with the commit-time reset | none (as in rounds 1 and 2) |
+| `m3_no_fallback_save` | unobservable (round 2) | none |
+| `r3_m2_no_outcome_filter` | equivalent: only delivered turns list files | none |
+| **`r3_m2_target_ignores_file_id`**: the count uses the active upload even when `file_id` names another | [Certain] On a mutated copy, case E (dedupe report, upload budget, restart, `file_id` = report, "now … too") loses the sentence: 5 rows with 2 duplicates and round 1's M2 reply. Case J (a delivery on budget only, then `file_id` = report) gains it on report's first delivery. | test gap: **R3-L6** |
+| **`r3_l1_unformattable_unredacted`**: a malformed log call's arguments aren't redacted at all | logging's error handler would print the raw string arguments | test gap: part of **R3-L2** |
+
+## R3.7 Findings
+
+There's no HIGH and no MEDIUM finding.
+
+### LOW (deferred; not merge conditions; added to `docs/backlog.md`)
+
+- **R3-L1. The R2-L1 fix decides whether a record holds a secret from the whole formatted line only, so a secret argument glued to a word character goes unmasked.**
+  - **Where:** `backend/logging_filter.py:87-88` (`redacted = redact(original)`, `if redacted != original:`).
+  - **Scenario** [Certain]: `log.warning("auth=x%s", "Bearer " + token)` and `log.warning("cfg:my%s", "api_key=" + token)`. The `Bearer` and `api_key` patterns start with `\b`, which a word character just before the placeholder defeats. So the whole line "has no secret", and the record is left alone. Head writes `auth=xBearer LEAK77` and `cfg:myapi_key=LEAK77`. `0276e7c`, which also redacted each string argument on its own, wrote `auth=x[REDACTED]` and `cfg:my[REDACTED]`. This narrowing was introduced by this round's fix.
+  - **Reachability:** [Likely none today]. I searched for string literals that put a word character right before `%s` or `%r`. There are none in `backend/`, `buddy/`, `core/` or `skills/`, and none on a logging line in the installed uvicorn, starlette, fastapi, httpx, httpcore, h11, anyio, groq and anthropic packages. It's latent, in a defence-in-depth layer.
+  - **Fix:**
+    1. Treat a record as holding a secret when the formatted line **or any string argument on its own** changes under `redact`.
+    2. Redact the arguments in place.
+    3. Keep the shape only if the re-formatted line equals its own redaction; otherwise collapse to `redact(reformatted)` (or `redact(original)` if it can't be re-formatted).
+
+    Test: the two calls above write no secret. Prototyped together with R3-L2 and R3-L3; see "Not run".
+- **R3-L2. In a log record that can't be formatted, a secret inside a non-string argument reaches stderr.**
+  - **Where:** `backend/logging_filter.py:82-85` and `_redacted_args` (`:103-108`). The `except` branch redacts only `str` arguments, and `logging.Handler.handleError` prints `Arguments: %s` of the tuple, which shows each argument's `repr`.
+  - **Scenario** [Certain]: `log.warning("x %s %s", b"gsk_…")` and `log.warning("x %s %s", ValueError("gsk_…"))` (one argument short) print the raw key to stderr. It's the same on `0276e7c`, and round 1's code had the same branch, so it isn't a regression.
+  - **Test gap:** the mutation `r3_l1_unformattable_unredacted`, which removes this branch's redaction altogether, survives. Even string arguments in a malformed call aren't covered by any test.
+  - **Reachability:** [Likely none]. It needs a malformed log call, which is a bug in itself, with a secret inside a non-string argument.
+  - **Fix:** in that branch, map each argument that isn't a `str` or a number to `redact(repr(arg))`. Test: those two calls, and one with a `str` argument, write no secret to stderr.
+- **R3-L3. Any client can turn its access-log line into a "--- Logging error ---" block.**
+  - **Where:** `backend/logging_filter.py:94-96` collapses a `uvicorn.access` record to `args = None`, and uvicorn's `AccessFormatter` unpacks `record.args`.
+  - **Scenario** [Certain, the real server via `server_probe.py`]: `GET /healthz?api_key=`, `GET /healthz?x=Bearer` and `GET /api/v1/sessions/<id>?api_key=` each answer `200`. Each logs "TypeError: cannot unpack non-iterable NoneType object" and `Message: '127.0.0.1:… - "GET /api/v1/sessions/[REDACTED]?[REDACTED]" 200'` instead of its access line.
+  - **Cause:** on the whole line, the patterns run past the path into ` HTTP/1.1`, because `api_key\s*[=:]\s*` eats the space. The path argument alone has nothing to mask, so the two redactions disagree and the record collapses.
+  - **Impact:** no secret and no session id are printed. Log noise that any unauthenticated request can cause, and that request's access line is lost. It's the same on `0276e7c` (round 1's L1 fix introduced it), so it isn't a regression.
+  - **Fix:** never collapse a `uvicorn.access` record. Its format string is fixed and holds no secret, and its only free text, the path, is already redacted as an argument. Test: format `GET /healthz?api_key= HTTP/1.1` through `AccessFormatter`: no "Logging error", and the line is written.
+- **R3-L4. The steps of `_finalize` before the finishing block aren't guarded, so they can leave a turn `running` for good.**
+  - **Where:** `backend/turns.py:329` (`uploads_unchanged`), `:340` (`except Exception` around `decide`, which lets a `BaseException` through), and `:349` (`make_read_only`).
+  - **Scenario** [Certain, by fault injection]: if either helper raises `RuntimeError`, the turn stays `running`, the session stays busy, and the next turn gets `409` until a restart, which then reports `failed` / fallback. It's the same on `0276e7c`. This is R2-L2's failure through a different door.
+  - **Reachability:** [Likely none]. Both helpers catch `OSError`, and uploads are capped at 5 MB, so a `MemoryError` while hashing is implausible.
+  - **Fix:**
+    - wrap `uploads_unchanged` and `decide` in one `try/except BaseException`;
+    - wrap `make_read_only` in another;
+    - both fall back to `Finalization(FAILED, FALLBACK_PIPELINE_ERROR, PIPELINE_FALLBACK)`, which delivers nothing (fail closed).
+
+    Test: monkeypatch each helper to raise; the turn is `failed` / fallback, no files, the session not busy. Prototyped: `l2_base_exception` then finishes all 7 cases.
+- **R3-L5. The per-upload count keys on the file id, so re-uploading the same original bytes loses the sentence.**
+  - **Where:** `backend/turns.py:240-252`.
+  - **Scenario** [Certain, all 3 speakers]:
+    1. Dedupe `report.xlsx`; it's delivered.
+    2. Upload the same file again (the same SHA-256, which `GET /sessions/{id}` shows).
+    3. "now remove the empty rows too".
+
+    The copy is delivered with **5 rows including the 2 duplicates**, so the dedupe isn't in it. The reply (focus): "Done — removed 1 fully-empty row(s). The copy has 5 row(s), 0 fully-empty row(s) remaining. Your cleaned copy of report.xlsx is ready. None of the issues I check for were found." There's no from-original sentence. On `0276e7c` it had one. ("None of the issues…" with duplicates in the file is backlog L-4, pre-existing.)
+  - **Why LOW, not MEDIUM:**
+    - The user supplied the original bytes again themselves.
+    - The reply is accurate about the file it names.
+    - The designed flow keeps the upload in the session, and a follow-up needs no re-upload.
+
+    [Possible] It becomes ordinary if the frontend has users attach a file with each message. The frontend PR should check this.
+  - **Fix:** count earlier deliveries from any upload with the same bytes as this turn's upload:
+
+    ```python
+    target = record.files.get(target_id) if target_id is not None else None
+    same_bytes = {
+        f.file_id for f in record.files.values()
+        if target is not None and f.sha256 == target.sha256
+    }
+    work.earlier_deliveries = sum(
+        len(t.delivered_files)
+        for t in record.turns
+        if t.finished and t.outcome == DELIVERED and t.target_file_id in same_bytes
+    )
+    ```
+
+    A re-uploaded Buddy copy has a different SHA-256 from the original, so R2-M1 stays fixed. Prototyped: case B gets the sentence in all 3 speakers, and cases A, C, I and J are unchanged. Test: case B through the API in all 3 speakers, keeping tests (a) to (d). Change the design note's "from the same upload" to "from the same upload, or an upload with the same bytes".
+- **R3-L6. No test turns on a non-active upload by `file_id` after a delivery.**
+  - The mutation `r3_m2_target_ignores_file_id` survives.
+  - **Effect** [Certain, on a mutated copy]: case E loses the sentence (round 1's M2 reply returns), and case J gains it on a first delivery (R2-M1's class).
+  - **Fix:** two API tests, in all 3 speakers:
+    - (e) dedupe `report.xlsx`, upload `budget.xlsx`, then `file_id` = report, "now remove the empty rows too": the sentence is there;
+    - (f) upload both, dedupe budget, then `file_id` = report, "remove duplicate rows": no sentence.
+- **R3-L7. "Your original upload" is ambiguous when the upload is itself a re-upload of Buddy's copy.**
+  - **Scenario:** case C's third turn: dedupe, re-upload the copy, remove empty rows, then "remove duplicate rows again".
+  - The sentence is true in the API's terms: the copy is made from the re-upload and doesn't include the second turn's change.
+  - But in a session with two uploads, "original" can read as `report.xlsx`, especially in Template, which names only the output.
+  - **Fix** (optional, the owner's wording call): a catalog sentence that doesn't say "original", for example "I made this copy from your upload, not from a copy I handed back in an earlier turn."
+- **R3-L8. The backlog's D3 status is stale.**
+  - **Where:** `docs/backlog.md:132`.
+  - It still says the sentence appears "whenever the session handed back a file before", and "(round-1 fixes, pending review)".
+  - **Fix:** describe the per-upload rule and point to the design's "Decisions (2026-10-04)", item 2.
+
+### Pre-existing, not counted against this PR
+
+- **P2. ydata-profiling sends telemetry on every analysis.** [Certain]
+  - `skills/excel/analyze.py:72` uses `ydata_profiling`, whose `analytics_features` (`ydata_profiling/utils/common.py`) calls `requests.get("https://packages.ydata.ai/ydata-profiling?…")` unless `YDATA_PROFILING_NO_ANALYTICS` is set.
+  - The request carries the package and Python versions, the OS, whether a GPU is present, and the analyzed file's **row and column counts**. It's synchronous, inside the turn, with no timeout, and it runs `nvidia-smi` in a subprocess first.
+  - This sandbox's proxy logged and refused hundreds of these connections during my probe runs. The same happens on `main` (PR-1's analyze skill).
+  - Through the API, a public server sends the shape of every user's file to a third party, and a network that drops (rather than refuses) outbound traffic could hold a turn until its deadline.
+  - **Fix:** set `os.environ.setdefault("YDATA_PROFILING_NO_ANALYTICS", "1")` before `ydata_profiling` is imported (in `skills/excel/analyze.py`, or in `backend/__main__.py` and the CLI), with a test that patches `requests.get` and asserts an analysis never calls it. Added to the backlog.
+
+## R3.8 What the next round needs
+
+Nothing blocks the merge. The next step, by `docs/process/review-loop.md`, is the live runs with Groq on this head.
+
+Recommended, not merge conditions:
+1. R3-L5's per-content count, because it is cheap and restores the one true sentence round 2 had.
+2. R3-L1 to R3-L4 together, with their tests. They're all latent or noise, but R3-L1 is a narrowing the R2-L1 fix introduced.
+3. The live runs should include a two-turn session ("remove duplicate rows", then "now remove the empty rows too") and a re-upload of the delivered copy, to check how the real model classifies them with the conversation in the prompt.
+
+## Deferred (round 3)
+
+R3-L1 to R3-L8 and P2 above, added to `docs/backlog.md`. R2-L4, and round 1's L9, L10, L12 and P1, stay deferred.
+
+## Not run (round 3)
+
+- **Live runs with Groq.** By the review loop these come after a MERGE verdict, on the final head. So the real model's classification of follow-ups, and of a re-uploaded file name, is still untested.
+- **`api_probe.py` and `adversarial_probe.py` on `0276e7c`.** I ran them on head only. Round 2 recorded their results on `0276e7c`, and the diff can't change a single-turn reply; my multi-turn comparison with `0276e7c` is `m2_targets` (all 10 cases, 3 speakers).
+- **Python 3.13.** Round 1 ran the suite there; I ran it on 3.11.15 only.
+- **The demo host, Windows, and a non-root user** (the `0o444` permissions), as in earlier rounds.
+- **The full suite on my prototype.** In a throwaway copy I prototyped the fixes for R3-L1 to R3-L5 and ran `tests/backend`, `tests/core/test_engine.py` and `tests/buddy/test_nothing_ran_and_from_original.py` (391 passed), `l1_logging`, `m2_targets` (A, B, C, I, J), `l2_base_exception` and `server_probe.py` on it. The prototype isn't committed. Under the review-loop rules, I mustn't review those fixes.

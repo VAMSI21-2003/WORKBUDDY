@@ -119,6 +119,12 @@ def main() -> None:
                 files={"file": ("bad.xlsx", b"PK\x03\x04" + b"\0" * (4 * 1024 * 1024))},
             )
             result["oversized"] = [r1.status_code, r2.status_code, r3.status_code, r4.status_code]
+            # Round 3: query strings any client can send, which make the whole access
+            # line match a pattern that the path argument alone doesn't.
+            result["odd_queries"] = [
+                c.get(q).status_code
+                for q in ("/healthz?api_key=", "/healthz?x=Bearer", f"/api/v1/sessions/{sid}?api_key=")
+            ]
             time.sleep(0.5)
             result["tmpdir_after"] = sorted(p.name for p in spool.rglob("*"))
         finally:
