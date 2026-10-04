@@ -221,3 +221,35 @@ def test_a_secret_inside_a_non_string_argument_is_still_masked() -> None:
     )
 
     assert "gsk_ABC123" not in record.getMessage()
+
+
+@pytest.mark.parametrize(
+    ("fmt", "arg"),
+    [
+        ("Authorization: Bearer %s", "tok_plain_SECRET123"),
+        ("api_key=%s", "tok_plain_SECRET123"),
+        ("GET /api/v1/sessions/%s/files", "s_tok_plain_SECRET123"),
+    ],
+)
+def test_a_secret_split_between_format_and_argument_formats_and_stays_masked(
+    fmt: str, arg: str, capsys: pytest.CaptureFixture[str]
+) -> None:
+    """Round 2, R2-L1: redaction never drops a placeholder, so nothing raw is printed."""
+    import io
+
+    install_log_redaction()
+    stream = io.StringIO()
+    handler = logging.StreamHandler(stream)
+    log = logging.getLogger(f"tests.backend.split.{abs(hash(fmt))}")
+    log.addHandler(handler)
+    log.propagate = False
+    try:
+        log.warning(fmt, arg)
+    finally:
+        log.removeHandler(handler)
+
+    written = stream.getvalue()
+    errors = capsys.readouterr().err
+    assert REDACTED in written
+    assert "SECRET123" not in written and "SECRET123" not in errors
+    assert "Logging error" not in errors

@@ -237,7 +237,19 @@ class TurnRunner:
                 if target is not None:
                     work.context.switch_active_file(str(target.path))
                 work.turn_output_dir = str(turn_dir)
-                work.earlier_deliveries = len(record.delivered())
+                target_id = file_id if file_id is not None else record.active_file_id
+                # Files handed back earlier *from this same upload*: only then is
+                # "made from your original upload, not from a file I handed back
+                # earlier" the point (review round 2, R2-M1). A copy the user
+                # re-uploaded is an upload of its own, with its own count.
+                work.earlier_deliveries = sum(
+                    len(t.delivered_files)
+                    for t in record.turns
+                    if t.finished
+                    and t.outcome == DELIVERED
+                    and target_id is not None
+                    and t.target_file_id == target_id
+                )
                 work.context.record_user_message(message)
 
                 turn = TurnRecord(
@@ -246,7 +258,7 @@ class TurnRunner:
                     message=message,
                     mode=work.context.mode,
                     started_at=self._clock(),
-                    target_file_id=file_id if file_id is not None else record.active_file_id,
+                    target_file_id=target_id,
                 )
                 record.turns.append(turn)
                 record.running_turn_id = turn_id
@@ -399,7 +411,9 @@ class TurnRunner:
         )
         try:
             self._registry.save_turn(record, finished)
-        except Exception:
+        except BaseException:
+            # Any failure, even a BaseException, leaves the turn to finish as
+            # failed rather than stay running for good (round 2, R2-L2).
             logger.exception("Turn %s: the finished record couldn't be saved", turn.turn_id)
             return False
         return True

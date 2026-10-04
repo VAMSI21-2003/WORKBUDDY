@@ -962,3 +962,103 @@ def test_a_message_with_a_lone_surrogate_is_422(idle_client: TestClient) -> None
     assert response.status_code == 422
     assert response.json()["error"]["code"] == "invalid_request"
     assert idle_client.get(f"/api/v1/sessions/{session_id}").json()["turns"] == []
+
+
+# -- Review round 2: R2-M1, R2-L2 -----------------------------------------------------------
+
+
+def _mode_for(speaker: str) -> str:
+    return "focus" if speaker == "focus" else "friend"
+
+
+@pytest.mark.parametrize("speaker", SPEAKERS)
+def test_a_re_uploaded_copy_gets_no_from_original_sentence(
+    settings: Settings, speaker: str
+) -> None:
+    """R2-M1 (a): Buddy's own copy, uploaded again, is an upload of its own."""
+    provider = QueuedProvider(single("remove_duplicate_rows") + single("remove_empty_rows"))
+    factory = PipelineFactory(provider, speaker=speaker)
+    client = _app(settings, factory)
+    session_id, _ = _session_with_upload(client, _mode_for(speaker))
+    first = _turn(client, session_id, "remove duplicate rows")
+    (delivered,) = first["delivered_files"]
+    copy_bytes = client.get(delivered["download_url"]).content
+    assert upload(client, session_id, copy_bytes, name=delivered["name"]).status_code == 201
+
+    second = _turn(client, session_id, "now remove the empty rows")
+
+    assert second["outcome"] == "delivered"
+    assert FROM_ORIGINAL_SENTENCE not in second["reply"]
+    written = pd.read_excel(Path(factory.runs[1].outputs[0]))
+    assert len(written) == 3 and int(written.duplicated().sum()) == 0  # it built on the copy
+
+
+@pytest.mark.parametrize("speaker", SPEAKERS)
+@pytest.mark.parametrize("first", ["greeting", "failed"])
+def test_a_first_delivery_after_a_turn_that_delivered_nothing_gets_no_sentence(
+    settings: Settings, speaker: str, first: str
+) -> None:
+    """R2-M1 (b): only files actually handed back count, not earlier turns."""
+    calls = {"n": 0}
+
+    def wrap(cycle: Any) -> Any:
+        calls["n"] += 1
+        if first == "failed" and calls["n"] == 1:
+            return raise_in("inspector", after=True)(cycle)
+        return cycle
+
+    replies = (_unclear() if first == "greeting" else single("remove_duplicate_rows")) + single(
+        "remove_duplicate_rows"
+    )
+    factory = PipelineFactory(QueuedProvider(replies), speaker=speaker, wrap=wrap)
+    client = _app(settings, factory)
+    session_id, _ = _session_with_upload(client, _mode_for(speaker))
+
+    before = _turn(client, session_id, "hi" if first == "greeting" else "remove duplicate rows")
+    turn = _turn(client, session_id, "remove duplicate rows")
+
+    assert before["outcome"] in ("not_delivered", "failed")
+    assert turn["outcome"] == "delivered"
+    assert FROM_ORIGINAL_SENTENCE not in turn["reply"]
+
+
+@pytest.mark.parametrize("speaker", SPEAKERS)
+def test_a_delivery_on_another_upload_gets_no_sentence(settings: Settings, speaker: str) -> None:
+    """R2-M1 (c): a delivery from the first upload says nothing about the second's copy."""
+    provider = QueuedProvider(single("remove_duplicate_rows") + single("remove_duplicate_rows"))
+    factory = PipelineFactory(provider, speaker=speaker)
+    client = _app(settings, factory)
+    session_id, _ = _session_with_upload(client, _mode_for(speaker))
+    _turn(client, session_id, "remove duplicate rows")
+    budget = {"item": ["rent", "food", "rent"], "cost": [900, 200, 900]}
+    assert upload(client, session_id, xlsx_bytes(budget), name="budget.xlsx").status_code == 201
+
+    turn = _turn(client, session_id, "remove duplicate rows")
+
+    assert turn["outcome"] == "delivered"
+    assert FROM_ORIGINAL_SENTENCE not in turn["reply"]
+
+
+class _Halt(BaseException):
+    pass
+
+
+def test_a_base_exception_from_the_finished_save_still_finishes_the_turn(
+    settings: Settings, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """R2-L2: the turn finishes as failed instead of staying running for good."""
+    client = _app(settings, PipelineFactory(QueuedProvider(single("remove_duplicate_rows"))))
+    session_id, _ = _session_with_upload(client)
+    real_save_turn = SessionStore.save_turn
+
+    def halting_for_finished(self: Any, record: Any, turn: Any) -> None:
+        if turn.status == "finished":
+            raise _Halt
+        real_save_turn(self, record, turn)
+
+    monkeypatch.setattr(SessionStore, "save_turn", halting_for_finished)
+    turn = _turn(client, session_id, "remove duplicate rows")
+
+    assert turn["outcome"] == "failed" and turn["reply"] == FALLBACK_PIPELINE_ERROR
+    assert turn["delivered_files"] == []
+    assert client.get(f"/api/v1/sessions/{session_id}").json()["busy"] is False

@@ -1089,3 +1089,12 @@ An owner decision, recorded with PR-2 (`feat/backend-api-core`). Where this sect
 ### Not changed
 
 The skills still refuse an OLE2 workbook inside a turn ("older .xls workbooks … aren't supported yet"), and backlog 1a's note stands: don't add `xlrd` until the sheet count covers chart sheets, macro sheets and VB modules, which `xlrd` skips. Turning `.xls` on later needs a new owner decision, that work, and a fixture test that an `.xls` upload is cleaned, delivered under the name and format the reply states, and left byte-identical.
+
+### 2. Implementation note, recorded with PR-2 (not an owner decision)
+
+From PR-2's independent review (`docs/reviews/backend-api-core-review.md`, round 1 M2 and round 2 R2-L3). Overview item 7 lists the pipeline inputs the API depends on; PR-2 adds one.
+
+- **`BuddyState.earlier_deliveries`** (an `int`, cleared by `reset_transient()`). Before each run, the API sets it to the number of files the session already handed back **from the same upload** this turn works on (`backend/turns.py`, `TurnRunner.start`).
+- **Why.** Every turn works from the original upload, never from a file handed back earlier. So "now remove the empty rows too" gives a copy without the first turn's change. When the count is above 0, Voice adds the reviewed constant `FROM_ORIGINAL_SENTENCE` after the outcome block of a delivered reply: "I made this copy from your original upload, not from a file I handed back earlier."
+- **Counted per upload.** A copy the user downloaded and uploaded again is an upload of its own, with its own count, so its delivered reply doesn't carry the sentence.
+- **Still the owner's to decide:** whether later turns should instead build on the last delivered file (review round 1, M2 option (a)). This note records option (b), which PR-2 implements until then.
