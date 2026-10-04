@@ -48,6 +48,16 @@ M = {
     "planner-check-off": ("buddy/planner.py", "return plain_table_problem(file_reference) is not None", "return False"),
     "analytics-setdefault": ("skills/excel/analyze.py", 'os.environ[_NO_ANALYTICS_ENV] = "1"', 'os.environ.setdefault(_NO_ANALYTICS_ENV, "1")'),
     "analytics-off": ("skills/excel/analyze.py", 'os.environ[_NO_ANALYTICS_ENV] = "1"', "pass"),
+    # round 2 (head 8222c7f)
+    "r2-reset-dim-sheet-problem-off": ("skills/excel/workbook.py", "                sheet.reset_dimensions()\n                reason =", "                reason ="),
+    "r2-reset-dim-count-shown-off": ("skills/excel/workbook.py", "                    shown_sheet.reset_dimensions()\n", ""),
+    "r2-reset-dim-count-saved-off": ("skills/excel/workbook.py", "                    saved_sheet.reset_dimensions()\n", ""),
+    "r2-error-type-check-off": ("skills/excel/workbook.py", 'if cell.data_type == "e" or (', "if False or ("),
+    "r2-na-text-check-off": ("skills/excel/workbook.py", "cell.row != 1 and isinstance(cell.value, str) and cell.value in _PANDAS_NA_TEXT", "False"),
+    "r2-na-in-header-refused": ("skills/excel/workbook.py", "cell.row != 1 and isinstance(cell.value, str)", "isinstance(cell.value, str)"),
+    "r2-na-set-drops-null": ("skills/excel/workbook.py", '"NULL",', ""),
+    "r2-reads-as-empty-gets-suffix": ("skills/excel/workbook.py", "if reason is None or reason == _READS_AS_EMPTY:", "if reason is None:"),
+    "r2-na-check-after-first-row-logic-only-row1": ("skills/excel/workbook.py", "cell.row != 1 and isinstance(cell.value, str) and cell.value in _PANDAS_NA_TEXT", "cell.row == 2 and isinstance(cell.value, str) and cell.value in _PANDAS_NA_TEXT"),
     "is-empty-ignores-empty-string": ("skills/excel/workbook.py", 'return value is None or value == ""', "return value is None"),
 }
 

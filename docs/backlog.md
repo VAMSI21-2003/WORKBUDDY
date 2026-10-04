@@ -88,6 +88,10 @@ Open work, in priority order. Each item follows the working method in `CLAUDE.md
 - **From the `fix/values-only-copy` review, round 1 (deferred, LOW; the HIGH and MEDIUM findings R1-1 to R1-3 are in `docs/reviews/fix-values-only-copy-review.md`):**
   - R1-4: "had no saved value" is the wrong reason for a formula that returns `""` (Excel saves an empty string); the count also includes formula cells in rows the turn removed. Reword to "K of them are empty in the copy".
   - R1-6: cost of the extra passes on a large sheet (100,000 x 5: pandas read 8.9 s, plain-table check 10.1 s, formula count 17.6 s); an up-front refusal reads "partway through"; `sheet._get_source()` is private openpyxl API (pin or guard); no test for an empty-string header cell (`_is_empty` mutation survives).
+- **From the `fix/values-only-copy` review, round 2 (deferred, LOW; see `docs/reviews/fix-values-only-copy-review.md`):**
+  - R2-1: an analysis-only request on a file the cleaning skills would refuse (any file with `N/A`, an error value, merged cells, two sheets) gets "I wasn't able to confirm that worked. No verifier has been configured."; say why nothing ran, using the refusal text.
+  - R2-2: the NA / error refusal is tested only at row 2 (mutation `cell.row == 2` survives); add rows below and later columns.
+  - R2-3: `docs/design/values-only-copy.md` doesn't describe the error / NA refusal or the dimension reset; update it. Option to keep more files cleanable: read with `keep_default_na=False, na_values=[""]` at every pandas read site instead of refusing.
 
 ## 2. An explicit conversation intent, and relaying Think's clarifying question
 

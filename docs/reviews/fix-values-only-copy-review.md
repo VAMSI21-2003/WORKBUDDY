@@ -129,3 +129,79 @@ R1-4, R1-5 (already backlog 1b), R1-6 (cost, wording, private API, untested `""`
 - `.xls` input (`xlrd` not installed).
 - The performance numbers were taken while a mutation run used the CPU; use them for ratios, not absolutes.
 - The full suite on the scratch fix prototype (only the five relevant test directories, 486 passed). The prototype is a proof of the fix, not the fix.
+
+
+---
+
+# Review round 2 (commit 8222c7f)
+
+**Verdict: MERGE.** Head `8222c7f` against base `origin/main`; diff reviewed since `850a27d` (`skills/excel/workbook.py`, tests, fixtures, docs) plus every open finding and regression against the base. R1-1, R1-2 and R1-3 are fixed, confirmed with my own probes. No HIGH, and no MEDIUM that an ordinary request reaches. Three LOW items are deferred below and added to `docs/backlog.md`. Rule 2: the original's SHA-256 was identical before and after in every run (0 changes in 725 head turns, 725 base turns, 400 round-2 turns, 20 re-run turns and 30 Inspector-only turns). Voice-model calls: 0.
+
+Reviewer: independent agent, no memory of writing the change. `docs/reviews/fix-values-only-copy-fixes1.md` was treated as unverified.
+
+## 1. Suite and lint
+
+- `python -m pytest -q`: **1767 passed**, 11 warnings, 195 s. Matches the writer's number.
+- `ruff check buddy tests`: 22 errors on head and on `origin/main`. Compared by file and rule (line numbers stripped, sorted `diff`): **identical, nothing new**.
+
+## 2. Earlier findings, confirmed with my own evidence
+
+| Finding | Result | Evidence |
+|---|---|---|
+| R1-1 (HIGH) error results emptied, "last saved values" false | **Fixed** | `na_error_results`, `r2_formula_error_unsaved_mix` (one saved `#DIV/0!` among saved numbers), `r2_formula_text_na` (a formula saving the text `N/A`), `r2_error_header`: refused for dedupe / empty / chain, template, friend, focus. Nothing handed back, fixed text, original unchanged. |
+| R1-2 (HIGH) NA-like text emptied, real rows deleted as "empty" | **Fixed** | `na_strings` (`NA`, `N/A`, `null`, `None`, `nan`), `r2_inline_na` (inline and rich-text `N/A`), `r2_dim_missing_na` (no `<dimension>`), `r2_wrongdim_small_na` (NA outside the stated dimension): all refused. On `origin/main` the same files were delivered with the loss. |
+| R1-3 (MEDIUM) wrong `<dimension>` hides cells | **Fixed** | `gap_dim_a1` refused; `formulas_wrong_dim` now says "Your file has 4 formula cell(s)" (4 `<f>` in the XML); `wrong_dimension` (data in column D, dimension `A1:B6`) is now refused where `main` delivered it with `Unnamed` columns; `wrong_dimension_rows` (dimension smaller than the data) still delivered correctly. |
+| R1-6 survivor (`_is_empty` ignoring `""`) | **Closed** | Mutation now caught by `test_an_empty_string_header_written_as_a_string_cell_is_refused`. |
+
+The replies for the refusals say: "a cell holds an error value, or text such as NA or N/A, that would be read as empty, and keeping such cells isn't supported for now ... no file was handed back; your original file is unchanged." That is true in every case I produced (nothing in `outputs`, original hash unchanged). When the skills are patched not to refuse, the Inspector refuses on its own ("the sheet it read isn't a plain table: ..."), single step and chain, three speakers (`round2_skill_doesnt_refuse.py`, 5 fixtures x 2 requests x 3 speakers, all `delivered=False`, original unchanged, the chain's second step skipped).
+
+## 3. Check against `docs/design/values-only-copy.md`
+
+The implementation matches the design as reviewed in round 1. One deviation: the design note does not describe the new refusal (error values and NA-like text) or the dimension reset; it still says the detector has four refusal texts. It is a fifth. LOW, see R2-3.
+
+## 4. Probes
+
+Real `build_engine`, real skills and verifiers, fake LLM (`values_only_probe.py` as the base).
+
+- **725 turns on head and the same 725 on a worktree of `origin/main`** (29 fixtures x 5 requests x template / friend x3 / focus). Automatic checks: no reply says "The copy has the values only" without a delivery (0); no delivered turn has an NA-like or error cell in the original (0). Differences from `main`, all intended: every non-plain layout (merged, title row, header row 3, duplicate header, header gap, data right of header, column A empty, formula header, no dimension, wrong dimension with data outside it, `gap_dim_a1`) and `na_strings` are now refused where `main` delivered a damaged copy; plain / formulas / `extras` / `excel_table` / `date_cells` / `header_only` / `empty_sheet` / `whitespace_header` / `big_ints` / `wrong_dimension_rows` delivered on both, with the values-only sentence on head. Unchanged from `main`: `numeric_headers`, `int_and_str_header` (verification fails; backlog), `text_equals` (refused by the verifier on both).
+- **Round-2 fixtures** (`round2_probe.py`, 400 turns): `r2_na_header_only` (header cells `NA`, `null`: delivered, header kept as written in the copy; correct), `r2_ws_na` (`" NA"`, `"NA "`, `"Na"`, `"n/a."`, `"NAN"`: pandas keeps them, delivered, copy identical; correct), `r2_ragged` (rows with gaps; delivered, copy correct), `r2_huge_dim` (`A1:XFD1048576`: delivered in under a second), `r2_error_in_empty_row` (an error value alone in the "empty" row: refused), `r2_num_nan` (`<v>nan</v>` in a number cell: refused as unreadable; honest).
+- **Differential check** (`differential_nan_probe.py`): 25 odd cell kinds in a data cell (bool, ISO date, empty inline / `str` / shared strings, `<v/>`, `nan`/`inf`/`#IND` numbers, whitespace NA, Unicode-built `NA`, error and formula-error cells, formula text `n/a`). For each: does pandas read the cell as missing while the check neither refuses nor treats it as empty? **None.** Where pandas reads a cell as missing the check refuses it or counts it empty; unreadable numbers raise in openpyxl and the check refuses ("could not read the workbook").
+- **Formula count after `reset_dimensions`:** ragged rows with formulas in sparse columns give 3 formulas (independent count 3); the `strict=True` zip of the two books did not raise on any fixture.
+
+## 5. Tests and mutations
+
+`scripts/review_harness/mutations.py` (exports HEAD, one change, runs the eight relevant test files). Round 2 added nine mutations: **8 caught, 1 survived.**
+
+Caught: `reset_dimensions` removed at each of its three sites; error-type check off; NA-text check off; NA check applied to the header row; one string dropped from the NA set (the pandas-equality test); the new refusal given the "plain tables" suffix; `_is_empty` ignoring `""`.
+Survived: the NA text check restricted to row 2 only (`cell.row == 2`): no test puts NA text or an error value below row 2. The real code is right (probes put them at rows 4 and 5); the tests don't pin it. LOW, R2-2.
+
+The new tests fail without their fix (each mutation above). The fixture helpers (`error_result_sheet`, `with_dimension`, `na_text_sheet`) are the ones the earlier probes needed; I found no weakened assertion.
+
+## 6. Findings
+
+### R2-1 (LOW, [Certain], deferred): "what is in this file" on a refused sheet gets "I wasn't able to confirm that worked. No verifier has been configured."
+
+- **Where:** `buddy/planner.py` `_cleaning_skills_would_refuse` now covers every refusal, including the new NA / error rule; the planner then drops the analysis, the plan has no steps, and the engine's no-steps reply is used.
+- **Scenario:** an analysis-only request on `na_strings`, `gap_dim_a1`, `r2_formula_text_na`. Reply: "I wasn't able to confirm that worked. No verifier has been configured. No changes were made to any file this turn."
+- **Why LOW:** the same reply is produced on `origin/main` for a two-sheet workbook (I ran both trees); the planner skip is a decided behaviour. It claims nothing false about files ("No changes were made"), but "No verifier has been configured" is wrong as a statement about the system and says nothing about why nothing ran. The new rule widens how often it appears (any file with an `N/A`).
+- **Fix:** when the planner skips the only step because the file would be refused, say so with the refusal text (as the chain refusal does) instead of the no-verifier fallback.
+
+### R2-2 (LOW, [Certain], deferred): the NA / error rule is tested only at row 2
+
+Mutation `cell.row == 2` survives. Add a parametrised case with the NA text and an error value at row 5 and in a later column.
+
+### R2-3 (LOW, [Certain], deferred): the design note is stale
+
+`docs/design/values-only-copy.md` doesn't mention the error / NA refusal, the dimension reset or the over-refusal it accepts. Over-refusal is real: any file with a data cell of `NA`, `N/A`, `null` or an error value can't be cleaned until the cell is changed; the reply says why, truthfully. A later option is to read with `keep_default_na=False` at every pandas read site (backlog).
+
+## 7. Deferred
+
+R2-1, R2-2, R2-3 (added to `docs/backlog.md`), plus round 1's R1-4, R1-5, R1-6 (already there; the `""` guard part of R1-6 is closed).
+
+## Not run
+
+- Live runs with Groq (the writer's step 5, after this MERGE verdict).
+- Files saved by real Excel or LibreOffice (not installed): fixtures are openpyxl files patched at the XML level.
+- `.xls` input (`xlrd` not installed).
+- Timing on a large sheet (round 1's numbers stand; `reset_dimensions` changes only how rows are padded, and the `A1:XFD1048576` case ran in under a second).
+- Other pandas or openpyxl versions: tested on pandas 2.3.3 and openpyxl 3.1.5. `test_the_na_text_set_is_pandas_own` guards the NA list against a pandas upgrade; nothing guards the error-cell behaviour of the pandas reader.

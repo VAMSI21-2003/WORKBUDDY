@@ -60,3 +60,12 @@ Run from the repo root; `--tree DIR` (a `git worktree` of `origin/main`) works f
 `values_only_probe.py` writes the reply, whether a file was handed back, the original's and the copy's cells (read with
 openpyxl, not pandas) and an XML formula count; the original's hash before/after is in `orig_unchanged`. Diff the JSON of two trees.
 Fixtures are written with openpyxl and patched at the XML level (saved formula results, `<dimension>`, inline strings).
+
+## Values-only copy, round 2 (head `8222c7f`)
+
+    python scripts/review_harness/round2_probe.py [--tree DIR] [--out FILE] [FIXTURE ...]   # r2_* fixtures: NA text, error cells, dimensions; 400 turns
+    python scripts/review_harness/round2_skill_doesnt_refuse.py       # skills patched to the old check: the Inspector alone must refuse
+    python scripts/review_harness/differential_nan_probe.py           # 25 odd cell kinds: pandas reads it as missing but the check is silent?
+    python scripts/review_harness/mutations.py r2-reset-dim-sheet-problem-off ...   # nine round-2 mutations (names start r2-)
+
+`round2_probe.py` imports `values_only_probe.py` and adds fixtures; `analyze_only` replies on refused sheets are the R2-1 case.
