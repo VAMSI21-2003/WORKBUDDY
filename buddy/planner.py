@@ -12,7 +12,7 @@ from buddy.llm import LLMMessage, LLMProvider
 from buddy.models import PlanningStep, Understanding
 from buddy.state import BuddyState
 from buddy.think import Reasoning
-from skills.excel.workbook import WorkbookRefused, sheet_names
+from skills.excel.workbook import WorkbookRefused, plain_table_problem, sheet_names
 
 logger = logging.getLogger(__name__)
 
@@ -246,16 +246,20 @@ _ANALYZE_CAPABILITY = "spreadsheet.analyze"
 
 
 def _cleaning_skills_would_refuse(file_reference: str) -> bool:
-    """Whether the row-cleaning skills would refuse this workbook's sheets.
+    """Whether the row-cleaning skills would refuse this workbook.
 
-    True for a workbook with more than one sheet, and for one whose sheets
-    can't be listed (password-protected, legacy, damaged). A file that isn't
-    on disk says nothing, so it's not counted as refused.
+    True for a workbook with more than one sheet, for one whose sheets can't
+    be listed (password-protected, legacy, damaged), and for one whose sheet
+    isn't a plain table (merged cells, a header that isn't on the first row,
+    a column with no header, equal headers). A file that isn't on disk says
+    nothing, so it's not counted as refused.
     """
     if not os.path.exists(file_reference):
         return False
     try:
-        return len(sheet_names(file_reference)) != 1
+        if len(sheet_names(file_reference)) != 1:
+            return True
+        return plain_table_problem(file_reference) is not None
     except WorkbookRefused:
         return True
 
@@ -570,8 +574,9 @@ class Planner:
         if target_file in state.context.analyzed_files:
             return ()
         if _cleaning_skills_would_refuse(target_file):
-            # The analysis reads the first sheet only and ends by offering to
-            # fix what it found, work the skills would refuse on this file.
+            # The analysis reads the first sheet only (and misreads a sheet that
+            # isn't a plain table) and ends by offering to fix what it found,
+            # work the skills would refuse on this file.
             return ()
         return (target_file,)
 

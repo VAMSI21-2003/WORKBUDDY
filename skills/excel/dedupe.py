@@ -6,7 +6,7 @@ from pathlib import Path
 import pandas as pd
 
 from skills.base import PermissionTier, Skill, SkillResult, SkillStatus, SkillTask
-from skills.excel.workbook import WorkbookRefused, discard_partial_output, single_sheet_name
+from skills.excel.workbook import WorkbookRefused, discard_partial_output, plain_table_sheet_name
 
 logger = logging.getLogger(__name__)
 
@@ -93,9 +93,11 @@ class ExcelDeduplicateSkill(Skill):
 
         input_path = task.input_references[0]
         try:
-            # Only one sheet is read and written, so any other sheet would be
-            # lost: refuse a workbook that has more than one.
-            sheet_name = single_sheet_name(input_path)
+            # Only one sheet's values are read and written, so any other sheet
+            # would be lost and a sheet that isn't a plain table would come back
+            # changed: refuse a workbook with more than one sheet, or a sheet
+            # that isn't a plain table.
+            sheet_name = plain_table_sheet_name(input_path)
         except WorkbookRefused as exc:
             logger.info("%s: refused %r: %s", type(self).__name__, input_path, exc)
             return SkillResult(status=SkillStatus.FAILURE, errors=[str(exc)])

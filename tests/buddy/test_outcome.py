@@ -45,6 +45,7 @@ from buddy.outcome import (
     NOT_DONE,
     NOT_PLANNED,
     NOT_READ_AS_REQUEST,
+    VALUES_ONLY_SENTENCE,
     ActionOutcome,
     OutcomeReport,
     build_outcome_report,
@@ -210,7 +211,7 @@ def _m(
     ],
 )
 def test_render_outcome(report: OutcomeReport, file_style: str, expected: str) -> None:
-    assert render_outcome(report, file_style) == expected
+    assert render_outcome(report, file_style) == f"{expected} {VALUES_ONLY_SENTENCE}"
 
 
 # -- The lead word (design 2.3 and decision D2) ------------------------------------------
@@ -669,7 +670,7 @@ _C1_BLOCK_FINAL = StepMeasurement(DUPLICATE_ROWS_TARGET, output_rows=4, remainin
 )
 def test_render_ledger_rows(report: OutcomeReport, expected: str) -> None:
     style = FILE_STYLE_PLAIN if report.delivered_file else FILE_STYLE_GENERATED
-    assert render_outcome(report, style) == expected
+    assert render_outcome(report, style) == f"{expected} {VALUES_ONLY_SENTENCE}"
 
 
 # -- PR-B: the derivation table (design Section 2.2) -------------------------------------
@@ -845,7 +846,7 @@ def test_residuals_are_kept_only_for_actions_that_were_not_done() -> None:
     assert render_outcome(report, FILE_STYLE_GENERATED) == (
         "Partly done — removed 2 duplicate row(s). I didn't run the empty-row removal, though I "
         "read it as part of your request. The copy has 4 row(s), 0 duplicate row(s) remaining. "
-        "It still has 1 fully-empty row(s). Saved as `out.xlsx`."
+        "It still has 1 fully-empty row(s). Saved as `out.xlsx`. " + VALUES_ONLY_SENTENCE
     )
 
 

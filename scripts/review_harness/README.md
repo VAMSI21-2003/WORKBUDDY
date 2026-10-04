@@ -47,3 +47,25 @@ Run each from the repo root; `--tree DIR` (a `git worktree` of another commit) w
 `round5.py` scenarios: `a*` multi-sheet and R1 scope phrases; `b*` odd workbooks (hostile/long/XML sheet
 names, corrupt, not Excel, OLE2, encrypted, empty); `c-fail-*` a stage raises (all stages, with a secret in the
 exception text); `d*` per-turn output folder and confirmation provider (decline, raise).
+
+## Values-only copy, round 1 (`fix/values-only-copy`, head `850a27d`)
+
+Run from the repo root; `--tree DIR` (a `git worktree` of `origin/main`) works for the first two.
+
+    python scripts/review_harness/values_only_probe.py --out v.json [FIXTURE ...]   # 29 odd one-sheet workbooks x 5 requests x 3 speakers
+    python scripts/review_harness/adversarial_probe.py [measure_fails skill_doesnt_refuse shared_formulas na_error_results entity_bomb timing]
+    python scripts/review_harness/mutations.py [NAME ...]    # exports HEAD to a temp dir, one mutation each, runs the relevant tests
+    python scripts/review_harness/analytics_probe.py [TREE]  # P-2: counts calls to packages.ydata.ai (nothing is sent)
+
+`values_only_probe.py` writes the reply, whether a file was handed back, the original's and the copy's cells (read with
+openpyxl, not pandas) and an XML formula count; the original's hash before/after is in `orig_unchanged`. Diff the JSON of two trees.
+Fixtures are written with openpyxl and patched at the XML level (saved formula results, `<dimension>`, inline strings).
+
+## Values-only copy, round 2 (head `8222c7f`)
+
+    python scripts/review_harness/round2_probe.py [--tree DIR] [--out FILE] [FIXTURE ...]   # r2_* fixtures: NA text, error cells, dimensions; 400 turns
+    python scripts/review_harness/round2_skill_doesnt_refuse.py       # skills patched to the old check: the Inspector alone must refuse
+    python scripts/review_harness/differential_nan_probe.py           # 25 odd cell kinds: pandas reads it as missing but the check is silent?
+    python scripts/review_harness/mutations.py r2-reset-dim-sheet-problem-off ...   # nine round-2 mutations (names start r2-)
+
+`round2_probe.py` imports `values_only_probe.py` and adds fixtures; `analyze_only` replies on refused sheets are the R2-1 case.

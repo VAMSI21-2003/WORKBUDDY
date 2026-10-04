@@ -21,7 +21,7 @@ from buddy.models import (
     Understanding,
     VerificationResult,
 )
-from buddy.outcome import OutcomeReport
+from buddy.outcome import VALUES_ONLY_SENTENCE, OutcomeReport
 from buddy.state import BuddyState
 from buddy.voice import (
     NullSpeaker,
@@ -108,7 +108,7 @@ def test_template_speaker_success_message_mentions_output_file_and_finding() -> 
 
     assert reply == (
         "Done — removed 2 duplicate row(s). The copy has 3 row(s), 0 duplicate row(s) "
-        "remaining. Saved as `report_deduplicated.xlsx`."
+        "remaining. Saved as `report_deduplicated.xlsx`. " + VALUES_ONLY_SENTENCE
     )
 
 
@@ -171,7 +171,7 @@ def test_template_speaker_states_no_count_for_a_result_without_measurements() ->
 
     reply = TemplateSpeaker()(request)
 
-    assert reply == "Saved as `report_deduplicated.xlsx`."
+    assert reply == f"Saved as `report_deduplicated.xlsx`. {VALUES_ONLY_SENTENCE}"
 
 
 def test_template_speaker_failure_message_covers_every_steps_finding() -> None:
@@ -717,7 +717,14 @@ def test_personality_voice_is_unaffected_by_a_failing_provider() -> None:
         OutcomeReport(actions=(), delivered_file="out.xlsx"), "friend", seed=":0"
     )
     expected = " ".join(
-        p for p in (opener.text, "Your cleaned copy of out.xlsx is ready.", closer.text) if p
+        p
+        for p in (
+            opener.text,
+            "Your cleaned copy of out.xlsx is ready.",
+            VALUES_ONLY_SENTENCE,
+            closer.text,
+        )
+        if p
     )
     assert reply == expected
 
@@ -1088,6 +1095,7 @@ def test_personality_voice_reply_always_mentions_the_file_handed_back(mode: str)
             opener.text,
             _DELIVERED_BLOCK,
             "Your cleaned copy of report.xlsx is ready.",
+            VALUES_ONLY_SENTENCE,
             "None of the issues I check for were found.",
             closer.text,
         )
@@ -1117,7 +1125,7 @@ def test_template_speaker_reports_analysis_of_the_final_file_not_the_original() 
     assert "I also noticed" not in reply
     assert reply == (
         f"{_DELIVERED_BLOCK} Saved as `report_no_empty_rows_s-task-1_deduplicated_s-task-2.xlsx`."
-        " None of the issues I check for were found."
+        f" {VALUES_ONLY_SENTENCE} None of the issues I check for were found."
     )
 
 
@@ -1838,7 +1846,8 @@ def test_the_reviews_model_replies_can_never_appear_in_a_delivered_reply(
 def test_n2_reply_says_there_was_nothing_to_remove() -> None:
     assert TemplateSpeaker()(_n2_request("focus")) == (
         "Done — there were no duplicate rows to remove. The copy has 4 row(s), "
-        "0 duplicate row(s) remaining. Saved as `report_deduplicated_s-task-1.xlsx`."
+        "0 duplicate row(s) remaining. Saved as `report_deduplicated_s-task-1.xlsx`. "
+        + VALUES_ONLY_SENTENCE
     )
 
 
@@ -1885,6 +1894,7 @@ def test_delivered_reply_order_is_opener_outcome_findings_closer() -> None:
     assert reply == (
         f"{opener.text} Done — removed 2 duplicate row(s). The copy has 3 row(s), "
         "0 duplicate row(s) remaining. Your cleaned copy of report.xlsx is ready. "
+        f"{VALUES_ONLY_SENTENCE} "
         "I also noticed: amount: 1 unusually high value. Want me to tackle any of these?"
     )
 

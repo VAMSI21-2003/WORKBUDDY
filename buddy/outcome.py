@@ -36,6 +36,7 @@ from buddy.models import (
     LEDGER_FROM_MENTION,
     SKIPPED_STATUS,
     ExecutionResult,
+    OriginalFacts,
     RequestedAction,
     StepMeasurement,
     StepResult,
@@ -205,6 +206,10 @@ class OutcomeReport:
         open_findings: How many analysis findings the reply asks about.
             Catalog predicates read it so a closer never asks a second
             question.
+        original_facts: What the Inspector read in the user's original that
+            the values-only copy can't keep (``VerificationResult
+            .original_facts``), or ``None`` if nothing was measured. The
+            formulas sentence is built from it and from nothing else.
     """
 
     actions: tuple[ActionOutcome, ...]
@@ -215,6 +220,7 @@ class OutcomeReport:
     delivered_file: str | None = None
     output_names: tuple[str, ...] = ()
     open_findings: int = 0
+    original_facts: OriginalFacts | None = None
 
     @property
     def request_complete(self) -> bool:
@@ -382,6 +388,9 @@ def build_outcome_report(
         delivered_file=delivered_file,
         output_names=tuple(Path(output).name for output in outputs),
         open_findings=open_findings,
+        original_facts=(
+            verification_result.original_facts if verification_result is not None else None
+        ),
     )
 
 
@@ -611,6 +620,10 @@ def render_outcome(report: OutcomeReport, file_style: str) -> str:
     file_sentence = _file_sentence(report, file_style)
     if file_sentence:
         sentences.append(file_sentence)
+    # Said whenever a file was handed back (this block is only rendered for a
+    # verified delivery), right after the file sentence: the copy is values only,
+    # whatever the original held.
+    sentences.extend(_values_only_sentences(report.original_facts))
     return " ".join(sentences)
 
 
@@ -707,6 +720,46 @@ def _final_state_sentence(final_state: tuple[StepMeasurement, ...]) -> str:
     if len(remaining) > 1:
         listed = ", ".join(remaining[:-1]) + " and " + listed
     return f"The copy has {measured[0].output_rows} row(s), {listed} remaining."
+
+
+# What a delivered copy doesn't keep (``docs/design/values-only-copy.md``, Section 2).
+# The skills write values only, so the first is true of every copy they deliver:
+# whether the original had formatting can't be measured reliably, so it isn't asked.
+VALUES_ONLY_SENTENCE = (
+    "The copy has the values only; formatting, column widths and other sheet settings "
+    "aren't carried over."
+)
+FORMULAS_UNCHECKED_SENTENCE = (
+    "I couldn't check whether your file has formulas; if it does, the copy has their "
+    "last saved values, not the formulas."
+)
+
+
+def _values_only_sentences(original_facts: OriginalFacts | None) -> list[str]:
+    """What the copy doesn't keep: always the values-only sentence, the formulas one if measured.
+
+    The formulas sentences come only from the Inspector's own read of the
+    original (``OriginalFacts``): none when it has no formulas or nothing was
+    measured, and a plain "couldn't check" when the read failed.
+    """
+    sentences = [VALUES_ONLY_SENTENCE]
+    if original_facts is None:
+        return sentences
+    formulas = original_facts.formula_cells
+    if formulas is None:
+        sentences.append(FORMULAS_UNCHECKED_SENTENCE)
+    elif formulas:
+        sentences.append(
+            f"Your file has {formulas} formula cell(s). The copy has their last saved values, "
+            "not the formulas."
+        )
+        unsaved = original_facts.formula_cells_without_value
+        if unsaved:
+            sentences.append(
+                f"{unsaved} of them had no saved value, so they're empty in the copy, and "
+                "rows were judged with those cells empty."
+            )
+    return sentences
 
 
 def _file_sentence(report: OutcomeReport, file_style: str) -> str:

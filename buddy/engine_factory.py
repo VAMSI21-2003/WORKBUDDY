@@ -11,6 +11,7 @@ from buddy.hands import ConfirmationProvider, Hands, NullConfirmationProvider
 from buddy.inspector import (
     CompositeVerifier,
     Inspector,
+    OriginalMeasurer,
     ResidualMeasurer,
     SpreadsheetAnalysisVerifier,
     SpreadsheetDedupeVerifier,
@@ -102,9 +103,10 @@ def build_engine(
     for any other capability — the concrete implementations this vertical
     slice needs (see ``docs/design/slice-1-dedupe-design.md``). Brain's
     interpreter is wrapped in ``MentionCrossCheck`` and Inspector's verifier
-    in ``ResidualMeasurer``, which build and measure the requested-actions
-    ledger the reply is checked against (see
-    ``docs/design/verified-outcome-design.md`` Sections 2.5 and 3). All wiring
+    in ``ResidualMeasurer`` and ``OriginalMeasurer``, which build and measure
+    the requested-actions ledger the reply is checked against and what the
+    values-only copy can't keep (see ``docs/design/verified-outcome-design.md``
+    Sections 2.5 and 3, and ``docs/design/values-only-copy.md``). All wiring
     happens here, once; every stage above continues to depend only on the
     protocol it was already built against, and none of them import this
     module.
@@ -163,7 +165,9 @@ def build_engine(
         # that fails verification stops the chain) and then re-checks the
         # whole turn, final file included, in Inspector. Only Inspector's
         # turn-level check also measures what's left in the delivered file
-        # for each requested action (ResidualMeasurer).
+        # for each requested action (ResidualMeasurer) and counts the formulas
+        # in the user's original, which a values-only copy can't keep
+        # (OriginalMeasurer).
         hands=Hands(
             dispatcher=dispatcher,
             confirmation_provider=(
@@ -173,7 +177,7 @@ def build_engine(
             ),
             step_verifier=verifier,
         ),
-        inspector=Inspector(verifier=ResidualMeasurer(verifier)),
+        inspector=Inspector(verifier=OriginalMeasurer(ResidualMeasurer(verifier))),
         voice=Voice(speaker=speaker if speaker is not None else TemplateSpeaker()),
     )
     logger.debug("build_engine: assembled the CognitiveCycle for the dedupe slice")
