@@ -2,7 +2,7 @@
 
 Usage::
 
-    python scripts/review_harness/l1_placeholder_probe.py [ROOT]
+    python scripts/review_harness/feat-backend-api-core/l1_placeholder_probe.py [ROOT]
 
 ``ROOT`` is the checkout whose ``backend.logging_filter`` is used (default:
 this one). Each call should print one redacted line. A "--- Logging error ---"
@@ -16,7 +16,7 @@ import logging
 import sys
 from pathlib import Path
 
-ROOT = Path(sys.argv[1]) if len(sys.argv) > 1 else Path(__file__).resolve().parents[2]
+ROOT = Path(sys.argv[1]) if len(sys.argv) > 1 else Path(__file__).resolve().parents[3]
 sys.path.insert(0, str(ROOT))
 
 from backend.logging_filter import install_log_redaction  # noqa: E402

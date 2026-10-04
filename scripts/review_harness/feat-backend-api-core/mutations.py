@@ -3,7 +3,7 @@
 
 Usage::
 
-    python scripts/review_harness/mutations.py [--jobs 3] [--only NAME]
+    python scripts/review_harness/feat-backend-api-core/mutations.py [--jobs 3] [--only NAME]
 
 For each mutation it copies the repo (without .git and workspace/) to a
 temporary folder, applies one textual replacement, runs ``TEST_PATHS``
@@ -24,7 +24,7 @@ from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
 from typing import Any
 
-ROOT = Path(__file__).resolve().parents[2]
+ROOT = Path(__file__).resolve().parents[3]
 
 # name: (file, old, new), or a list of them
 MUTATIONS: dict[str, Any] = {

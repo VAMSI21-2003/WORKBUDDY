@@ -3,8 +3,8 @@
 
 Usage::
 
-    python scripts/review_harness/pipeline_compare.py <repo-root>   # prints JSON lines
-    python scripts/review_harness/pipeline_compare.py --diff <head-root> <base-root>
+    python scripts/review_harness/feat-backend-api-core/pipeline_compare.py <repo-root>   # prints JSON lines
+    python scripts/review_harness/feat-backend-api-core/pipeline_compare.py --diff <head-root> <base-root>
 
 Each scenario runs ``build_engine`` from ``<repo-root>`` (real skills,
 verifiers and Voice; fake LLM) on a fresh fixture, with a per-turn output

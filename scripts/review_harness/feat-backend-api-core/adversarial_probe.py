@@ -3,7 +3,7 @@
 
 Usage::
 
-    python scripts/review_harness/adversarial_probe.py [--only NAME] [--speaker S]
+    python scripts/review_harness/feat-backend-api-core/adversarial_probe.py [--only NAME] [--speaker S]
 
 Each probe prints one JSON object per speaker (or one in all, when the
 speaker doesn't matter): the HTTP results, outcomes, replies, what was
@@ -25,7 +25,7 @@ from dataclasses import replace
 from pathlib import Path
 from typing import Any
 
-ROOT = Path(__file__).resolve().parents[2]
+ROOT = Path(__file__).resolve().parents[3]
 sys.path.insert(0, str(ROOT))
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 

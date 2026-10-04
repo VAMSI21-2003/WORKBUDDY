@@ -3,7 +3,7 @@
 
 Usage::
 
-    python scripts/review_harness/round2_probe.py [--only NAME] [--speaker S]
+    python scripts/review_harness/feat-backend-api-core/round2_probe.py [--only NAME] [--speaker S]
 
 Runs on whatever checkout it sits in (copy it into a worktree of an older
 commit to compare). Each probe prints one JSON object per speaker: every
@@ -26,7 +26,7 @@ import time
 from pathlib import Path
 from typing import Any
 
-ROOT = Path(__file__).resolve().parents[2]
+ROOT = Path(__file__).resolve().parents[3]
 sys.path.insert(0, str(ROOT))
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 

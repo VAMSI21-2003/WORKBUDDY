@@ -3,7 +3,7 @@
 
 Usage::
 
-    python scripts/review_harness/api_probe.py [--only NAME] [--speaker template|friend|focus]
+    python scripts/review_harness/feat-backend-api-core/api_probe.py [--only NAME] [--speaker template|friend|focus]
 
 For every scenario and speaker it prints one JSON object: what happened
 (status, outcome, reply_source), what was handed back (names, sizes, an
@@ -27,7 +27,7 @@ import time
 from pathlib import Path
 from typing import Any
 
-ROOT = Path(__file__).resolve().parents[2]
+ROOT = Path(__file__).resolve().parents[3]
 sys.path.insert(0, str(ROOT))
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 

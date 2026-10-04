@@ -3,7 +3,7 @@
 
 Usage::
 
-    python scripts/review_harness/server_probe.py
+    python scripts/review_harness/feat-backend-api-core/server_probe.py
 
 It starts ``backend.__main__.main`` in a subprocess, with ``create_app``
 patched to use the real pipeline on a fake LLM (no key, no network), a
@@ -30,7 +30,7 @@ from pathlib import Path
 
 import httpx
 
-ROOT = Path(__file__).resolve().parents[2]
+ROOT = Path(__file__).resolve().parents[3]
 HERE = Path(__file__).resolve().parent
 
 CHILD = r"""
