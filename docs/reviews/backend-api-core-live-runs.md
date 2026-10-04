@@ -175,3 +175,80 @@ The fixture is the design's measured shape: 14 columns (6 floats, 3 ints, 4 shor
 ## Verdict for the live runs
 
 No false claim and no changed original in any run, so nothing returns to the review loop. Observations 1 to 5 and run 9's timing are added to `docs/backlog.md` for the owner.
+
+---
+
+# Live runs after review round 4 (head `18ae9bb`, reviewed code `c136b93`)
+
+**When:** 2026-10-04, after round 4's MERGE verdict. This head has `origin/main` (`1462ce4`: values-only copy, the PR-B reply ledger) merged in and the 2 MiB default cap ("Decisions (2026-10-04)", item 3). `git diff c136b93 18ae9bb -- backend buddy core skills tests` is empty; `18ae9bb` changes only `scripts/live_api_runs.py`.
+**How:** as above: `scripts/live_api_runs.py --runs 1,2,7,9b`, a real `python -m backend` server, Groq (`openai/gpt-oss-120b`) through the proxy, `WORKBUDDY_AUTO_APPROVE=1`, Python 3.11.15, default settings otherwise (2 MiB cap, 180 s deadline).
+**Rate limit:** no 429; all 4 runs completed. Server logs: 0 "Logging error" blocks, 0 tracebacks, 0 of the 3 session ids, 0 `429`s.
+
+| Run | What | Outcome | Wall time | Delivered file, my read | False claim? | Original |
+|---|---|---|---|---|---|---|
+| 1 | "remove duplicate rows" | delivered | 5.7 s | 4 rows, 0 duplicates, 1 empty; equals `drop_duplicates()` | none | unchanged |
+| 2 | same session, "remove the empty rows" | delivered | 3.5 s | 5 rows, 2 duplicates, 0 empty; equals `dropna(how="all")`. Run 1's file byte-identical after it, in `t0001/` vs `t0002/` | none | unchanged |
+| 7 | same session, "now remove the empty rows too" | delivered | 3.5 s | 5 rows, 2 duplicates, 0 empty | none | unchanged |
+| 9b | 2 MB fixture, "remove duplicate rows" | delivered | **123.3 s** | 22,798 rows, 0 duplicates, 1 empty; equals `drop_duplicates()` | none | unchanged |
+| 9b | 2 MB fixture, "remove duplicate rows, then remove empty rows" | delivered | **153.6 s** | 22,797 rows, 0 duplicates, 0 empty; equals `dropna(how="all").drop_duplicates()` | none | unchanged |
+
+## Run 1: "remove duplicate rows" (focus)
+
+- **Intent:** `remove_duplicate_rows`. **`clarification_required`:** false.
+- **Steps:** analyze `manual_report.xlsx` → deduplicate → analyze (re-check), all success and verified.
+- **Delivered:** yes, in `t0001/`. The download's SHA-256 matches the record.
+- **Independent check:** the original has 6 rows, 2 duplicates and 1 empty row. The copy has 4 rows, 0 duplicates and 1 empty row.
+- **Reply:** "Done — removed 2 duplicate row(s). The copy has 4 row(s), 0 duplicate row(s) remaining. Your cleaned copy of manual_report.xlsx is ready. The copy has the values only; formatting, column widths and other sheet settings aren't carried over. I also noticed: name: 1 missing value(s) (25.0%); amount: 1 missing value(s) (25.0%). Want me to tackle any of these?"
+- **False claim:** none. The numbers match my read (1 of 4 is 25.0%). The values-only sentence comes from main's PR #11, and it's true: the copy is written values-only.
+- **Original SHA-256:** `f7168da7…65cb` → unchanged.
+
+## Run 2: same session, "remove the empty rows"
+
+- **Intent:** `remove_empty_rows`. **`clarification_required`:** false.
+- **Steps:** remove_empty_rows `manual_report.xlsx` [success, verified].
+- **Delivered:** yes, in `t0002/`. F5 holds: run 1's file, downloaded again afterwards, is byte-identical to its recorded hash.
+- **Independent check:** 5 rows, 2 duplicates, 0 empty.
+- **Reply:** "Done — removed 1 fully-empty row(s). The copy has 5 row(s), 0 fully-empty row(s) remaining. Your cleaned copy of manual_report.xlsx is ready. The copy has the values only; formatting, column widths and other sheet settings aren't carried over. I made this copy from your original upload, not from a file I handed back earlier. Anything else?"
+- **False claim:** none.
+  - The from-original sentence is true: the copy has the 2 duplicates back.
+  - "Anything else?" is main's PR-B closer. The ledger shows the one requested action done, which is true.
+- **Original SHA-256:** unchanged.
+
+## Run 7: same session, "now remove the empty rows too" (the third turn)
+
+- **Intent:** `remove_empty_rows`. **`clarification_required`:** false. With two earlier turns in the prompt, the model still classified it correctly.
+- **Steps:** remove_empty_rows `manual_report.xlsx` [success, verified].
+- **Delivered:** yes, in `t0003/`. **Independent check:** 5 rows, 2 duplicates, 0 empty. It was made from the original, as option (b) does.
+- **Reply:** "Done — removed 1 fully-empty row(s). The copy has 5 row(s), 0 fully-empty row(s) remaining. Your cleaned copy of manual_report.xlsx is ready. The copy has the values only; formatting, column widths and other sheet settings aren't carried over. I made this copy from your original upload, not from a file I handed back earlier."
+- **False claim:** none. The sentence tells the user that the "too" didn't build on run 1's file.
+- **Original SHA-256:** unchanged.
+
+## Run 9b: the 2 MB fixture, at the default 180 s deadline
+
+- **The fixture:** run 9's shape at the new default cap: 2,013,624 bytes (96% of 2 MiB), 24,000 rows × 14 columns. By my read it has 1,200 duplicate data rows and 3 empty rows.
+- **Server:** a fresh process, with the default settings.
+
+**One step: "remove duplicate rows" (123.3 s, peak server RSS 479 MB).**
+- **Intent:** `remove_duplicate_rows`.
+- **Steps:** analyze → deduplicate → analyze (re-check), all verified.
+- **Independent check:** 22,798 rows, 0 duplicates, 1 empty. It equals `drop_duplicates()`, so 1,202 rows were removed: 1,200 duplicates plus 2 of the 3 identical blank rows.
+- **Reply:** "Done — removed 1202 duplicate row(s), including 2 repeated blank rows. The copy has 22798 row(s), 0 duplicate row(s) remaining. Your cleaned copy of big_report.xlsx is ready. The copy has the values only; … I also noticed: f0: 1 missing value(s) (0.0%); … f5: 169 unusually high/low value(s) (e.g. …). Want me to tackle any of these?"
+- **False claim:** none. The counts match. The "(0.0%)" is 1 of 22,798 rounded (observation 5 above). The outlier counts are the analyzer's own, which I didn't recompute.
+
+**Chain: "remove duplicate rows, then remove empty rows" (153.6 s, peak server RSS 510 MB).**
+- **Intent:** `multi_step_request`.
+- **Steps:** analyze → deduplicate → remove_empty_rows (on the dedupe's output) → analyze (re-check), all verified.
+- **Independent check:** 22,797 rows, 0 duplicates, 0 empty. It equals `dropna(how="all").drop_duplicates()`.
+- **Reply:** "Done — removed 1202 duplicate row(s), including 2 repeated blank rows. Removed 1 fully-empty row(s). The copy has 22797 row(s), 0 duplicate row(s) and 0 fully-empty row(s) remaining. Your cleaned copy of big_report.xlsx is ready. The copy has the values only; … I also noticed: f0: 163 unusually high/low value(s) … Want me to tackle any of these?"
+- **False claim:** none.
+
+**Original SHA-256** (both turns): `93a5deff…1789` → unchanged.
+
+**What the timing means.**
+- At 2 MiB, both turns finish inside the 180 s deadline on this host, where at 5 MB neither did.
+- The chain took 153.6 s, though. That's 85% of the deadline, above the design's 120 s comfort line (two-thirds of the deadline). It agrees with review round 4's R4-L2, which measured 152–160 s with a fake model.
+- So on this host 2 MiB works, with little margin. The demo host's numbers (PR-4 checklist) decide whether to go lower, lengthen the deadline or cut the number of reads.
+
+## Verdict for these runs
+
+No false claim and no changed original, so nothing returns to the review loop.
