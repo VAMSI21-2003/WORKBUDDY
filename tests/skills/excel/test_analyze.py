@@ -9,6 +9,7 @@ fixtures) are grounded in.
 
 from __future__ import annotations
 
+import os
 import re
 from pathlib import Path
 
@@ -222,6 +223,25 @@ def test_verify_false_when_summary_is_empty() -> None:
 
 
 # -- MissingValueAndDistributionAnalyzer (ydata-profiling) -----------------------
+
+
+@pytest.mark.parametrize("before", [None, "", "0"])
+def test_the_missing_value_analyzer_turns_off_ydata_profilings_analytics(
+    monkeypatch: pytest.MonkeyPatch, before: str | None
+) -> None:
+    # Finding P-2: ydata-profiling sends the shape of every analysed sheet to its vendor unless
+    # YDATA_PROFILING_NO_ANALYTICS is set. It only tests that the value is non-empty, so an
+    # inherited empty string would leave it on; the analyzer assigns it before the import.
+    if before is None:
+        monkeypatch.delenv("YDATA_PROFILING_NO_ANALYTICS", raising=False)
+    else:
+        monkeypatch.setenv("YDATA_PROFILING_NO_ANALYTICS", before)
+
+    MissingValueAndDistributionAnalyzer()(pd.DataFrame({"a": [1, None, 3]}))
+
+    assert os.environ["YDATA_PROFILING_NO_ANALYTICS"] == "1"
+    # ydata's own switch (utils.common.analytics_features) reads it this way:
+    assert bool(os.getenv("YDATA_PROFILING_NO_ANALYTICS")) is True
 
 
 def test_missing_value_analyzer_flags_a_column_with_missing_values() -> None:

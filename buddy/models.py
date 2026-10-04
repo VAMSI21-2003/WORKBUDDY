@@ -295,6 +295,27 @@ class StepMeasurement:
 
 
 @dataclass(frozen=True)
+class OriginalFacts:
+    """What the Inspector read in the user's original file that the copy can't keep.
+
+    Measured fresh with openpyxl by ``buddy.inspector.OriginalMeasurer``; never
+    taken from a Skill. The cleaning skills write values only (see
+    ``docs/design/values-only-copy.md``), so a formula in the original is, in
+    the copy, its last saved value, or an empty cell when the file saved none.
+
+    Attributes:
+        formula_cells: Cells of the original that hold a formula, or ``None``
+            when the original couldn't be read for this count (the reply then
+            says it couldn't check, and states no number).
+        formula_cells_without_value: Of those, the cells with no saved result,
+            which are empty in the copy. ``0`` when ``formula_cells`` is ``None``.
+    """
+
+    formula_cells: int | None
+    formula_cells_without_value: int = 0
+
+
+@dataclass(frozen=True)
 class StepVerification:
     """One step's own, unaggregated verification verdict.
 
@@ -376,6 +397,10 @@ class VerificationResult:
             They let the reply say what's still in the file for a requested
             action that wasn't done. Empty when nothing was delivered or the
             read failed; they never affect ``passed``.
+        original_facts: What the Inspector read in the user's original file
+            that a values-only copy can't keep (``OriginalFacts``), set by
+            ``buddy.inspector.OriginalMeasurer`` on a turn that delivered a
+            file. ``None`` when nothing was measured; it never affects ``passed``.
     """
 
     passed: bool
@@ -385,3 +410,4 @@ class VerificationResult:
     steps: tuple[StepVerification, ...] = ()
     measurements: tuple[StepMeasurement, ...] = ()
     residuals: tuple[StepMeasurement, ...] = ()
+    original_facts: OriginalFacts | None = None

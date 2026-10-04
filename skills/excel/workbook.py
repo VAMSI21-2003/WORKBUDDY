@@ -1,9 +1,17 @@
-"""Workbook — the single-sheet check the row-cleaning skills run first.
+"""Workbook — the single-sheet and plain-table checks the row-cleaning skills run first.
 
 ``ExcelDeduplicateSkill`` and ``ExcelRemoveEmptyRowsSkill`` read one sheet
 and write one sheet, so a workbook with more than one sheet would come back
 with every other sheet gone. Until per-sheet cleaning exists, they refuse
 such a workbook instead (``docs/backlog.md`` item 1a).
+
+They also write the sheet's *values* back with pandas, so a sheet that isn't
+a plain table (one header row, then the data) would come back changed: a
+merged note cell as an "Unnamed" column, a header that isn't on the first row
+read as data, a duplicate header renamed. They refuse such a sheet too
+(``docs/design/values-only-copy.md``). The check reads the file with openpyxl,
+never from a skill's DataFrame, and the Inspector runs the same one on each
+step's input.
 
 The sheet list comes from ``sheet_names``, which the Inspector uses too: it
 reads the sheets *declared* in the workbook's own ``workbook.xml``, then
@@ -15,8 +23,10 @@ reply, so it never carries an exception's text or a name read from the file.
 
 import logging
 import zipfile
+from dataclasses import dataclass
 from pathlib import Path
 from xml.etree import ElementTree
+from xml.parsers import expat
 
 import openpyxl
 
@@ -41,12 +51,26 @@ _WORKBOOK_CONTENT_TYPES = (
 # An upper bound on the XML parts read: a real workbook.xml is a few KB.
 _MAX_PART_BYTES = 16 * 1024 * 1024
 
+# How much of a sheet's XML is fed to the merged-cell scan at a time.
+_SCAN_CHUNK_BYTES = 1 << 20
+
 _UNREADABLE = "could not read the workbook; it may be damaged or not an Excel file"
 _NO_SHEET = "the workbook looks damaged: it has no readable sheet"
 _SHEETS_UNREADABLE = "the workbook looks damaged: it lists sheets that can't be read"
 _PASSWORD = "the workbook is password-protected, so it can't be opened"
 _LEGACY_XLS = (
     "older .xls workbooks (Excel 97–2003) aren't supported yet; saving it as .xlsx will work"
+)
+
+
+# What a sheet that isn't a plain table is refused for. Fixed text: it reaches the
+# user's reply, so it never carries a name or a value read from the file.
+_MERGED_CELLS = "the sheet has merged cells"
+_HEADER_NOT_FIRST = "the sheet's header isn't on the first row"
+_COLUMN_WITHOUT_HEADER = "a column in the sheet has no header"
+_DUPLICATE_HEADER = "two columns in the sheet have the same header"
+_PLAIN_TABLES_ONLY = (
+    ", and only plain tables (one header row at the top, then the data) are supported for now"
 )
 
 
@@ -74,6 +98,58 @@ def single_sheet_name(input_path: str) -> str:
             "are supported for now"
         )
     return names[0]
+
+
+def plain_table_sheet_name(input_path: str) -> str:
+    """Return the name of the workbook's only sheet, if it is a plain table.
+
+    The check the row-cleaning skills run before reading anything: one sheet
+    (``single_sheet_name``), and that sheet a plain table (``plain_table_problem``).
+
+    Args:
+        input_path: The workbook to check. It is only ever read.
+
+    Returns:
+        The name of its one sheet.
+
+    Raises:
+        WorkbookRefused: It has more than one sheet, can't be read, or its
+            sheet isn't a plain table. The message says which, in plain words.
+    """
+    name = single_sheet_name(input_path)
+    problem = _sheet_problem(input_path, name)
+    if problem is not None:
+        raise WorkbookRefused(problem)
+    return name
+
+
+def plain_table_problem(input_path: str) -> str | None:
+    """Say why a sheet of the workbook isn't a plain table, if one isn't.
+
+    A plain table has its header on row 1 with a header over every column up
+    to the last, its data below, no merged cells, and no two equal headers:
+    the shape ``pandas.read_excel`` and ``to_excel`` round-trip unchanged. A
+    sheet with no values at all isn't a problem (there is nothing to change).
+    Every sheet the workbook declares is checked, in order.
+
+    Read with openpyxl (read-only), so the verdict is independent of any
+    skill's DataFrame; the cell values are the ones a pandas read sees.
+
+    Args:
+        input_path: The workbook to check. It is only ever read.
+
+    Returns:
+        ``None`` if every sheet is a plain table; otherwise a fixed sentence
+        saying which rule the first offending sheet breaks.
+
+    Raises:
+        WorkbookRefused: The workbook can't be read (see ``sheet_names``).
+    """
+    for name in sheet_names(input_path):
+        problem = _sheet_problem(input_path, name)
+        if problem is not None:
+            return problem
+    return None
 
 
 def sheet_names(input_path: str) -> list[str]:
@@ -177,6 +253,137 @@ def _has_stream(handle) -> bool:  # noqa: ANN001 — a binary file object
             return True
         tail = chunk[-overlap:]
     return False
+
+
+def _sheet_problem(input_path: str, sheet_name: str) -> str | None:
+    """The refusal text for a sheet that isn't a plain table, or ``None``."""
+    try:
+        with open(input_path, "rb") as handle:
+            book = openpyxl.load_workbook(handle, read_only=True, data_only=True)
+            try:
+                sheet = book[sheet_name]
+                reason = _MERGED_CELLS if _has_merged_cells(sheet) else _layout_problem(sheet)
+            finally:
+                book.close()
+    except Exception as exc:  # noqa: BLE001 — unreadable or corrupt, reported as a refusal
+        logger.exception("could not check the layout of %r", input_path)
+        raise WorkbookRefused(_UNREADABLE) from exc
+    return None if reason is None else reason + _PLAIN_TABLES_ONLY
+
+
+def _is_empty(value: object) -> bool:
+    """Whether pandas reads this cell as missing: nothing, or an empty string."""
+    return value is None or value == ""
+
+
+def _layout_problem(sheet) -> str | None:  # noqa: ANN001 — an openpyxl read-only sheet
+    """Which plain-table rule the sheet's cells break (merged cells aside), if any."""
+    headers: dict[int, object] = {}  # column -> its value on row 1
+    data_columns: set[int] = set()  # columns with a value below row 1
+    seen_first_row = False
+    for row in sheet.iter_rows():
+        for cell in row:
+            if _is_empty(cell.value):
+                continue
+            if not seen_first_row:
+                if cell.row != 1:
+                    return _HEADER_NOT_FIRST  # nothing on row 1, something below it
+                seen_first_row = True
+            if cell.row == 1:
+                headers[cell.column] = cell.value
+            else:
+                data_columns.add(cell.column)
+    if not headers:
+        return None  # an empty sheet: nothing to change
+    last_header = max(headers)
+    if len(headers) != last_header or any(column > last_header for column in data_columns):
+        return _COLUMN_WITHOUT_HEADER
+    if len(set(headers.values())) != len(headers):
+        return _DUPLICATE_HEADER
+    return None
+
+
+class _MergedCellFound(Exception):
+    """Raised inside the XML scan to stop at the first ``<mergeCell>``."""
+
+
+def _has_merged_cells(sheet) -> bool:  # noqa: ANN001 — an openpyxl read-only sheet
+    """Whether the sheet's XML declares a merged range.
+
+    openpyxl's read-only mode doesn't expose merged cells, so the sheet's own
+    part (opened through openpyxl) is scanned for ``<mergeCell>`` with a
+    streaming parser that builds no tree, so a big sheet costs no memory.
+    """
+    parser = expat.ParserCreate(namespace_separator=" ")
+
+    def on_start(name: str, attributes: dict[str, str]) -> None:
+        if name.rpartition(" ")[2] == "mergeCell":
+            raise _MergedCellFound
+
+    parser.StartElementHandler = on_start
+    with sheet._get_source() as source:
+        try:
+            while chunk := source.read(_SCAN_CHUNK_BYTES):
+                parser.Parse(chunk, False)
+            parser.Parse(b"", True)
+        except _MergedCellFound:
+            return True
+    return False
+
+
+@dataclass(frozen=True)
+class FormulaCounts:
+    """The formula cells of a workbook, as two fresh reads of it count them.
+
+    Attributes:
+        formulas: Cells that hold a formula.
+        without_value: Of those, the cells with no saved result (never
+            calculated, or an empty one): a values-only copy has an empty
+            cell there.
+    """
+
+    formulas: int
+    without_value: int
+
+
+def formula_cell_counts(input_path: str) -> FormulaCounts:
+    """Count the formula cells of every sheet, and those with no saved value.
+
+    Two read-only openpyxl passes over the same file, in step: one showing
+    formulas, one showing the values the file saved for them (what a pandas
+    read, and so a values-only copy, gets).
+
+    Args:
+        input_path: The workbook to read. It is only ever read.
+
+    Returns:
+        The counts.
+
+    Raises:
+        WorkbookRefused: The workbook can't be read (see ``sheet_names``).
+    """
+    names = sheet_names(input_path)
+    formulas = without_value = 0
+    try:
+        with open(input_path, "rb") as shown_handle, open(input_path, "rb") as saved_handle:
+            shown_book = openpyxl.load_workbook(shown_handle, read_only=True, data_only=False)
+            saved_book = openpyxl.load_workbook(saved_handle, read_only=True, data_only=True)
+            try:
+                for name in names:
+                    for shown_row, saved_row in zip(
+                        shown_book[name].iter_rows(), saved_book[name].iter_rows(), strict=True
+                    ):
+                        for shown, saved in zip(shown_row, saved_row, strict=True):
+                            if shown.data_type == "f":
+                                formulas += 1
+                                without_value += _is_empty(saved.value)
+            finally:
+                shown_book.close()
+                saved_book.close()
+    except Exception as exc:  # noqa: BLE001 — unreadable or corrupt, reported as a refusal
+        logger.exception("could not count the formulas of %r", input_path)
+        raise WorkbookRefused(_UNREADABLE) from exc
+    return FormulaCounts(formulas=formulas, without_value=without_value)
 
 
 def discard_partial_output(output_path: Path) -> None:
