@@ -12,6 +12,7 @@ How a big or rule-touching change gets from a branch to a MERGE verdict inside o
 The working session is the **writer**. It does the following, in order.
 
 1. **Write** the change on its branch, with tests. Run the full suite and lint. Write `docs/reviews/<branch>-impl.md`.
+   - **Before every review round, bring the branch up to date:** `git fetch`, and if `origin/main` has moved, `git merge origin/main` (no rebase, no force-push), then run the suite again. A review of a stale branch doesn't cover what will be merged.
 2. **Start a new reviewer agent.** Give it exactly this, and nothing else:
    - the text of "The reviewer's brief" below, word for word;
    - the branch name and the base it's compared with (normally `origin/main`);
@@ -22,7 +23,8 @@ The working session is the **writer**. It does the following, in order.
 3. **Commit the reviewer's file as written.** Don't edit it, shorten it or reword its verdict. Commit its probe scripts too.
 4. **If the verdict is DON'T MERGE:** fix what it lists, add tests that fail on the old code, write `docs/reviews/<branch>-fixes<N>.md`, run the suite and lint, and go back to step 2 with a **new** reviewer agent. A reviewer that specified or prototyped a fix never reviews that fix.
 5. **If the verdict is MERGE:** do the live runs `CLAUDE.md` requires, on the final head, and write them to `docs/reviews/<branch>-live-runs.md`. If a live run shows a false claim or a changed original, that's a HIGH finding: fix it and go back to step 2.
-6. **Report and stop.** Say the verdict, how many rounds ran, the final commit, what's deferred, and anything that wasn't run. Don't merge.
+6. **Check the branch can be merged.** `git fetch` again. If `origin/main` moved after the last reviewed commit, merge it in and run the suite. If that merge changed anything under `buddy/`, `core/`, `skills/` or `backend/`, go back to step 2 for one more round on the merged code. If it changed only documents or scripts, say so in the report.
+7. **Report and stop.** Say the verdict, how many rounds ran, the final commit, what's deferred, and anything that wasn't run. Don't merge.
 
 There's no fixed number of rounds. The loop ends when a reviewer says MERGE.
 
@@ -31,6 +33,7 @@ There's no fixed number of rounds. The loop ends when a reviewer says MERGE.
 - **You can't overrule a reviewer.** You may not downgrade a finding, decide it's out of scope, or skip it. If you think a finding is wrong, say why in the fixes file and let the next reviewer judge it.
 - **Stop patching a mechanism that keeps failing.** If two rounds in a row find a HIGH in the same function, don't patch it a third time. Replace it with something simpler that can't make the false claim, even if replies get flatter, and say so in the fixes file. (`_no_skill_outcome` took five rounds of word-list patches; that's what this rule prevents.)
 - **If you can't start a reviewer agent,** stop after step 1 and say so. The review is then done by a separate session using the same brief.
+- **Keep the reviewer's files apart from other branches'.** Probe scripts go in `scripts/review_harness/<branch>/`, with the branch's slashes written as dashes (for `feat/backend-api-core`, `scripts/review_harness/feat-backend-api-core/`). Never add or change a file directly in `scripts/review_harness/` or in another branch's folder: two branches that both add `harness.py` there can't be merged. Import from another folder if you need its helpers.
 - **If you're about to run out of room or usage,** commit and push what you have, and write the exact state (the round, the open findings, the next step) at the top of the latest fixes file, so another session can pick it up.
 - **Keep the owner's decisions.** A reviewer can recommend changing something under "Decided behaviour" in `CLAUDE.md`. Neither of you changes it. List it in the report for the owner.
 
@@ -45,7 +48,7 @@ There's no fixed number of rounds. The loop ends when a reviewer says MERGE.
 > **Do all of this:**
 > 1. Run `python -m pytest -q` (allow at least 5 minutes) and `ruff check buddy tests`. Compare the lint errors with the base's by file and rule. Report anything new.
 > 2. Check the change against its design document, if there is one, and list every deviation.
-> 3. Probe it through the real pipeline: the real `build_engine`, real skills and real verifiers, with only the LLM faked. Use and extend the scripts in `scripts/review_harness/` if they exist. Run the same probes on a worktree of the base and compare. Cover all three speakers (template, friend, focus).
+> 3. Probe it through the real pipeline: the real `build_engine`, real skills and real verifiers, with only the LLM faked. Reuse the scripts under `scripts/review_harness/` by importing them; don't edit another branch's scripts. Run the same probes on a worktree of the base and compare. Cover all three speakers (template, friend, focus).
 > 4. Try to break it. Write your own adversarial cases aimed at the new code: odd files, odd wording, a model that misreads the request, a stage that fails halfway, hostile input. For every case, record what happened, what was handed back, and the reply.
 > 5. For every reply you produce, check rule 1: does it say or imply anything that didn't happen and wasn't independently verified? Check the numbers in it against your own read of the files.
 > 6. For every run, check rule 2: the original's SHA-256 before and after.
@@ -61,4 +64,6 @@ There's no fixed number of rounds. The loop ends when a reviewer says MERGE.
 >
 > **Verdict.** MERGE if there's no HIGH, and no MEDIUM that an ordinary request can reach. Otherwise DON'T MERGE, with the exact fix needed. Don't hold a merge for LOW findings: list them under "Deferred" and add them to `docs/backlog.md`.
 >
-> **Write** your review to `docs/reviews/<branch>-review.md`. In round 1, create it. In later rounds, append a section headed "Review round N (commit <hash>)". Start with the verdict in one line. Include a "Not run" list of anything you couldn't do. Save your probe scripts under `scripts/review_harness/` with a few README lines on how to run them, so the next round reuses them and doesn't rebuild them.
+> **Write** your review to `docs/reviews/<branch>-review.md`. In round 1, create it. In later rounds, append a section headed "Review round N (commit <hash>)". Start with the verdict in one line. Include a "Not run" list of anything you couldn't do. Save your probe scripts in this branch's own folder, `scripts/review_harness/<branch with slashes as dashes>/`, with a short `README.md` inside that folder on how to run them, so the next round reuses them and doesn't rebuild them. Don't add or change files directly in `scripts/review_harness/`.
+>
+> **Keep the review file short.** The verdict, one table of what you ran and what happened, the findings, the deferred list and the not-run list. Put long outputs in files next to your probe scripts and point to them. Don't narrate your method beyond what someone needs to rerun it.
