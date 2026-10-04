@@ -10,6 +10,7 @@ whatever it reported. All LLM calls are faked.
 from __future__ import annotations
 
 import hashlib
+import re
 from pathlib import Path
 
 import openpyxl
@@ -17,6 +18,7 @@ import pandas as pd
 import pytest
 
 from buddy.engine_factory import build_engine
+from buddy.outcome import VALUES_ONLY_SENTENCE
 from buddy.state import BuddyState
 from buddy.voice import _COMPLETION_CLAIM, PersonalityVoice
 from skills.base import SkillResult, SkillStatus
@@ -180,7 +182,9 @@ def test_a_multi_sheet_workbook_is_refused_and_nothing_is_delivered(
 # -- A one-sheet workbook behaves exactly as before -------------------------------------
 
 # The replies ``main`` (310f660) gives for this fixture, captured with the same
-# faked LLM replies. Only the sheet name of the output changed: it's now kept.
+# faked LLM replies. Only the sheet name of the output changed: it's now kept. Since
+# ``fix/values-only-copy`` every delivered copy also says what it doesn't keep, right after
+# the file sentence (``_with_values_only_sentence``).
 _MAIN_REPLIES = {
     ("dedupe", "template"): (
         "Done — removed 1 duplicate row(s). The copy has 4 row(s), 0 duplicate row(s) "
@@ -220,6 +224,16 @@ _MAIN_REPLIES = {
 }
 
 
+def _with_values_only_sentence(reply: str) -> str:
+    """``reply`` with the values-only sentence after its file sentence."""
+    file_sentence = re.search(
+        r"Saved as `[^`]+`\.|Your cleaned copy of report\.xlsx is ready\.", reply
+    )
+    assert file_sentence is not None
+    end = file_sentence.end()
+    return f"{reply[:end]} {VALUES_ONLY_SENTENCE}{reply[end:]}"
+
+
 @pytest.mark.parametrize("sheet_name", ["Sheet1", "Data"])
 @pytest.mark.parametrize(("kind", "speaker_kind"), list(_MAIN_REPLIES))
 def test_a_one_sheet_workbook_behaves_exactly_as_before(
@@ -240,7 +254,7 @@ def test_a_one_sheet_workbook_behaves_exactly_as_before(
     assert len(result.outputs) == 1
     assert state.verification_result is not None
     assert state.verification_result.passed is True
-    assert state.reply == _MAIN_REPLIES[(kind, speaker_kind)]
+    assert state.reply == _with_values_only_sentence(_MAIN_REPLIES[(kind, speaker_kind)])
     # The one sheet keeps its name (``main`` renamed it to "Sheet1").
     assert _sheet_names(result.outputs[0]) == [sheet_name]
     assert _sha256(original_path) == original_hash

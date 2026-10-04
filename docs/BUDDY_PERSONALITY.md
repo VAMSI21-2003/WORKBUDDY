@@ -284,7 +284,10 @@ when the moment fits.
 on a turn that changed a file, the outcome itself ("Done — removed 2
 duplicate row(s). The copy has 4 row(s), …") is rendered by code from what
 the verifiers measured, never written by a model. "Done" leads only when
-every requested action is confirmed. The warmth comes from a reviewed
+every requested action is confirmed and nothing else ran; "Partly done"
+when part of the request wasn't done, which the reply then states with
+the reason ("I didn't run the empty-row removal, though I read it as part
+of your request. … It still has 1 fully-empty row(s)."). The warmth comes from a reviewed
 catalog of openers and closers (`buddy/voice_catalog.py`), each allowed only
 when the outcome makes it true. Focus mode uses no opener.
 

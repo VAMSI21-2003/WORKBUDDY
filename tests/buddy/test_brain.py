@@ -7,16 +7,24 @@ import re
 
 import pytest
 
+from buddy.actions import ACTION_VOCABULARY, UNSUPPORTED, brain_ledger
 from buddy.brain import (
     _SYSTEM_PROMPT,
     INTENT_VOCABULARY,
     Brain,
     ClaudeInterpreter,
+    MentionCrossCheck,
     NullInterpreter,
     UnderstandingRequest,
 )
 from buddy.llm import LLMMessage
-from buddy.models import Understanding
+from buddy.models import (
+    LEDGER_FROM_BRAIN,
+    LEDGER_FROM_INTENT,
+    LEDGER_FROM_MENTION,
+    RequestedAction,
+    Understanding,
+)
 from buddy.state import BuddyState
 
 
@@ -278,3 +286,207 @@ def test_claude_interpreter_falls_back_when_the_reply_is_not_a_json_object() -> 
 
     assert understanding.intent is None
     assert understanding.missing_information
+
+
+# -- The requested-actions ledger (verified-outcome design, Section 3) -----------------
+
+
+def _interpret(reply: dict, message: str) -> Understanding:
+    provider = _FakeLLMProvider(reply=json.dumps(reply))
+    return ClaudeInterpreter(provider)(_empty_request(user_message=message))
+
+
+def test_requested_actions_are_parsed_in_order_with_the_users_own_words() -> None:
+    understanding = _interpret(
+        {
+            "intent": "multi_step_request",
+            "confidence": 0.9,
+            "requested_actions": [
+                {"action": "remove_empty_rows", "source_phrase": "delete the blank rows"},
+                {"action": "remove_duplicate_rows", "source_phrase": "remove duplicates"},
+            ],
+        },
+        "Delete the blank rows, then remove duplicates",
+    )
+
+    assert understanding.requested_actions == (
+        RequestedAction("remove_empty_rows", "Delete the blank rows", LEDGER_FROM_BRAIN, True),
+        RequestedAction("remove_duplicate_rows", "remove duplicates", LEDGER_FROM_BRAIN, True),
+    )
+
+
+@pytest.mark.parametrize(
+    "action", ["Remove_Duplicate_Rows", " remove_duplicate_rows ", "REMOVE_DUPLICATE_ROWS\n"]
+)
+def test_a_casing_or_whitespace_slip_in_an_action_name_is_still_that_action(action: str) -> None:
+    understanding = _interpret(
+        {
+            "intent": "multi_step_request",
+            "confidence": 0.9,
+            "requested_actions": [{"action": action, "source_phrase": "remove duplicates"}],
+        },
+        "remove duplicates and sort by amount",
+    )
+
+    assert understanding.requested_actions == (
+        RequestedAction("remove_duplicate_rows", "remove duplicates", LEDGER_FROM_BRAIN, True),
+    )
+
+
+@pytest.mark.parametrize("action", ["sort_rows", "remove_duplicates", "report"])
+def test_an_action_outside_the_vocabulary_becomes_unsupported_and_keeps_its_phrase(
+    action: str,
+) -> None:
+    understanding = _interpret(
+        {
+            "intent": "multi_step_request",
+            "confidence": 0.9,
+            "requested_actions": [{"action": action, "source_phrase": "sort by amount"}],
+        },
+        "remove duplicates and sort by amount",
+    )
+
+    assert understanding.requested_actions == (
+        RequestedAction(UNSUPPORTED, "sort by amount", LEDGER_FROM_BRAIN, True),
+    )
+
+
+def test_a_phrase_not_in_the_message_is_kept_but_marked_not_found() -> None:
+    understanding = _interpret(
+        {
+            "intent": "remove_duplicate_rows",
+            "confidence": 0.9,
+            "requested_actions": [
+                {"action": "remove_duplicate_rows", "source_phrase": "deduplicate the rows"}
+            ],
+        },
+        "get rid of the repeats",
+    )
+
+    (entry,) = understanding.requested_actions
+    assert (entry.action, entry.source_phrase, entry.phrase_found) == (
+        "remove_duplicate_rows",
+        "deduplicate the rows",
+        False,
+    )
+
+
+@pytest.mark.parametrize(
+    "raw",
+    [None, "remove_duplicate_rows", {"action": "remove_duplicate_rows"}, 3],
+    ids=["missing", "string", "object", "number"],
+)
+def test_a_missing_or_malformed_requested_actions_gives_no_entries(raw: object) -> None:
+    reply: dict = {"intent": "remove_duplicate_rows", "confidence": 0.9}
+    if raw is not None:
+        reply["requested_actions"] = raw
+
+    understanding = _interpret(reply, "remove duplicate rows")
+
+    assert understanding.intent == "remove_duplicate_rows"
+    assert understanding.requested_actions == ()
+    # The ledger falls back to Brain's single-action intent.
+    assert brain_ledger(understanding) == (
+        RequestedAction("remove_duplicate_rows", "", LEDGER_FROM_INTENT, False),
+    )
+
+
+def test_entries_with_no_action_are_skipped_and_the_rest_kept() -> None:
+    understanding = _interpret(
+        {
+            "intent": "remove_empty_rows",
+            "confidence": 0.9,
+            "requested_actions": [
+                {"source_phrase": "remove empty rows"},
+                {"action": "", "source_phrase": "x"},
+                7,
+                "remove_empty_rows",
+            ],
+        },
+        "remove empty rows",
+    )
+
+    assert understanding.requested_actions == (
+        RequestedAction("remove_empty_rows", "", LEDGER_FROM_BRAIN, False),
+    )
+
+
+def test_the_prompt_offers_exactly_the_action_vocabulary() -> None:
+    line = next(ln for ln in _SYSTEM_PROMPT.splitlines() if '{"action":' in ln)
+    assert set(re.findall(r'"([a-z_]+)"', line.split(":", 1)[1])) == ACTION_VOCABULARY
+    assert "remove_empty_rows" in INTENT_VOCABULARY  # a Brain intent as well as an action
+
+
+class _Fixed:
+    def __init__(self, understanding: Understanding) -> None:
+        self._understanding = understanding
+
+    def __call__(self, request: UnderstandingRequest) -> Understanding:
+        return self._understanding
+
+
+def _cross_check(understanding: Understanding, message: str) -> Understanding:
+    return MentionCrossCheck(_Fixed(understanding))(_empty_request(user_message=message))
+
+
+def test_mention_cross_check_adds_only_what_brain_left_out() -> None:
+    """N1: Brain read a dedupe request as empty-row removal."""
+    understanding = _cross_check(
+        Understanding(intent="remove_empty_rows", confidence=0.9),
+        "remove the duplicate rows please",
+    )
+
+    assert understanding.intent == "remove_empty_rows"  # routing unchanged
+    assert understanding.requested_actions == (
+        RequestedAction("remove_empty_rows", "", LEDGER_FROM_INTENT, False),
+        RequestedAction("remove_duplicate_rows", "duplicate rows", LEDGER_FROM_MENTION, True),
+    )
+
+
+def test_mention_cross_check_adds_nothing_brain_already_listed() -> None:
+    brain = (
+        RequestedAction("remove_duplicate_rows", "remove duplicates", LEDGER_FROM_BRAIN, True),
+        RequestedAction("remove_empty_rows", "delete the empty rows", LEDGER_FROM_BRAIN, True),
+    )
+    understanding = _cross_check(
+        Understanding(intent="multi_step_request", requested_actions=brain),
+        "remove duplicates and also delete the empty rows",
+    )
+
+    assert understanding.requested_actions == brain
+
+
+def test_mention_cross_check_adds_a_negated_mention_as_a_mention() -> None:
+    """A false positive the design accepts: it can only add a true "I didn't
+    run …" sentence, never a claim."""
+    brain = (
+        RequestedAction("remove_empty_rows", "remove the empty rows", LEDGER_FROM_BRAIN, True),
+    )
+    understanding = _cross_check(
+        Understanding(intent="remove_empty_rows", requested_actions=brain),
+        "remove the empty rows but keep the duplicates",
+    )
+
+    assert understanding.requested_actions == (
+        *brain,
+        RequestedAction("remove_duplicate_rows", "duplicates", LEDGER_FROM_MENTION, True),
+    )
+
+
+def test_mention_cross_check_runs_when_brain_failed() -> None:
+    understanding = _cross_check(Understanding(intent=None), "remove the blank lines")
+
+    assert understanding.intent is None
+    assert understanding.requested_actions == (
+        RequestedAction("remove_empty_rows", "blank lines", LEDGER_FROM_MENTION, True),
+    )
+
+
+def test_mention_cross_check_misses_a_paraphrase() -> None:
+    """The known limit (design 3.2): a paraphrase isn't detected, so the
+    reply is silent about it rather than wrong."""
+    understanding = _cross_check(
+        Understanding(intent="remove_empty_rows"), "get rid of the repeated entries"
+    )
+
+    assert [e.action for e in understanding.requested_actions] == ["remove_empty_rows"]

@@ -9,11 +9,13 @@ from typing import NamedTuple, Protocol
 
 import pandas as pd
 
+from buddy.actions import ACTIONS_BY_NAME, requested_ledger
 from buddy.models import (
     DUPLICATE_ROWS_TARGET,
     EMPTY_ROWS_TARGET,
     SKIPPED_STATUS,
     ExecutionResult,
+    OriginalFacts,
     StepMeasurement,
     StepResult,
     StepVerification,
@@ -21,7 +23,12 @@ from buddy.models import (
     VerificationResult,
 )
 from buddy.state import BuddyState
-from skills.excel.workbook import WorkbookRefused, sheet_names
+from skills.excel.workbook import (
+    WorkbookRefused,
+    formula_cell_counts,
+    plain_table_problem,
+    sheet_names,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -139,7 +146,7 @@ class SpreadsheetDedupeVerifier:
                 findings=(f"could not independently read {output_path!r}: {exc}",),
             )
 
-        duplicate_count = int(written.duplicated().sum())  # recomputed from scratch
+        duplicate_count = _duplicate_rows(written)  # recomputed from scratch
         findings = [
             f"output has {len(written)} row(s), {duplicate_count} duplicate row(s) remaining"
         ]
@@ -154,9 +161,9 @@ class SpreadsheetDedupeVerifier:
         check = _check_against_input(
             written,
             _step_input(execution_result),
-            lambda original: len(original) - int(original.duplicated().sum()),
+            lambda original: len(original) - _duplicate_rows(original),
             # Every row dedupe must drop, identical blank rows included.
-            lambda original: int(original.duplicated().sum()),
+            _duplicate_rows,
         )
         if check.problem is not None:
             findings.append(check.problem)
@@ -216,7 +223,7 @@ class SpreadsheetEmptyRowsVerifier:
                 findings=(f"could not independently read {output_path!r}: {exc}",),
             )
 
-        empty_row_count = int(written.isna().all(axis=1).sum())  # recomputed from scratch
+        empty_row_count = _empty_rows(written)  # recomputed from scratch
         findings = [
             f"output has {len(written)} row(s), {empty_row_count} fully-empty row(s) remaining"
         ]
@@ -231,8 +238,8 @@ class SpreadsheetEmptyRowsVerifier:
         check = _check_against_input(
             written,
             _step_input(execution_result),
-            lambda original: len(original) - int(original.isna().all(axis=1).sum()),
-            lambda original: int(original.isna().all(axis=1).sum()),
+            lambda original: len(original) - _empty_rows(original),
+            _empty_rows,
         )
         if check.problem is not None:
             findings.append(check.problem)
@@ -248,6 +255,24 @@ class SpreadsheetEmptyRowsVerifier:
             findings=tuple(findings),
             measurements=(check.measurement(EMPTY_ROWS_TARGET, len(written), empty_row_count),),
         )
+
+
+# How each measured target is counted in a file, as read fresh. The step
+# verifiers and ``ResidualMeasurer`` use the same definitions.
+def _duplicate_rows(df: pd.DataFrame) -> int:
+    """Rows that repeat an earlier row exactly (identical blank rows included)."""
+    return int(df.duplicated().sum())
+
+
+def _empty_rows(df: pd.DataFrame) -> int:
+    """Rows with every cell empty."""
+    return int(df.isna().all(axis=1).sum())
+
+
+_TARGET_COUNTERS: dict[str, Callable[[pd.DataFrame], int]] = {
+    DUPLICATE_ROWS_TARGET: _duplicate_rows,
+    EMPTY_ROWS_TARGET: _empty_rows,
+}
 
 
 def _step_input(execution_result: ExecutionResult) -> str:
@@ -811,7 +836,7 @@ class CompositeVerifier:
             return VerificationResult(passed=False, findings=(SKIPPED_FINDING,))
         if step.failure_reason:
             return VerificationResult(passed=False, confidence=1.0, findings=(step.failure_reason,))
-        sheet_problem = _sheet_list_problem(step)
+        sheet_problem = _sheet_list_problem(step) or _plain_table_finding(step)
         if sheet_problem is not None:
             return VerificationResult(passed=False, confidence=1.0, findings=(sheet_problem,))
         verifier = self._verifiers_by_capability.get(step.capability, self._fallback)
@@ -892,6 +917,17 @@ def _sheet_names(path: str) -> list[str]:
     return sheet_names(path)
 
 
+def _reads_a_workbook(step: StepResult) -> bool:
+    """Whether ``step`` is a successful file-changing step that read a workbook."""
+    return not (
+        step.status != "success"
+        or step.permission_tier == "read"
+        or step.recheck
+        or not step.outputs
+        or not step.input_reference.lower().endswith(_WORKBOOK_SUFFIXES)
+    )
+
+
 def _sheet_list_problem(step: StepResult) -> str | None:
     """Say how a file-changing step's output lost or renamed a sheet, if it did.
 
@@ -905,13 +941,7 @@ def _sheet_list_problem(step: StepResult) -> str | None:
         ``None`` if the sheet lists match, or the step isn't a successful
         file-changing step that read a workbook; otherwise the problem.
     """
-    if (
-        step.status != "success"
-        or step.permission_tier == "read"
-        or step.recheck
-        or not step.outputs
-        or not step.input_reference.lower().endswith(_WORKBOOK_SUFFIXES)
-    ):
+    if not _reads_a_workbook(step):
         return None
     try:
         before, after = _sheet_names(step.input_reference), _sheet_names(step.outputs[0])
@@ -928,9 +958,166 @@ def _sheet_list_problem(step: StepResult) -> str | None:
     )
 
 
+def _plain_table_finding(step: StepResult) -> str | None:
+    """Say why the sheet a file-changing step read isn't a plain table, if it isn't.
+
+    The Skills write values only, so a sheet with merged cells, a header that
+    isn't on the first row, a column with no header or two equal headers would
+    come back changed. This reads the step's input fresh with openpyxl (the
+    same ``plain_table_problem`` the Skills refuse on, never a Skill's own
+    DataFrame), so a Skill that didn't refuse still fails verification and
+    nothing is handed back. Each chain step is checked against the file it
+    read, so the user's original is checked at the first step.
+
+    Returns:
+        ``None`` if the input is a plain table, or the step isn't a successful
+        file-changing step that read a workbook; otherwise the problem.
+    """
+    if not _reads_a_workbook(step):
+        return None
+    try:
+        problem = plain_table_problem(step.input_reference)
+    except WorkbookRefused as exc:  # its text is fixed, so it can be shown
+        return f"couldn't independently check the sheet's layout: {exc}"
+    if problem is None:
+        return None
+    return f"the sheet it read isn't a plain table: {problem}"
+
+
 # The ``StepVerification.capability`` recorded for the final-file check —
 # not a real capability, just the label for "the file the user receives".
 FINAL_OUTPUT_CAPABILITY = "final_output"
+
+
+class ResidualMeasurer:
+    """A ``Verifier`` wrapper that measures what's left in the delivered file.
+
+    Turn level only: wired around Inspector's verifier, never into Hands'
+    per-step verifier. After the inner verifier passes a turn that handed a
+    file back, it reads that file fresh and counts, for each action in the
+    requested-actions ledger (``buddy.actions.requested_ledger``) that has a
+    measured target, the rows and the target rows still in it. The reply
+    uses these only for a requested action that wasn't done ("It still has
+    1 fully-empty row(s)."), per ``docs/design/verified-outcome-design.md``
+    Section 2.5.
+
+    It never changes the verdict: ``passed``, ``findings`` and every other
+    field are the inner verifier's. It only reads the delivered file, never
+    the original, so rule 2 isn't touched. If the file can't be read, there
+    are no residuals, and the reply claims nothing about what's left.
+    """
+
+    def __init__(self, inner: Verifier) -> None:
+        """Initialize the wrapper.
+
+        Args:
+            inner: The verifier whose verdict is kept (``CompositeVerifier``).
+        """
+        self._inner = inner
+
+    def __call__(self, request: VerificationRequest) -> VerificationResult:
+        """Verify with the inner verifier, then measure the delivered file.
+
+        Args:
+            request: The request to verify.
+
+        Returns:
+            The inner verdict, with ``residuals`` set when it passed a turn
+            that delivered a file and the file could be read.
+        """
+        result = self._inner(request)
+        execution_result = request.execution_result
+        if (
+            not result.passed
+            or execution_result is None
+            or not execution_result.outputs
+            or execution_result.stopped_at is not None
+        ):
+            return result
+        targets: list[str] = []
+        for entry in requested_ledger(request.understanding):
+            action = ACTIONS_BY_NAME.get(entry.action)
+            if action is not None and action.target not in targets:
+                targets.append(action.target)
+        if not targets:
+            return result
+        delivered = execution_result.outputs[0]
+        try:
+            written = pd.read_excel(delivered)  # fresh, independent read of the delivered file
+        except Exception:  # noqa: BLE001 — no residuals, and nothing is claimed
+            logger.exception("ResidualMeasurer: failed to read %r", delivered)
+            return result
+        residuals = tuple(
+            StepMeasurement(
+                target=target, output_rows=len(written), remaining=_TARGET_COUNTERS[target](written)
+            )
+            for target in targets
+            if target in _TARGET_COUNTERS
+        )
+        return replace(result, residuals=residuals)
+
+
+class OriginalMeasurer:
+    """A ``Verifier`` wrapper that measures what the user's original has that the copy can't keep.
+
+    Turn level only, like ``ResidualMeasurer``. After the inner verifier
+    passes a turn that handed a file back, it reads the file the first
+    file-changing step read (the user's own file, also in a chain) fresh with
+    openpyxl and counts its formula cells, and how many of them have no saved
+    value. The reply says so in a fixed sentence
+    (``buddy.outcome``), because the Skills write values only. If the
+    original can't be read, ``formula_cells`` is ``None`` and the reply says it
+    couldn't check; it is never silently left out.
+
+    It never changes the verdict: ``passed``, ``findings`` and every other
+    field are the inner verifier's, and it never writes anything, so rule 2
+    isn't touched. See ``docs/design/values-only-copy.md`` Section 2.
+    """
+
+    def __init__(self, inner: Verifier) -> None:
+        """Initialize the wrapper.
+
+        Args:
+            inner: The verifier whose verdict is kept.
+        """
+        self._inner = inner
+
+    def __call__(self, request: VerificationRequest) -> VerificationResult:
+        """Verify with the inner verifier, then measure the original.
+
+        Args:
+            request: The request to verify.
+
+        Returns:
+            The inner verdict, with ``original_facts`` set when it passed a
+            turn that delivered a file.
+        """
+        result = self._inner(request)
+        execution_result = request.execution_result
+        if (
+            not result.passed
+            or execution_result is None
+            or not execution_result.outputs
+            or execution_result.stopped_at is not None
+        ):
+            return result
+        original = next(
+            (step.input_reference for step in execution_result.steps if _reads_a_workbook(step)),
+            None,
+        )
+        if original is None:
+            return result
+        try:
+            counts = formula_cell_counts(original)  # fresh, independent read of the original
+        except Exception:  # noqa: BLE001 — "couldn't check" is said, never a count
+            logger.exception("OriginalMeasurer: failed to read %r", original)
+            return replace(result, original_facts=OriginalFacts(formula_cells=None))
+        return replace(
+            result,
+            original_facts=OriginalFacts(
+                formula_cells=counts.formulas, formula_cells_without_value=counts.without_value
+            ),
+        )
 
 
 class Inspector:

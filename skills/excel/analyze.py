@@ -8,6 +8,7 @@ its choices are grounded in.
 """
 
 import logging
+import os
 import re
 from datetime import datetime
 from pathlib import Path
@@ -35,6 +36,7 @@ _NAME_COLUMN_PATTERN = re.compile(r"name", re.IGNORECASE)
 _DISCRIMINATING_COLUMN_PATTERN = re.compile(r"phone|email|tel", re.IGNORECASE)
 _KEY_COLUMN_PATTERN = _DISCRIMINATING_COLUMN_PATTERN
 _NEAR_DUPLICATE_ROW_LIMIT = 10_000
+_NO_ANALYTICS_ENV = "YDATA_PROFILING_NO_ANALYTICS"
 
 
 class Analyzer(Protocol):
@@ -69,6 +71,10 @@ class MissingValueAndDistributionAnalyzer:
     """
 
     def __call__(self, df: pd.DataFrame) -> tuple[str, ...]:
+        # ydata-profiling reports the shape of every analysed sheet to its
+        # vendor unless this is set, and it only tests that the value is
+        # non-empty, so it is assigned, not defaulted. Set before the import.
+        os.environ[_NO_ANALYTICS_ENV] = "1"
         from ydata_profiling import ProfileReport
         from ydata_profiling.model.alerts import AlertType
 

@@ -37,12 +37,15 @@ import zipfile
 from datetime import UTC, datetime
 from pathlib import Path
 
+import openpyxl
 import pandas as pd
+from openpyxl.styles import Font, PatternFill
 
 # Make the repo root importable when this script is run directly, e.g.
 # ``python scripts/run_dedupe_manually.py`` from the repo root.
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
+from buddy.actions import requested_ledger  # noqa: E402
 from buddy.engine_factory import build_engine  # noqa: E402
 from buddy.llm import ClaudeProvider, GroqProvider, LLMProvider  # noqa: E402
 from buddy.outcome import build_outcome_report  # noqa: E402
@@ -130,7 +133,97 @@ def _write_password_protected_fixture(path: Path) -> None:
     )
 
 
+def _write_formula_fixture(path: Path, *, saved: bool) -> None:
+    """A plain table with formulas and formatting: name, amount, double (``=B*2``).
+
+    Rows 2-7: Alice 10, Bob 20, an empty row, Alice 10 (a duplicate), Carol 30, Bob 20 (a
+    duplicate). Six data rows, five formula cells, a bold red header, a yellow fill and a
+    wide column. With ``saved`` the formulas carry saved results, as a file last saved by
+    Excel would; otherwise they have none (a file written by a script).
+    """
+    path.parent.mkdir(parents=True, exist_ok=True)
+    book = openpyxl.Workbook()
+    sheet = book.active
+    sheet.title = "Sheet1"
+    sheet.append(["name", "amount", "double"])
+    rows = [("Alice", 10), ("Bob", 20), None, ("Alice", 10), ("Carol", 30), ("Bob", 20)]
+    for index, row in enumerate(rows, start=2):
+        sheet.append([*row, f"=B{index}*2"] if row else [])
+    sheet["A1"].font = Font(bold=True, color="FFFF0000")
+    sheet["B2"].fill = PatternFill("solid", fgColor="FFFFFF00")
+    sheet.column_dimensions["A"].width = 40
+    book.save(path)
+    if not saved:
+        return
+    # Store each formula's result (2 x amount) as Excel does on save: openpyxl can't.
+    with zipfile.ZipFile(path) as archive:
+        parts = [(item, archive.read(item.filename)) for item in archive.infolist()]
+    with zipfile.ZipFile(path, "w") as patched:
+        for item, data in parts:
+            if item.filename == "xl/worksheets/sheet1.xml":
+                xml = data.decode("utf-8")
+                for index, row in enumerate(rows, start=2):
+                    if row:
+                        xml, count = re.subn(
+                            rf'(<c r="C{index}"[^>]*><f>[^<]*</f>)<v\s*/>',
+                            rf"\g<1><v>{row[1] * 2}</v>",
+                            xml,
+                        )
+                        assert count == 1
+                data = xml.encode("utf-8")
+            patched.writestr(item, data)
+
+
+def _write_formula_fixture_saved(path: Path) -> None:
+    _write_formula_fixture(path, saved=True)
+
+
+def _write_formula_fixture_unsaved(path: Path) -> None:
+    _write_formula_fixture(path, saved=False)
+
+
+def _write_merged_cell_fixture(path: Path) -> None:
+    """The default rows with a merged note cell beside the table (``E1:F1``)."""
+    _write_fixture_with_duplicates(path)
+    book = openpyxl.load_workbook(path)
+    book.active["E1"] = "note: totals below"
+    book.active.merge_cells("E1:F1")
+    book.save(path)
+
+
+def _formula_facts(path: Path) -> str:
+    """Formula cells and merged ranges, from the sheet XML (no pandas, no openpyxl)."""
+    with zipfile.ZipFile(path) as archive:
+        xml = archive.read("xl/worksheets/sheet1.xml").decode("utf-8")
+    cells = re.findall(r"<c\b[^>]*>.*?</c>", xml, flags=re.S)
+    formulas = [c for c in cells if re.search(r"<f[ >/]", c)]
+    unsaved = [c for c in formulas if not re.search(r"<v>[^<]+</v>", c)]
+    merged = len(re.findall(r"<mergeCell\b", xml))
+    return (
+        f"{len(formulas)} formula cell(s), {len(unsaved)} with no saved value, "
+        f"{merged} merged range(s)"
+    )
+
+
+def _style_facts(path: Path) -> str:
+    """The header's font, a fill and a column width, read with openpyxl (formatting facts)."""
+    book = openpyxl.load_workbook(path)
+    try:
+        sheet = book.worksheets[0]
+        color = sheet["A1"].font.color.rgb if sheet["A1"].font.color is not None else None
+        return (
+            f"A1 bold={bool(sheet['A1'].font.b)} colour={color}; "
+            f"B2 fill={sheet['B2'].fill.fgColor.rgb}; "
+            f"column A width={sheet.column_dimensions['A'].width}"
+        )
+    finally:
+        book.close()
+
+
 _FIXTURES = {
+    "formulas": (_write_formula_fixture_saved, "formulas with saved results, formatting"),
+    "formulas-unsaved": (_write_formula_fixture_unsaved, "formulas with no saved results"),
+    "merged-cells": (_write_merged_cell_fixture, "the default rows and a merged note cell E1:F1"),
     "default": (_write_fixture_with_duplicates, "duplicates and an empty row"),
     "no-duplicates": (_write_fixture_without_duplicates, "no duplicates and no empty rows"),
     "two-sheets": (_write_two_sheet_fixture, "sheets Q1 (default rows) and Q2 (2 rows)"),
@@ -330,6 +423,18 @@ def _run_turn(
     if state.understanding is not None:
         print(f"intent:     {state.understanding.intent!r}")
         print(f"confidence: {state.understanding.confidence:.2f}")
+        print("Brain's own requested_actions (as returned, before the intent is added):")
+        raw = [e for e in state.understanding.requested_actions if e.source == "brain"]
+        for entry in raw:
+            print(f"  {entry.action}: {entry.source_phrase!r} (in message: {entry.phrase_found})")
+        if not raw:
+            print("  (none)")
+        print("ledger (Brain's reading, its intent, then mention-only entries):")
+        for entry in requested_ledger(state.understanding):
+            print(
+                f"  [{entry.source}] {entry.action}: {entry.source_phrase!r} "
+                f"(in message: {entry.phrase_found})"
+            )
     else:
         print("state.understanding is None")
 
@@ -377,19 +482,26 @@ def _run_turn(
                     f"removed={m.removed} (of which repeated blank rows: {m.removed_blank}) "
                     f"output_rows={m.output_rows} remaining={m.remaining}"
                 )
+        print("residuals (fresh read of the delivered file, per requested target):")
+        for m in state.verification_result.residuals:
+            print(f"  target={m.target} output_rows={m.output_rows} remaining={m.remaining}")
 
     _print_header("OutcomeReport (rendered by code on a verified delivery)")
     speaking_request = Voice._build_request(state)
     if _verified_delivery(speaking_request):
         report = build_outcome_report(
-            state.execution_result,
-            state.verification_result,
-            state.understanding.intent if state.understanding is not None else None,
+            state.execution_result, state.verification_result, state.understanding
         )
-        print(f"lead word:   {report.lead_word!r}")
+        print(f"lead word:     {report.lead_word!r}")
         for action in report.actions:
-            print(f"action:      {action}")
-        print(f"final state: {report.final_state}")
+            print(
+                f"action:        {action.capability or '(no skill)'} status={action.status} "
+                f"reason={action.reason} source={action.source!r} "
+                f"measurement={action.measurement} phrase={action.user_phrase!r}"
+            )
+        print(f"brain reading: {report.brain_reading}")
+        print(f"final state:   {report.final_state}")
+        print(f"residuals:     {report.residuals}")
     else:
         print("not a verified delivery: TemplateSpeaker's factual reply, no report")
 
@@ -420,12 +532,18 @@ def _run_turn(
             written = pd.read_excel(output_path)
             original = pd.read_excel(input_path)
             print(f"original row count:   {len(original)}")
-            print(f"original duplicates:  {int(original.dropna(how='all').duplicated().sum())}")
+            print(f"original duplicates:  {int(original.duplicated().sum())} (blank repeats incl.)")
             print(f"original empty rows:  {int(original.isna().all(axis=1).sum())}")
             print(f"output sheets:        {_sheet_names(output_path)}")
             print(f"row count:            {len(written)}")
             print(f"duplicate rows found: {int(written.duplicated().sum())}")
             print(f"empty rows found:     {int(written.isna().all(axis=1).sum())}")
+            print(f"original (XML):       {_formula_facts(input_path)}")
+            print(f"output (XML):         {_formula_facts(output_path)}")
+            print(f"original styles:      {_style_facts(input_path)}")
+            print(f"output styles:        {_style_facts(output_path)}")
+            column = written["double"].tolist() if "double" in written else "n/a"
+            print(f"output double column: {column}")
         else:
             print("output file does not exist on disk")
     else:
