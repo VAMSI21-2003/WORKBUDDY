@@ -6,6 +6,7 @@ worker thread, as in production.
 
 from __future__ import annotations
 
+import dataclasses
 import hashlib
 import json
 import threading
@@ -17,12 +18,16 @@ import pandas as pd
 import pytest
 from fastapi.testclient import TestClient
 
+from backend import turns as turns_module
 from backend.main import create_app
 from backend.settings import Settings
+from backend.store import SessionStore
 from buddy.voice import _COMPLETION_CLAIM
 from buddy.voice_catalog import (
     FALLBACK_INTEGRITY_FAILURE,
     FALLBACK_PIPELINE_ERROR,
+    FROM_ORIGINAL_SENTENCE,
+    NOTHING_RAN_REPLY,
     failure_reply,
 )
 from tests.backend.factories import (
@@ -498,6 +503,23 @@ _SCENARIOS: dict[str, tuple[list[str], dict[str, Any], str]] = {
     "no_intent": (["not json", "not json either"], {}, "?"),
     "crash": (single("remove_duplicate_rows"), {"raise": "inspector"}, "remove duplicates"),
     "voice_crash": (single("remove_duplicate_rows"), {"raise": "voice"}, "remove duplicates"),
+    # A second turn, after a first one (review round 1, M1 and M2).
+    "no_upload": (single("remove_duplicate_rows"), {"no_upload": True}, "remove duplicates"),
+    "thanks_after_delivery": (
+        single("remove_duplicate_rows") + _unclear(),
+        {"first": "remove duplicate rows"},
+        "thanks!",
+    ),
+    "yes_after_decline": (
+        single("remove_duplicate_rows") + _unclear(),
+        {"first": "remove duplicate rows", "auto_approve": False},
+        "yes, go ahead",
+    ),
+    "followup_after_delivery": (
+        single("remove_duplicate_rows") + single("remove_empty_rows"),
+        {"first": "remove duplicate rows"},
+        "now remove the empty rows too",
+    ),
 }
 
 
@@ -513,10 +535,14 @@ def test_rule_1_holds_in_every_scenario(
     wrap = raise_in(options["raise"], after=True) if "raise" in options else None
     factory = PipelineFactory(QueuedProvider(replies), speaker=speaker, wrap=wrap)
     client = _app(settings, factory)
-    session_id, file_id = _session_with_upload(
-        client, "focus" if speaker == "focus" else "friend", xlsx_bytes(options.get("rows"))
-    )
-    before = _sha(_upload_path(settings, file_id))
+    mode = "focus" if speaker == "focus" else "friend"
+    if options.get("no_upload"):
+        session_id, file_id = new_session(client, mode), None
+    else:
+        session_id, file_id = _session_with_upload(client, mode, xlsx_bytes(options.get("rows")))
+    before = _sha(_upload_path(settings, file_id)) if file_id else None
+    if "first" in options:
+        _turn(client, session_id, options["first"])
 
     turn = _turn(client, session_id, message)
 
@@ -529,12 +555,16 @@ def test_rule_1_holds_in_every_scenario(
     assert (turn["outcome"] == "delivered") == bool(turn["delivered_files"])
     if turn["outcome"] != "delivered":
         assert _COMPLETION_CLAIM.search(turn["reply"]) is None, turn["reply"]
+        assert "verifier" not in turn["reply"].lower()
+    if turn["outcome"] == "delivered" and "first" in options:
+        assert FROM_ORIGINAL_SENTENCE in turn["reply"]
     text = json.dumps(turn["detail"])
     for run in factory.runs:
         for prose in run.summaries + run.findings:
             if prose:
                 assert prose not in text
-    assert _sha(_upload_path(settings, file_id)) == before
+    if file_id:
+        assert _sha(_upload_path(settings, file_id)) == before
 
 
 # -- Concurrency ---------------------------------------------------------------------------
@@ -745,3 +775,190 @@ def test_the_202_body_is_the_running_turn_even_if_it_already_finished(settings: 
     assert response.json()["status"] == "running"
     assert response.json()["reply"] is None
     wait_finished(client, session_id, response.json()["turn_id"])
+
+
+# -- Review round 1: M1, M2, M3, L2, L3, L8 ---------------------------------------------------
+
+
+@pytest.mark.parametrize("speaker", SPEAKERS)
+@pytest.mark.parametrize(
+    ("setup", "message"),
+    [
+        ("no_upload", "hi"),
+        ("no_upload", "remove duplicate rows"),
+        ("after_delivery", "thanks!"),
+        ("after_decline", "yes, go ahead"),
+    ],
+)
+def test_a_turn_where_nothing_ran_says_so_plainly(
+    tmp_path: Path, speaker: str, setup: str, message: str
+) -> None:
+    """Review M1: never "No verifier has been configured", never doubt about a delivery."""
+    if setup == "no_upload":
+        replies = single("remove_duplicate_rows")
+    else:  # a first turn, then the message
+        replies = single("remove_duplicate_rows") + _unclear()
+    settings = Settings(data_dir=tmp_path / "data", auto_approve=setup != "after_decline")
+    factory = PipelineFactory(QueuedProvider(replies), speaker=speaker)
+    client = _app(settings, factory)
+    mode = "focus" if speaker == "focus" else "friend"
+    if setup == "no_upload":
+        session_id = new_session(client, mode)
+    else:
+        session_id, _ = _session_with_upload(client, mode)
+        first = _turn(client, session_id, "remove duplicate rows")
+        assert first["outcome"] == ("delivered" if setup == "after_delivery" else "not_delivered")
+
+    turn = _turn(client, session_id, message)
+
+    assert turn["reply"] == NOTHING_RAN_REPLY == factory.runs[-1].reply
+    assert turn["outcome"] == "not_delivered" and turn["delivered_files"] == []
+    assert "verifier" not in turn["reply"] and "confirm that worked" not in turn["reply"]
+
+
+@pytest.mark.parametrize("speaker", SPEAKERS)
+def test_a_follow_up_delivery_says_it_was_made_from_the_original(
+    settings: Settings, speaker: str
+) -> None:
+    """Review M2, option (b): later turns read the original upload, and the reply says so."""
+    provider = QueuedProvider(single("remove_duplicate_rows") + single("remove_empty_rows"))
+    factory = PipelineFactory(provider, speaker=speaker)
+    client = _app(settings, factory)
+    session_id, _ = _session_with_upload(client, "focus" if speaker == "focus" else "friend")
+
+    first = _turn(client, session_id, "remove duplicate rows")
+    second = _turn(client, session_id, "now remove the empty rows too")
+
+    assert first["outcome"] == second["outcome"] == "delivered"
+    assert FROM_ORIGINAL_SENTENCE not in first["reply"]
+    assert FROM_ORIGINAL_SENTENCE in second["reply"]
+    assert second["reply"] == factory.runs[1].reply
+    # The sentence is true: the second file is the original minus its empty row,
+    # duplicates and all.
+    written = pd.read_excel(Path(factory.runs[1].outputs[0]))
+    assert len(written) == 5 and int(written.duplicated().sum()) == 2
+
+
+def test_a_verified_delivery_the_api_cant_hand_back_gets_the_fallback(
+    settings: Settings, tmp_path: Path
+) -> None:
+    """Review L2: ``decide()`` replaces a "ready" reply when no file can be handed back."""
+    outside = tmp_path / "outside"
+    outside.mkdir()
+
+    class _OutputElsewhere:
+        def __init__(self, inner: Any) -> None:
+            self._inner = inner
+
+        def __call__(self, state: Any) -> Any:
+            state = self._inner(state)
+            (output,) = state.execution_result.outputs
+            moved = outside / Path(output).name
+            moved.write_bytes(Path(output).read_bytes())
+            state.execution_result = dataclasses.replace(
+                state.execution_result, outputs=(str(moved),)
+            )
+            return state
+
+    def wrap(cycle: Any) -> Any:
+        return dataclasses.replace(cycle, hands=_OutputElsewhere(cycle.hands))
+
+    factory = PipelineFactory(QueuedProvider(single("remove_duplicate_rows")), wrap=wrap)
+    client = _app(settings, factory)
+    session_id, _ = _session_with_upload(client)
+
+    turn = _turn(client, session_id, "remove duplicate rows")
+
+    (run,) = factory.runs
+    assert _COMPLETION_CLAIM.search(run.reply or "")  # the pipeline said it was done...
+    assert turn["outcome"] == "failed"  # ...but nothing could be handed back
+    assert turn["reply"] == FALLBACK_PIPELINE_ERROR
+    assert turn["reply_source"] == "pipeline_fallback"
+    assert turn["delivered_files"] == []
+
+
+def test_the_worker_and_the_deadline_racing_finish_the_turn_once(tmp_path: Path) -> None:
+    """Review L3: both get past the first check; only one may publish."""
+    settings = Settings(data_dir=tmp_path / "data", turn_deadline_s=0.2, auto_approve=True)
+    factory = BlockingFactory(reply="Hello.")
+    client = _app(settings, factory)
+    session_id, _ = _session_with_upload(client)
+    registry = client.app.state.registry  # type: ignore[attr-defined]
+    saves: list[str] = []
+    real_save_turn = registry.save_turn
+
+    def counting_save_turn(record: Any, turn: Any) -> None:
+        if turn.status == "finished":
+            saves.append(turn.outcome)
+        real_save_turn(record, turn)
+
+    registry.save_turn = counting_save_turn
+    barrier = threading.Barrier(2, timeout=5)
+    real_decide = turns_module.decide
+
+    def decide_together(*args: Any, **kwargs: Any) -> Any:
+        barrier.wait()  # the timer waits here until the worker arrives too
+        return real_decide(*args, **kwargs)
+
+    turns_module.decide = decide_together
+    try:
+        turn_id = start_turn(client, session_id, "hello").json()["turn_id"]
+        time.sleep(0.4)  # the deadline has fired and is waiting at the barrier
+        factory.release.set()
+        turn = wait_finished(client, session_id, turn_id)
+        assert factory.finished.wait(5)
+        deadline = time.monotonic() + 5
+        while client.app.state.runner.running:  # type: ignore[attr-defined]
+            assert time.monotonic() < deadline
+            time.sleep(0.02)
+    finally:
+        turns_module.decide = real_decide
+
+    assert len(saves) == 1
+    again = client.get(f"/api/v1/sessions/{session_id}/turns/{turn_id}").json()
+    assert again == turn
+
+
+def test_a_finished_record_that_cant_be_saved_finishes_as_failed(
+    settings: Settings, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Review M3: memory never says "handed back" when the disk can't record it."""
+    factory = PipelineFactory(QueuedProvider(single("remove_duplicate_rows")))
+    client = _app(settings, factory)
+    session_id, _ = _session_with_upload(client)
+    real_save_turn = SessionStore.save_turn
+
+    def failing_for_finished(self: Any, record: Any, turn: Any) -> None:
+        if turn.status == "finished":
+            raise OSError(28, "No space left on device")
+        real_save_turn(self, record, turn)
+
+    monkeypatch.setattr(SessionStore, "save_turn", failing_for_finished)
+    turn = _turn(client, session_id, "remove duplicate rows")
+    monkeypatch.undo()
+
+    assert factory.runs[0].outputs  # a real, verified file was written...
+    assert turn["outcome"] == "failed"  # ...but isn't handed back
+    assert turn["reply"] == FALLBACK_PIPELINE_ERROR
+    assert turn["delivered_files"] == []
+    files = client.get(f"/api/v1/sessions/{session_id}/files").json()["files"]
+    assert [f["kind"] for f in files] == ["upload"]
+    restarted = TestClient(create_app(settings, PipelineFactory()))
+    after = restarted.get(f"/api/v1/sessions/{session_id}/turns/{turn['turn_id']}").json()
+    assert after["outcome"] == "failed" and after["reply"] == FALLBACK_PIPELINE_ERROR
+    assert after["delivered_files"] == []
+
+
+def test_a_message_with_a_lone_surrogate_is_422(idle_client: TestClient) -> None:
+    """Review L8: not a 500."""
+    session_id = new_session(idle_client)
+
+    response = idle_client.post(
+        f"/api/v1/sessions/{session_id}/turns",
+        content=b'{"message": "hi \\ud800"}',
+        headers={"Content-Type": "application/json"},
+    )
+
+    assert response.status_code == 422
+    assert response.json()["error"]["code"] == "invalid_request"
+    assert idle_client.get(f"/api/v1/sessions/{session_id}").json()["turns"] == []

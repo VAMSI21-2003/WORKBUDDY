@@ -195,6 +195,16 @@ class SessionRegistry:
                 self._store.save_turn(record, turn)
             self._store.save_session(record)
 
+    def save_turn(self, record: SessionRecord, turn: TurnRecord) -> None:
+        """Persist one turn record. The caller holds the session's lock."""
+        if self._store is not None:
+            self._store.save_turn(record, turn)
+
+    def save_session(self, record: SessionRecord) -> None:
+        """Persist the session record. The caller holds its lock."""
+        if self._store is not None:
+            self._store.save_session(record)
+
     def get(self, session_id: str) -> SessionRecord | None:
         """The session for ``session_id``, or ``None`` if there isn't one.
 

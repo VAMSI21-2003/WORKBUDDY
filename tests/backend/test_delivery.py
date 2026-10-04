@@ -241,6 +241,21 @@ def test_a_symlink_delivers_nothing_even_to_a_file_inside(
     assert _deliver(state, turn_dir) == ()
 
 
+def test_a_path_through_a_symlinked_sibling_folder_delivers_nothing(
+    delivered_run: tuple[BuddyState, Path], tmp_path: Path
+) -> None:
+    """Review L6: it resolves into the turn folder, but isn't in it by name."""
+    state, turn_dir, output = _row(delivered_run, tmp_path)
+    sibling = tmp_path / "sibling"
+    sibling.symlink_to(turn_dir)
+    state.execution_result = dataclasses.replace(
+        state.execution_result, outputs=(str(sibling / output.name),)  # type: ignore[arg-type]
+    )
+    assert (sibling / output.name).resolve().parent == turn_dir.resolve()
+
+    assert _deliver(state, turn_dir) == ()
+
+
 def test_a_symlinked_turn_folder_delivers_nothing(
     delivered_run: tuple[BuddyState, Path], tmp_path: Path
 ) -> None:

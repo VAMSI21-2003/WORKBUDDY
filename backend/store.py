@@ -30,6 +30,9 @@ from datetime import datetime
 from pathlib import Path
 from typing import Any
 
+from pydantic import ValidationError
+
+from backend.schemas import TurnDetail
 from backend.sessions import (
     FINISHED,
     RUNNING,
@@ -263,7 +266,7 @@ class SessionStore:
         _check(data["outcome"] in _OUTCOMES, "turn: outcome")
         _check(data["reply_source"] in _REPLY_SOURCES, "turn: reply_source")
         _check(isinstance(data["reply"], str) and bool(data["reply"].strip()), "turn: reply")
-        _check(data["detail"] is None or isinstance(data["detail"], dict), "turn: detail")
+        _check(data["detail"] is None or _valid_detail(data["detail"]), "turn: detail")
         turn.outcome = data["outcome"]
         turn.reply = data["reply"]
         turn.reply_source = data["reply_source"]
@@ -348,6 +351,15 @@ def _read_json(path: Path) -> Any:
     _check(path.is_file() and not path.is_symlink(), f"{path.name}: missing")
     _check(path.stat().st_size <= MAX_RECORD_BYTES, f"{path.name}: too large")
     return json.loads(path.read_text(encoding="utf-8"))
+
+
+def _valid_detail(detail: Any) -> bool:
+    """Whether a stored ``detail`` has exactly the shape the API serves."""
+    try:
+        TurnDetail.model_validate(detail, strict=True)
+    except ValidationError:
+        return False
+    return True
 
 
 def _check(condition: bool, what: str) -> None:

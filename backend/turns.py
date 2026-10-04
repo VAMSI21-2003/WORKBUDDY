@@ -22,6 +22,7 @@ until it exits (design Section 9.2).
 from __future__ import annotations
 
 import copy
+import dataclasses
 import logging
 import threading
 from collections.abc import Callable
@@ -236,6 +237,7 @@ class TurnRunner:
                 if target is not None:
                     work.context.switch_active_file(str(target.path))
                 work.turn_output_dir = str(turn_dir)
+                work.earlier_deliveries = len(record.delivered())
                 work.context.record_user_message(message)
 
                 turn = TurnRecord(
@@ -337,6 +339,14 @@ class TurnRunner:
         with record.lock:
             if turn.finished:
                 return
+            # The finished record is written before anyone can see the turn
+            # finished (review M3), so memory and disk always agree on what
+            # was handed back. If it can't be written, the turn is finished
+            # as failed with nothing handed back, which is also what a
+            # restart would report from the record written at the start.
+            if not self._save_finished(record, turn, result, now):
+                result = Finalization(FAILED, FALLBACK_PIPELINE_ERROR, PIPELINE_FALLBACK)
+                self._save_finished(record, turn, result, now)
             if result.commit and state is not None:
                 state.context.record_buddy_reply(result.reply)
                 state.reset_transient()
@@ -360,11 +370,11 @@ class TurnRunner:
             turn.status = FINISHED
             record.running_turn_id = None
             try:
-                self._registry.saved(record, turn)
+                self._registry.save_session(record)
             except Exception:
-                # The finished turn stands in memory; only its durable copy is
-                # missing, and a restart will report it as interrupted.
-                logger.exception("Turn %s: the finished record couldn't be saved", turn.turn_id)
+                # The turn's own record is on disk; only the session's context
+                # (the conversation) misses this turn after a restart.
+                logger.exception("Turn %s: the session record couldn't be saved", turn.turn_id)
         logger.info(
             "Turn %s for session %s finished: %s (%s)",
             turn.turn_id,
@@ -372,6 +382,27 @@ class TurnRunner:
             result.outcome,
             result.reply_source,
         )
+
+    def _save_finished(
+        self, record: SessionRecord, turn: TurnRecord, result: Finalization, now: datetime
+    ) -> bool:
+        """Write ``turn`` as ``result`` finishes it, without changing it. False if that failed."""
+        finished = dataclasses.replace(
+            turn,
+            status=FINISHED,
+            outcome=result.outcome,
+            reply=result.reply,
+            reply_source=result.reply_source,
+            delivered_files=result.delivered,
+            detail=result.detail,
+            finished_at=now,
+        )
+        try:
+            self._registry.save_turn(record, finished)
+        except Exception:
+            logger.exception("Turn %s: the finished record couldn't be saved", turn.turn_id)
+            return False
+        return True
 
     def _take_slot(self) -> bool:
         with self._slots_lock:

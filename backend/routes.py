@@ -87,6 +87,15 @@ def registry_of(request: Request) -> SessionRegistry:
     return request.app.state.registry  # type: ignore[no-any-return]
 
 
+def _encodable(text: str) -> bool:
+    """Whether ``text`` is valid Unicode (JSON can carry a lone surrogate; UTF-8 can't)."""
+    try:
+        text.encode("utf-8")
+    except UnicodeEncodeError:
+        return False
+    return True
+
+
 def runner_of(request: Request) -> TurnRunner:
     return request.app.state.runner  # type: ignore[no-any-return]
 
@@ -220,7 +229,7 @@ def start_turn(request: Request, session_id: str, body: CreateTurnRequest) -> Ru
     settings = settings_of(request)
     record = session_of(request, session_id)
     message = body.message.strip()
-    if not 1 <= len(message) <= settings.max_message_chars:
+    if not 1 <= len(message) <= settings.max_message_chars or not _encodable(message):
         raise ApiError(ErrorCode.INVALID_REQUEST)
     if body.file_id is not None and not valid_id(body.file_id):
         raise ApiError(ErrorCode.FILE_NOT_FOUND)

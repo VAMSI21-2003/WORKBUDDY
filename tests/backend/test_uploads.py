@@ -437,3 +437,33 @@ def test_a_workbook_with_more_than_one_sheet_is_refused(
 
 def test_a_one_sheet_workbook_is_accepted(client: TestClient) -> None:
     assert upload(client, new_session(client), xlsx_bytes()).status_code == 201
+
+
+def test_an_upload_that_finishes_while_a_turn_started_is_409_and_kept_nowhere(
+    settings: Settings, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Review L4: the busy check at registration, not only at the start."""
+    from backend import routes
+    from tests.backend.factories import BlockingFactory
+
+    factory = BlockingFactory()
+    client = TestClient(create_app(settings, factory))
+    session_id = new_session(client)
+    app = client.app
+    real_store = routes.store_upload
+
+    def store_then_a_turn_starts(*args, **kwargs):  # type: ignore[no-untyped-def]
+        stored = real_store(*args, **kwargs)
+        record = app.state.registry.get(session_id)  # type: ignore[attr-defined]
+        app.state.runner.start(record, "remove duplicate rows", None, None)  # type: ignore[attr-defined]
+        return stored
+
+    monkeypatch.setattr(routes, "store_upload", store_then_a_turn_starts)
+    response = upload(client, session_id, xlsx_bytes())
+
+    assert response.status_code == 409
+    assert response.json()["error"]["code"] == "session_busy"
+    state = client.get(f"/api/v1/sessions/{session_id}").json()
+    assert state["files"] == [] and state["active_file_id"] is None
+    assert [p for p in settings.uploads_dir.rglob("*") if p.is_file()] == []
+    factory.release.set()

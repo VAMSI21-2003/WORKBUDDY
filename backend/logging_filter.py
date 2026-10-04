@@ -66,12 +66,27 @@ def uninstall_log_redaction(previous: Callable[..., logging.LogRecord] | None = 
 
 
 def _redact_record(record: logging.LogRecord) -> None:
+    """Redact ``record`` in place, keeping its shape where that's safe.
+
+    The format string and each string argument are redacted separately, so a
+    formatter that unpacks ``record.args`` (uvicorn's access log does) still
+    works. If the formatted message would still hold a secret (one spread
+    across arguments, or inside a non-string argument), the record is
+    collapsed to its redacted, formatted message instead.
+    """
+    if isinstance(record.msg, str):
+        record.msg = redact(record.msg)
+    if isinstance(record.args, tuple):
+        record.args = tuple(redact(a) if isinstance(a, str) else a for a in record.args)
+    elif isinstance(record.args, dict):
+        record.args = {k: redact(v) if isinstance(v, str) else v for k, v in record.args.items()}
     try:
         message = record.getMessage()
     except Exception:  # noqa: BLE001 — a malformed record is left for logging to report
         return
-    record.msg = redact(message)
-    record.args = None
+    if redact(message) != message:
+        record.msg = redact(message)
+        record.args = None
     if record.exc_info and not record.exc_text:
         record.exc_text = redact(logging.Formatter().formatException(record.exc_info))
     if record.stack_info:

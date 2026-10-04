@@ -147,7 +147,10 @@ async def http_exception_handler(request: Request, exc: Exception) -> JSONRespon
     if exc.status_code == 404:
         return error_response(ErrorCode.NOT_FOUND)
     if exc.status_code == 405:
-        return error_response(ErrorCode.METHOD_NOT_ALLOWED)
+        allow = (exc.headers or {}).get("Allow")
+        return error_response(
+            ErrorCode.METHOD_NOT_ALLOWED, headers={"Allow": allow} if allow else None
+        )
     if 400 <= exc.status_code < 500:
         response = error_response(ErrorCode.INVALID_REQUEST)
         response.status_code = exc.status_code

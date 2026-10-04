@@ -54,6 +54,7 @@ def test_a_wrong_method_gets_the_uniform_error_body(settings: Settings) -> None:
 
     assert response.status_code == 405
     assert response.json()["error"]["code"] == "method_not_allowed"
+    assert response.headers["Allow"] == "GET"  # review L8
 
 
 def test_docs_and_openapi_are_not_served(settings: Settings) -> None:
@@ -114,6 +115,11 @@ def test_the_data_root_is_absolute_even_when_given_relative(
 def test_an_invalid_setting_refuses_to_start(tmp_path: Path, name: str, value: str) -> None:
     with pytest.raises(SettingsError):
         Settings.from_env({"WORKBUDDY_DATA_DIR": str(tmp_path), name: value})
+
+
+def test_auto_approve_is_off_unless_set(tmp_path: Path) -> None:
+    """Review L5: the dataclass default is pinned, not only ``from_env``'s."""
+    assert Settings(data_dir=tmp_path).auto_approve is False
 
 
 @pytest.mark.parametrize("value", ["1", "true", "YES", "on"])
@@ -184,3 +190,34 @@ def test_installed_redaction_masks_messages_args_and_tracebacks(
     assert "SECRET123" not in caplog.text
     assert "SECRET456" not in caplog.text
     assert REDACTED in caplog.text
+
+
+def test_a_redacted_access_log_record_still_formats_with_uvicorns_formatter() -> None:
+    """Review L1: redaction keeps ``record.args``' shape, which uvicorn unpacks."""
+    from uvicorn.logging import AccessFormatter
+
+    install_log_redaction()
+    record = logging.getLogger("uvicorn.access").makeRecord(
+        "uvicorn.access",
+        logging.INFO,
+        __file__,
+        1,
+        '%s - "%s %s HTTP/%s" %d',
+        ("127.0.0.1:5000", "GET", "/api/v1/sessions/s_SECRETID123/turns/t0001", "1.1", 200),
+        None,
+    )
+
+    formatted = AccessFormatter(use_colors=False).format(record)
+
+    assert "s_SECRETID123" not in formatted
+    assert f"/api/v1/sessions/{REDACTED}/turns/t0001" in formatted
+    assert "200" in formatted
+
+
+def test_a_secret_inside_a_non_string_argument_is_still_masked() -> None:
+    install_log_redaction()
+    record = logging.getLogger("x").makeRecord(
+        "x", logging.INFO, __file__, 1, "failed: %s", (RuntimeError("key gsk_ABC123"),), None
+    )
+
+    assert "gsk_ABC123" not in record.getMessage()

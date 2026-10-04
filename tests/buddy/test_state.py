@@ -159,6 +159,7 @@ def _fully_populated_state() -> BuddyState:
     state.reply = "a reply"
     state.failure = StageFailure(stage="inspector", error_type="RuntimeError")
     state.turn_output_dir = "/data/outputs/session-1/t0001"
+    state.earlier_deliveries = 2
     return state
 
 
