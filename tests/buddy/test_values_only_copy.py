@@ -39,6 +39,10 @@ _UPLOAD = Path("uploads") / "report.xlsx"
 _SUFFIX = ", and only plain tables (one header row at the top, then the data) are supported for now"
 _MERGED = "the sheet has merged cells" + _SUFFIX
 _NO_HEADER = "a column in the sheet has no header" + _SUFFIX
+_READS_AS_EMPTY = (
+    "a cell holds an error value, or text such as NA or N/A, that would be read as empty, "
+    "and keeping such cells isn't supported for now"
+)
 
 _SPEAKERS = ["template", "friend", "focus"]
 _KINDS = list(_REQUESTS)  # dedupe, empty_rows, chain
@@ -52,6 +56,9 @@ _DELIVERED = {
 _REFUSED = {
     "merged_cells": (fixtures.merged_cell_sheet, _MERGED),
     "header_on_row_3": (fixtures.header_on_row_three_sheet, _NO_HEADER),
+    "na_text": (fixtures.na_text_sheet, _READS_AS_EMPTY),
+    "formula_error_results": (fixtures.error_result_sheet, _READS_AS_EMPTY),
+    "header_gap_wrong_dimension": (fixtures.gap_header_wrong_dimension_sheet, _NO_HEADER),
 }
 
 

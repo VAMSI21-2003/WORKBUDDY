@@ -72,6 +72,21 @@ _DUPLICATE_HEADER = "two columns in the sheet have the same header"
 _PLAIN_TABLES_ONLY = (
     ", and only plain tables (one header row at the top, then the data) are supported for now"
 )
+# A cell pandas reads as missing although it isn't empty: an error value (a formula's
+# ``#N/A``, a typed ``#DIV/0!``) or text such as ``NA`` or ``null``. A values-only copy
+# would hold an empty cell there, and a row of them would look empty to the skills.
+_READS_AS_EMPTY = (
+    "a cell holds an error value, or text such as NA or N/A, that would be read as empty, "
+    "and keeping such cells isn't supported for now"
+)
+# The strings ``pandas.read_excel`` reads as missing by default (its ``STR_NA_VALUES``,
+# less the empty string, which is an empty cell); a test keeps this in step with pandas.
+_PANDAS_NA_TEXT = frozenset(
+    (
+        "-1.#IND", "-1.#QNAN", "-NaN", "-nan", "1.#IND", "1.#QNAN", "<NA>", "N/A", "NA", "NULL",
+        "NaN", "None", "n/a", "nan", "null", "#N/A", "#N/A N/A", "#NA",
+    )
+)
 
 
 class WorkbookRefused(Exception):
@@ -262,13 +277,17 @@ def _sheet_problem(input_path: str, sheet_name: str) -> str | None:
             book = openpyxl.load_workbook(handle, read_only=True, data_only=True)
             try:
                 sheet = book[sheet_name]
+                # A wrong <dimension> would hide cells that pandas (which ignores it) reads.
+                sheet.reset_dimensions()
                 reason = _MERGED_CELLS if _has_merged_cells(sheet) else _layout_problem(sheet)
             finally:
                 book.close()
     except Exception as exc:  # noqa: BLE001 — unreadable or corrupt, reported as a refusal
         logger.exception("could not check the layout of %r", input_path)
         raise WorkbookRefused(_UNREADABLE) from exc
-    return None if reason is None else reason + _PLAIN_TABLES_ONLY
+    if reason is None or reason == _READS_AS_EMPTY:
+        return reason
+    return reason + _PLAIN_TABLES_ONLY
 
 
 def _is_empty(value: object) -> bool:
@@ -285,6 +304,10 @@ def _layout_problem(sheet) -> str | None:  # noqa: ANN001 — an openpyxl read-o
         for cell in row:
             if _is_empty(cell.value):
                 continue
+            if cell.data_type == "e" or (
+                cell.row != 1 and isinstance(cell.value, str) and cell.value in _PANDAS_NA_TEXT
+            ):
+                return _READS_AS_EMPTY
             if not seen_first_row:
                 if cell.row != 1:
                     return _HEADER_NOT_FIRST  # nothing on row 1, something below it
@@ -370,8 +393,12 @@ def formula_cell_counts(input_path: str) -> FormulaCounts:
             saved_book = openpyxl.load_workbook(saved_handle, read_only=True, data_only=True)
             try:
                 for name in names:
+                    shown_sheet, saved_sheet = shown_book[name], saved_book[name]
+                    # A wrong <dimension> would hide cells that pandas (which ignores it) reads.
+                    shown_sheet.reset_dimensions()
+                    saved_sheet.reset_dimensions()
                     for shown_row, saved_row in zip(
-                        shown_book[name].iter_rows(), saved_book[name].iter_rows(), strict=True
+                        shown_sheet.iter_rows(), saved_sheet.iter_rows(), strict=True
                     ):
                         for shown, saved in zip(shown_row, saved_row, strict=True):
                             if shown.data_type == "f":

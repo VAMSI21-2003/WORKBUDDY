@@ -32,6 +32,10 @@ _MERGED = "the sheet has merged cells" + _SUFFIX
 _HEADER_NOT_FIRST = "the sheet's header isn't on the first row" + _SUFFIX
 _NO_HEADER = "a column in the sheet has no header" + _SUFFIX
 _DUPLICATE = "two columns in the sheet have the same header" + _SUFFIX
+_READS_AS_EMPTY = (
+    "a cell holds an error value, or text such as NA or N/A, that would be read as empty, "
+    "and keeping such cells isn't supported for now"
+)
 
 
 def _book(path: Path, rows: list[list[object]], *, title: str = "Sheet1") -> Path:
@@ -150,6 +154,19 @@ def test_a_column_without_a_header_is_refused(tmp_path: Path, rows: list[list[ob
     assert plain_table_problem(str(path)) == _NO_HEADER
 
 
+def test_an_empty_string_header_written_as_a_string_cell_is_refused(tmp_path: Path) -> None:
+    # A shared/inline string cell holding "" is a cell with a value of "", which pandas reads
+    # as missing; openpyxl itself drops such a cell on write, so the XML is crafted.
+    path = _book(tmp_path / "r.xlsx", [["name", "marker"], ["Alice", 1]])
+    with zipfile.ZipFile(path) as archive:
+        xml = archive.read("xl/worksheets/sheet1.xml").decode()
+    assert "<t>marker</t>" in xml
+    crafted = fixtures.rewrite(
+        path, tmp_path / "e.xlsx", {"xl/worksheets/sheet1.xml": xml.replace("marker", "").encode()}
+    )
+    assert plain_table_problem(str(crafted)) == _NO_HEADER
+
+
 def test_two_columns_with_the_same_header_are_refused(tmp_path: Path) -> None:
     path = _book(tmp_path / "r.xlsx", [["Total", "amount", "Total"], [1, 2, 3]])
     assert plain_table_problem(str(path)) == _DUPLICATE
@@ -188,6 +205,76 @@ def test_an_unreadable_file_is_refused_with_fixed_text(tmp_path: Path) -> None:
         with pytest.raises(WorkbookRefused) as refused:
             check(str(path))
         assert "not a workbook" not in str(refused.value)
+
+
+# -- cells pandas reads as missing although they aren't empty (review round 1, R1-1 and R1-2) --
+
+
+def test_the_na_text_set_is_pandas_own() -> None:
+    from pandas._libs.parsers import STR_NA_VALUES
+
+    assert workbook._PANDAS_NA_TEXT == frozenset(STR_NA_VALUES) - {""}
+
+
+@pytest.mark.parametrize("text", sorted(workbook._PANDAS_NA_TEXT))
+def test_text_pandas_reads_as_missing_is_refused_in_a_data_cell(tmp_path: Path, text: str) -> None:
+    path = _book(tmp_path / "r.xlsx", [["country", "note"], ["US", text]])
+    assert plain_table_problem(str(path)) == _READS_AS_EMPTY
+
+
+def test_text_pandas_reads_as_missing_is_allowed_in_a_header(tmp_path: Path) -> None:
+    # pandas keeps a header as written, so it comes back unchanged.
+    path = _book(tmp_path / "r.xlsx", [["NA", "N/A"], ["US", "x"]])
+    assert plain_table_problem(str(path)) is None
+
+
+def test_ordinary_text_close_to_na_is_not_refused(tmp_path: Path) -> None:
+    path = _book(tmp_path / "r.xlsx", [["country", "note"], ["Namibia", "n/a."], ["na", "NAN"]])
+    assert plain_table_problem(str(path)) is None
+
+
+def test_a_typed_error_cell_is_refused(tmp_path: Path) -> None:
+    path = _book(tmp_path / "r.xlsx", [["name", "amount"], ["Alice", "#DIV/0!"]])
+    assert plain_table_problem(str(path)) == _READS_AS_EMPTY
+
+
+def test_a_formula_with_a_saved_error_result_is_refused(tmp_path: Path) -> None:
+    path = fixtures.error_result_sheet(tmp_path / "r.xlsx")
+    assert plain_table_problem(str(path)) == _READS_AS_EMPTY
+
+
+def test_the_na_sheet_is_refused_by_the_skills(tmp_path: Path) -> None:
+    path = fixtures.na_text_sheet(tmp_path / "uploads" / "report.xlsx")
+    task = SkillTask(
+        task_id="t",
+        session_id="s",
+        workspace_id="w",
+        description="clean it",
+        input_references=[str(path)],
+        output_dir=str(tmp_path / "out"),
+    )
+    for skill_class in (ExcelDeduplicateSkill, ExcelRemoveEmptyRowsSkill):
+        result = skill_class().execute(task)
+        assert result.status is SkillStatus.FAILURE
+        assert result.errors == [_READS_AS_EMPTY]
+    assert not (tmp_path / "out").exists()
+
+
+# -- a wrong <dimension> doesn't hide cells (review round 1, R1-3) -----------------------
+
+
+@pytest.mark.parametrize("ref", ["A1", "A1:A2", "A1:B2"])
+def test_a_wrong_dimension_doesnt_hide_a_header_gap(tmp_path: Path, ref: str) -> None:
+    path = fixtures.gap_header_wrong_dimension_sheet(tmp_path / "r.xlsx")
+    wrong = fixtures.with_dimension(path, tmp_path / "w.xlsx", ref)
+    assert plain_table_problem(str(wrong)) == _NO_HEADER
+
+
+def test_a_wrong_dimension_doesnt_hide_formulas_from_the_count(tmp_path: Path) -> None:
+    plain = fixtures.formatted_formula_sheet(tmp_path / "r.xlsx", saved=False)
+    wrong = fixtures.with_dimension(plain, tmp_path / "w.xlsx", "A1:B6")
+    assert formula_cell_counts(str(wrong)) == FormulaCounts(formulas=4, without_value=4)
+    assert _independent_formula_counts(wrong) == (4, 4)
 
 
 # -- the skills refuse before reading, and write nothing ---------------------------------
