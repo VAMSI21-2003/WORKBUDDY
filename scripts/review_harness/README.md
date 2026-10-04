@@ -11,3 +11,9 @@ Run from the repo root:
 - `python scripts/review_harness/mutations.py [--jobs 3] [--only NAME]`: removes one guard at a time in a throwaway copy and runs `tests/backend` and `tests/core/test_engine.py`; "SURVIVED" means no test noticed.
 
 `harness.py` holds the shared fake LLM, fixtures and the independent file check.
+
+Round 2 additions:
+
+- `python scripts/review_harness/round2_probe.py [--only NAME] [--speaker S]`: probes aimed at the round-1 fixes. `m1_nothing_ran` (no upload, "thanks" after a delivery, "yes" after a decline, a second greeting, every planner step dropped, LLM down, clarification, a misread "thanks", a second upload, an unknown capability), `m2_from_original` (same-upload follow-up, **re-upload of a delivered file**, an unrelated second upload, a failed turn first, after a restart, a chain), `m3_save_failures` (the finished save fails once / always, the session save fails, an integrity failure whose save fails, a `BaseException` from the save), `l1_redaction` (`_redact_record` with uvicorn's formatters and odd records), `l8_requests` (surrogates, `Allow`), `l11_restore` and `l11_more` (valid details of every turn shape restore; corrupt ones are `404`). To compare with an older commit, copy it into a `git worktree` of that commit and run it there.
+- `mutations.py` now also has the round-2 mutations (`m1_*`, `m2_*`, `m3_*`, `l1_*`, `l8_*`, `l11_*`) and runs `TEST_PATHS`, which adds the buddy Voice and state tests. `--only m2` runs one group.
+- `python scripts/review_harness/l1_placeholder_probe.py [ROOT] 2>&1`: log calls whose format string puts a secret prefix right before a placeholder (`"Bearer %s"`, `"api_key=%s"`, `"/sessions/%s"`). Every line should come out redacted; a "Logging error" block means the raw argument went to stderr (round 2, R2-L1).

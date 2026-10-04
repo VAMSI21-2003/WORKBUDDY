@@ -6,8 +6,9 @@ Usage::
     python scripts/review_harness/mutations.py [--jobs 3] [--only NAME]
 
 For each mutation it copies the repo (without .git and workspace/) to a
-temporary folder, applies one textual replacement, runs
-``tests/backend`` and ``tests/core/test_engine.py`` there, and reports
+temporary folder, applies one textual replacement, runs ``TEST_PATHS``
+(``tests/backend``, ``tests/core/test_engine.py`` and the buddy tests for
+Voice and state) there, and reports
 whether any test failed ("killed") or all passed ("SURVIVED": the guard
 isn't tested). The working tree is never touched.
 """
@@ -84,8 +85,8 @@ MUTATIONS: dict[str, Any] = {
     ),
     "finalize_not_one_shot": (
         "backend/turns.py",
-        "        with record.lock:\n            if turn.finished:\n                return\n            if result.commit",
-        "        with record.lock:\n            if result.commit",
+        "        with record.lock:\n            if turn.finished:\n                return\n            # The finished record",
+        "        with record.lock:\n            # The finished record",
     ),
     "start_no_reset_transient": (
         "backend/turns.py",
@@ -179,6 +180,108 @@ MUTATIONS: dict[str, Any] = {
 }
 
 
+# Round 2: the round-1 fixes (M1, M2, M3, L1, L8, L11).
+ROUND2: dict[str, Any] = {
+    "m1_no_nothing_ran_branch": (
+        "buddy/voice.py",
+        "                return NOTHING_RAN_REPLY\n",
+        "                pass\n",
+    ),
+    "m1_ignores_errors": (
+        "buddy/voice.py",
+        "execution_result.steps or execution_result.outputs or execution_result.errors",
+        "execution_result.steps or execution_result.outputs",
+    ),
+    "m1_ignores_steps": (
+        "buddy/voice.py",
+        "execution_result.steps or execution_result.outputs or execution_result.errors",
+        "execution_result.outputs or execution_result.errors",
+    ),
+    "m2_not_set_at_start": (
+        "backend/turns.py",
+        "                work.earlier_deliveries = len(record.delivered())\n",
+        "",
+    ),
+    "m2_counts_every_turn": (
+        "backend/turns.py",
+        "                work.earlier_deliveries = len(record.delivered())\n",
+        "                work.earlier_deliveries = len(record.turns)\n",
+    ),
+    "m2_sentence_always": (
+        "buddy/voice.py",
+        "    if request.earlier_deliveries > 0:\n",
+        "    if True:\n",
+    ),
+    "m2_not_passed_to_speaker": (
+        "buddy/voice.py",
+        "            earlier_deliveries=state.earlier_deliveries,\n",
+        "",
+    ),
+    "m2_reset_keeps_it": (
+        "buddy/state.py",
+        "        self.earlier_deliveries = 0\n",
+        "",
+    ),
+    "m3_save_failure_ignored": (
+        "backend/turns.py",
+        "            if not self._save_finished(record, turn, result, now):\n",
+        "            if self._save_finished(record, turn, result, now) and False:\n",
+    ),
+    "m3_no_fallback_save": (
+        "backend/turns.py",
+        "                self._save_finished(record, turn, result, now)\n            if result.commit",
+        "            if result.commit",
+    ),
+    "m3_save_after_publish": [
+        (
+            "backend/turns.py",
+            "            if not self._save_finished(record, turn, result, now):\n                result = Finalization(FAILED, FALLBACK_PIPELINE_ERROR, PIPELINE_FALLBACK)\n                self._save_finished(record, turn, result, now)\n",
+            "",
+        ),
+        (
+            "backend/turns.py",
+            "                self._registry.save_session(record)\n            except Exception:",
+            "                self._registry.save_turn(record, turn)\n                self._registry.save_session(record)\n            except Exception:",
+        ),
+    ],
+    "l1_always_collapse": (
+        "backend/logging_filter.py",
+        "    if redact(message) != message:\n",
+        "    if True:\n",
+    ),
+    "l1_never_collapse": (
+        "backend/logging_filter.py",
+        "    if redact(message) != message:\n",
+        "    if False:\n",
+    ),
+    "l8_no_encodable_check": (
+        "backend/routes.py",
+        " or not _encodable(message):",
+        ":",
+    ),
+    "l8_no_allow_header": (
+        "backend/errors.py",
+        'headers={"Allow": allow} if allow else None',
+        "headers=None",
+    ),
+    "l11_lax_detail": (
+        "backend/store.py",
+        '_check(data["detail"] is None or _valid_detail(data["detail"]), "turn: detail")',
+        '_check(data["detail"] is None or isinstance(data["detail"], dict), "turn: detail")',
+    ),
+}
+MUTATIONS.update(ROUND2)
+
+TEST_PATHS = [
+    "tests/backend",
+    "tests/core/test_engine.py",
+    "tests/buddy/test_nothing_ran_and_from_original.py",
+    "tests/buddy/test_state.py",
+    "tests/buddy/test_voice.py",
+    "tests/buddy/test_voice_catalog.py",
+]
+
+
 def run_one(name: str) -> tuple[str, str, str]:
     spec = MUTATIONS[name]
     edits = spec if isinstance(spec, list) else [spec]
@@ -196,8 +299,7 @@ def run_one(name: str) -> tuple[str, str, str]:
                 return name, "NOT APPLIED", f"pattern found {text.count(old)} times"
             target.write_text(text.replace(old, new))
         proc = subprocess.run(
-            [sys.executable, "-m", "pytest", "-q", "-p", "no:cacheprovider", "-x",
-             "tests/backend", "tests/core/test_engine.py"],
+            [sys.executable, "-m", "pytest", "-q", "-p", "no:cacheprovider", "-x", *TEST_PATHS],
             cwd=copy,
             capture_output=True,
             text=True,
