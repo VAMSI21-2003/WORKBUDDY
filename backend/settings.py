@@ -18,7 +18,11 @@ MIB = 1024 * 1024
 # current working directory is.
 _REPO_ROOT = Path(__file__).resolve().parent.parent
 
-DEFAULT_MAX_UPLOAD_BYTES = 5 * MIB
+# 2 MiB (design "Decisions (2026-10-04)", item 3). Live run 9 measured a
+# 5 MB file at 256 s for one step and 308 s for a two-step chain, past the
+# 180 s deadline; the design's evidence rule ("Decisions (2026-09-30, part
+# 2)", item 3) then sets 2 MB. WORKBUDDY_MAX_UPLOAD_BYTES overrides it.
+DEFAULT_MAX_UPLOAD_BYTES = 2 * MIB
 # The raw request body may exceed the file by the multipart framing (part
 # headers, boundaries). Anything beyond this is cut off before parsing.
 BODY_OVERHEAD_BYTES = 64 * 1024

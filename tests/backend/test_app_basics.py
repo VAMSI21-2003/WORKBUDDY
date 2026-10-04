@@ -71,8 +71,8 @@ def test_every_error_code_has_a_status_and_a_fixed_message() -> None:
 
 
 def test_the_413_message_is_built_from_the_cap() -> None:
-    assert file_too_large_message(DEFAULT_MAX_UPLOAD_BYTES) == "That file is larger than 5 MB."
-    assert file_too_large_message(2 * 1024 * 1024) == "That file is larger than 2 MB."
+    assert file_too_large_message(DEFAULT_MAX_UPLOAD_BYTES) == "That file is larger than 2 MB."
+    assert file_too_large_message(5 * 1024 * 1024) == "That file is larger than 5 MB."
     assert file_too_large_message(1536) == "That file is larger than 1536 bytes."
 
 
@@ -83,7 +83,7 @@ def test_settings_defaults_match_the_design(tmp_path: Path) -> None:
     settings = Settings.from_env({"WORKBUDDY_DATA_DIR": str(tmp_path)})
 
     assert settings.data_dir == tmp_path.resolve()
-    assert settings.max_upload_bytes == 5 * 1024 * 1024
+    assert settings.max_upload_bytes == 2 * 1024 * 1024  # "Decisions (2026-10-04)", item 3
     assert settings.max_message_chars == 4000
     assert settings.accepted_extensions == (".xlsx",)
     assert settings.turn_deadline_s == 180

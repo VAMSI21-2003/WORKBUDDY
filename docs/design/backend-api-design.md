@@ -1098,3 +1098,7 @@ From PR-2's independent review (`docs/reviews/backend-api-core-review.md`, round
 - **Why.** Every turn works from the original upload, never from a file handed back earlier. So "now remove the empty rows too" gives a copy without the first turn's change. When the count is above 0, Voice adds the reviewed constant `FROM_ORIGINAL_SENTENCE` after the outcome block of a delivered reply: "I made this copy from your original upload, not from a file I handed back earlier."
 - **Counted per upload.** A copy the user downloaded and uploaded again is an upload of its own, with its own count, so its delivered reply doesn't carry the sentence.
 - **Still the owner's to decide:** whether later turns should instead build on the last delivered file (review round 1, M2 option (a)). This note records option (b), which PR-2 implements until then.
+
+### 3. Upload cap: 2 MiB
+
+- **The default upload cap is 2 MiB (2,097,152 bytes)**, replacing "Decisions (2026-09-30, part 2)", item 3's 5 MiB. That item's evidence rule says to lower the default to 2 MB when a two-step chain on a 5 MB fixture takes over 120 s through the API. PR-2's live run 9 took 256 s for one step and 308 s for the chain (`docs/reviews/backend-api-core-live-runs.md`). `WORKBUDDY_MAX_UPLOAD_BYTES` still overrides it, and the `413` message and `limits.max_upload_bytes` follow the setting.

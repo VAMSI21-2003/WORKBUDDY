@@ -215,7 +215,7 @@ def test_the_413_message_names_the_configured_cap(client: TestClient, settings: 
     response = upload(client, new_session(client), big)
 
     assert response.status_code == 413
-    assert response.json()["error"]["message"] == "That file is larger than 5 MB."
+    assert response.json()["error"]["message"] == "That file is larger than 2 MB."
 
 
 def _multipart(payload_size: int) -> tuple[str, Iterator[bytes]]:
