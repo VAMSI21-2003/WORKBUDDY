@@ -85,6 +85,9 @@ Open work, in priority order. Each item follows the working method in `CLAUDE.md
 - **Formulas with no saved value.** A file written by a script has formulas with no saved result, so the skills see those cells as empty (dedupe and empty-row removal judge rows without them). The reply now says so; refusing such a file, or recalculating it, is the stronger option.
 - A one-column table with a title in A1 and the header in A2 can't be told from a table whose first value is the header's name; it isn't refused.
 - Each plain-table check streams the sheet once more (skill, Inspector, planner, measurer); measure it on a large file before a public launch.
+- **From the `fix/values-only-copy` review, round 1 (deferred, LOW; the HIGH and MEDIUM findings R1-1 to R1-3 are in `docs/reviews/fix-values-only-copy-review.md`):**
+  - R1-4: "had no saved value" is the wrong reason for a formula that returns `""` (Excel saves an empty string); the count also includes formula cells in rows the turn removed. Reword to "K of them are empty in the copy".
+  - R1-6: cost of the extra passes on a large sheet (100,000 x 5: pandas read 8.9 s, plain-table check 10.1 s, formula count 17.6 s); an up-front refusal reads "partway through"; `sheet._get_source()` is private openpyxl API (pin or guard); no test for an empty-string header cell (`_is_empty` mutation survives).
 
 ## 2. An explicit conversation intent, and relaying Think's clarifying question
 
