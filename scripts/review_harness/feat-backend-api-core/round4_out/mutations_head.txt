@@ -1,0 +1,61 @@
+killed       delivery_no_failure_check            FAILED tests/backend/test_delivery.py::test_each_rule_holds_on_its_own_even_if_the_reply_predicate_said_yes[failure]
+killed       delivery_no_verified_check           FAILED tests/backend/test_delivery.py::test_each_rule_holds_on_its_own_even_if_the_reply_predicate_said_yes[unverified]
+killed       delivery_no_reply_predicate          FAILED tests/backend/test_delivery.py::test_the_reply_predicate_is_a_rule_of_its_own
+killed       delivery_partial_on_bad_output       FAILED tests/backend/test_delivery.py::test_one_bad_output_among_several_delivers_nothing
+killed       check_file_no_parent_check           FAILED tests/backend/test_delivery.py::test_a_path_through_a_symlinked_sibling_folder_delivers_nothing
+killed       check_file_allows_symlink            FAILED tests/backend/test_delivery.py::test_a_symlinked_turn_folder_delivers_nothing
+killed       integrity_always_ok                  FAILED tests/backend/test_delivery.py::test_uploads_unchanged_catches_a_change_a_deletion_and_a_symlink
+killed       decide_no_failure_branch             FAILED tests/backend/test_delivery.py::test_a_failed_turns_file_and_a_chains_intermediate_file_are_unreachable
+killed       decide_no_mismatch_fallback          FAILED tests/backend/test_turns.py::test_a_verified_delivery_the_api_cant_hand_back_gets_the_fallback
+killed       decide_integrity_ignored             FAILED tests/backend/test_turns.py::test_an_upload_that_changes_during_a_turn_is_an_integrity_failure[hands]
+killed       run_keeps_raised_state               FAILED tests/backend/test_turns.py::test_voice_raising_discards_the_turns_state_and_uses_the_fallback[template]
+killed       finalize_not_one_shot                FAILED tests/backend/test_turns.py::test_the_worker_and_the_deadline_racing_finish_the_turn_once
+SURVIVED     start_no_reset_transient             576 passed, 2 warnings in 62.77s (0:01:02)
+killed       start_no_deepcopy                    FAILED tests/backend/test_turns.py::test_voice_raising_discards_the_turns_state_and_uses_the_fallback[template]
+killed       start_no_record_user_message         FAILED tests/backend/test_turns.py::test_the_second_turns_brain_prompt_carries_the_first_turn
+killed       commit_no_record_reply               FAILED tests/backend/test_store.py::test_a_new_app_on_the_same_data_root_restores_everything
+killed       reply_trailing_space                 FAILED tests/backend/test_errors_and_secrets.py::test_no_key_appears_in_any_response_or_log_on_any_path
+killed       download_no_hash_check               FAILED tests/backend/test_delivery.py::test_a_delivered_file_that_changed_is_410
+killed       upload_two_sheets_ok                 FAILED tests/backend/test_uploads.py::test_a_workbook_with_more_than_one_sheet_is_refused[two]
+killed       upload_no_size_cap_in_stream         FAILED tests/backend/test_uploads.py::test_an_upload_of_exactly_the_cap_is_accepted_and_one_byte_more_is_413
+killed       upload_no_busy_check_at_register     FAILED tests/backend/test_uploads.py::test_an_upload_that_finishes_while_a_turn_started_is_409_and_kept_nowhere
+killed       redaction_no_session_pattern         FAILED tests/backend/test_app_basics.py::test_redact_masks_a_session_id_in_a_request_path
+killed       repair_leaves_running                FAILED tests/backend/test_store.py::test_a_turn_interrupted_by_a_restart_is_reported_failed_not_missing
+killed       restore_no_uploaded_files_check      FAILED tests/backend/test_store.py::test_a_corrupt_session_record_is_a_clean_404[uploads_disagree]
+killed       engine_no_m1_hardening               FAILED tests/core/test_engine.py::test_voice_raising_sets_failure_before_propagating
+killed       body_cap_not_counted                 FAILED tests/backend/test_middleware.py::test_the_body_is_cut_off_as_soon_as_it_passes_the_cap[no-content-length]
+killed       default_auto_approve_on              FAILED tests/backend/test_app_basics.py::test_auto_approve_is_off_unless_set
+killed       slot_released_at_finalize_not_exit   FAILED tests/backend/test_turns.py::test_the_deadline_fails_the_turn_and_a_late_worker_changes_nothing
+killed       both_resets_removed                  FAILED tests/backend/test_turns.py::test_a_failed_turn_leaves_no_stale_failure_for_the_next_one
+killed       m1_no_nothing_ran_branch             FAILED tests/backend/test_turns.py::test_rule_1_holds_in_every_scenario[no_upload-template]
+killed       m1_ignores_errors                    FAILED tests/buddy/test_nothing_ran_and_from_original.py::test_a_turn_where_a_step_ran_keeps_its_own_reply[template]
+killed       m1_ignores_steps                     FAILED tests/buddy/test_voice.py::test_template_speaker_leads_with_analysis_findings_before_the_ordinary_message
+NOT APPLIED  m2_not_set_at_start                  pattern found 0 times
+NOT APPLIED  m2_counts_every_turn                 pattern found 0 times
+killed       m2_sentence_always                   FAILED tests/backend/test_turns.py::test_a_follow_up_delivery_says_it_was_made_from_the_original[template]
+killed       m2_not_passed_to_speaker             FAILED tests/backend/test_turns.py::test_rule_1_holds_in_every_scenario[followup_after_delivery-template]
+killed       m2_reset_keeps_it                    FAILED tests/buddy/test_nothing_ran_and_from_original.py::test_reset_transient_clears_earlier_deliveries
+killed       m3_save_failure_ignored              FAILED tests/backend/test_turns.py::test_a_finished_record_that_cant_be_saved_finishes_as_failed
+SURVIVED     m3_no_fallback_save                  576 passed, 2 warnings in 61.58s (0:01:01)
+killed       m3_save_after_publish                FAILED tests/backend/test_turns.py::test_a_finished_record_that_cant_be_saved_finishes_as_failed
+NOT APPLIED  l1_always_collapse                   pattern found 0 times
+NOT APPLIED  l1_never_collapse                    pattern found 0 times
+killed       l8_no_encodable_check                FAILED tests/backend/test_turns.py::test_a_message_with_a_lone_surrogate_is_422
+killed       l8_no_allow_header                   FAILED tests/backend/test_app_basics.py::test_a_wrong_method_gets_the_uniform_error_body
+killed       l11_lax_detail                       FAILED tests/backend/test_store.py::test_a_corrupt_turn_record_is_a_clean_404[change6]
+killed       r3_m2_not_set                        FAILED tests/backend/test_turns.py::test_rule_1_holds_in_every_scenario[followup_after_delivery-template]
+killed       r3_m2_counts_every_turn              FAILED tests/backend/test_turns.py::test_a_re_uploaded_copy_gets_no_from_original_sentence[template]
+killed       r3_m2_whole_session                  FAILED tests/backend/test_turns.py::test_a_re_uploaded_copy_gets_no_from_original_sentence[template]
+SURVIVED     r3_m2_target_ignores_file_id         576 passed, 2 warnings in 62.45s (0:01:02)
+killed       r3_m2_target_only_file_id            FAILED tests/backend/test_turns.py::test_rule_1_holds_in_every_scenario[followup_after_delivery-template]
+SURVIVED     r3_m2_no_outcome_filter              576 passed, 2 warnings in 62.20s (0:01:02)
+killed       r3_l1_redact_msg_first               FAILED tests/backend/test_app_basics.py::test_a_secret_split_between_format_and_argument_formats_and_stays_masked[Authorization: Bearer %s-tok_plain_SECRET123]
+killed       r3_l1_never_collapse                 FAILED tests/backend/test_app_basics.py::test_a_secret_inside_a_non_string_argument_is_still_masked
+killed       r3_l1_always_collapse                FAILED tests/backend/test_app_basics.py::test_a_redacted_access_log_record_still_formats_with_uvicorns_formatter
+SURVIVED     r3_l1_unformattable_unredacted       576 passed, 2 warnings in 61.83s (0:01:01)
+killed       r3_l2_exception_only                 FAILED tests/backend/test_turns.py::test_a_base_exception_from_the_finished_save_still_finishes_the_turn
+killed       r4_cap_back_to_5mib                  FAILED tests/backend/test_app_basics.py::test_the_413_message_is_built_from_the_cap
+killed       r4_from_original_not_appended        FAILED tests/backend/test_turns.py::test_rule_1_holds_in_every_scenario[followup_after_delivery-template]
+SURVIVED     r4_from_original_before_outcome      576 passed, 2 warnings in 64.23s (0:01:04)
+killed       r4_nothing_ran_removed               FAILED tests/backend/test_turns.py::test_rule_1_holds_in_every_scenario[no_upload-template]
+killed       r4_is_verified_delivery_always_false FAILED tests/backend/test_delivery.py::test_the_all_true_row_delivers - Value...

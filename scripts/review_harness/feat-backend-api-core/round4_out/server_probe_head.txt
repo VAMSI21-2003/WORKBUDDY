@@ -1,0 +1,40 @@
+{
+ "upload": 201,
+ "turn": [
+  "delivered",
+  "Done \u2014 removed 2 duplicate row(s). The copy has 4 row(s), 0 duplicate row(s) remaining. Your cleaned copy of report.xlsx is ready. The copy has the values only; formatting, column widths and other sheet settings aren't carried over. I also noticed: name: 1 missing value(s) (25.0%); amount: 1 missing value(s) (25.0%). Want me to tackle any of these?"
+ ],
+ "download": [
+  200,
+  "attachment; filename*=UTF-8''report_deduplicated_b8bd3fedbbed86956ff5684d1d2a7be4-task-1.xlsx"
+ ],
+ "oversized": [
+  413,
+  413,
+  413,
+  413
+ ],
+ "odd_queries": [
+  200,
+  200,
+  200
+ ],
+ "tmpdir_after": [],
+ "log_has_logging_error": true,
+ "log_logging_error_count": 3,
+ "session_id_in_log": false,
+ "log_excerpt": [
+  "INFO:     127.0.0.1:40950 - \"POST /api/v1/sessions HTTP/1.1\" 201 Created",
+  "INFO:     127.0.0.1:40950 - \"POST /api/v1/sessions/[REDACTED]/files HTTP/1.1\" 201 Created",
+  "INFO:     127.0.0.1:40950 - \"POST /api/v1/sessions/[REDACTED]/turns HTTP/1.1\" 202 Accepted",
+  "INFO:     127.0.0.1:40950 - \"GET /api/v1/sessions/[REDACTED]/turns/t0001 HTTP/1.1\" 200 OK",
+  "INFO:     127.0.0.1:40950 - \"GET /api/v1/sessions/[REDACTED]/turns/t0001 HTTP/1.1\" 200 OK",
+  "INFO:     127.0.0.1:40950 - \"GET /api/v1/sessions/[REDACTED]/turns/t0001 HTTP/1.1\" 200 OK",
+  "INFO:     127.0.0.1:40950 - \"GET /api/v1/sessions/[REDACTED]/turns/t0001 HTTP/1.1\" 200 OK",
+  "INFO:     127.0.0.1:40950 - \"GET /api/v1/sessions/[REDACTED]/turns/t0001 HTTP/1.1\" 200 OK",
+  "INFO:     127.0.0.1:40950 - \"GET /api/v1/sessions/[REDACTED]/turns/t0001 HTTP/1.1\" 200 OK",
+  "INFO:     127.0.0.1:40950 - \"GET /api/v1/sessions/[REDACTED]/turns/t0001 HTTP/1.1\" 200 OK",
+  "INFO:     127.0.0.1:40950 - \"GET /api/v1/sessions/[REDACTED]/turns/t0001 HTTP/1.1\" 200 OK",
+  "INFO:     127.0.0.1:40950 - \"GET /api/v1/sessions/[REDACTED]/turns/t0001 HTTP/1.1\" 200 OK"
+ ]
+}

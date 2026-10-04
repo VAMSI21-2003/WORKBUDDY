@@ -27,3 +27,16 @@ Round 3 additions:
 - `mutations.py` has the round-3 mutations (`r3_*`); `--only r3` runs them. Round 2's `m2_not_set_at_start`, `m2_counts_every_turn`, `l1_always_collapse` and `l1_never_collapse` no longer apply to the code ("NOT APPLIED"); `r3_m2_not_set`, `r3_m2_counts_every_turn`, `r3_l1_always_collapse` and `r3_l1_never_collapse` replace them.
 - `server_probe.py` also sends `GET /healthz?api_key=` and two more such query strings, and counts the "Logging error" blocks they cause.
 - `adversarial_probe.py --only restart` now waits for the old app's worker before leaving, so its temporary folder no longer fails to clean up under load, and `download_same_bytes` compares against the turn's listed SHA-256.
+
+Round 4 additions (after the merge of `origin/main` and the 2 MiB cap):
+
+- `python scripts/review_harness/feat-backend-api-core/round4_probe.py [--only NAME] [--speaker S]`: the merged pipeline through the API.
+  - `ledger_followups`: later turns where Brain's reply carries the PR-B `requested_actions` (earlier fakes never sent it): the model re-lists turn 1's action, the mention detector, an unsupported request, a partly unsupported one, a re-planned chain, a misread "unclear", "thanks!".
+  - `formulas_multi_turn`: an original with formulas (saved and unsaved results); a follow-up on it; Buddy's values-only copy re-uploaded.
+  - `plain_table_api` and `nothing_ran_paths`: uploads that aren't plain tables (merged cells, header on row 3).
+  - `two_sheets_hidden_path`: a real second sheet (declared in `workbook.xml`) stored outside `xl/worksheets/`, which the upload check can't see; "hi" and "remove duplicate rows".
+  - `cap_default` (template only): `Settings.from_env` defaults; exactly 2 MiB, one byte more, the 5 MiB override.
+  - `analytics_via_api` (template only): an analysis turn through the API with `requests.get` patched; round 3's P2.
+- `python scripts/review_harness/feat-backend-api-core/timing_probe.py [--root CHECKOUT] [--cap BYTES]`: wall time of a dedupe and a two-step chain on the live-run fixture shape, built just under the cap (default 2 MiB), through the API with a fake LLM and the deadline raised to 900 s. `--root` times another checkout (a `git worktree`).
+- `mutations.py` has the round-4 mutations (`r4_*`); `--only r4` runs them.
+- Outputs of the round-4 runs are in `round4_out/`.

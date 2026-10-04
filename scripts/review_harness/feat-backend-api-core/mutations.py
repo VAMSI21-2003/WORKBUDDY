@@ -341,6 +341,37 @@ ROUND3: dict[str, Any] = {
 }
 MUTATIONS.update(ROUND3)
 
+# Round 4: the 2 MiB default cap (c136b93), and the branch's Voice additions as
+# they sit in the merged buddy/voice.py (510ed06).
+ROUND4: dict[str, Any] = {
+    "r4_cap_back_to_5mib": (
+        "backend/settings.py",
+        "DEFAULT_MAX_UPLOAD_BYTES = 2 * MIB",
+        "DEFAULT_MAX_UPLOAD_BYTES = 5 * MIB",
+    ),
+    "r4_from_original_not_appended": (
+        "buddy/voice.py",
+        "    if request.earlier_deliveries > 0:\n        parts.append(FROM_ORIGINAL_SENTENCE)\n",
+        "",
+    ),
+    "r4_from_original_before_outcome": (
+        "buddy/voice.py",
+        "    parts = [opener, render_outcome(report, file_style)]\n    if request.earlier_deliveries > 0:\n        parts.append(FROM_ORIGINAL_SENTENCE)\n",
+        "    parts = [opener]\n    if request.earlier_deliveries > 0:\n        parts.append(FROM_ORIGINAL_SENTENCE)\n    parts.append(render_outcome(report, file_style))\n",
+    ),
+    "r4_nothing_ran_removed": (
+        "buddy/voice.py",
+        "                return NOTHING_RAN_REPLY\n",
+        "                pass\n",
+    ),
+    "r4_is_verified_delivery_always_false": (
+        "buddy/voice.py",
+        "    return _verified_delivery(Voice._build_request(state))",
+        "    return False",
+    ),
+}
+MUTATIONS.update(ROUND4)
+
 TEST_PATHS = [
     "tests/backend",
     "tests/core/test_engine.py",

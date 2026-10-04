@@ -729,3 +729,94 @@ R3-L1 to R3-L8 and P2 above, added to `docs/backlog.md`. R2-L4, and round 1's L9
 - **Python 3.13.** Round 1 ran the suite there; I ran it on 3.11.15 only.
 - **The demo host, Windows, and a non-root user** (the `0o444` permissions), as in earlier rounds.
 - **The full suite on my prototype.** In a throwaway copy I prototyped the fixes for R3-L1 to R3-L5 and ran `tests/backend`, `tests/core/test_engine.py` and `tests/buddy/test_nothing_ran_and_from_original.py` (391 passed), `l1_logging`, `m2_targets` (A, B, C, I, J), `l2_base_exception` and `server_probe.py` on it. The prototype isn't committed. Under the review-loop rules, I mustn't review those fixes.
+
+---
+
+# Review round 4 (commit c136b93)
+
+**Verdict: MERGE.** There's no HIGH and no MEDIUM finding. The merge of `origin/main` (`510ed06`) keeps every round 1–3 fix working next to main's PR-B reply ledger and values-only copy, and the 2 MiB default cap (`c136b93`) works as the design's new item 3 says. Four LOW findings are deferred.
+
+**Reviewer:** a fresh reviewer agent, with no part in writing the code, the fixes, or the earlier reviews. **Base:** `origin/main` (`1462ce4`; `git fetch` shows it hasn't moved). **Design:** `docs/design/backend-api-design.md`. **Scope:** `7be9949..c136b93`. The branch's own code change is `backend/settings.py` (the cap) and three tests; the rest is the merge of main (`buddy/`, `skills/`, tests, docs), the probes moved into `scripts/review_harness/feat-backend-api-core/`, the live-run driver, and docs. `git diff 1462ce4 HEAD -- buddy core skills` holds only this branch's own additions (`state.py`, `voice.py`, `voice_catalog.py`, `core/engine.py`); every file directly in `scripts/review_harness/` equals main's. I treated `backend-api-core-fixes3.md` as unverified.
+
+Probes, their README and every output are in `scripts/review_harness/feat-backend-api-core/` (round-4 outputs in `round4_out/`).
+
+## R4.1 What I ran
+
+| Check | Result |
+|---|---|
+| `python -m pytest -q`, Python 3.11.15, head | **2142 passed**, 11 warnings, 204 s, exit 0 (matches the fixes file) |
+| `ruff check buddy tests` | 22 errors on head and 22 on `origin/main`; identical by file and rule. **No new lint errors.** `ruff check backend core skills scripts/live_api_runs.py scripts/review_harness/feat-backend-api-core tests/backend`: clean. |
+| `python -m backend.export_openapi --check` | in sync |
+| Design | Item 3: [Certain] `Settings.from_env` gives 2,097,152; `limits.max_upload_bytes` says the same; exactly 2 MiB is `201`, one byte more is `413` "That file is larger than 2 MB."; `WORKBUDDY_MAX_UPLOAD_BYTES=5 MiB` accepts 5 MiB and refuses one byte more with "…5 MB." (`round4_probe.py --only cap_default`). Item 2: the from-original sentence still follows the outcome block, which now ends with main's values-only sentences. No other deviation; see R4-L1 for run 9's fixture. |
+| New tests on old code | The 3 changed tests (`test_the_413_message_is_built_from_the_cap`, `test_settings_defaults_match_the_design`, `test_the_413_message_names_the_configured_cap`) all fail on `7be9949`. |
+| Pipeline vs base (`pipeline_compare.py --diff`, head vs `origin/main`, 7 scenarios × 3 speakers) | Byte-identical except the three known differences: `NOTHING_RAN_REPLY` for `no_file` and the "thanks" turn, and `failure` set when Voice raises. `round4_out/pipeline_compare_head_vs_main.txt` |
+| API vs pre-merge (`api_probe.py`, 13 scenarios × 3 speakers, head and `7be9949`) | Same outcomes, same `reply_source`, same delivered files by my openpyxl read. Replies are identical except main's values-only sentence and the seeded opener or closer. On head: the reply equals the pipeline's (or the fallback when Voice raised), `delivered` ⇔ files listed, every download matches its SHA-256. `round4_out/api_probe_head_vs_7be9949.txt` |
+| `adversarial_probe.py`, `round2_probe.py`, `round3_probe.py`, `server_probe.py`, `l1_placeholder_probe.py` on head | The same results round 3 recorded, plus the values-only sentence. M1, M2, R2-M1, M3, L1, L8, L11, R2-L1 and R2-L2 still hold. Open items behave as before: R3-L3's 3 "Logging error" blocks, R3-L4, R3-L5. No session id in the server log. |
+| `round4_probe.py` (new, 3 speakers) | Later turns whose Brain reply carries PR-B's `requested_actions`; an original with formulas; non-plain tables; a second sheet hidden from the upload check. See R4.2. |
+| `timing_probe.py` (new) | A 2,055,233-byte fixture (24,497 rows × 14 columns), fake LLM. Head: one step 121 s and 125 s, chain 160 s and 152 s. `7be9949`: 109 s and 128 s. All delivered; replies match my read. See R4-L2. |
+| Round 3's P2 (ydata telemetry) | **Fixed by main** [Certain]. Through the API with the variable unset and `requests.get` patched: 0 calls (`analytics_via_api`). Main's `analytics_probe.py` on `7be9949`: 1 call to `packages.ydata.ai`. |
+| Mutations (`mutations.py`, 61) | **51 killed, 6 survived, 4 not applied** (round 2's patterns that round 3 replaced). Round 3's 5 survivors are unchanged. New: `r4_cap_back_to_5mib`, `r4_from_original_not_appended`, `r4_nothing_ran_removed` and `r4_is_verified_delivery_always_false` are killed; `r4_from_original_before_outcome` survives (R4-L3). `round4_out/mutations_head.txt` |
+| Rule 2 | The original's SHA-256 was unchanged before and after in 417 turn checks across all the probes. The 4 exceptions are the integrity probes, which change the upload on purpose; the API caught each one and handed back nothing. |
+
+## R4.2 Adversarial cases aimed at the merge (`round4_probe.py`)
+
+These ran in all 3 speakers. In the first five rows, turn 1 is "remove duplicate rows", delivered with 4 rows, and the case is turn 2; the other rows say their own turns. Each handed-back file was read with openpyxl. "Made from" is my own model of the skills (see round 3). Replies are quoted from focus mode; friend adds an opener, and template says "Saved as `…`".
+
+| Case | Handed back (my read) | Reply | Rule 1 |
+|---|---|---|---|
+| The model re-lists turn 1's action on "now remove the empty rows too" (that phrase isn't in the message) | 5 rows, 2 duplicates, 0 empty; made from the upload | "Partly done — removed 1 fully-empty row(s). I didn't run the duplicate-row removal, though I read it as part of your request. The copy has 5 row(s), 0 fully-empty row(s) remaining. It still has 2 duplicate row(s). Your cleaned copy of report.xlsx is ready. The copy has the values only; … I made this copy from your original upload, not from a file I handed back earlier." | True. It also tells a "now … too" user that the duplicates are back. |
+| "now the empty rows too, the duplicates are already gone" (mention detector) | the same | "Removed 1 fully-empty row(s). Your message mentions duplicate rows, but I didn't run the duplicate-row removal. I read your request as: remove empty rows. … It still has 2 duplicate row(s). … I made this copy from your original upload…" | True |
+| "remove empty rows and sort by amount" | 5 rows | "Partly done — removed 1 fully-empty row(s). I can't do this part yet: “sort by amount”. … from-original sentence" | True |
+| The model plans turn 1's dedupe again as a chain step | 3 rows, 0 duplicates, 0 empty; steps read the upload | "Done — removed 2 duplicate row(s). Removed 1 fully-empty row(s). … the steps ran in this order: deduplicate, then remove empty rows. … I made this copy from your original upload…" | True |
+| "sort it by amount", "get rid of the blank lines please" read as `unclear`, "thanks!" | nothing | "I didn't run anything on a file this turn, so no file was changed." | True; it doesn't say sorting is unsupported (the R2-L4 family) |
+| An original with 4 formulas, results saved / unsaved: dedupe, then "now remove the empty rows too", then the values-only copy re-uploaded and "now remove the empty rows" | T1: 4 rows. T2: 4 rows, 1 duplicate, 0 empty. T3: 3 rows. My count: 4 formulas, 0 or 4 unsaved; the copy has 0. | T1: "Your file has 4 formula cell(s). The copy has their last saved values, not the formulas." (unsaved: "4 of them had no saved value, …"). T2: the same, plus the from-original sentence. T3: no formula sentence and no from-original sentence. | True |
+| Merged cells; header on row 3; a declared second sheet stored at `xl/other/sheet2.xml` | Upload `201` for all three (the hidden sheet passes the upload check, as design 10-01 item 6 admits). "hi": nothing. Dedupe: nothing. | "hi": `NOTHING_RAN_REPLY`. Dedupe: "I ran into a problem partway through. The deduplicate step: the sheet has merged cells, …" (or "a column in the sheet has no header", or "the workbook has 2 sheets, …") "… no file was handed back; your original file is unchanged." | True; no text from the file reaches the reply |
+| 2 MiB dedupe and chain (`timing_probe.py`) | My model: 1,225 duplicates (2 of them repeated blank rows), 3 empty rows | "removed 1225 duplicate row(s), including 2 repeated blank rows. The copy has 23272 row(s)…"; chain "…23271 row(s), 0 duplicate row(s) and 0 fully-empty row(s)" | True |
+
+No reply in any probe claims something that didn't happen. No exception text, key-like text or session id reached a reply or `detail`. The hostile-header case (P1) is unchanged and pre-existing.
+
+## R4.3 Findings
+
+There's no HIGH and no MEDIUM finding.
+
+### LOW (deferred; not merge conditions; added to `docs/backlog.md`)
+
+- **R4-L1. The live-run driver's run 9 can't run at the new default cap.**
+  - **Where:** `scripts/live_api_runs.py:48` (`MAX_UPLOAD = 5 * 1024 * 1024`) and `five_mb_fixture()` build a 4.75–5 MiB fixture. `Server` (`:136-139`) starts `python -m backend` without `WORKBUDDY_MAX_UPLOAD_BYTES`, and `Driver.upload` calls `raise_for_status()`.
+  - **Effect:** [Certain] at the default, any upload over 2 MiB is `413` (`cap_default`). So run 9 stops with an HTTP error, and the "2 MB live run" that the backlog's live-run status says is pending can't be produced as written. Design 7.5 and item 3 don't restate run 9's fixture size either.
+  - **Reachability:** the next live-run session, which the review loop needs on this head.
+  - **Fix:** build the fixture under the server's own `limits.max_upload_bytes`, read from the session response, and label it by its size. Keep an option that sets `WORKBUDDY_MAX_UPLOAD_BYTES`, so 5 MB can still be measured.
+- **R4-L2. At 2 MiB, a two-step chain uses 84–89% of the 180 s deadline after the merge.**
+  - **Evidence** [Certain, this sandbox, fake LLM, so no model latency]: the chain took 160 s and 152 s on head and 128 s on `7be9949`; one step took 121 s and 125 s on head and 109 s before. So the design's own threshold, two-thirds of the deadline (120 s), is passed at 2 MiB too.
+  - **Cause:** [Likely, not profiled] main's added full reads of the workbook: the plain-table check in the planner, the formula count, and the residual measurement.
+  - **Effect:** with Groq's latency (three calls for a chain) or a slower host, chains near the cap will reach the deadline. They then end as honest `failed` turns with the fallback reply: no false claim, nothing handed back. The backlog already notes that a timed-out turn keeps its CPU and slowed the next one.
+  - **Fix (the owner's call):** measure run 9 at 2 MB on the final head (after R4-L1). If the chain is over 120 s, choose between a 1 MiB default, a longer deadline, or fewer reads per turn.
+- **R4-L3. No test pins where the from-original sentence goes.**
+  - **Where:** `buddy/voice.py:428-430`.
+  - **Effect:** the mutation `r4_from_original_before_outcome`, which puts the sentence before the outcome block, survives. That block's lead word ("Done —", "Partly done —") would no longer start the reply, against design item 2 ("after the outcome block") and main's D3 order.
+  - **Fix:** in the existing follow-up test, assert that the sentence comes after the outcome's file sentence (`reply.index(FROM_ORIGINAL_SENTENCE) > reply.index("Saved as")`, or "is ready." for Friend and Focus).
+- **R4-L4. Backlog statuses are stale after the merge.**
+  - **Where:** `docs/backlog.md`, section 4's status says the review "ended in MERGE at round 3"; the live-runs entry says the cap is "pending review round 4"; the P2 entry is still open, though main fixed it (R4.1).
+  - **Fix:** update these lines when this round is committed. I added a reviewer status line to P2.
+
+### Still open from earlier rounds (unchanged; `backend/` is unchanged since `7be9949` apart from the cap)
+
+R3-L1 to R3-L8, R2-L4, and round 1's L9, L10, L12 and P1 stay deferred. My probes reproduce R3-L3 (the server log), R3-L4 (`uploads_unchanged` or `make_read_only` raising), R3-L5 (case B) and R3-L6 (the mutation survives) unchanged.
+
+## R4.4 What the next step needs
+
+Nothing blocks the merge. By `docs/process/review-loop.md` step 5, the live runs must be redone on this head: `backend-api-core-live-runs.md` was made at `7be9949`, before main's reply changes. They should include:
+- run 9 at 2 MB (R4-L1);
+- a two-turn session ("remove duplicate rows", then "now remove the empty rows too"), to see whether Groq, with the conversation in its prompt, re-lists turn 1's action in `requested_actions` (the first case in R4.2).
+
+## Deferred (round 4)
+
+R4-L1 to R4-L4, added to `docs/backlog.md`. Everything listed under "Still open" above stays deferred. P2 is closed by main.
+
+## Not run (round 4)
+
+- **Live runs with Groq on the merged head.** They're the writer's step after MERGE. So the real model's `requested_actions` on follow-up turns is untested.
+- **Mutations of main's own new code** (the PR-B ledger, the values-only copy). It was reviewed in main's PRs; my mutations cover this branch's guards and its additions inside the merged `buddy/voice.py`.
+- **Timing on the demo host, or with real model latency.** I timed this sandbox only, twice on head and once on `7be9949`.
+- **Python 3.13, Windows, and a non-root user,** as in earlier rounds.
+- **Prototypes of fixes.** I prototyped none this round.
