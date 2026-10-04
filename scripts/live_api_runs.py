@@ -148,7 +148,7 @@ class Server:
         deadline = time.monotonic() + 60
         while time.monotonic() < deadline:
             try:
-                health = httpx.get(f"{self.base}/healthz", timeout=2).json()
+                health = httpx.get(f"{self.base}/healthz", timeout=2, trust_env=False).json()
                 if not health["llm_configured"]:
                     raise SystemExit("the server has no LLM configured")
                 return
@@ -188,8 +188,24 @@ class Server:
 class Driver:
     def __init__(self, server: Server) -> None:
         self.server = server
-        self.client = httpx.Client(base_url=server.base, timeout=30)
+        # trust_env=False: requests to 127.0.0.1 must never go through a proxy.
+        self.client = httpx.Client(base_url=server.base, timeout=30, trust_env=False)
         self.log_offset = 0
+        self.get_retries = 0
+
+    def get(self, url: str) -> httpx.Response:
+        """A GET (idempotent), retried on a dropped connection, as a polling client would.
+
+        Every retry is counted and reported: a busy server can reset a
+        keep-alive connection while a turn holds the CPU.
+        """
+        for attempt in range(10):
+            try:
+                return self.client.get(url)
+            except httpx.TransportError:
+                self.get_retries += 1
+                time.sleep(0.5 * (attempt + 1))
+        return self.client.get(url)
 
     def session(self, mode: str) -> str:
         response = self.client.post("/api/v1/sessions", json={"mode": mode})
@@ -214,9 +230,10 @@ class Driver:
         response.raise_for_status()
         turn_id = response.json()["turn_id"]
         while True:
-            body = self.client.get(f"/api/v1/sessions/{session_id}/turns/{turn_id}").json()
+            body = self.get(f"/api/v1/sessions/{session_id}/turns/{turn_id}").json()
             if body["status"] == "finished":
                 body["_wall_s"] = round(time.monotonic() - started, 1)
+                body["_get_retries_so_far"] = self.get_retries
                 self.check_rate_limit()
                 return dict(body)
             if time.monotonic() - started > timeout_s:
@@ -232,7 +249,7 @@ class Driver:
         return str(response.json()["turn_id"])
 
     def download(self, url: str) -> bytes:
-        response = self.client.get(url)
+        response = self.get(url)
         response.raise_for_status()
         return response.content
 
@@ -291,6 +308,7 @@ def report_turn(
         "turn_id": turn["turn_id"],
         "message": turn["message"],
         "wall_s": turn["_wall_s"],
+        "client_get_retries_so_far": turn["_get_retries_so_far"],
         "outcome": turn["outcome"],
         "reply_source": turn["reply_source"],
         "intent": detail.get("intent"),
@@ -439,7 +457,7 @@ def main() -> None:
             upload = driver.upload(session, default, "manual_report.xlsx")
             turn_id = driver.start_turn(session, "remove duplicate rows")
             time.sleep(0.5)
-            mid = driver.client.get(f"/api/v1/sessions/{session}/turns/{turn_id}").json()
+            mid = driver.get(f"/api/v1/sessions/{session}/turns/{turn_id}").json()
             server.kill()
             driver.check_rate_limit()  # what the killed process logged
             if mid["status"] != "running":
@@ -447,8 +465,8 @@ def main() -> None:
             server.start()
             driver = Driver(server)
             driver.log_offset = len(server.log_text())
-            after = driver.client.get(f"/api/v1/sessions/{session}/turns/{turn_id}").json()
-            state = driver.client.get(f"/api/v1/sessions/{session}").json()
+            after = driver.get(f"/api/v1/sessions/{session}/turns/{turn_id}").json()
+            state = driver.get(f"/api/v1/sessions/{session}").json()
             stored = driver.stored_upload(session, upload)
             results.append({
                 "run": "8",
