@@ -652,17 +652,21 @@ def test_hands_stops_the_chain_when_the_next_skill_cant_read_the_output() -> Non
 
 
 def test_hands_leaves_a_next_step_with_no_skill_to_stop_the_chain_itself() -> None:
+    """The step with no skill is still what stops the chain. Since PR-3's
+    review M1, the chain can't finish, so its earlier step never starts."""
+    a = _step_a()
     state = _requests("cap.a", "cap.missing")
 
-    Hands(dispatcher=_chain_dispatcher(_step_a()))(state)
+    Hands(dispatcher=_chain_dispatcher(a))(state)
 
     result = state.execution_result
     assert result is not None
     assert result.stopped_at == "cap.missing"
     assert [(s.capability, s.status) for s in result.steps] == [
-        ("cap.a", "success"),
+        ("cap.a", "skipped"),
         ("cap.missing", "failure"),
     ]
+    assert a.received_tasks == []
 
 
 def _assert_stopped_at_first_step(state: BuddyState, b: _NamedSkill, reason: str) -> None:
@@ -764,21 +768,28 @@ def test_hands_stops_the_chain_when_a_step_cant_be_dispatched() -> None:
     assert state.execution_result.steps[0].status == "failure"
 
 
-def test_hands_records_the_failing_last_step_after_an_earlier_step_passed() -> None:
-    """The B1 shape: step 1 passes, the last step can't be dispatched. The
-    last step must still be recorded, or Inspector only sees passing steps."""
+def test_hands_records_the_failing_last_step_when_the_chain_cant_finish() -> None:
+    """The B1 shape: the last step can't be dispatched. The last step must
+    still be recorded, or Inspector only sees steps that didn't fail. Since
+    PR-3's review M1, step 1 doesn't run either: the chain can't finish."""
+    a = _step_a()
     state = _requests("cap.a", "cap.b")  # nothing registered for cap.b
 
-    Hands(dispatcher=_chain_dispatcher(_step_a()))(state)
+    Hands(dispatcher=_chain_dispatcher(a))(state)
 
     result = state.execution_result
     assert result is not None
     assert result.outputs == ()
     assert result.stopped_at == "cap.b"
     assert [(s.capability, s.status) for s in result.steps] == [
-        ("cap.a", "success"),
+        ("cap.a", "skipped"),
         ("cap.b", "failure"),
     ]
+    assert a.received_tasks == []
+    assert result.errors[-1] == (
+        "stopped: cap.b could not be run; 1 earlier step(s) weren't started "
+        "and no file was handed back"
+    )
 
 
 def test_hands_records_a_declined_last_step_after_an_earlier_step_passed() -> None:
@@ -961,6 +972,10 @@ def test_a_chain_stopped_after_an_earlier_step_passed_hands_back_no_file(stop: s
 
     result = state.execution_result
     assert result is not None
-    assert result.steps[0].outputs == ("out/a.xlsx",)  # the intermediate existed
+    if stop == "not-dispatchable":
+        # Known before anything ran (PR-3 review M1): step 1 never starts.
+        assert result.steps[0].status == "skipped" and a.received_tasks == []
+    else:
+        assert result.steps[0].outputs == ("out/a.xlsx",)  # the intermediate existed
     assert result.stopped_at == "cap.b"
     assert result.outputs == ()

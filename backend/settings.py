@@ -32,6 +32,9 @@ BODY_OVERHEAD_BYTES = 64 * 1024
 # the upload validator's allowlist itself, not a copy of it.
 ACCEPTED_EXTENSIONS: tuple[str, ...] = (".xlsx",)
 
+# The longest a plan may wait for its answer: an hour.
+MAX_CONFIRMATION_TIMEOUT_S = 3600
+
 # Read by PR-2 only. Since PR-3 every file-changing step asks the user, and
 # approving without asking is a test setting that no variable turns on.
 RETIRED_AUTO_APPROVE_VARIABLE = "WORKBUDDY_AUTO_APPROVE"
@@ -59,7 +62,8 @@ class Settings:
             finalized as failed, not counting the time its plan waits for
             the user's answer.
         confirmation_timeout_s: Seconds a turn's plan waits for the user's
-            answer. No answer in time is a rejection.
+            answer, at most ``MAX_CONFIRMATION_TIMEOUT_S``. No answer in time
+            is a rejection.
         max_concurrent_turns: Turns that may be running at once, across all
             sessions. A turn counts until its worker thread exits.
         busy_retry_after_s: The ``Retry-After`` hint on ``429 server_busy``.
@@ -96,6 +100,12 @@ class Settings:
         for name in ("turn_deadline_s", "confirmation_timeout_s"):
             if not getattr(self, name) > 0:
                 raise SettingsError(f"{name} must be positive")
+        if self.confirmation_timeout_s > MAX_CONFIRMATION_TIMEOUT_S:
+            # Far beyond any wait a person makes, and it keeps the wait inside
+            # what a thread can wait for (review round 1, L7).
+            raise SettingsError(
+                f"confirmation_timeout_s must be at most {MAX_CONFIRMATION_TIMEOUT_S}"
+            )
 
     @property
     def accepted_extensions(self) -> tuple[str, ...]:

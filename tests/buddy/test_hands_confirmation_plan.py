@@ -159,16 +159,69 @@ def test_a_plan_with_only_read_steps_asks_nothing() -> None:
     assert not [e for e in events if e[0] == "confirm"]
 
 
-def test_a_step_the_dispatcher_cant_route_ends_the_plan() -> None:
-    """Hands stops the chain at an unroutable step, so nothing after it is listed."""
+def test_a_chain_that_cant_finish_asks_nothing_and_runs_no_chain_step() -> None:
+    """Review M1: a step the Dispatcher can't route after a file-changing step
+    means nothing could be handed back, so nobody is asked and no chain step
+    runs. The read-only step still runs; the unroutable step stops the chain."""
     events: list[tuple[str, ...]] = []
     provider = _RecordingProvider(events)
     hands = Hands(dispatcher=_three_skills(events), confirmation_provider=provider)
+    state = _state(ANALYZE, DEDUPE, "spreadsheet.sort", EMPTY)
 
-    hands(_state(DEDUPE, "spreadsheet.sort", EMPTY))
+    hands(state)
 
-    assert provider.plan is not None
-    assert [s.capability for s in provider.plan] == [DEDUPE]
+    assert provider.plan == ()
+    assert [e for e in events if e[0] == "confirm"] == []
+    assert [e[1] for e in events if e[0] == "execute"] == ["analyze"]
+    result = state.execution_result
+    assert result is not None
+    assert [(s.capability, s.status) for s in result.steps] == [
+        (ANALYZE, "success"),
+        (DEDUPE, "skipped"),
+        ("spreadsheet.sort", "failure"),
+        (EMPTY, "skipped"),
+    ]
+    assert result.stopped_at == "spreadsheet.sort"
+    assert result.outputs == ()
+    assert result.errors[-1] == (
+        "stopped: spreadsheet.sort could not be run; 1 earlier step(s) weren't started "
+        "and 1 later step(s) were skipped and no file was handed back"
+    )
+
+
+def test_a_step_the_dispatcher_cant_route_before_any_chain_step_stops_as_before() -> None:
+    events: list[tuple[str, ...]] = []
+    provider = _RecordingProvider(events)
+    hands = Hands(dispatcher=_three_skills(events), confirmation_provider=provider)
+    state = _state(ANALYZE, "spreadsheet.sort", DEDUPE)
+
+    hands(state)
+
+    assert provider.plan == ()
+    assert [e[1] for e in events if e[0] == "execute"] == ["analyze"]
+    result = state.execution_result
+    assert result is not None
+    assert [(s.capability, s.status) for s in result.steps] == [
+        (ANALYZE, "success"),
+        ("spreadsheet.sort", "failure"),
+        (DEDUPE, "skipped"),
+    ]
+    assert result.errors[-1] == (
+        "stopped: spreadsheet.sort could not be run; 1 later step(s) were skipped "
+        "and no file was handed back"
+    )
+
+
+def test_a_chain_that_cant_finish_doesnt_start_without_a_plan_aware_provider() -> None:
+    """The same for every caller, e.g. ``build_engine``'s default provider."""
+    events: list[tuple[str, ...]] = []
+    hands = Hands(
+        dispatcher=_three_skills(events), confirmation_provider=NullConfirmationProvider()
+    )
+
+    hands(_state(DEDUPE, EMPTY, "spreadsheet.sort"))
+
+    assert [e for e in events if e[0] == "execute"] == []
 
 
 def test_nothing_is_announced_when_nothing_was_delegated() -> None:

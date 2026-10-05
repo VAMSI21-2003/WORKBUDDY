@@ -112,6 +112,8 @@ def test_the_data_root_is_absolute_even_when_given_relative(
         ("WORKBUDDY_MAX_CONCURRENT_TURNS", "-1"),
         ("WORKBUDDY_CONFIRMATION_TIMEOUT_S", "0"),
         ("WORKBUDDY_CONFIRMATION_TIMEOUT_S", "soon"),
+        ("WORKBUDDY_CONFIRMATION_TIMEOUT_S", "3601"),  # review round 1, L7
+        ("WORKBUDDY_CONFIRMATION_TIMEOUT_S", "99999999999"),
     ],
 )
 def test_an_invalid_setting_refuses_to_start(tmp_path: Path, name: str, value: str) -> None:
@@ -142,6 +144,8 @@ def test_the_confirmation_timeout_comes_from_its_variable(tmp_path: Path) -> Non
     env = {"WORKBUDDY_DATA_DIR": str(tmp_path), "WORKBUDDY_CONFIRMATION_TIMEOUT_S": "30"}
 
     assert Settings.from_env(env).confirmation_timeout_s == 30
+    longest = {**env, "WORKBUDDY_CONFIRMATION_TIMEOUT_S": "3600"}
+    assert Settings.from_env(longest).confirmation_timeout_s == 3600
 
 
 # -- LLM provider and secrets ----------------------------------------------------------

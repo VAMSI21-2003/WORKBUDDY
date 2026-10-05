@@ -186,7 +186,7 @@ class WebConfirmationProvider:
       (``on_publish``) and waits, without the lock, for ``answer`` or the
       timeout. A timeout is a rejection.
     - Every ``confirm`` returns the one decision: ``True`` only after an
-      approval by the user.
+      approval by the user, and never once the provider is closed.
     - A ``confirm`` that isn't for the next step of the plan Hands
       announced (another task, another tier, out of order, no plan, a step
       past its end) gets ``False``, and so does every later one.
@@ -263,11 +263,13 @@ class WebConfirmationProvider:
                 self._refusing = True
                 return False
             self._next += 1
-            if self._outcome is not None:
-                return self._outcome.decision == APPROVE
             if self._closed_by is not None:
+                # The turn finished or the server is stopping: no step starts
+                # now, even one the user approved (review round 1, L2).
                 self._settle(ConfirmationOutcome(REJECT, self._closed_by))
                 return False
+            if self._outcome is not None:
+                return self._outcome.decision == APPROVE
             assert self._plan is not None
             plan = build_plan(
                 self._plan,

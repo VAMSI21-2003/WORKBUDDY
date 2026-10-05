@@ -278,7 +278,9 @@ def test_a_shutdown_before_the_plan_is_asked_refuses_without_asking() -> None:
     assert host.settled == [ConfirmationOutcome(REJECT, BY_SHUTDOWN)]
 
 
-def test_closing_after_the_answer_changes_nothing(pool: ThreadPoolExecutor) -> None:
+def test_once_closed_no_later_step_runs_even_after_an_approval(pool: ThreadPoolExecutor) -> None:
+    """Review round 1, L2: a turn that finished (deadline) or a server that's
+    stopping starts no further step; the recorded decision stays the user's."""
     host = _Host()
     provider = _provider(host)
     provider.expect_plan((_step(1), _step(2, EMPTY)))
@@ -288,7 +290,7 @@ def test_closing_after_the_answer_changes_nothing(pool: ThreadPoolExecutor) -> N
 
     provider.close(BY_TURN_END)
 
-    assert provider.confirm(_task(2), WRITE) is True
+    assert provider.confirm(_task(2), WRITE) is False
     assert host.settled == [ConfirmationOutcome(APPROVE, BY_USER)]
 
 
@@ -360,6 +362,26 @@ def test_a_step_whose_tier_is_not_the_published_plans_is_refused(tier: Permissio
     provider.expect_plan((_step(1),))
 
     assert provider.confirm(_task(1, tier), tier) is False
+    assert host.published == []
+
+
+def test_a_tier_asked_that_isnt_the_plans_is_refused_even_if_the_task_agrees() -> None:
+    """Review round 1, L3: the tier asked is checked on its own, not only the task's."""
+    host = _Host()
+    provider = _provider(host)
+    provider.expect_plan((_step(1),))
+
+    assert provider.confirm(_task(1, WRITE), PermissionTier.EXTERNAL_EFFECT) is False
+    assert host.published == []
+
+
+def test_a_read_step_is_never_approved_even_if_a_plan_lists_it() -> None:
+    """Review round 1, L3: only file-changing tiers are confirmed by a plan."""
+    host = _Host()
+    provider = _provider(host)
+    provider.expect_plan((_step(1, tier=PermissionTier.READ),))
+
+    assert provider.confirm(_task(1, PermissionTier.READ), PermissionTier.READ) is False
     assert host.published == []
 
 

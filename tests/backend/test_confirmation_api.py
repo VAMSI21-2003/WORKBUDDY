@@ -850,3 +850,211 @@ def test_a_raise_while_finishing_still_finishes_the_turn_as_decided(
     _wait_workers_gone(client)
     after = wait_finished(client, session_id, _start(client, session_id, "remove duplicate rows"))
     assert after["outcome"] == "delivered"
+
+
+# -- Review round 1, M1: a chain that can't finish asks nothing and runs nothing ------------------
+
+
+_UNFINISHABLE = {
+    "dedupe_then_sort": (
+        "remove duplicates and sort by amount",
+        (("spreadsheet.deduplicate", "remove duplicates"), ("spreadsheet.sort", "sort by amount")),
+        "I stopped at the sort step, so deduplicate never ran and no file was handed back; "
+        "your original file is unchanged.",
+    ),
+    "two_steps_then_sort": (
+        "remove duplicates, then remove empty rows, then sort by amount",
+        (
+            ("spreadsheet.deduplicate", "remove duplicates"),
+            ("spreadsheet.remove_empty_rows", "remove empty rows"),
+            ("spreadsheet.sort", "sort by amount"),
+        ),
+        "I stopped at the sort step, so deduplicate, remove empty rows never ran and no file "
+        "was handed back; your original file is unchanged.",
+    ),
+}
+
+
+@pytest.mark.parametrize("speaker", SPEAKERS)
+@pytest.mark.parametrize("case", sorted(_UNFINISHABLE))
+def test_a_chain_that_cant_finish_is_never_put_to_the_user_and_writes_nothing(
+    settings: Settings, speaker: str, case: str
+) -> None:
+    message, planned, stop_sentence = _UNFINISHABLE[case]
+    factory = PipelineFactory(QueuedProvider(chain(*planned)), speaker=speaker)
+    client = _app(settings, factory)
+    session_id, file_id = _session_with_upload(client, _mode(speaker))
+    before = _sha(_upload_path(settings, file_id))
+    turn_id = _start(client, session_id, message)
+
+    statuses = set()
+    deadline = time.monotonic() + 30
+    while (body := _poll(client, session_id, turn_id))["status"] != "finished":
+        statuses.add(body["status"])
+        assert time.monotonic() < deadline
+        time.sleep(0.01)
+
+    assert statuses <= {"running"}  # never awaiting_confirmation: nothing to approve
+    assert body["outcome"] == "not_delivered" and body["delivered_files"] == []
+    assert body["detail"]["confirmation"] is None
+    assert body["detail"]["stopped_at"] == "spreadsheet.sort"
+    assert body["reply"] == factory.runs[0].reply
+    assert stop_sentence in body["reply"]
+    assert _COMPLETION_CLAIM.search(body["reply"]) is None, body["reply"]
+    statuses_by_step = {s["capability"]: s["status"] for s in body["detail"]["steps"]}
+    assert statuses_by_step["spreadsheet.sort"] == "failure"
+    for capability, _ in planned[:-1]:
+        assert statuses_by_step[capability] == "skipped"
+    assert _written(settings) == []  # no chain step ran
+    assert _sha(_upload_path(settings, file_id)) == before
+
+
+# -- Review round 1: L2, L3 ------------------------------------------------------------
+
+
+class _TwoStepEngine(_ConfirmingEngine):
+    """Asks for a two-step plan; after the first answer, waits ``after_s`` and asks for step 2."""
+
+    def __init__(self, *, after_s: float) -> None:
+        super().__init__(after_s=after_s)
+        self.second: bool | None = None
+
+    def run(self, state: BuddyState) -> BuddyState:
+        steps = tuple(
+            ConfirmationStep(
+                task_id=f"{state.session_id}-task-{index}",
+                capability=capability,
+                tier=PermissionTier.WRITE,
+                input_reference=state.context.active_file or "report.xlsx",
+            )
+            for index, capability in enumerate(
+                ("spreadsheet.deduplicate", "spreadsheet.remove_empty_rows")
+            )
+        )
+        self.provider.expect_plan(steps)
+        tasks = [
+            SkillTask(
+                task_id=step.task_id,
+                session_id=state.session_id,
+                workspace_id=state.workspace_id,
+                description="",
+                permission=PermissionTier.WRITE,
+            )
+            for step in steps
+        ]
+        self.approved = self.provider.confirm(tasks[0], PermissionTier.WRITE)
+        time.sleep(self.after_s)
+        self.second = self.provider.confirm(tasks[1], PermissionTier.WRITE)
+        state.reply = "Answered."
+        self.done.set()
+        return state
+
+
+def test_no_step_starts_after_the_deadline_ended_the_turn_even_if_approved(tmp_path: Path) -> None:
+    """Review round 1, L2: the late worker's next step is refused, so it writes nothing more."""
+    engine = _TwoStepEngine(after_s=1.0)
+    client = _deadline_app(tmp_path, 0.5, engine)
+    session_id, _ = _session_with_upload(client)
+
+    turn = wait_finished(client, session_id, _start(client, session_id, "remove duplicate rows"))
+    assert engine.done.wait(5)
+
+    assert turn["outcome"] == "failed" and turn["reply"] == FALLBACK_PIPELINE_ERROR
+    assert engine.approved is True  # the user approved the plan...
+    assert engine.second is False  # ...but the turn had finished: step 2 never starts
+
+
+def test_a_plan_is_never_shown_once_the_deadline_has_claimed_the_turn(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Review round 1, L3: the deadline's finalization is under way when the worker asks."""
+    settings = Settings(data_dir=tmp_path / "data", turn_deadline_s=0.3, confirmation_timeout_s=2)
+    engine = _ConfirmingEngine(before_s=0.6)
+    client = _app(settings, engine)
+    session_id, _ = _session_with_upload(client)
+    real_check = turns_module.uploads_unchanged
+    calls: list[int] = []
+
+    def held(expected: Any) -> bool:
+        calls.append(1)
+        if len(calls) == 1:  # the deadline's finalization waits until the worker has asked
+            engine.done.wait(10)
+        return bool(real_check(expected))
+
+    monkeypatch.setattr(turns_module, "uploads_unchanged", held)
+    turn_id = _start(client, session_id, "remove duplicate rows")
+    statuses = set()
+    deadline = time.monotonic() + 30
+    while (body := _poll(client, session_id, turn_id))["status"] != "finished":
+        statuses.add(body["status"])
+        assert time.monotonic() < deadline
+        time.sleep(0.01)
+    assert engine.done.wait(5)
+
+    assert "awaiting_confirmation" not in statuses
+    assert engine.approved is False  # refused without asking anyone
+    assert body["outcome"] in ("failed", "not_delivered") and body["delivered_files"] == []
+
+
+def test_a_worker_that_cant_start_finishes_its_turn_as_failed(
+    settings: Settings, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Review round 1, L3: the turn isn't left running, and the session and slot are freed."""
+    client = TestClient(
+        create_app(settings, PipelineFactory(QueuedProvider(single("remove_duplicate_rows")))),
+        raise_server_exceptions=False,
+    )
+    session_id, _ = _session_with_upload(client)
+    real_start = threading.Thread.start
+
+    def failing_start(self: threading.Thread) -> None:
+        if self.name.startswith("turn-"):
+            raise RuntimeError("can't start new thread")
+        real_start(self)
+
+    monkeypatch.setattr(threading.Thread, "start", failing_start)
+    refused = start_turn(client, session_id, "remove duplicate rows")
+    monkeypatch.undo()
+
+    assert refused.status_code == 500
+    assert refused.json()["error"]["code"] == "internal_error"
+    state = client.get(f"/api/v1/sessions/{session_id}").json()
+    assert state["busy"] is False
+    (turn,) = state["turns"]
+    assert turn["status"] == "finished" and turn["outcome"] == "failed"
+    assert turn["reply"] == FALLBACK_PIPELINE_ERROR and turn["delivered_files"] == []
+    assert client.app.state.runner.running == 0  # type: ignore[attr-defined]
+    after = wait_finished(client, session_id, _start(client, session_id, "remove duplicate rows"))
+    assert after["outcome"] == "delivered"
+
+
+def test_a_finished_turn_leaves_no_job_behind(settings: Settings) -> None:
+    """Review round 1, L3: the runner keeps unfinished turns only."""
+    client = _app(settings, PipelineFactory(QueuedProvider(single("remove_duplicate_rows"))))
+    session_id, _ = _session_with_upload(client)
+    turn_id = _start(client, session_id, "remove duplicate rows")
+    _wait_awaiting(client, session_id, turn_id)
+    assert len(client.app.state.runner._jobs) == 1  # type: ignore[attr-defined]
+
+    wait_finished(client, session_id, turn_id)
+
+    assert client.app.state.runner._jobs == {}  # type: ignore[attr-defined]
+
+
+def test_a_stored_running_turn_with_a_decision_is_not_restored(settings: Settings) -> None:
+    """Review round 1, L3: a decision is only ever written with a finished turn."""
+    client = _app(settings, PipelineFactory(QueuedProvider(single("remove_duplicate_rows"))))
+    session_id, _ = _session_with_upload(client)
+    turn = wait_finished(client, session_id, _start(client, session_id, "remove duplicate rows"))
+    (path,) = settings.sessions_dir.rglob(f"turns/{turn['turn_id']}.json")
+    record = json.loads(path.read_text(encoding="utf-8"))
+    for name in ("outcome", "finished_at", "reply", "reply_source", "detail"):
+        record[name] = None
+    record["status"] = "running"
+    record["delivered_files"] = []
+    record["confirmation"] = {"decision": "approve", "decision_source": "user"}
+    path.write_text(json.dumps(record), encoding="utf-8")
+
+    restarted = TestClient(create_app(settings, PipelineFactory()))
+
+    assert restarted.get(f"/api/v1/sessions/{session_id}").status_code == 404

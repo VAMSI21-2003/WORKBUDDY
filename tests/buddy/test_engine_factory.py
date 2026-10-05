@@ -860,9 +860,10 @@ class _RecordingPersonalityVoice(PersonalityVoice):
 def test_full_slice_never_says_done_when_the_last_step_cant_be_run(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    """The exact scenario from the review: dedupe runs and passes, then the
-    report step has no skill. Nothing is handed back, Inspector sees the
-    failing step, and the reply never claims completion."""
+    """The exact scenario from the review: the report step has no skill.
+    Nothing is handed back, Inspector sees the failing step, and the reply
+    never claims completion. Since PR-3's review M1 the chain, which can't
+    finish, doesn't start: dedupe never runs."""
     monkeypatch.chdir(tmp_path)
 
     state, original_path, original_bytes = _run_chain(tmp_path, _B1_MESSAGE, _b1_replies())
@@ -873,7 +874,7 @@ def test_full_slice_never_says_done_when_the_last_step_cant_be_run(
     assert result.stopped_at == "spreadsheet.report"
     assert [(s.capability, s.status) for s in result.steps] == [
         ("spreadsheet.analyze", "success"),
-        ("spreadsheet.deduplicate", "success"),
+        ("spreadsheet.deduplicate", "skipped"),
         ("spreadsheet.report", "failure"),
     ]
     assert original_path.read_bytes() == original_bytes  # untouched
@@ -888,7 +889,10 @@ def test_full_slice_never_says_done_when_the_last_step_cant_be_run(
     assert reply is not None
     assert "Done" not in reply
     assert _COMPLETION_CLAIM.search(reply) is None, reply
-    assert "I stopped at the report step and no file was handed back" in reply
+    assert (
+        "I stopped at the report step, so deduplicate never ran and no file was handed back"
+        in reply
+    )
     assert "spreadsheet." not in reply
 
 
@@ -1102,7 +1106,11 @@ def test_full_slice_personality_voice_never_describes_a_three_step_chain_stopped
     assert speaker._provider.calls == []  # type: ignore[attr-defined]
     assert state.reply == TemplateSpeaker()(speaker.requests[0])
     assert leaked not in state.reply
-    assert "I stopped at the report step, so remove empty rows never ran" in state.reply
+    # The chain can't finish, so none of it runs (PR-3 review M1).
+    assert (
+        "I stopped at the report step, so deduplicate, remove empty rows never ran"
+        in state.reply
+    )
     assert original_path.read_bytes() == original_bytes
 
 
@@ -2151,7 +2159,8 @@ def test_dedupe_and_sort_as_a_chain_hands_nothing_back_and_claims_nothing(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     """The same message read as multi_step_request: the planner adds a sort step
-    that has no skill, so the chain stops and the undelivered reply is unchanged."""
+    that has no skill, so the chain can't finish. Since PR-3's review M1 it
+    doesn't start: dedupe never runs, and the reply says so."""
     monkeypatch.chdir(tmp_path)
     brain = _brain_ledger_reply(
         "multi_step_request",
@@ -2169,8 +2178,14 @@ def test_dedupe_and_sort_as_a_chain_hands_nothing_back_and_claims_nothing(
 
     assert state.execution_result is not None
     assert state.execution_result.outputs == ()
+    assert ("spreadsheet.deduplicate", "skipped") in [
+        (step.capability, step.status) for step in state.execution_result.steps
+    ]
     assert state.reply is not None
-    assert "I stopped at the sort step and no file was handed back" in state.reply
+    assert (
+        "I stopped at the sort step, so deduplicate never ran and no file was handed back"
+        in state.reply
+    )
     assert _COMPLETION_CLAIM.search(state.reply) is None, state.reply
     assert original_path.read_bytes() == original_bytes
 

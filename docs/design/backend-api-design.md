@@ -1112,7 +1112,8 @@ How PR-3 (`feat/backend-api-confirmation`) carries out the confirmation sections
 ### 1. Review C5: the plan's tiers come from Hands' own Dispatcher
 
 - **Where the plan is built.** "Decisions (2026-10-01)", item 9, left C5 to PR-3: a `CapabilityRequest` carries no tier, so the plan must be resolved through the Dispatcher before it's published. The architecture makes Hands the Dispatcher's only caller (`docs/WORKBUDDY_ARCHITECTURE.md`, "Execute is the Dispatcher's only caller"), so Hands does it: `Hands.confirmation_plan` resolves every delegated step with the task id the step will run under, before the first step, and Hands passes the steps above READ tier, in order, to `expect_plan` on a provider that has it (`PlanAwareConfirmationProvider` in `buddy/hands.py`). `ConfirmationProvider.confirm`'s signature is unchanged, so every other provider works as before.
-- **The plan Hands runs is the plan shown.** The steps that ask for confirmation are exactly the chain (every tier above READ is in the chain), so the plan's first step reads the upload and each later step reads the previous step's result, as the templates say. A step the Dispatcher can't route stops the chain in Hands, so the plan ends there.
+- **The plan Hands runs is the plan shown.** The steps that ask for confirmation are exactly the chain (every tier above READ is in the chain), so the plan's first step reads the upload and each later step reads the previous step's result, as the templates say.
+- **A chain that can't finish isn't put to the user, and doesn't start** (PR-3 review round 1, M1). If the Dispatcher can't route a step that comes after a file-changing step, nothing could be handed back whatever the answer, so Hands asks nothing and runs no chain step: the unroutable step is recorded as the one that stopped the chain, the chain steps as skipped, and the read-only analysis runs as usual. The reply is the existing stop reply ("… I stopped at the sort step, so deduplicate never ran and no file was handed back; your original file is unchanged."). This applies to every caller of `build_engine`, not only the API. It changes which steps run in a chain that stops anyway; "the chain stops on any failure, and then nothing is handed back" still holds. The reviewer asked for the owner's confirmation of this; the alternative would be to list the unroutable step in the plan with owner-reviewed wording.
 - **The guard.** The provider answers a `confirm` only for the next step of the announced plan, matched on its task id and tier. Anything else (no plan, another task, another tier, out of order, past the end, a second plan) gets `False`, and so does every later call. That is how "an unlisted step gets `False`" and "a tier not in the published plan is refused" ("Decisions (2026-09-30)", item 2) are enforced. A refused step is recorded by Hands as declined, the chain stops, nothing is handed back, and the pipeline's reply says the step didn't run.
 
 ### 2. How a plan's decision is recorded
@@ -1125,7 +1126,8 @@ How PR-3 (`feat/backend-api-confirmation`) carries out the confirmation sections
 
 - The plan waits `WORKBUDDY_CONFIRMATION_TIMEOUT_S` (default 120) for its answer, and no answer is a rejection.
 - The turn's deadline (Section 4.3) is paused while the plan waits and resumes with the working time that was left, so it counts the pipeline's time only. A turn can therefore last up to the deadline plus the confirmation window (180 s + 120 s by default), as part 2, item 1 assumes.
-- On shutdown the app rejects every waiting or not-yet-asked plan (`decision_source: "shutdown"`).
+- On shutdown the app rejects every waiting or not-yet-asked plan (`decision_source: "shutdown"`). Once a turn has finished (its deadline passed) or the server is stopping, no further step of its plan starts, even after an approval (review round 1, L2).
+- `WORKBUDDY_CONFIRMATION_TIMEOUT_S` is at most 3600 (review round 1, L7).
 
 ### 4. Auto-approve
 
