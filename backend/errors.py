@@ -41,6 +41,11 @@ class ErrorCode(StrEnum):
     SERVER_BUSY = "server_busy"
     FILE_UNAVAILABLE = "file_unavailable"
     INTERNAL_ERROR = "internal_error"
+    UNAUTHORIZED = "unauthorized"
+    FORBIDDEN_ORIGIN = "forbidden_origin"
+    RATE_LIMITED = "rate_limited"
+    SESSION_QUOTA_EXCEEDED = "session_quota_exceeded"
+    STORAGE_FULL = "storage_full"
 
 
 STATUS: dict[ErrorCode, int] = {
@@ -61,6 +66,11 @@ STATUS: dict[ErrorCode, int] = {
     ErrorCode.SERVER_BUSY: 429,
     ErrorCode.FILE_UNAVAILABLE: 410,
     ErrorCode.INTERNAL_ERROR: 500,
+    ErrorCode.UNAUTHORIZED: 401,
+    ErrorCode.FORBIDDEN_ORIGIN: 403,
+    ErrorCode.RATE_LIMITED: 429,
+    ErrorCode.SESSION_QUOTA_EXCEEDED: 403,
+    ErrorCode.STORAGE_FULL: 503,
 }
 
 # The fixed message for each code. ``FILE_TOO_LARGE`` is built from the
@@ -88,6 +98,11 @@ MESSAGES: dict[ErrorCode, str] = {
     ErrorCode.SERVER_BUSY: "The server is busy right now. Try again shortly.",
     ErrorCode.FILE_UNAVAILABLE: "That file is no longer available.",
     ErrorCode.INTERNAL_ERROR: "Something went wrong on the server.",
+    ErrorCode.UNAUTHORIZED: "The demo password is missing or wrong.",
+    ErrorCode.FORBIDDEN_ORIGIN: "This request didn't come from the demo page.",
+    ErrorCode.RATE_LIMITED: "Too many requests. Wait a little and try again.",
+    ErrorCode.SESSION_QUOTA_EXCEEDED: "This session has reached one of its limits.",
+    ErrorCode.STORAGE_FULL: "The demo has no room for new files right now. Try again later.",
 }
 
 # Owner decision (design "Decisions (2026-10-04)"): ``.xls`` is out of scope,
@@ -96,6 +111,30 @@ XLS_MESSAGE = (
     "Older .xls workbooks aren't supported. Save the file as .xlsx (Excel Workbook) "
     "and upload that."
 )
+
+
+def too_many_uploads_message(limit: int) -> str:
+    """The ``session_quota_exceeded`` message for the upload count, from the configured limit."""
+    return (
+        f"This session already holds {limit} uploads, which is the most it can. "
+        "Start a new session."
+    )
+
+
+def upload_bytes_quota_message(limit: int) -> str:
+    """The ``session_quota_exceeded`` message for the upload size total, from the limit."""
+    return (
+        f"Adding this file would take this session's uploads past {_format_size(limit)}, "
+        "which is the most it can hold. Start a new session."
+    )
+
+
+def too_many_turns_message(limit: int) -> str:
+    """The ``session_quota_exceeded`` message for the turn count, from the configured limit."""
+    return (
+        f"This session has already run {limit} turns, which is the most it can. "
+        "Start a new session."
+    )
 
 
 def file_too_large_message(max_upload_bytes: int) -> str:

@@ -15,6 +15,7 @@ import pytest
 
 from backend.logging_filter import uninstall_log_redaction
 from backend.settings import Settings
+from tests.backend.helpers import RELAXED_LIMITS
 
 
 @pytest.fixture(autouse=True)
@@ -32,4 +33,4 @@ def settings(tmp_path: Path) -> Settings:
     every turn goes through the real confirmation flow, as in production
     (design Section 7.1). ``auto_approve`` is for tests that need it.
     """
-    return Settings(data_dir=tmp_path / "data")
+    return Settings(data_dir=tmp_path / "data", rate_limits=RELAXED_LIMITS)

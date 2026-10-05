@@ -344,7 +344,12 @@
           "stale_confirmation",
           "server_busy",
           "file_unavailable",
-          "internal_error"
+          "internal_error",
+          "unauthorized",
+          "forbidden_origin",
+          "rate_limited",
+          "session_quota_exceeded",
+          "storage_full"
         ],
         "title": "ErrorCode",
         "type": "string"
@@ -850,10 +855,13 @@
                 "type": "integer"
               },
               {
+                "type": "number"
+              },
+              {
                 "type": "null"
               }
             ],
-            "description": "Hours an idle session is kept. Always null until a retention sweep exists.",
+            "description": "Hours a session may sit idle before the retention sweep deletes it and its files: the sweep's own setting. Null only if no sweep runs.",
             "title": "Retention Hours"
           },
           "session_id": {
@@ -993,6 +1001,9 @@
             "anyOf": [
               {
                 "type": "integer"
+              },
+              {
+                "type": "number"
               },
               {
                 "type": "null"
@@ -1200,6 +1211,17 @@
         "title": "UploadedFile",
         "type": "object"
       }
+    },
+    "securitySchemes": {
+      "access_cookie": {
+        "in": "cookie",
+        "name": "__Host-wb_access",
+        "type": "apiKey"
+      },
+      "bearer": {
+        "scheme": "bearer",
+        "type": "http"
+      }
     }
   },
   "info": {
@@ -1208,9 +1230,118 @@
   },
   "openapi": "3.1.0",
   "paths": {
+    "/api/v1/access": {
+      "post": {
+        "description": "Exchange the demo password (a form field) for the access cookie.\n\n``application/x-www-form-urlencoded`` only: anything else is ``422``. The\nrequest must carry an ``Origin`` header equal to the demo's public origin\n(``403 forbidden_origin``). A wrong or missing password is the same\n``401`` every route gives.",
+        "operationId": "access_api_v1_access_post",
+        "requestBody": {
+          "content": {
+            "application/x-www-form-urlencoded": {
+              "schema": {
+                "properties": {
+                  "password": {
+                    "format": "password",
+                    "type": "string"
+                  }
+                },
+                "required": [
+                  "password"
+                ],
+                "type": "object"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "204": {
+            "description": "The password was right. The access cookie is set.",
+            "headers": {
+              "Set-Cookie": {
+                "description": "`__Host-wb_access=<token>; Path=/; Secure; HttpOnly; SameSite=Strict`, with no expiry (a session cookie); the server expires the token itself.",
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "The demo password is missing or wrong",
+            "headers": {
+              "WWW-Authenticate": {
+                "description": "Always `Bearer realm=\"workbuddy-demo\"`.",
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "The request didn't come from the demo page, or the session is at one of its limits"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "Invalid request or file"
+          },
+          "429": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "Too many requests, or too many running turns",
+            "headers": {
+              "Retry-After": {
+                "description": "Whole seconds to wait before retrying: exact for `rate_limited`, a hint for `server_busy`.",
+                "schema": {
+                  "minimum": 1.0,
+                  "type": "integer"
+                }
+              }
+            }
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "Internal error"
+          }
+        },
+        "summary": "Access",
+        "tags": [
+          "access"
+        ]
+      }
+    },
     "/api/v1/sessions": {
       "post": {
-        "description": "Start a session. Its id is the only credential: keep it secret.",
+        "description": "Start a session. ``503 storage_full`` when the server has no room for new files.",
         "operationId": "create_session_api_v1_sessions_post",
         "requestBody": {
           "content": {
@@ -1240,6 +1371,34 @@
             },
             "description": "Successful Response"
           },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "The demo password is missing or wrong",
+            "headers": {
+              "WWW-Authenticate": {
+                "description": "Always `Bearer realm=\"workbuddy-demo\"`.",
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "The request didn't come from the demo page, or the session is at one of its limits"
+          },
           "413": {
             "content": {
               "application/json": {
@@ -1260,6 +1419,25 @@
             },
             "description": "Invalid request or file"
           },
+          "429": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "Too many requests, or too many running turns",
+            "headers": {
+              "Retry-After": {
+                "description": "Whole seconds to wait before retrying: exact for `rate_limited`, a hint for `server_busy`.",
+                "schema": {
+                  "minimum": 1.0,
+                  "type": "integer"
+                }
+              }
+            }
+          },
           "500": {
             "content": {
               "application/json": {
@@ -1269,8 +1447,26 @@
               }
             },
             "description": "Internal error"
+          },
+          "503": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "No room for new files right now"
           }
         },
+        "security": [
+          {
+            "bearer": []
+          },
+          {
+            "access_cookie": []
+          }
+        ],
         "summary": "Create Session",
         "tags": [
           "sessions"
@@ -1303,6 +1499,24 @@
             },
             "description": "Successful Response"
           },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "The demo password is missing or wrong",
+            "headers": {
+              "WWW-Authenticate": {
+                "description": "Always `Bearer realm=\"workbuddy-demo\"`.",
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          },
           "404": {
             "content": {
               "application/json": {
@@ -1323,6 +1537,25 @@
             },
             "description": "Invalid request or file"
           },
+          "429": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "Too many requests, or too many running turns",
+            "headers": {
+              "Retry-After": {
+                "description": "Whole seconds to wait before retrying: exact for `rate_limited`, a hint for `server_busy`.",
+                "schema": {
+                  "minimum": 1,
+                  "type": "integer"
+                }
+              }
+            }
+          },
           "500": {
             "content": {
               "application/json": {
@@ -1334,6 +1567,14 @@
             "description": "Internal error"
           }
         },
+        "security": [
+          {
+            "bearer": []
+          },
+          {
+            "access_cookie": []
+          }
+        ],
         "summary": "Get Session",
         "tags": [
           "sessions"
@@ -1366,6 +1607,24 @@
             },
             "description": "Successful Response"
           },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "The demo password is missing or wrong",
+            "headers": {
+              "WWW-Authenticate": {
+                "description": "Always `Bearer realm=\"workbuddy-demo\"`.",
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          },
           "404": {
             "content": {
               "application/json": {
@@ -1386,6 +1645,25 @@
             },
             "description": "Invalid request or file"
           },
+          "429": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "Too many requests, or too many running turns",
+            "headers": {
+              "Retry-After": {
+                "description": "Whole seconds to wait before retrying: exact for `rate_limited`, a hint for `server_busy`.",
+                "schema": {
+                  "minimum": 1,
+                  "type": "integer"
+                }
+              }
+            }
+          },
           "500": {
             "content": {
               "application/json": {
@@ -1397,6 +1675,14 @@
             "description": "Internal error"
           }
         },
+        "security": [
+          {
+            "bearer": []
+          },
+          {
+            "access_cookie": []
+          }
+        ],
         "summary": "List Files",
         "tags": [
           "files"
@@ -1436,6 +1722,34 @@
               }
             },
             "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "The demo password is missing or wrong",
+            "headers": {
+              "WWW-Authenticate": {
+                "description": "Always `Bearer realm=\"workbuddy-demo\"`.",
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "The request didn't come from the demo page, or the session is at one of its limits"
           },
           "404": {
             "content": {
@@ -1487,6 +1801,25 @@
             },
             "description": "Invalid request or file"
           },
+          "429": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "Too many requests, or too many running turns",
+            "headers": {
+              "Retry-After": {
+                "description": "Whole seconds to wait before retrying: exact for `rate_limited`, a hint for `server_busy`.",
+                "schema": {
+                  "minimum": 1,
+                  "type": "integer"
+                }
+              }
+            }
+          },
           "500": {
             "content": {
               "application/json": {
@@ -1496,8 +1829,26 @@
               }
             },
             "description": "Internal error"
+          },
+          "503": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "No room for new files right now"
           }
         },
+        "security": [
+          {
+            "bearer": []
+          },
+          {
+            "access_cookie": []
+          }
+        ],
         "summary": "Upload File",
         "tags": [
           "files"
@@ -1540,6 +1891,24 @@
             },
             "description": "The delivered file"
           },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "The demo password is missing or wrong",
+            "headers": {
+              "WWW-Authenticate": {
+                "description": "Always `Bearer realm=\"workbuddy-demo\"`.",
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          },
           "404": {
             "content": {
               "application/json": {
@@ -1570,6 +1939,25 @@
             },
             "description": "Invalid request or file"
           },
+          "429": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "Too many requests, or too many running turns",
+            "headers": {
+              "Retry-After": {
+                "description": "Whole seconds to wait before retrying: exact for `rate_limited`, a hint for `server_busy`.",
+                "schema": {
+                  "minimum": 1,
+                  "type": "integer"
+                }
+              }
+            }
+          },
           "500": {
             "content": {
               "application/json": {
@@ -1581,6 +1969,14 @@
             "description": "Internal error"
           }
         },
+        "security": [
+          {
+            "bearer": []
+          },
+          {
+            "access_cookie": []
+          }
+        ],
         "summary": "Download File",
         "tags": [
           "files"
@@ -1622,6 +2018,34 @@
               }
             },
             "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "The demo password is missing or wrong",
+            "headers": {
+              "WWW-Authenticate": {
+                "description": "Always `Bearer realm=\"workbuddy-demo\"`.",
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "The request didn't come from the demo page, or the session is at one of its limits"
           },
           "404": {
             "content": {
@@ -1671,10 +2095,10 @@
                 }
               }
             },
-            "description": "Too many running turns",
+            "description": "Too many requests, or too many running turns",
             "headers": {
               "Retry-After": {
-                "description": "Seconds to wait before retrying (a hint, not a promise).",
+                "description": "Whole seconds to wait before retrying: exact for `rate_limited`, a hint for `server_busy`.",
                 "schema": {
                   "minimum": 1,
                   "type": "integer"
@@ -1693,6 +2117,14 @@
             "description": "Internal error"
           }
         },
+        "security": [
+          {
+            "bearer": []
+          },
+          {
+            "access_cookie": []
+          }
+        ],
         "summary": "Start Turn",
         "tags": [
           "turns"
@@ -1753,6 +2185,24 @@
             },
             "description": "Successful Response"
           },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "The demo password is missing or wrong",
+            "headers": {
+              "WWW-Authenticate": {
+                "description": "Always `Bearer realm=\"workbuddy-demo\"`.",
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          },
           "404": {
             "content": {
               "application/json": {
@@ -1773,6 +2223,25 @@
             },
             "description": "Invalid request or file"
           },
+          "429": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "Too many requests, or too many running turns",
+            "headers": {
+              "Retry-After": {
+                "description": "Whole seconds to wait before retrying: exact for `rate_limited`, a hint for `server_busy`.",
+                "schema": {
+                  "minimum": 1,
+                  "type": "integer"
+                }
+              }
+            }
+          },
           "500": {
             "content": {
               "application/json": {
@@ -1784,6 +2253,14 @@
             "description": "Internal error"
           }
         },
+        "security": [
+          {
+            "bearer": []
+          },
+          {
+            "access_cookie": []
+          }
+        ],
         "summary": "Get Turn",
         "tags": [
           "turns"
@@ -1854,6 +2331,34 @@
             },
             "description": "Successful Response"
           },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "The demo password is missing or wrong",
+            "headers": {
+              "WWW-Authenticate": {
+                "description": "Always `Bearer realm=\"workbuddy-demo\"`.",
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "The request didn't come from the demo page, or the session is at one of its limits"
+          },
           "404": {
             "content": {
               "application/json": {
@@ -1894,6 +2399,25 @@
             },
             "description": "Invalid request or file"
           },
+          "429": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "Too many requests, or too many running turns",
+            "headers": {
+              "Retry-After": {
+                "description": "Whole seconds to wait before retrying: exact for `rate_limited`, a hint for `server_busy`.",
+                "schema": {
+                  "minimum": 1,
+                  "type": "integer"
+                }
+              }
+            }
+          },
           "500": {
             "content": {
               "application/json": {
@@ -1905,6 +2429,14 @@
             "description": "Internal error"
           }
         },
+        "security": [
+          {
+            "bearer": []
+          },
+          {
+            "access_cookie": []
+          }
+        ],
         "summary": "Answer Confirmation",
         "tags": [
           "turns"
@@ -1925,6 +2457,25 @@
               }
             },
             "description": "Successful Response"
+          },
+          "429": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "Too many requests, or too many running turns",
+            "headers": {
+              "Retry-After": {
+                "description": "Whole seconds to wait before retrying: exact for `rate_limited`, a hint for `server_busy`.",
+                "schema": {
+                  "minimum": 1.0,
+                  "type": "integer"
+                }
+              }
+            }
           },
           "500": {
             "content": {

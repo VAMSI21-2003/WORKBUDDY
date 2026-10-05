@@ -13,13 +13,21 @@ import logging
 from typing import Annotated, Any
 from urllib.parse import quote
 
-from fastapi import APIRouter, File, Request, UploadFile
+from fastapi import APIRouter, Depends, File, Request, UploadFile
 from fastapi.responses import Response
 from starlette.concurrency import run_in_threadpool
 
 from backend import views
+from backend.access import AccessDependency, exchange_password, forbidden_origin, origin_allowed
 from backend.delivery import check_turn_file
-from backend.errors import ApiError, ErrorCode
+from backend.errors import (
+    ApiError,
+    ErrorCode,
+    too_many_uploads_message,
+    upload_bytes_quota_message,
+)
+from backend.ratelimit import ACCESS, GENERAL, HEALTHZ, POLL, TURNS, UPLOADS, limits
+from backend.retention import StorageMeter
 from backend.schemas import (
     AwaitingConfirmationTurn,
     ConfirmationRequest,
@@ -50,18 +58,27 @@ from backend.uploads import check_extension, discard_folder, sanitize_name, stor
 logger = logging.getLogger(__name__)
 
 health_router = APIRouter()
-router = APIRouter(prefix="/api/v1")
+# Every route here needs a credential, and the Origin check where it applies
+# (``backend.access.require_access``), set once on the whole router so a new
+# route can't forget it. Each route also declares its rate-limit buckets
+# (``backend.ratelimit.limits``); the app refuses to start without that.
+router = APIRouter(prefix="/api/v1", dependencies=[AccessDependency])
+# ``POST /api/v1/access`` takes no credential: it is how one is obtained.
+access_router = APIRouter(prefix="/api/v1")
 
 XLSX_MEDIA_TYPE = "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
 
 _DESCRIPTIONS = {
+    401: "The demo password is missing or wrong",
+    403: "The request didn't come from the demo page, or the session is at one of its limits",
     404: "Not found",
     409: "Conflict",
     410: "Gone",
     413: "Too large",
     415: "Unsupported file type",
     422: "Invalid request or file",
-    429: "Too many running turns",
+    429: "Too many requests, or too many running turns",
+    503: "No room for new files right now",
 }
 
 
@@ -70,10 +87,20 @@ def errors(*statuses: int) -> dict[int | str, dict[str, Any]]:
     declared: dict[int | str, dict[str, Any]] = {}
     for status in statuses:
         entry: dict[str, Any] = {"model": ErrorBody, "description": _DESCRIPTIONS[status]}
+        if status == 401:
+            entry["headers"] = {
+                "WWW-Authenticate": {
+                    "description": 'Always `Bearer realm="workbuddy-demo"`.',
+                    "schema": {"type": "string"},
+                }
+            }
         if status == 429:
             entry["headers"] = {
                 "Retry-After": {
-                    "description": "Seconds to wait before retrying (a hint, not a promise).",
+                    "description": (
+                        "Whole seconds to wait before retrying: exact for `rate_limited`, "
+                        "a hint for `server_busy`."
+                    ),
                     "schema": {"type": "integer", "minimum": 1},
                 }
             }
@@ -89,6 +116,28 @@ def registry_of(request: Request) -> SessionRegistry:
     return request.app.state.registry  # type: ignore[no-any-return]
 
 
+def _check_upload_quota(record: SessionRecord, settings: Settings, *, incoming: int) -> None:
+    """Refuse an upload that would take the session past its upload count or size total.
+
+    The caller holds the session's lock. With ``incoming=0`` it is the
+    early check, before the file is written; with the file's size it is the
+    exact one.
+    """
+    if len(record.files) >= settings.max_uploads_per_session:
+        raise ApiError(
+            ErrorCode.SESSION_QUOTA_EXCEEDED,
+            message=too_many_uploads_message(settings.max_uploads_per_session),
+        )
+    held = sum(f.size for f in record.files.values())
+    if held + incoming > settings.max_session_upload_bytes or (
+        incoming == 0 and held >= settings.max_session_upload_bytes
+    ):
+        raise ApiError(
+            ErrorCode.SESSION_QUOTA_EXCEEDED,
+            message=upload_bytes_quota_message(settings.max_session_upload_bytes),
+        )
+
+
 def _encodable(text: str) -> bool:
     """Whether ``text`` is valid Unicode (JSON can carry a lone surrogate; UTF-8 can't)."""
     try:
@@ -102,6 +151,10 @@ def runner_of(request: Request) -> TurnRunner:
     return request.app.state.runner  # type: ignore[no-any-return]
 
 
+def meter_of(request: Request) -> StorageMeter:
+    return request.app.state.meter  # type: ignore[no-any-return]
+
+
 def session_of(request: Request, session_id: str) -> SessionRecord:
     record = registry_of(request).get(session_id)
     if record is None:
@@ -109,7 +162,13 @@ def session_of(request: Request, session_id: str) -> SessionRecord:
     return record
 
 
-@health_router.get("/healthz", response_model=Health, tags=["health"])
+@health_router.get(
+    "/healthz",
+    response_model=Health,
+    responses=errors(429),
+    tags=["health"],
+    dependencies=[Depends(limits(HEALTHZ, credential=False))],
+)
 def healthz(request: Request) -> Health:
     """Liveness, and whether an LLM provider is configured. Booleans only."""
     return Health(ok=True, llm_configured=bool(request.app.state.llm_configured))
@@ -119,11 +178,14 @@ def healthz(request: Request) -> Health:
     "/sessions",
     status_code=201,
     response_model=SessionCreated,
-    responses=errors(413, 422),
+    responses=errors(401, 403, 413, 422, 429, 503),
     tags=["sessions"],
+    dependencies=[Depends(limits(GENERAL, mutating=True))],
 )
 def create_session(request: Request, body: CreateSessionRequest | None = None) -> SessionCreated:
-    """Start a session. Its id is the only credential: keep it secret."""
+    """Start a session. ``503 storage_full`` when the server has no room for new files."""
+    if meter_of(request).full():
+        raise ApiError(ErrorCode.STORAGE_FULL)
     mode = body.mode if body is not None else "friend"
     session_id, record = registry_of(request).create(mode)
     with record.lock:
@@ -133,8 +195,9 @@ def create_session(request: Request, body: CreateSessionRequest | None = None) -
 @router.get(
     "/sessions/{session_id}",
     response_model=SessionState,
-    responses=errors(404),
+    responses=errors(401, 404, 429),
     tags=["sessions"],
+    dependencies=[Depends(limits(GENERAL))],
 )
 def get_session(request: Request, session_id: str) -> SessionState:
     """The whole session, for a page load or a reconnect."""
@@ -147,8 +210,9 @@ def get_session(request: Request, session_id: str) -> SessionState:
     "/sessions/{session_id}/files",
     status_code=201,
     response_model=UploadedFile,
-    responses=errors(404, 409, 413, 415, 422),
+    responses=errors(401, 403, 404, 409, 413, 415, 422, 429, 503),
     tags=["files"],
+    dependencies=[Depends(limits(GENERAL, UPLOADS, mutating=True))],
 )
 async def upload_file(
     request: Request, session_id: str, file: Annotated[UploadFile, File()]
@@ -169,6 +233,9 @@ async def upload_file(
     with record.lock:
         if record.busy:
             raise ApiError(ErrorCode.SESSION_BUSY)
+        _check_upload_quota(record, settings, incoming=0)
+    if meter_of(request).full():
+        raise ApiError(ErrorCode.STORAGE_FULL)
     name = sanitize_name(file.filename or "")
     check_extension(name, settings)
     assert name is not None
@@ -190,6 +257,11 @@ async def upload_file(
             if record.busy:  # a turn started while the file was being written
                 discard_folder(folder)
                 raise ApiError(ErrorCode.SESSION_BUSY)
+            try:
+                _check_upload_quota(record, settings, incoming=upload.size)
+            except ApiError:
+                discard_folder(folder)
+                raise
             context = record.state.context
             rollback = (
                 list(context.uploaded_files),
@@ -218,8 +290,9 @@ async def upload_file(
     "/sessions/{session_id}/turns",
     status_code=202,
     response_model=RunningTurn,
-    responses=errors(404, 409, 413, 422, 429),
+    responses=errors(401, 403, 404, 409, 413, 422, 429),
     tags=["turns"],
+    dependencies=[Depends(limits(GENERAL, TURNS, mutating=True))],
 )
 def start_turn(request: Request, session_id: str, body: CreateTurnRequest) -> RunningTurn:
     """Start a turn. Returns at once, ``running``; poll the turn until it's ``finished``.
@@ -244,8 +317,9 @@ def start_turn(request: Request, session_id: str, body: CreateTurnRequest) -> Ru
 @router.get(
     "/sessions/{session_id}/turns/{turn_id}",
     response_model=Turn,
-    responses=errors(404),
+    responses=errors(401, 404, 429),
     tags=["turns"],
+    dependencies=[Depends(limits(POLL, poll=True))],
 )
 def get_turn(
     request: Request, session_id: str, turn_id: str
@@ -268,8 +342,9 @@ def get_turn(
 @router.post(
     "/sessions/{session_id}/turns/{turn_id}/confirmation",
     response_model=Turn,
-    responses=errors(404, 409, 413, 422),
+    responses=errors(401, 403, 404, 409, 413, 422, 429),
     tags=["turns"],
+    dependencies=[Depends(limits(GENERAL, mutating=True))],
 )
 def answer_confirmation(
     request: Request, session_id: str, turn_id: str, body: ConfirmationRequest
@@ -294,8 +369,9 @@ def answer_confirmation(
 @router.get(
     "/sessions/{session_id}/files",
     response_model=FileList,
-    responses=errors(404),
+    responses=errors(401, 404, 429),
     tags=["files"],
+    dependencies=[Depends(limits(GENERAL))],
 )
 def list_files(request: Request, session_id: str) -> FileList:
     """Uploads (not downloadable) and the files finished turns delivered (downloadable)."""
@@ -312,9 +388,10 @@ def list_files(request: Request, session_id: str) -> FileList:
             "description": "The delivered file",
             "content": {XLSX_MEDIA_TYPE: {"schema": {"type": "string", "format": "binary"}}},
         },
-        **errors(404, 410),
+        **errors(401, 404, 410, 429),
     },
     tags=["files"],
+    dependencies=[Depends(limits(GENERAL))],
 )
 def download_file(request: Request, session_id: str, file_id: str) -> Response:
     """A file a finished turn delivered. Uploads and anything else are ``404``.
@@ -343,3 +420,54 @@ def download_file(request: Request, session_id: str, file_id: str) -> Response:
         media_type=media_type,
         headers={"Content-Disposition": f"attachment; filename*=UTF-8''{quote(name, safe='')}"},
     )
+
+
+@access_router.post(
+    "/access",
+    status_code=204,
+    response_class=Response,
+    responses={
+        204: {
+            "description": "The password was right. The access cookie is set.",
+            "headers": {
+                "Set-Cookie": {
+                    "description": (
+                        "`__Host-wb_access=<token>; Path=/; Secure; HttpOnly; SameSite=Strict`, "
+                        "with no expiry (a session cookie); the server expires the token itself."
+                    ),
+                    "schema": {"type": "string"},
+                }
+            },
+        },
+        **errors(401, 403, 422, 429),
+    },
+    openapi_extra={
+        "requestBody": {
+            "required": True,
+            "content": {
+                "application/x-www-form-urlencoded": {
+                    "schema": {
+                        "type": "object",
+                        "required": ["password"],
+                        "properties": {"password": {"type": "string", "format": "password"}},
+                    }
+                }
+            },
+        }
+    },
+    tags=["access"],
+    dependencies=[
+        Depends(limits(GENERAL, ACCESS, mutating=True, credential=False)),
+    ],
+)
+async def access(request: Request) -> Response:
+    """Exchange the demo password (a form field) for the access cookie.
+
+    ``application/x-www-form-urlencoded`` only: anything else is ``422``. The
+    request must carry an ``Origin`` header equal to the demo's public origin
+    (``403 forbidden_origin``). A wrong or missing password is the same
+    ``401`` every route gives.
+    """
+    if not origin_allowed(request.scope, settings_of(request)):
+        raise forbidden_origin()
+    return await exchange_password(request)

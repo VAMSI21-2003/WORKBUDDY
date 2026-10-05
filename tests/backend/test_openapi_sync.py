@@ -52,7 +52,8 @@ def test_every_429_declares_retry_after() -> None:
             if response is not None:
                 assert "Retry-After" in response["headers"]
                 found += 1
-    assert found == 1  # POST .../turns
+    # Every route can be rate limited (PR-4), so every operation says so.
+    assert found == sum(len(operations) for operations in schema["paths"].values())
 
 
 def test_the_error_code_enum_is_closed_and_complete() -> None:

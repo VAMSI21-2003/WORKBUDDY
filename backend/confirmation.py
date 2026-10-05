@@ -285,6 +285,11 @@ class WebConfirmationProvider:
             if self._outcome is None:
                 self._settle(ConfirmationOutcome(REJECT, BY_TIMEOUT))
             assert self._outcome is not None
+            if self._closed_by is not None:
+                # The turn finished, or the server is stopping, while this
+                # step waited for the lock: not even the step the user just
+                # approved starts now (review round 2, R2-L1).
+                return False
             return self._outcome.decision == APPROVE
 
     def answer(self, confirmation_id: str, decision: str) -> None:

@@ -13,6 +13,15 @@ import openpyxl
 import pandas as pd
 from fastapi.testclient import TestClient
 
+from backend.settings import DEFAULT_RATE_LIMITS, BucketSpec
+
+# The API tests poll every 20 ms against the real clock, which the real
+# per-IP buckets would refuse; they run with limits no test reaches. The tests
+# of the limits themselves pass the real ones, and an injected clock.
+RELAXED_LIMITS = {
+    name: BucketSpec(burst=1_000_000, per_hour=3_600_000_000) for name in DEFAULT_RATE_LIMITS
+}
+
 # 6 rows: 2 exact duplicates and 1 fully empty row (mid-file, so it survives
 # the openpyxl round trip), the same shape as the live-run fixture.
 DEFAULT_ROWS: dict[str, list[Any]] = {
