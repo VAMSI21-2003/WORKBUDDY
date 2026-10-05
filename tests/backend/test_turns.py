@@ -19,6 +19,7 @@ import pytest
 from fastapi.testclient import TestClient
 
 from backend import turns as turns_module
+from backend.confirmation import StaticConfirmationProvider, WebConfirmationProvider
 from backend.main import create_app
 from backend.settings import Settings
 from backend.store import SessionStore
@@ -65,14 +66,23 @@ def _upload_path(settings: Settings, file_id: str) -> Path:
 
 
 def _turn(
-    client: TestClient, session_id: str, message: str, **extra: Any
+    client: TestClient,
+    session_id: str,
+    message: str,
+    *,
+    decision: str | None = "approve",
+    plans: list[dict[str, Any]] | None = None,
+    **extra: Any,
 ) -> dict[str, Any]:
+    """Start a turn, answer its plan (if one is asked) with ``decision``, and wait for it."""
     response = start_turn(client, session_id, message, **extra)
     assert response.status_code == 202, response.text
     started = response.json()
     assert started["status"] == "running"
     assert started["reply"] is None and started["outcome"] is None
-    return wait_finished(client, session_id, started["turn_id"])
+    return wait_finished(
+        client, session_id, started["turn_id"], decision=decision, plans=plans
+    )
 
 
 def _session_with_upload(
@@ -195,14 +205,13 @@ def test_an_unclear_request_delivers_nothing_and_claims_nothing(
     assert _sha(_upload_path(settings, file_id)) == before
 
 
-def test_with_auto_approve_off_no_file_changing_step_runs(tmp_path: Path) -> None:
-    settings = Settings(data_dir=tmp_path / "data", auto_approve=False)
+def test_a_rejected_plan_runs_no_file_changing_step(settings: Settings) -> None:
     factory = PipelineFactory(QueuedProvider(single("remove_duplicate_rows")))
     client = _app(settings, factory)
     session_id, file_id = _session_with_upload(client)
     before = _sha(_upload_path(settings, file_id))
 
-    turn = _turn(client, session_id, "remove duplicate rows")
+    turn = _turn(client, session_id, "remove duplicate rows", decision="reject")
 
     assert turn["outcome"] == "not_delivered"
     assert turn["delivered_files"] == []
@@ -216,15 +225,23 @@ def test_with_auto_approve_off_no_file_changing_step_runs(tmp_path: Path) -> Non
     assert _sha(_upload_path(settings, file_id)) == before
 
 
-def test_the_auto_approve_setting_reaches_the_confirmation_provider(tmp_path: Path) -> None:
-    for approve in (True, False):
-        settings = Settings(data_dir=tmp_path / str(approve), auto_approve=approve)
-        factory = PipelineFactory(QueuedProvider(_unclear()))
+def test_each_turn_gets_its_own_provider_and_auto_approve_is_only_a_test_setting(
+    tmp_path: Path,
+) -> None:
+    for auto_approve in (False, True):
+        settings = Settings(data_dir=tmp_path / str(auto_approve), auto_approve=auto_approve)
+        factory = PipelineFactory(QueuedProvider(_unclear() + _unclear()))
         client = _app(settings, factory)
         session_id, _ = _session_with_upload(client)
         _turn(client, session_id, "hello")
-        (provider,) = factory.confirmation_providers
-        assert provider.confirm(None, None) is approve  # type: ignore[arg-type]
+        _turn(client, session_id, "hello again")
+        first, second = factory.confirmation_providers
+        assert first is not second
+        if auto_approve:
+            assert isinstance(first, StaticConfirmationProvider)
+            assert first.confirm(None, None) is True  # type: ignore[arg-type]
+        else:
+            assert isinstance(first, WebConfirmationProvider)
 
 
 # -- A chain, and F5 (per-turn folders) ----------------------------------------------------
@@ -498,7 +515,13 @@ _SCENARIOS: dict[str, tuple[list[str], dict[str, Any], str]] = {
         "remove duplicate rows",
     ),
     "chain": (chain(*DEDUPE_THEN_EMPTY), {}, "remove duplicate rows, then remove empty rows"),
-    "declined": (single("remove_duplicate_rows"), {"auto_approve": False}, "remove duplicates"),
+    "declined": (single("remove_duplicate_rows"), {"decision": "reject"}, "remove duplicates"),
+    "timed_out": (single("remove_duplicate_rows"), {"decision": None}, "remove duplicates"),
+    "chain_declined": (
+        chain(*DEDUPE_THEN_EMPTY),
+        {"decision": "reject"},
+        "remove duplicate rows, then remove empty rows",
+    ),
     "clarification": (_unclear(), {}, "do the thing"),
     "no_intent": (["not json", "not json either"], {}, "?"),
     "crash": (single("remove_duplicate_rows"), {"raise": "inspector"}, "remove duplicates"),
@@ -512,7 +535,7 @@ _SCENARIOS: dict[str, tuple[list[str], dict[str, Any], str]] = {
     ),
     "yes_after_decline": (
         single("remove_duplicate_rows") + _unclear(),
-        {"first": "remove duplicate rows", "auto_approve": False},
+        {"first": "remove duplicate rows", "first_decision": "reject"},
         "yes, go ahead",
     ),
     "followup_after_delivery": (
@@ -529,8 +552,10 @@ def test_rule_1_holds_in_every_scenario(
     tmp_path: Path, scenario: str, speaker: str
 ) -> None:
     replies, options, message = _SCENARIOS[scenario]
+    # Only the scenario that leaves its plan unanswered gets a short window.
+    timed_out = "decision" in options and options["decision"] is None
     settings = Settings(
-        data_dir=tmp_path / "data", auto_approve=options.get("auto_approve", True)
+        data_dir=tmp_path / "data", confirmation_timeout_s=0.3 if timed_out else 120.0
     )
     wrap = raise_in(options["raise"], after=True) if "raise" in options else None
     factory = PipelineFactory(QueuedProvider(replies), speaker=speaker, wrap=wrap)
@@ -542,9 +567,10 @@ def test_rule_1_holds_in_every_scenario(
         session_id, file_id = _session_with_upload(client, mode, xlsx_bytes(options.get("rows")))
     before = _sha(_upload_path(settings, file_id)) if file_id else None
     if "first" in options:
-        _turn(client, session_id, options["first"])
+        first_decision = options.get("first_decision", "approve")
+        _turn(client, session_id, options["first"], decision=first_decision)
 
-    turn = _turn(client, session_id, message)
+    turn = _turn(client, session_id, message, decision=options.get("decision", "approve"))
 
     pipeline_replies = [run.reply for run in factory.runs]
     assert turn["reply"] in pipeline_replies + [FALLBACK_PIPELINE_ERROR, FALLBACK_INTEGRITY_FAILURE]
@@ -798,7 +824,7 @@ def test_a_turn_where_nothing_ran_says_so_plainly(
         replies = single("remove_duplicate_rows")
     else:  # a first turn, then the message
         replies = single("remove_duplicate_rows") + _unclear()
-    settings = Settings(data_dir=tmp_path / "data", auto_approve=setup != "after_decline")
+    settings = Settings(data_dir=tmp_path / "data")
     factory = PipelineFactory(QueuedProvider(replies), speaker=speaker)
     client = _app(settings, factory)
     mode = "focus" if speaker == "focus" else "friend"
@@ -806,7 +832,12 @@ def test_a_turn_where_nothing_ran_says_so_plainly(
         session_id = new_session(client, mode)
     else:
         session_id, _ = _session_with_upload(client, mode)
-        first = _turn(client, session_id, "remove duplicate rows")
+        first = _turn(
+            client,
+            session_id,
+            "remove duplicate rows",
+            decision="reject" if setup == "after_decline" else "approve",
+        )
         assert first["outcome"] == ("delivered" if setup == "after_delivery" else "not_delivered")
 
     turn = _turn(client, session_id, message)

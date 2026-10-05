@@ -1,0 +1,31 @@
+killed           m1_precheck_off                        FAILED tests/backend/test_confirmation_api.py::test_a_chain_that_cant_finish_is_never_put_to_the_user_and_writes_nothing[dedupe_then_sort-template]
+killed           m1_plan_ignores_known_stop             FAILED tests/buddy/test_hands_confirmation_plan.py::test_a_chain_that_cant_finish_asks_nothing_and_runs_no_chain_step
+killed           m1_skip_read_steps_too                 FAILED tests/backend/test_confirmation_api.py::test_a_chain_that_cant_finish_is_never_put_to_the_user_and_writes_nothing[dedupe_then_sort-template]
+SURVIVED         m1_skip_the_blocked_step_too           1305 passed in 277.79s (0:04:37)
+killed           m1_changes_files_any_routed            FAILED tests/backend/test_confirmation_api.py::test_a_chain_that_cant_finish_is_never_put_to_the_user_and_writes_nothing[dedupe_then_sort-template]
+killed           m1_known_stop_never                    FAILED tests/backend/test_confirmation_api.py::test_a_chain_that_cant_finish_is_never_put_to_the_user_and_writes_nothing[dedupe_then_sort-template]
+killed           m1_routes_dont_stop_at_unroutable      FAILED tests/buddy/test_hands_confirmation_plan.py::test_a_chain_that_cant_finish_asks_nothing_and_runs_no_chain_step
+killed           m1_not_started_uncounted               FAILED tests/buddy/test_hands_confirmation_plan.py::test_a_chain_that_cant_finish_asks_nothing_and_runs_no_chain_step
+killed           m1_plan_task_id_off_by_one             FAILED tests/backend/test_confirmation_api.py::test_the_plan_is_shown_before_any_file_changes_and_approving_it_delivers
+killed           m1_hands_never_announces               FAILED tests/backend/test_confirmation_api.py::test_the_plan_is_shown_before_any_file_changes_and_approving_it_delivers
+killed           m1_plan_includes_read_steps            FAILED tests/backend/test_confirmation_api.py::test_the_plan_is_shown_before_any_file_changes_and_approving_it_delivers
+killed           l2_old_order_outcome_first             FAILED tests/backend/test_confirmation_api.py::test_no_step_starts_after_the_deadline_ended_the_turn_even_if_approved
+killed           l2_closed_returns_the_decision         FAILED tests/backend/test_confirmation_api.py::test_no_step_starts_after_the_deadline_ended_the_turn_even_if_approved
+killed           l2_closed_block_removed                FAILED tests/backend/test_confirmation_api.py::test_no_step_starts_after_the_deadline_ended_the_turn_even_if_approved
+killed           l7_cap_removed                         FAILED tests/backend/test_app_basics.py::test_an_invalid_setting_refuses_to_start[WORKBUDDY_CONFIRMATION_TIMEOUT_S-3601]
+killed           l7_cap_inclusive                       FAILED tests/backend/test_app_basics.py::test_the_confirmation_timeout_comes_from_its_variable
+killed           l7_cap_ten_hours                       FAILED tests/backend/test_app_basics.py::test_an_invalid_setting_refuses_to_start[WORKBUDDY_CONFIRMATION_TIMEOUT_S-3601]
+killed           r1:next_step_no_tier_vs_plan           FAILED tests/backend/test_confirmation_provider.py::test_a_tier_asked_that_isnt_the_plans_is_refused_even_if_the_task_agrees
+killed           r1:next_step_no_confirmed_tiers        FAILED tests/backend/test_confirmation_provider.py::test_a_read_step_is_never_approved_even_if_a_plan_lists_it
+killed           r1:settle_overwrites                   FAILED tests/backend/test_confirmation_provider.py::test_once_closed_no_later_step_runs_even_after_an_approval
+SURVIVED         r1:expire_ignores_generation           688 passed in 156.52s (0:02:36)
+killed           r1:expire_doesnt_mark_finishing        FAILED tests/backend/test_confirmation_api.py::test_a_plan_is_never_shown_once_the_deadline_has_claimed_the_turn
+killed           r1:on_publish_ignores_finishing        FAILED tests/backend/test_confirmation_api.py::test_a_plan_is_never_shown_once_the_deadline_has_claimed_the_turn
+SURVIVED         r1:on_settle_keeps_plan_visible        688 passed in 161.64s (0:02:41)
+SURVIVED         r1:on_settle_keeps_awaiting            688 passed in 155.85s (0:02:35)
+killed           r1:finalize_doesnt_close_gate          FAILED tests/backend/test_confirmation_api.py::test_no_step_starts_after_the_deadline_ended_the_turn_even_if_approved
+SURVIVED         r1:answer_skips_pending_check          688 passed in 134.98s (0:02:14)
+killed           r1:jobs_never_removed                  FAILED tests/backend/test_confirmation_api.py::test_a_finished_turn_leaves_no_job_behind
+killed           r1:start_failure_not_finalized         FAILED tests/backend/test_confirmation_api.py::test_a_worker_that_cant_start_finishes_its_turn_as_failed
+SURVIVED         r1:store_writes_live_status            688 passed in 110.86s (0:01:50)
+killed           r1:store_running_with_decision_ok      FAILED tests/backend/test_confirmation_api.py::test_a_stored_running_turn_with_a_decision_is_not_restored

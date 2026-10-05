@@ -1,0 +1,64 @@
+killed           next_step_no_task_id               FAILED tests/backend/test_confirmation_provider.py::test_an_unlisted_step_is_refused_without_asking
+SURVIVED         next_step_no_tier_vs_plan          671 passed in 107.57s (0:01:47)
+killed           next_step_no_task_permission       FAILED tests/backend/test_confirmation_provider.py::test_a_task_whose_permission_disagrees_with_the_tier_asked_is_refused
+SURVIVED         next_step_no_confirmed_tiers       671 passed in 106.53s (0:01:46)
+killed           next_step_ignores_refusing         ERROR    backend.confirmation:confirmation.py:257 A step outside the published plan asked for confirmation (k-task-5, tier write); refusing it and every later step
+killed           next_step_past_end_allowed         FAILED tests/backend/test_confirmation_provider.py::test_a_step_past_the_end_of_the_plan_is_refused
+killed           no_plan_means_approve              FAILED tests/backend/test_confirmation_provider.py::test_without_a_plan_nothing_is_approved
+killed           timeout_is_approve                 FAILED tests/backend/test_confirmation_api.py::test_no_answer_before_the_plan_expires_is_a_rejection[template]
+killed           timeout_approves_via_return        FAILED tests/backend/test_confirmation_api.py::test_a_rejected_plan_runs_no_step_and_the_pipelines_reply_says_so[template]
+killed           later_steps_always_true            FAILED tests/backend/test_confirmation_provider.py::test_reject_refuses_that_step_and_every_later_one
+killed           closed_before_ask_publishes        FAILED tests/backend/test_confirmation_provider.py::test_a_shutdown_before_the_plan_is_asked_refuses_without_asking
+killed           close_doesnt_settle                FAILED tests/backend/test_confirmation_api.py::test_a_server_shutdown_rejects_the_waiting_plan
+killed           close_doesnt_wake                  FAILED tests/backend/test_confirmation_api.py::test_a_server_shutdown_rejects_the_waiting_plan
+killed           close_records_no_source            FAILED tests/backend/test_confirmation_provider.py::test_a_shutdown_before_the_plan_is_asked_refuses_without_asking
+killed           publish_even_if_finishing          FAILED tests/backend/test_confirmation_provider.py::test_a_turn_already_finishing_is_not_asked
+killed           stale_id_accepted                  FAILED tests/backend/test_confirmation_api.py::test_a_stale_id_is_409_and_the_plan_keeps_waiting
+killed           answer_without_pending_ok          FAILED tests/backend/test_confirmation_provider.py::test_no_answer_in_time_is_a_rejection
+killed           answer_doesnt_wake                 FAILED tests/backend/test_confirmation_api.py::test_the_plan_is_shown_before_any_file_changes_and_approving_it_delivers
+killed           second_plan_accepted               FAILED tests/backend/test_confirmation_provider.py::test_a_second_plan_for_one_turn_refuses_everything
+SURVIVED         settle_overwrites                  671 passed in 107.10s (0:01:47)
+killed           next_not_advanced                  ERROR    backend.confirmation:confirmation.py:257 A step outside the published plan asked for confirmation (d55762c54942a2ea60add76be5354fec-task-2, tier write); refusing it and every later step
+killed           empty_plan_built                   FAILED tests/backend/test_confirmation_provider.py::test_a_plan_is_never_built_without_a_step
+killed           later_template_names_upload        FAILED tests/backend/test_confirmation_api.py::test_a_two_step_chain_asks_once_and_the_plan_is_what_runs
+killed           plan_note_always                   FAILED tests/backend/test_confirmation_api.py::test_the_plan_is_shown_before_any_file_changes_and_approving_it_delivers
+killed           plan_note_never                    FAILED tests/backend/test_confirmation_api.py::test_a_two_step_chain_asks_once_and_the_plan_is_what_runs
+killed           plan_input_name_is_path            FAILED tests/backend/test_confirmation_api.py::test_the_plan_is_shown_before_any_file_changes_and_approving_it_delivers
+killed           hands_never_announces              ERROR    backend.confirmation:confirmation.py:257 A step outside the published plan asked for confirmation (38acf7c2bf968044f5f64d5fd54aa43a-task-1, tier write); refusing it and every later step
+killed           plan_continues_past_unroutable     ERROR    core.dispatcher:dispatcher.py:135 No registered skill declares capability 'spreadsheet.sort'
+killed           plan_includes_read_steps           ERROR    backend.confirmation:confirmation.py:257 A step outside the published plan asked for confirmation (5ed881036a94cc77dffb56e0924c08d5-task-1, tier write); refusing it and every later step
+killed           plan_task_id_off_by_one            ERROR    backend.confirmation:confirmation.py:257 A step outside the published plan asked for confirmation (a9b148f6cbaeac7c259e40606d220809-task-1, tier write); refusing it and every later step
+killed           voice_problem_always_dropped       FAILED tests/buddy/test_voice.py::test_template_speaker_names_the_failed_step_and_what_never_ran
+killed           voice_problem_never_dropped        FAILED tests/backend/test_confirmation_api.py::test_a_rejected_plan_runs_no_step_and_the_pipelines_reply_says_so[template]
+killed           voice_decline_any_step             FAILED tests/buddy/test_voice.py::test_template_speaker_never_says_done_when_the_last_step_stopped_the_chain[declined]
+killed           publish_keeps_deadline             FAILED tests/backend/test_confirmation_api.py::test_the_deadline_doesnt_count_the_wait_for_an_answer
+killed           settle_doesnt_rearm                FAILED tests/backend/test_confirmation_api.py::test_the_deadline_counts_the_work_after_the_answer
+killed           disarm_forgets_time_used           FAILED tests/backend/test_confirmation_api.py::test_the_working_time_before_and_after_the_wait_adds_up
+SURVIVED         expire_ignores_generation          671 passed in 104.23s (0:01:44)
+SURVIVED         expire_doesnt_mark_finishing       671 passed in 106.91s (0:01:46)
+SURVIVED         on_publish_ignores_finishing       671 passed in 106.89s (0:01:46)
+killed           on_settle_no_record                FAILED tests/backend/test_confirmation_api.py::test_the_plan_is_shown_before_any_file_changes_and_approving_it_delivers
+SURVIVED         on_settle_keeps_plan_visible       671 passed in 106.25s (0:01:46)
+SURVIVED         on_settle_keeps_awaiting           671 passed in 104.95s (0:01:44)
+SURVIVED         finalize_doesnt_close_gate         671 passed in 105.86s (0:01:45)
+killed           finalize_close_unguarded           FAILED tests/backend/test_confirmation_api.py::test_a_raise_while_finishing_still_finishes_the_turn_as_decided[close_the_plan]
+killed           finalize_record_unguarded          FAILED tests/backend/test_confirmation_api.py::test_a_raise_while_finishing_still_finishes_the_turn_as_decided[record_the_reply]
+killed           finalize_exception_only            FAILED tests/backend/test_confirmation_api.py::test_a_raise_inside_finalization_still_finishes_the_turn[base_exception-uploads_unchanged]
+killed           finalize_read_only_unguarded       FAILED tests/backend/test_confirmation_api.py::test_a_raise_inside_finalization_still_finishes_the_turn[exception-make_read_only]
+killed           shutdown_noop                      FAILED tests/backend/test_confirmation_api.py::test_a_server_shutdown_rejects_the_waiting_plan
+SURVIVED         answer_skips_pending_check         671 passed in 106.00s (0:01:46)
+SURVIVED         jobs_never_removed                 671 passed in 106.20s (0:01:46)
+killed           auto_approve_always_web            FAILED tests/backend/test_turns.py::test_each_turn_gets_its_own_provider_and_auto_approve_is_only_a_test_setting
+SURVIVED         start_failure_not_finalized        671 passed in 106.92s (0:01:46)
+killed           view_never_awaiting                FAILED tests/backend/test_confirmation_api.py::test_the_plan_is_shown_before_any_file_changes_and_approving_it_delivers
+killed           session_plan_hidden                FAILED tests/backend/test_confirmation_api.py::test_the_plan_is_shown_before_any_file_changes_and_approving_it_delivers
+killed           detail_without_confirmation        FAILED tests/backend/test_confirmation_api.py::test_the_plan_is_shown_before_any_file_changes_and_approving_it_delivers
+SURVIVED         store_writes_live_status           671 passed in 108.70s (0:01:48)
+killed           store_drops_decision               FAILED tests/backend/test_confirmation_api.py::test_the_plan_is_shown_before_any_file_changes_and_approving_it_delivers
+killed           store_unchecked_decision           FAILED tests/backend/test_confirmation_api.py::test_a_malformed_stored_decision_is_not_restored[confirmation0]
+SURVIVED         store_running_with_decision_ok     671 passed in 108.90s (0:01:48)
+killed           settings_reads_auto_approve        FAILED tests/backend/test_app_basics.py::test_auto_approve_is_never_read_from_the_environment[1]
+killed           settings_timeout_unchecked         FAILED tests/backend/test_app_basics.py::test_an_invalid_setting_refuses_to_start[WORKBUDDY_CONFIRMATION_TIMEOUT_S-0]
+killed           lifespan_no_shutdown               FAILED tests/backend/test_confirmation_api.py::test_a_server_shutdown_rejects_the_waiting_plan
+killed           schema_steps_may_be_empty          FAILED tests/backend/test_openapi_sync.py::test_the_committed_schema_matches_the_app_byte_for_byte
+EXIT 0

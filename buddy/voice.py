@@ -287,6 +287,20 @@ def _recheck_failed(verification_result: VerificationResult | None) -> bool:
     return any(s.recheck and not s.passed for s in verification_result.steps)
 
 
+def _declined_before_any_change(execution_result: ExecutionResult) -> bool:
+    """Whether the first file-changing step was declined, so no step changed a file.
+
+    The user said no to the plan (or didn't answer it): nothing went wrong,
+    so the reply doesn't say "I ran into a problem"; the step's own reason
+    ("wasn't confirmed, so it didn't run") says what happened. A step
+    declined after an earlier one ran is still a problem.
+    """
+    for step in execution_result.steps:
+        if _is_action_step(step):
+            return step.status == DECLINED_STATUS
+    return False
+
+
 def _chain_stop_sentence(execution_result: ExecutionResult | None) -> str:
     """Say, in plain words, which step stopped the chain and what didn't run.
 
@@ -582,10 +596,13 @@ class TemplateSpeaker:
                 for error in execution_result.errors
                 if not error.startswith("stopped:")
             ]
-        sentence = "I ran into a problem partway through."
+        sentence = []
+        if not _declined_before_any_change(execution_result):
+            sentence.append("I ran into a problem partway through.")
         if reasons:
-            sentence += " " + ". ".join(reasons) + "."
-        parts.append(sentence)
+            sentence.append(". ".join(reasons) + ".")
+        if sentence:
+            parts.append(" ".join(sentence))
         parts.append(_chain_stop_sentence(execution_result))
         return " ".join(parts)
 

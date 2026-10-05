@@ -1,0 +1,48 @@
+{
+ "message": "remove duplicates and sort by amount",
+ "decision": "reject",
+ "intent": "multi_step_request",
+ "clarification_required": false,
+ "statuses": [
+  "running",
+  "awaiting_confirmation",
+  "finished"
+ ],
+ "plans": [
+  {
+   "steps": [
+    [
+     "spreadsheet.deduplicate",
+     "Remove duplicate rows from manual_report.xlsx."
+    ]
+   ],
+   "plan_note": null
+  }
+ ],
+ "answers": [
+  {
+   "decision": "reject",
+   "http": 200,
+   "status_after": "running",
+   "pending_after": null,
+   "error": null
+  }
+ ],
+ "steps": [
+  "spreadsheet.analyze[success]",
+  "spreadsheet.deduplicate[declined]",
+  "spreadsheet.sort[skipped]"
+ ],
+ "confirmation": {
+  "decision": "reject",
+  "decision_source": "user"
+ },
+ "outcome": "not_delivered",
+ "reply_source": "pipeline",
+ "reply": "Before anything else, here's what I noticed: name: 1 missing value(s) (16.7%); amount: 1 missing value(s) (16.7%). Want me to tackle any of these? The deduplicate step: wasn't confirmed, so it didn't run. I stopped at the deduplicate step, so sort never ran and no file was handed back; your original file is unchanged.",
+ "delivered": [],
+ "written_in_turn_folder": [],
+ "original_sha_before": "6380129ae2b98e50ad54c928c1c526a664ae8f75b92fb1ae94b2accbe20a7e71",
+ "original_sha_after": "6380129ae2b98e50ad54c928c1c526a664ae8f75b92fb1ae94b2accbe20a7e71",
+ "provider_429_log_lines": 0
+}

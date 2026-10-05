@@ -7,12 +7,19 @@ as it is, and every other field is structured data.
 
 from __future__ import annotations
 
+from typing import Any
+
+from backend.confirmation import PendingPlan
 from backend.schemas import (
+    AwaitingConfirmationTurn,
+    AwaitingConfirmationTurnSummary,
     DeliveredFileOut,
     FileList,
     FinishedTurn,
     FinishedTurnSummary,
     Limits,
+    PendingConfirmation,
+    PlanStep,
     RunningTurn,
     RunningTurnSummary,
     SessionCreated,
@@ -21,7 +28,13 @@ from backend.schemas import (
     TurnDetail,
     UploadedFile,
 )
-from backend.sessions import DeliveredFile, SessionRecord, TurnRecord, UploadRecord
+from backend.sessions import (
+    AWAITING_CONFIRMATION,
+    DeliveredFile,
+    SessionRecord,
+    TurnRecord,
+    UploadRecord,
+)
 from backend.settings import Settings
 
 # Until the retention sweep exists (PR-4), nothing is deleted, so no
@@ -49,6 +62,7 @@ def session_created(session_id: str, record: SessionRecord, settings: Settings) 
 
 
 def session_state(session_id: str, record: SessionRecord, settings: Settings) -> SessionState:
+    running = record.turn(record.running_turn_id) if record.running_turn_id else None
     return SessionState(
         session_id=session_id,
         mode=record.mode,  # type: ignore[arg-type]
@@ -56,10 +70,29 @@ def session_state(session_id: str, record: SessionRecord, settings: Settings) ->
         active_file_id=record.active_file_id,
         files=[uploaded_file(f) for f in record.files.values()],
         turns=[turn_summary(session_id, t) for t in record.turns],
-        pending_confirmation=None,
+        pending_confirmation=_waiting_plan(running) if running is not None else None,
         limits=limits(settings),
         retention_hours=RETENTION_HOURS,
     )
+
+
+def pending_confirmation(plan: PendingPlan) -> PendingConfirmation:
+    """The public shape of a waiting plan: its steps and note, nothing step-1-only."""
+    return PendingConfirmation(
+        confirmation_id=plan.confirmation_id,
+        steps=[PlanStep(capability=s.capability, prompt=s.prompt) for s in plan.steps],
+        plan_note=plan.plan_note,
+        expires_at=plan.expires_at,
+    )
+
+
+def _waiting_plan(turn: TurnRecord) -> PendingConfirmation | None:
+    """The turn's plan, if it's waiting for an answer right now."""
+    if turn.finished or turn.status != AWAITING_CONFIRMATION:
+        return None
+    if turn.pending_confirmation is None:
+        return None
+    return pending_confirmation(turn.pending_confirmation)
 
 
 def uploaded_file(upload: UploadRecord) -> UploadedFile:
@@ -123,6 +156,14 @@ def _turn_fields(session_id: str, turn: TurnRecord) -> dict[str, object]:
         "pending_confirmation": None,
     }
     if not turn.finished:
+        plan = _waiting_plan(turn)
+        if plan is not None:
+            return {
+                **common,
+                "status": AWAITING_CONFIRMATION,
+                "pending_confirmation": plan,
+                "delivered_files": [],
+            }
         return {**common, "status": "running", "delivered_files": []}
     return {
         **common,
@@ -149,16 +190,36 @@ def turn_as_started(turn: TurnRecord) -> RunningTurn:
     )
 
 
-def turn_summary(session_id: str, turn: TurnRecord) -> RunningTurnSummary | FinishedTurnSummary:
+def turn_summary(
+    session_id: str, turn: TurnRecord
+) -> RunningTurnSummary | AwaitingConfirmationTurnSummary | FinishedTurnSummary:
     fields = _turn_fields(session_id, turn)
     if turn.finished:
         return FinishedTurnSummary.model_validate(fields)
+    if fields["status"] == AWAITING_CONFIRMATION:
+        return AwaitingConfirmationTurnSummary.model_validate(fields)
     return RunningTurnSummary.model_validate(fields)
 
 
-def turn_out(session_id: str, turn: TurnRecord) -> RunningTurn | FinishedTurn:
+def turn_out(
+    session_id: str, turn: TurnRecord
+) -> RunningTurn | AwaitingConfirmationTurn | FinishedTurn:
     fields = _turn_fields(session_id, turn)
-    detail = TurnDetail.model_validate(turn.detail) if turn.detail is not None else None
     if turn.finished:
-        return FinishedTurn.model_validate({**fields, "detail": detail})
+        return FinishedTurn.model_validate({**fields, "detail": _detail(turn)})
+    if fields["status"] == AWAITING_CONFIRMATION:
+        return AwaitingConfirmationTurn.model_validate({**fields, "detail": None})
     return RunningTurn.model_validate({**fields, "detail": None})
+
+
+def _detail(turn: TurnRecord) -> TurnDetail | None:
+    """The finished turn's ``detail``, with how its plan was decided (from the record)."""
+    if turn.detail is None:
+        return None
+    confirmation: dict[str, Any] | None = None
+    if turn.confirmation is not None:
+        confirmation = {
+            "decision": turn.confirmation.decision,
+            "decision_source": turn.confirmation.source,
+        }
+    return TurnDetail.model_validate({**turn.detail, "confirmation": confirmation})

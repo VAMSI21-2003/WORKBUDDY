@@ -1,0 +1,18 @@
+## PR-B harness.py: 532 turns on head, 532 on base; 518 identical, 14 differ
+   voice calls head/base: 0/0; originals unchanged head/base: True/True
+   r-chain-stop: 14 turn(s) differ in ['reply', 'steps']
+      base reply: "Before anything else, here's what I noticed: name: 1 missing value(s) (16.7%); amount: 1 missing value(s) (16.7%). Want me to tackle any of these? I ran into a problem partway through. The sort step: couldn't be run because no available skill can do it. I stopped at the sort step and no file was handed back; your original file is unchanged."
+      head reply: "Before anything else, here's what I noticed: name: 1 missing value(s) (16.7%); amount: 1 missing value(s) (16.7%). Want me to tackle any of these? I ran into a problem partway through. The sort step: couldn't be run because no available skill can do it. I stopped at the sort step, so deduplicate never ran and no file was handed back; your original file is unchanged."
+      base steps: [["spreadsheet.analyze", "success"], ["spreadsheet.deduplicate", "success"], ["spreadsheet.sort", "failure"]]
+      head steps: [["spreadsheet.analyze", "success"], ["spreadsheet.deduplicate", "skipped"], ["spreadsheet.sort", "failure"]]
+## round5.py: 228 turns on head, 228 on base; 210 identical, 18 differ
+   voice calls head/base: 0/0; originals unchanged head/base: True/True
+   d01-outdir: 6 turn(s) differ in ['out_path']
+      base out_path: "/tmp/tmpxul8kb5k/turn_outputs/t1/report_deduplicated_session-1-task-1.xlsx"
+      head out_path: "/tmp/tmp72skn2bq/turn_outputs/t1/report_deduplicated_session-1-task-1.xlsx"
+   d02-outdir-chain: 6 turn(s) differ in ['out_path']
+      base out_path: "/tmp/tmpzx_oq9_s/turn_outputs/t1/report_deduplicated_session-1-task-1_no_empty_rows_session-1-task-2.xlsx"
+      head out_path: "/tmp/tmp6afg7f22/turn_outputs/t1/report_deduplicated_session-1-task-1_no_empty_rows_session-1-task-2.xlsx"
+   d03-decline: 6 turn(s) differ in ['reply']
+      base reply: "Before anything else, here's what I noticed: name: 1 missing value(s) (16.7%); amount: 1 missing value(s) (16.7%). Want me to tackle any of these? I ran into a problem partway through. The deduplicate step: wasn't confirmed, so it didn't run. I stopped at the deduplicate step and no file was handed back; your original file is unchanged."
+      head reply: "Before anything else, here's what I noticed: name: 1 missing value(s) (16.7%); amount: 1 missing value(s) (16.7%). Want me to tackle any of these? The deduplicate step: wasn't confirmed, so it didn't run. I stopped at the deduplicate step and no file was handed back; your original file is unchanged."

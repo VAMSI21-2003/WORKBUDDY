@@ -6,10 +6,11 @@ backend.export_openapi``) and checked by ``tests/backend/test_openapi_sync.py``.
 A turn is a union discriminated on ``status``: only the ``finished``
 variant has ``reply``, ``reply_source`` and ``outcome``, and there they are
 required and non-null (design "Decisions (2026-09-30, part 2)", ask 7). The
-other variant still carries those keys, as ``null``, so the JSON shape of
-design Section 1.3.1 doesn't change. ``awaiting_confirmation`` and the
-shape of ``pending_confirmation`` belong to PR-3; until then
-``pending_confirmation`` is always ``null``.
+other variants still carry those keys, as ``null``, so the JSON shape of
+design Section 1.3.1 doesn't change. Only the ``awaiting_confirmation``
+variant has a ``pending_confirmation``, and there it is required: the
+plan's ``steps`` (at least one) and ``plan_note``, with no step-1-only
+fields ("Decisions (2026-10-01)", items 4 and 5).
 """
 
 from __future__ import annotations
@@ -121,6 +122,42 @@ class CreateTurnRequest(_Strict):
     file_id: str | None = None
 
 
+class ConfirmationRequest(_Strict):
+    """The user's answer to the plan waiting on a turn."""
+
+    confirmation_id: str = Field(pattern=r"^[A-Za-z0-9_-]{1,64}$")
+    decision: Literal["approve", "reject"]
+
+
+class PlanStep(BaseModel):
+    """One step of the plan: its capability, and what it proposes to do (no result)."""
+
+    capability: str
+    prompt: str
+
+
+class PendingConfirmation(BaseModel):
+    """The plan waiting for the user's answer: every file-changing step, in order.
+
+    Approving it approves every step; rejecting it, or no answer by
+    ``expires_at``, means none of them runs.
+    """
+
+    confirmation_id: str
+    steps: list[PlanStep] = Field(min_length=1)
+    plan_note: str | None = Field(
+        description="Set, to a fixed line, when the plan has two or more steps; else null."
+    )
+    expires_at: datetime
+
+
+class ConfirmationDetail(BaseModel):
+    """How the turn's plan was decided. Only the user ever approves."""
+
+    decision: Literal["approve", "reject"]
+    decision_source: Literal["user", "timeout", "shutdown", "turn_finished"]
+
+
 class StepDetail(BaseModel):
     capability: str
     permission_tier: str
@@ -138,6 +175,7 @@ class TurnDetail(BaseModel):
     clarification_required: bool | None
     steps: list[StepDetail]
     stopped_at: str | None
+    confirmation: ConfirmationDetail | None = None
 
 
 class _TurnCommon(BaseModel):
@@ -147,11 +185,20 @@ class _TurnCommon(BaseModel):
     mode: Mode
     started_at: datetime
     delivered_files: list[DeliveredFileOut]
-    pending_confirmation: None = None
 
 
 class RunningTurnSummary(_TurnCommon):
     status: Literal["running"]
+    pending_confirmation: None = None
+    outcome: None = None
+    finished_at: None = None
+    reply: None = None
+    reply_source: None = None
+
+
+class AwaitingConfirmationTurnSummary(_TurnCommon):
+    status: Literal["awaiting_confirmation"]
+    pending_confirmation: PendingConfirmation
     outcome: None = None
     finished_at: None = None
     reply: None = None
@@ -160,6 +207,7 @@ class RunningTurnSummary(_TurnCommon):
 
 class FinishedTurnSummary(_TurnCommon):
     status: Literal["finished"]
+    pending_confirmation: None = None
     outcome: Outcome
     finished_at: datetime
     reply: str
@@ -170,12 +218,21 @@ class RunningTurn(RunningTurnSummary):
     detail: TurnDetail | None = None
 
 
+class AwaitingConfirmationTurn(AwaitingConfirmationTurnSummary):
+    detail: TurnDetail | None = None
+
+
 class FinishedTurn(FinishedTurnSummary):
     detail: TurnDetail | None = None
 
 
-TurnSummary = Annotated[RunningTurnSummary | FinishedTurnSummary, Field(discriminator="status")]
-Turn = Annotated[RunningTurn | FinishedTurn, Field(discriminator="status")]
+TurnSummary = Annotated[
+    RunningTurnSummary | AwaitingConfirmationTurnSummary | FinishedTurnSummary,
+    Field(discriminator="status"),
+]
+Turn = Annotated[
+    RunningTurn | AwaitingConfirmationTurn | FinishedTurn, Field(discriminator="status")
+]
 
 
 class SessionState(BaseModel):
@@ -185,6 +242,8 @@ class SessionState(BaseModel):
     active_file_id: str | None
     files: list[UploadedFile]
     turns: list[TurnSummary]
-    pending_confirmation: None = None
+    pending_confirmation: PendingConfirmation | None = Field(
+        description="The plan waiting on the session's unfinished turn, if one is waiting."
+    )
     limits: Limits
     retention_hours: int | None

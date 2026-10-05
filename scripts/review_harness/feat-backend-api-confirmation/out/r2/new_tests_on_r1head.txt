@@ -1,0 +1,38 @@
+PASSED  tests/backend/test_app_basics.py::test_an_invalid_setting_refuses_to_start[WORKBUDDY_MAX_UPLOAD_BYTES-lots]  
+PASSED  tests/backend/test_app_basics.py::test_an_invalid_setting_refuses_to_start[WORKBUDDY_MAX_UPLOAD_BYTES-0]  
+PASSED  tests/backend/test_app_basics.py::test_an_invalid_setting_refuses_to_start[WORKBUDDY_MAX_CONCURRENT_TURNS--1]  
+PASSED  tests/backend/test_app_basics.py::test_an_invalid_setting_refuses_to_start[WORKBUDDY_CONFIRMATION_TIMEOUT_S-0]  
+PASSED  tests/backend/test_app_basics.py::test_an_invalid_setting_refuses_to_start[WORKBUDDY_CONFIRMATION_TIMEOUT_S-soon]  
+FAILED  tests/backend/test_app_basics.py::test_an_invalid_setting_refuses_to_start[WORKBUDDY_CONFIRMATION_TIMEOUT_S-3601]  Failed: DID NOT RAISE SettingsError
+FAILED  tests/backend/test_app_basics.py::test_an_invalid_setting_refuses_to_start[WORKBUDDY_CONFIRMATION_TIMEOUT_S-99999999999]  Failed: DID NOT RAISE SettingsError
+PASSED  tests/backend/test_app_basics.py::test_the_confirmation_timeout_comes_from_its_variable  
+FAILED  tests/backend/test_confirmation_provider.py::test_once_closed_no_later_step_runs_even_after_an_approval  AssertionError: assert True is False
+PASSED  tests/backend/test_confirmation_provider.py::test_a_tier_asked_that_isnt_the_plans_is_refused_even_if_the_task_agrees  
+PASSED  tests/backend/test_confirmation_provider.py::test_a_read_step_is_never_approved_even_if_a_plan_lists_it  
+FAILED  tests/backend/test_confirmation_api.py::test_a_chain_that_cant_finish_is_never_put_to_the_user_and_writes_nothing[dedupe_then_sort-template]  assert 1830.807406157 < 1830.802847572
+FAILED  tests/backend/test_confirmation_api.py::test_a_chain_that_cant_finish_is_never_put_to_the_user_and_writes_nothing[dedupe_then_sort-friend]  assert 1861.058480177 < 1861.051044104
+FAILED  tests/backend/test_confirmation_api.py::test_a_chain_that_cant_finish_is_never_put_to_the_user_and_writes_nothing[dedupe_then_sort-focus]  assert 1891.174664321 < 1891.157616265
+FAILED  tests/backend/test_confirmation_api.py::test_a_chain_that_cant_finish_is_never_put_to_the_user_and_writes_nothing[two_steps_then_sort-template]  assert 1921.274562203 < 1921.26715596
+FAILED  tests/backend/test_confirmation_api.py::test_a_chain_that_cant_finish_is_never_put_to_the_user_and_writes_nothing[two_steps_then_sort-friend]  assert 1951.406175849 < 1951.391748998
+FAILED  tests/backend/test_confirmation_api.py::test_a_chain_that_cant_finish_is_never_put_to_the_user_and_writes_nothing[two_steps_then_sort-focus]  assert 1981.494604898 < 1981.494438088
+FAILED  tests/backend/test_confirmation_api.py::test_no_step_starts_after_the_deadline_ended_the_turn_even_if_approved  assert True is False
+PASSED  tests/backend/test_confirmation_api.py::test_a_plan_is_never_shown_once_the_deadline_has_claimed_the_turn  
+PASSED  tests/backend/test_confirmation_api.py::test_a_worker_that_cant_start_finishes_its_turn_as_failed  
+PASSED  tests/backend/test_confirmation_api.py::test_a_finished_turn_leaves_no_job_behind  
+PASSED  tests/backend/test_confirmation_api.py::test_a_stored_running_turn_with_a_decision_is_not_restored  
+FAILED  tests/buddy/test_engine_factory.py::test_full_slice_never_says_done_when_the_last_step_cant_be_run  AssertionError: assert [('spreadshee...', 'failure')] == [('spreadshee...', 'failure')]
+FAILED  tests/buddy/test_engine_factory.py::test_full_slice_personality_voice_never_describes_a_three_step_chain_stopped_midway[Duplicates are gone and your sheet is down to 3 rows.]  assert 'I stopped at the report step, so deduplicate, remove empty rows never ran' in "Before anything else, here's what I noticed: name: 1 missing va
+FAILED  tests/buddy/test_engine_factory.py::test_full_slice_personality_voice_never_describes_a_three_step_chain_stopped_midway[All set! I took care of the duplicate rows.]  assert 'I stopped at the report step, so deduplicate, remove empty rows never ran' in "Before anything else, here's what I noticed: name: 1 missing va
+FAILED  tests/buddy/test_engine_factory.py::test_full_slice_personality_voice_never_describes_a_three_step_chain_stopped_midway[Your spreadsheet now has 3 rows with the duplicates stripped out.]  assert 'I stopped at the report step, so deduplicate, remove empty rows never ran' in "Before anything else, here's what I noticed: name: 1 missing va
+FAILED  tests/buddy/test_engine_factory.py::test_dedupe_and_sort_as_a_chain_hands_nothing_back_and_claims_nothing  AssertionError: assert ('spreadsheet.deduplicate', 'skipped') in [('spreadsheet.analyze', 'success'), ('spreadsheet.deduplicate', 'success'), ('spread
+FAILED  tests/buddy/test_hands.py::test_hands_leaves_a_next_step_with_no_skill_to_stop_the_chain_itself  AssertionError: assert [('cap.a', 's...', 'failure')] == [('cap.a', 's...', 'failure')]
+FAILED  tests/buddy/test_hands.py::test_hands_records_the_failing_last_step_when_the_chain_cant_finish  AssertionError: assert [('cap.a', 's...', 'failure')] == [('cap.a', 's...', 'failure')]
+FAILED  tests/buddy/test_hands.py::test_a_chain_stopped_after_an_earlier_step_passed_hands_back_no_file[not-dispatchable]  AssertionError: assert ('success' == 'skipped'
+PASSED  tests/buddy/test_hands.py::test_a_chain_stopped_after_an_earlier_step_passed_hands_back_no_file[declined]  
+PASSED  tests/buddy/test_hands.py::test_a_chain_stopped_after_an_earlier_step_passed_hands_back_no_file[skill-failure]  
+PASSED  tests/buddy/test_hands.py::test_a_chain_stopped_after_an_earlier_step_passed_hands_back_no_file[malformed]  
+PASSED  tests/buddy/test_hands.py::test_a_chain_stopped_after_an_earlier_step_passed_hands_back_no_file[failed-verification]  
+FAILED  tests/buddy/test_hands_confirmation_plan.py::test_a_chain_that_cant_finish_asks_nothing_and_runs_no_chain_step  AssertionError: assert (Confirmation...eport.xlsx'),) == ()
+PASSED  tests/buddy/test_hands_confirmation_plan.py::test_a_step_the_dispatcher_cant_route_before_any_chain_step_stops_as_before  
+FAILED  tests/buddy/test_hands_confirmation_plan.py::test_a_chain_that_cant_finish_doesnt_start_without_a_plan_aware_provider  AssertionError: assert [('execute', ...dedupe.xlsx')] == []
+TOTAL on old code: 20 failed, 17 passed

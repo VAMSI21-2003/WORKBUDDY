@@ -32,6 +32,7 @@ from typing import Any
 
 from pydantic import ValidationError
 
+from backend.confirmation import DECISION_SOURCES, DECISIONS, ConfirmationOutcome
 from backend.schemas import TurnDetail
 from backend.sessions import (
     FINISHED,
@@ -58,6 +59,12 @@ _SHA256 = re.compile(r"^[0-9a-f]{64}$")
 _MODES = ("friend", "focus")
 _OUTCOMES = ("delivered", "not_delivered", "failed", "integrity_failure")
 _REPLY_SOURCES = ("pipeline", "pipeline_fallback")
+# A turn record's keys. PR-2 wrote them without "confirmation"; both restore.
+_TURN_KEYS = {
+    "version", "turn_id", "seq", "message", "mode", "started_at", "target_file_id",
+    "status", "outcome", "finished_at", "reply", "reply_source", "delivered_files",
+    "detail",
+}
 
 
 class CorruptRecord(ValueError):
@@ -102,7 +109,12 @@ class SessionStore:
         atomic_write_json(record.meta_dir(self._settings) / "session.json", data)
 
     def save_turn(self, record: SessionRecord, turn: TurnRecord) -> None:
-        """Rewrite one turn's record. The caller holds the session's lock."""
+        """Rewrite one turn's record. The caller holds the session's lock.
+
+        An unfinished turn is written as ``running``: a waiting plan is live
+        state only, and a restart ends the turn as failed either way.
+        """
+        confirmation = turn.confirmation
         data = {
             "version": FORMAT_VERSION,
             "turn_id": turn.turn_id,
@@ -111,7 +123,7 @@ class SessionStore:
             "mode": turn.mode,
             "started_at": turn.started_at.isoformat(),
             "target_file_id": turn.target_file_id,
-            "status": turn.status,
+            "status": FINISHED if turn.finished else RUNNING,
             "outcome": turn.outcome,
             "finished_at": turn.finished_at.isoformat() if turn.finished_at else None,
             "reply": turn.reply,
@@ -127,6 +139,11 @@ class SessionStore:
                 for d in turn.delivered_files
             ],
             "detail": turn.detail,
+            "confirmation": (
+                {"decision": confirmation.decision, "decision_source": confirmation.source}
+                if confirmation is not None
+                else None
+            ),
         }
         path = record.meta_dir(self._settings) / "turns" / f"{turn.turn_id}.json"
         atomic_write_json(path, data)
@@ -231,14 +248,9 @@ class SessionStore:
     def _turn(self, key: str, folder: Path, turn_id: str) -> TurnRecord:
         _check(bool(_TURN_ID.match(turn_id)), "turn id")
         data = _read_json(folder / "turns" / f"{turn_id}.json")
-        _expect_keys(
-            data,
-            "turn",
-            {
-                "version", "turn_id", "seq", "message", "mode", "started_at", "target_file_id",
-                "status", "outcome", "finished_at", "reply", "reply_source", "delivered_files",
-                "detail",
-            },
+        _check(
+            isinstance(data, dict) and set(data) in (_TURN_KEYS, _TURN_KEYS | {"confirmation"}),
+            "turn: keys",
         )
         _check(data["version"] == FORMAT_VERSION and _is_int(data["version"]), "turn: version")
         _check(data["turn_id"] == turn_id, "turn: turn_id")
@@ -258,11 +270,14 @@ class SessionStore:
             target_file_id=target,
             status=status,
         )
+        confirmation = data.get("confirmation")
         if status == RUNNING:
             for name in ("outcome", "finished_at", "reply", "reply_source", "detail"):
                 _check(data[name] is None, f"turn: {name} on a running turn")
             _check(data["delivered_files"] == [], "turn: files on a running turn")
+            _check(confirmation is None, "turn: confirmation on a running turn")
             return turn
+        turn.confirmation = _confirmation(confirmation)
         _check(data["outcome"] in _OUTCOMES, "turn: outcome")
         _check(data["reply_source"] in _REPLY_SOURCES, "turn: reply_source")
         _check(isinstance(data["reply"], str) and bool(data["reply"].strip()), "turn: reply")
@@ -351,6 +366,16 @@ def _read_json(path: Path) -> Any:
     _check(path.is_file() and not path.is_symlink(), f"{path.name}: missing")
     _check(path.stat().st_size <= MAX_RECORD_BYTES, f"{path.name}: too large")
     return json.loads(path.read_text(encoding="utf-8"))
+
+
+def _confirmation(data: Any) -> ConfirmationOutcome | None:
+    """A stored plan decision, checked against the closed sets."""
+    if data is None:
+        return None
+    _expect_keys(data, "turn: confirmation", {"decision", "decision_source"})
+    _check(data["decision"] in DECISIONS, "turn: confirmation: decision")
+    _check(data["decision_source"] in DECISION_SOURCES, "turn: confirmation: decision_source")
+    return ConfirmationOutcome(decision=data["decision"], source=data["decision_source"])
 
 
 def _valid_detail(detail: Any) -> bool:

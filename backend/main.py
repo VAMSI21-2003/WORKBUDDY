@@ -12,6 +12,8 @@ from __future__ import annotations
 import json
 import logging
 import os
+from collections.abc import AsyncIterator
+from contextlib import asynccontextmanager
 from typing import Any
 
 from fastapi import FastAPI
@@ -105,8 +107,16 @@ def create_app(
     install_log_redaction()
     if settings.auto_approve:
         logger.warning(
-            "WORKBUDDY_AUTO_APPROVE is on: every file-changing step is approved without asking"
+            "auto_approve (a test setting) is on: every file-changing step is approved "
+            "without asking"
         )
+
+    @asynccontextmanager
+    async def lifespan(app: FastAPI) -> AsyncIterator[None]:
+        yield
+        # A plan still waiting when the server stops is rejected, never
+        # approved (design Section 1.5).
+        app.state.runner.shutdown()
 
     app = FastAPI(
         title="WorkBuddy API",
@@ -117,6 +127,7 @@ def create_app(
         redoc_url=None,
         openapi_url=None,
         responses={500: {"model": ErrorBody, "description": "Internal error"}},
+        lifespan=lifespan,
     )
     app.state.settings = settings
     app.state.llm_configured = configured

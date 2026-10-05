@@ -155,10 +155,14 @@ Serve the HTTP API (see `docs/design/backend-api-design.md`) on
 python -m backend --port 8000
 ```
 
-`WORKBUDDY_DATA_DIR` sets the data root (default `workspace/`). Until the
-confirm/reject endpoint exists, file-changing steps run only with
-`WORKBUDDY_AUTO_APPROVE=1`; otherwise they are declined. The API contract
-is `backend/openapi.json` (regenerate with `python -m backend.export_openapi`).
+`WORKBUDDY_DATA_DIR` sets the data root (default `workspace/`). Before a
+turn's first file-changing step, the turn shows its whole plan
+(`awaiting_confirmation`, with `pending_confirmation.steps`) and waits for
+one answer: `POST /api/v1/sessions/{id}/turns/{turn_id}/confirmation` with
+`{"confirmation_id": …, "decision": "approve" | "reject"}`. No answer within
+`WORKBUDDY_CONFIRMATION_TIMEOUT_S` (default 120) is a rejection.
+`WORKBUDDY_AUTO_APPROVE` is no longer read. The API contract is
+`backend/openapi.json` (regenerate with `python -m backend.export_openapi`).
 
 ## License
 

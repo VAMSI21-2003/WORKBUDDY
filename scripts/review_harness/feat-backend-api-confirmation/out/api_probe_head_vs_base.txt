@@ -1,0 +1,111 @@
+# head (PR-3, answering each plan) vs base (auto_approve on for approve, off for reject/timeout); session ids differ per run
+
+SAME 01_dedupe_approve                        focus    outcome=delivered/delivered files_same=True plan_steps=['deduplicate'] orig_unchanged=True/True
+DIFF 01_dedupe_approve                        friend   outcome=delivered/delivered files_same=True plan_steps=['deduplicate'] orig_unchanged=True/True
+    reply diff (head | base): [('H', 'Okay, h'), ('where things landed', 'the rundown')]
+SAME 01_dedupe_approve                        template outcome=delivered/delivered files_same=True plan_steps=['deduplicate'] orig_unchanged=True/True
+DIFF 02_dedupe_reject                         focus    outcome=not_delivered/not_delivered files_same=True plan_steps=['deduplicate'] orig_unchanged=True/True
+    reply diff (head | base): [('', 'I ran into a problem partway through. ')]
+DIFF 02_dedupe_reject                         friend   outcome=not_delivered/not_delivered files_same=True plan_steps=['deduplicate'] orig_unchanged=True/True
+    reply diff (head | base): [('', 'I ran into a problem partway through. ')]
+DIFF 02_dedupe_reject                         template outcome=not_delivered/not_delivered files_same=True plan_steps=['deduplicate'] orig_unchanged=True/True
+    reply diff (head | base): [('', 'I ran into a problem partway through. ')]
+DIFF 03_dedupe_timeout                        focus    outcome=not_delivered/not_delivered files_same=True plan_steps=['deduplicate'] orig_unchanged=True/True
+    reply diff (head | base): [('', 'I ran into a problem partway through. ')]
+DIFF 03_dedupe_timeout                        friend   outcome=not_delivered/not_delivered files_same=True plan_steps=['deduplicate'] orig_unchanged=True/True
+    reply diff (head | base): [('', 'I ran into a problem partway through. ')]
+DIFF 03_dedupe_timeout                        template outcome=not_delivered/not_delivered files_same=True plan_steps=['deduplicate'] orig_unchanged=True/True
+    reply diff (head | base): [('', 'I ran into a problem partway through. ')]
+DIFF 04_empty_approve                         focus    outcome=delivered/delivered files_same=True plan_steps=['remove_empty_rows'] orig_unchanged=True/True
+    reply diff (head | base): [('', ' Anything else?')]
+SAME 04_empty_approve                         friend   outcome=delivered/delivered files_same=True plan_steps=['remove_empty_rows'] orig_unchanged=True/True
+SAME 04_empty_approve                         template outcome=delivered/delivered files_same=True plan_steps=['remove_empty_rows'] orig_unchanged=True/True
+DIFF 05_empty_reject                          focus    outcome=not_delivered/not_delivered files_same=True plan_steps=['remove_empty_rows'] orig_unchanged=True/True
+    reply diff (head | base): [('', 'I ran into a problem partway through. ')]
+DIFF 05_empty_reject                          friend   outcome=not_delivered/not_delivered files_same=True plan_steps=['remove_empty_rows'] orig_unchanged=True/True
+    reply diff (head | base): [('', 'I ran into a problem partway through. ')]
+DIFF 05_empty_reject                          template outcome=not_delivered/not_delivered files_same=True plan_steps=['remove_empty_rows'] orig_unchanged=True/True
+    reply diff (head | base): [('', 'I ran into a problem partway through. ')]
+SAME 06_chain_approve                         focus    outcome=delivered/delivered files_same=True plan_steps=['deduplicate', 'remove_empty_rows'] orig_unchanged=True/True
+SAME 06_chain_approve                         friend   outcome=delivered/delivered files_same=True plan_steps=['deduplicate', 'remove_empty_rows'] orig_unchanged=True/True
+SAME 06_chain_approve                         template outcome=delivered/delivered files_same=True plan_steps=['deduplicate', 'remove_empty_rows'] orig_unchanged=True/True
+DIFF 07_chain_reject                          focus    outcome=not_delivered/not_delivered files_same=True plan_steps=['deduplicate', 'remove_empty_rows'] orig_unchanged=True/True
+    reply diff (head | base): [('', 'I ran into a problem partway through. ')]
+DIFF 07_chain_reject                          friend   outcome=not_delivered/not_delivered files_same=True plan_steps=['deduplicate', 'remove_empty_rows'] orig_unchanged=True/True
+    reply diff (head | base): [('', 'I ran into a problem partway through. ')]
+DIFF 07_chain_reject                          template outcome=not_delivered/not_delivered files_same=True plan_steps=['deduplicate', 'remove_empty_rows'] orig_unchanged=True/True
+    reply diff (head | base): [('', 'I ran into a problem partway through. ')]
+DIFF 08_chain_timeout                         focus    outcome=not_delivered/not_delivered files_same=True plan_steps=['deduplicate', 'remove_empty_rows'] orig_unchanged=True/True
+    reply diff (head | base): [('', 'I ran into a problem partway through. ')]
+DIFF 08_chain_timeout                         friend   outcome=not_delivered/not_delivered files_same=True plan_steps=['deduplicate', 'remove_empty_rows'] orig_unchanged=True/True
+    reply diff (head | base): [('', 'I ran into a problem partway through. ')]
+DIFF 08_chain_timeout                         template outcome=not_delivered/not_delivered files_same=True plan_steps=['deduplicate', 'remove_empty_rows'] orig_unchanged=True/True
+    reply diff (head | base): [('', 'I ran into a problem partway through. ')]
+SAME 09_reverse_chain_approve                 focus    outcome=delivered/delivered files_same=True plan_steps=['remove_empty_rows', 'deduplicate'] orig_unchanged=True/True
+DIFF 09_reverse_chain_approve                 friend   outcome=delivered/delivered files_same=True plan_steps=['remove_empty_rows', 'deduplicate'] orig_unchanged=True/True
+    reply diff (head | base): [('O', 'Those blan'), ("ay, here's the rundown", ' rows were just taking up space')]
+SAME 09_reverse_chain_approve                 template outcome=delivered/delivered files_same=True plan_steps=['remove_empty_rows', 'deduplicate'] orig_unchanged=True/True
+SAME 10_three_steps_approve                   focus    outcome=delivered/delivered files_same=True plan_steps=['deduplicate', 'remove_empty_rows', 'deduplicate'] orig_unchanged=True/True
+DIFF 10_three_steps_approve                   friend   outcome=delivered/delivered files_same=True plan_steps=['deduplicate', 'remove_empty_rows', 'deduplicate'] orig_unchanged=True/True
+    reply diff (head | base): [('at sheet was see', 'ose blank rows were just tak'), ('doubl', 'up spac')]
+SAME 10_three_steps_approve                   template outcome=delivered/delivered files_same=True plan_steps=['deduplicate', 'remove_empty_rows', 'deduplicate'] orig_unchanged=True/True
+DIFF 11_no_duplicates_approve                 focus    outcome=delivered/delivered files_same=True plan_steps=['deduplicate'] orig_unchanged=True/True
+    reply diff (head | base): [('', ' Anything else?')]
+DIFF 11_no_duplicates_approve                 friend   outcome=delivered/delivered files_same=True plan_steps=['deduplicate'] orig_unchanged=True/True
+    reply diff (head | base): [('Okay, h', 'H'), ('the rundown', 'where things landed')]
+SAME 11_no_duplicates_approve                 template outcome=delivered/delivered files_same=True plan_steps=['deduplicate'] orig_unchanged=True/True
+DIFF 12_no_duplicates_reject                  focus    outcome=not_delivered/not_delivered files_same=True plan_steps=['deduplicate'] orig_unchanged=True/True
+    reply diff (head | base): [('', 'I ran into a problem partway through. ')]
+DIFF 12_no_duplicates_reject                  friend   outcome=not_delivered/not_delivered files_same=True plan_steps=['deduplicate'] orig_unchanged=True/True
+    reply diff (head | base): [('', 'I ran into a problem partway through. ')]
+DIFF 12_no_duplicates_reject                  template outcome=not_delivered/not_delivered files_same=True plan_steps=['deduplicate'] orig_unchanged=True/True
+    reply diff (head | base): [('', 'I ran into a problem partway through. ')]
+SAME 13_greeting_unclear                      focus    outcome=not_delivered/not_delivered files_same=True plan_steps=[] orig_unchanged=True/True
+SAME 13_greeting_unclear                      friend   outcome=not_delivered/not_delivered files_same=True plan_steps=[] orig_unchanged=True/True
+SAME 13_greeting_unclear                      template outcome=not_delivered/not_delivered files_same=True plan_steps=[] orig_unchanged=True/True
+SAME 14_clarification                         focus    outcome=not_delivered/not_delivered files_same=True plan_steps=[] orig_unchanged=True/True
+SAME 14_clarification                         friend   outcome=not_delivered/not_delivered files_same=True plan_steps=[] orig_unchanged=True/True
+SAME 14_clarification                         template outcome=not_delivered/not_delivered files_same=True plan_steps=[] orig_unchanged=True/True
+SAME 15_no_file                               focus    outcome=not_delivered/not_delivered files_same=True plan_steps=[] orig_unchanged=True/True
+SAME 15_no_file                               friend   outcome=not_delivered/not_delivered files_same=True plan_steps=[] orig_unchanged=True/True
+SAME 15_no_file                               template outcome=not_delivered/not_delivered files_same=True plan_steps=[] orig_unchanged=True/True
+DIFF 16_misread_as_empty_rows_reject          focus    outcome=not_delivered/not_delivered files_same=True plan_steps=['remove_empty_rows'] orig_unchanged=True/True
+    reply diff (head | base): [('', 'I ran into a problem partway through. ')]
+DIFF 16_misread_as_empty_rows_reject          friend   outcome=not_delivered/not_delivered files_same=True plan_steps=['remove_empty_rows'] orig_unchanged=True/True
+    reply diff (head | base): [('', 'I ran into a problem partway through. ')]
+DIFF 16_misread_as_empty_rows_reject          template outcome=not_delivered/not_delivered files_same=True plan_steps=['remove_empty_rows'] orig_unchanged=True/True
+    reply diff (head | base): [('', 'I ran into a problem partway through. ')]
+SAME 17_misread_as_empty_rows_approve         focus    outcome=delivered/delivered files_same=True plan_steps=['remove_empty_rows'] orig_unchanged=True/True
+DIFF 17_misread_as_empty_rows_approve         friend   outcome=delivered/delivered files_same=True plan_steps=['remove_empty_rows'] orig_unchanged=True/True
+    reply diff (head | base): [('H', 'Okay, h'), ('where things landed', 'the rundown')]
+SAME 17_misread_as_empty_rows_approve         template outcome=delivered/delivered files_same=True plan_steps=['remove_empty_rows'] orig_unchanged=True/True
+SAME 18_approve_after_deadline_length_wait    focus    outcome=delivered/delivered files_same=True plan_steps=['deduplicate'] orig_unchanged=True/True
+DIFF 18_approve_after_deadline_length_wait    friend   outcome=delivered/delivered files_same=True plan_steps=['deduplicate'] orig_unchanged=True/True
+    reply diff (head | base): [('That sheet was seeing double', "Okay, here's the rundown")]
+SAME 18_approve_after_deadline_length_wait    template outcome=delivered/delivered files_same=True plan_steps=['deduplicate'] orig_unchanged=True/True
+SAME 19_unsupported_second_step_approve       focus    outcome=not_delivered/not_delivered files_same=True plan_steps=['deduplicate'] orig_unchanged=True/True
+SAME 19_unsupported_second_step_approve       friend   outcome=not_delivered/not_delivered files_same=True plan_steps=['deduplicate'] orig_unchanged=True/True
+SAME 19_unsupported_second_step_approve       template outcome=not_delivered/not_delivered files_same=True plan_steps=['deduplicate'] orig_unchanged=True/True
+SAME 20_unsupported_first_step                focus    outcome=not_delivered/not_delivered files_same=True plan_steps=[] orig_unchanged=True/True
+SAME 20_unsupported_first_step                friend   outcome=not_delivered/not_delivered files_same=True plan_steps=[] orig_unchanged=True/True
+SAME 20_unsupported_first_step                template outcome=not_delivered/not_delivered files_same=True plan_steps=[] orig_unchanged=True/True
+SAME 21_unsupported_middle_step_approve       focus    outcome=not_delivered/not_delivered files_same=True plan_steps=['deduplicate'] orig_unchanged=True/True
+SAME 21_unsupported_middle_step_approve       friend   outcome=not_delivered/not_delivered files_same=True plan_steps=['deduplicate'] orig_unchanged=True/True
+SAME 21_unsupported_middle_step_approve       template outcome=not_delivered/not_delivered files_same=True plan_steps=['deduplicate'] orig_unchanged=True/True
+SAME 22_analyze_planned_between_writes        focus    outcome=delivered/delivered files_same=True plan_steps=['deduplicate', 'remove_empty_rows'] orig_unchanged=True/True
+DIFF 22_analyze_planned_between_writes        friend   outcome=delivered/delivered files_same=True plan_steps=['deduplicate', 'remove_empty_rows'] orig_unchanged=True/True
+    reply diff (head | base): [("Okay, here's the rundown", 'That sheet was seeing double')]
+SAME 22_analyze_planned_between_writes        template outcome=delivered/delivered files_same=True plan_steps=['deduplicate', 'remove_empty_rows'] orig_unchanged=True/True
+SAME 23_hostile_name_approve                  focus    outcome=delivered/delivered files_same=True plan_steps=['deduplicate'] orig_unchanged=True/True
+DIFF 23_hostile_name_approve                  friend   outcome=delivered/delivered files_same=True plan_steps=['deduplicate'] orig_unchanged=True/True
+    reply diff (head | base): [('That sheet ', "Okay, here's the rundo"), ('as seeing double', 'n')]
+SAME 23_hostile_name_approve                  template outcome=delivered/delivered files_same=True plan_steps=['deduplicate'] orig_unchanged=True/True
+DIFF 24_dedupe_answered_reject_after_delay    focus    outcome=not_delivered/not_delivered files_same=True plan_steps=['deduplicate'] orig_unchanged=True/True
+    reply diff (head | base): [('', 'I ran into a problem partway through. ')]
+DIFF 24_dedupe_answered_reject_after_delay    friend   outcome=not_delivered/not_delivered files_same=True plan_steps=['deduplicate'] orig_unchanged=True/True
+    reply diff (head | base): [('', 'I ran into a problem partway through. ')]
+DIFF 24_dedupe_answered_reject_after_delay    template outcome=not_delivered/not_delivered files_same=True plan_steps=['deduplicate'] orig_unchanged=True/True
+    reply diff (head | base): [('', 'I ran into a problem partway through. ')]
+SAME 25_two_steps_then_unsupported_approve    focus    outcome=not_delivered/not_delivered files_same=True plan_steps=['deduplicate', 'remove_empty_rows'] orig_unchanged=True/True
+SAME 25_two_steps_then_unsupported_approve    friend   outcome=not_delivered/not_delivered files_same=True plan_steps=['deduplicate', 'remove_empty_rows'] orig_unchanged=True/True
+SAME 25_two_steps_then_unsupported_approve    template outcome=not_delivered/not_delivered files_same=True plan_steps=['deduplicate', 'remove_empty_rows'] orig_unchanged=True/True

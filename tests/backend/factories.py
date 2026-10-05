@@ -18,6 +18,7 @@ from typing import Any
 from buddy.engine_factory import build_engine
 from buddy.hands import ConfirmationProvider
 from buddy.llm import LLMMessage
+from buddy.models import StepResult
 from buddy.state import BuddyState
 from buddy.voice import PersonalityVoice, TemplateSpeaker
 from core.engine import CognitiveCycle, Engine
@@ -73,6 +74,7 @@ class RunRecord:
     findings: tuple[str, ...]
     user_message: str
     turn_output_dir: str | None
+    steps: tuple[StepResult, ...] = ()
 
 
 @dataclass
@@ -128,6 +130,7 @@ class _SpyEngine:
                 else (),
                 user_message=result.user_message,
                 turn_output_dir=result.turn_output_dir,
+                steps=tuple(execution.steps) if execution else (),
             )
         )
         return result

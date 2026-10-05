@@ -27,6 +27,7 @@ from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
 
+from backend.confirmation import ConfirmationOutcome, PendingPlan
 from backend.settings import Settings
 from buddy.state import BuddyState
 
@@ -35,6 +36,7 @@ logger = logging.getLogger(__name__)
 ID_PATTERN = re.compile(r"^[A-Za-z0-9_-]{1,64}$")
 
 RUNNING = "running"
+AWAITING_CONFIRMATION = "awaiting_confirmation"
 FINISHED = "finished"
 
 
@@ -93,6 +95,12 @@ class TurnRecord:
     and ``finished_at`` are written together in one step under the session
     lock, when ``status`` becomes ``finished`` (design Section 5.1,
     invariant 7).
+
+    While the turn's plan waits for the user, ``status`` is
+    ``awaiting_confirmation`` and ``pending_confirmation`` holds the plan;
+    both are live state only, never written to disk (a restart ends the
+    turn as failed, design Section 7.5 run 8). ``confirmation`` records how
+    the plan was decided, and is written with the finished turn.
     """
 
     turn_id: str
@@ -108,6 +116,8 @@ class TurnRecord:
     reply_source: str | None = None
     delivered_files: tuple[DeliveredFile, ...] = ()
     detail: dict[str, Any] | None = None
+    pending_confirmation: PendingPlan | None = None
+    confirmation: ConfirmationOutcome | None = None
 
     @property
     def finished(self) -> bool:

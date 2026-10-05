@@ -1,9 +1,9 @@
 """Hands — carries out delegated work and produces results."""
 
 import logging
-from dataclasses import replace
+from dataclasses import dataclass, replace
 from pathlib import Path
-from typing import Protocol
+from typing import Protocol, runtime_checkable
 
 from buddy.inspector import VerificationRequest, Verifier
 from buddy.models import (
@@ -16,7 +16,7 @@ from buddy.models import (
 )
 from buddy.state import BuddyState
 from core.dispatcher import Dispatcher, DispatchError
-from skills.base import PermissionTier, SkillStatus, SkillTask
+from skills.base import PermissionTier, Skill, SkillStatus, SkillTask
 
 logger = logging.getLogger(__name__)
 
@@ -40,6 +40,54 @@ class ConfirmationProvider(Protocol):
 
     def confirm(self, task: SkillTask, tier: PermissionTier) -> bool:
         """Return whether ``task`` may proceed at permission tier ``tier``."""
+        ...
+
+
+@dataclass(frozen=True)
+class ConfirmationStep:
+    """One step of a turn that will ask for confirmation, as Hands will run it.
+
+    Hands builds these from ``state.delegation`` before any step runs, with
+    each step's tier resolved through the Dispatcher the way the step itself
+    will be (``Hands.confirmation_plan``). A ``CapabilityRequest`` carries
+    no tier, so this is the only place the whole plan's tiers are known
+    before anything runs.
+
+    Attributes:
+        task_id: The ``SkillTask.task_id`` Hands will give the step and
+            pass to ``ConfirmationProvider.confirm``.
+        capability: The capability the step requests.
+        tier: The permission tier of the Skill the Dispatcher selects.
+        input_reference: The delegated target. The plan's first step reads
+            it. Every later step reads the previous step's output: the
+            steps that ask for confirmation (every tier above READ) are
+            exactly the chain.
+    """
+
+    task_id: str
+    capability: str
+    tier: PermissionTier
+    input_reference: str
+
+
+@runtime_checkable
+class PlanAwareConfirmationProvider(Protocol):
+    """A ``ConfirmationProvider`` that is told the whole plan before any step runs.
+
+    Hands calls ``expect_plan`` once per run, before its first step, with
+    every step that will ask for confirmation, in the order it will ask.
+    A provider that shows the user one plan for the whole turn uses it to
+    show the plan Hands runs, and to refuse any ``confirm`` call that isn't
+    the next step of that plan. ``confirm`` keeps its signature, so a
+    provider without ``expect_plan`` works as before.
+    """
+
+    def confirm(self, task: SkillTask, tier: PermissionTier) -> bool:
+        """Return whether ``task`` may proceed at permission tier ``tier``."""
+        ...
+
+    def expect_plan(self, steps: tuple[ConfirmationStep, ...]) -> None:
+        """Receive every step that will ask for confirmation this run, in order."""
         ...
 
 
@@ -102,6 +150,9 @@ class Hands:
     question, not a fixed architectural rule — so it follows the same
     swappable-protocol-plus-``Null*``-default pattern every other stage's
     collaborator does: ``ConfirmationProvider`` / ``NullConfirmationProvider``.
+    A provider that is also a ``PlanAwareConfirmationProvider`` is told,
+    before the first step runs, every step that will ask for confirmation
+    (``confirmation_plan``), so it can ask the user once for the whole plan.
 
     **Chaining.** Steps whose Skill changes files (any tier above READ)
     form a chain: each reads the previous chain step's output, so the user
@@ -119,6 +170,13 @@ class Hands:
     Skills never write to their input, so the original upload is untouched
     either way. ``ExecutionResult.outputs`` holds only the final file;
     intermediate files stay on disk, listed on each ``StepResult``.
+
+    A chain the Dispatcher can already tell won't finish (a step after a
+    file-changing step has no Skill that can run it) doesn't start: nothing
+    could be handed back, so no chain step runs and nobody is asked to
+    confirm one. The unroutable step is recorded as the one that stopped
+    the chain, every chain step as skipped, and read-only steps run as
+    usual.
     """
 
     def __init__(
@@ -174,6 +232,16 @@ class Hands:
             self._apply(state, ExecutionResult(success=True, warnings=("nothing to execute",)), [])
             return state
 
+        routes = self._routes(state, requests)
+        # A chain that can't finish (a request the Dispatcher can't route):
+        # nothing could be handed back, so no chain step runs and nobody is
+        # asked to approve one (review M1).
+        blocked_at = _known_stop(routes)
+        provider = self._confirmation_provider
+        if isinstance(provider, PlanAwareConfirmationProvider):
+            provider.expect_plan(self._plan(state, requests, routes))
+        not_started = 0
+
         warnings: list[str] = []
         errors: list[str] = []
         raw_outputs: list[dict[str, object]] = []
@@ -201,6 +269,17 @@ class Hands:
                         skill="",
                         status=SKIPPED_STATUS,
                         summary=f"skipped because {stopped_because}",
+                    )
+                )
+                continue
+            if blocked_at is not None and index < blocked_at and _changes_files(routes[index]):
+                not_started += 1
+                step_results.append(
+                    StepResult(
+                        capability=request.capability,
+                        skill="",
+                        status=SKIPPED_STATUS,
+                        summary=f"skipped because {requests[blocked_at].capability} can't be run",
                     )
                 )
                 continue
@@ -395,10 +474,15 @@ class Hands:
 
         final_outputs: list[str] = []
         if stopped_because is not None:
-            skipped = sum(1 for s in step_results if s.status == SKIPPED_STATUS)
-            if skipped:
+            later = sum(1 for s in step_results if s.status == SKIPPED_STATUS) - not_started
+            counts = []
+            if not_started:
+                counts.append(f"{not_started} earlier step(s) weren't started")
+            if later:
+                counts.append(f"{later} later step(s) were skipped")
+            if counts:
                 errors.append(
-                    f"stopped: {stopped_because}; {skipped} later step(s) were skipped "
+                    f"stopped: {stopped_because}; {' and '.join(counts)} "
                     "and no file was handed back"
                 )
         else:
@@ -430,6 +514,76 @@ class Hands:
             state.session_id,
         )
         return state
+
+    def confirmation_plan(
+        self, state: BuddyState, requests: tuple[CapabilityRequest, ...]
+    ) -> tuple[ConfirmationStep, ...]:
+        """Every step of ``requests`` that will ask for confirmation, in the order it will ask.
+
+        Each request is resolved through the Dispatcher with the task id
+        ``__call__`` gives it, so a step's tier is the selected Skill's own
+        declared tier, not a guess. A request the Dispatcher can't route
+        stops the chain, so nothing after it is listed: it would never run.
+        If a file-changing step comes before such a request, the chain can't
+        finish, no chain step runs at all, and the plan is empty.
+
+        The resolution reads the delegated target for every step. A later
+        chain step really reads the previous step's output, which doesn't
+        exist yet. If the Dispatcher then selects a Skill of another tier,
+        or none, that step isn't the one listed here, and a plan-aware
+        provider refuses it rather than approving a step nobody was shown.
+
+        Args:
+            state: The current ``BuddyState`` for this turn.
+            requests: Every request delegated this turn, in order.
+
+        Returns:
+            One ``ConfirmationStep`` per step above READ tier, in order, or
+            nothing when the chain can't finish.
+        """
+        return self._plan(state, requests, self._routes(state, requests))
+
+    def _routes(
+        self, state: BuddyState, requests: tuple[CapabilityRequest, ...]
+    ) -> tuple[Skill | None, ...]:
+        """The Skill the Dispatcher selects for each request, up to the first it can't route.
+
+        Each is resolved on the delegated target, with the task id
+        ``__call__`` gives it. The last entry is ``None`` when a request
+        can't be routed; nothing after it is resolved, because nothing
+        after it runs.
+        """
+        routes: list[Skill | None] = []
+        for index, request in enumerate(requests):
+            probe = self._build_task(state, request, index, request.target)
+            try:
+                routes.append(self._dispatcher.select(probe, request.capability))
+            except DispatchError:
+                routes.append(None)
+                break
+        return tuple(routes)
+
+    def _plan(
+        self,
+        state: BuddyState,
+        requests: tuple[CapabilityRequest, ...],
+        routes: tuple[Skill | None, ...],
+    ) -> tuple[ConfirmationStep, ...]:
+        """The steps that will ask for confirmation, given each request's route."""
+        if _known_stop(routes) is not None:
+            return ()
+        steps: list[ConfirmationStep] = []
+        for index, (request, skill) in enumerate(zip(requests, routes, strict=False)):
+            if skill is not None and skill.permission_tier in _CONFIRMATION_REQUIRED_TIERS:
+                steps.append(
+                    ConfirmationStep(
+                        task_id=self._build_task(state, request, index, request.target).task_id,
+                        capability=request.capability,
+                        tier=skill.permission_tier,
+                        input_reference=request.target,
+                    )
+                )
+        return tuple(steps)
 
     def _recheck_final_file(
         self,
@@ -622,3 +776,18 @@ class Hands:
         state.outputs = raw_outputs
 
 
+def _changes_files(skill: Skill | None) -> bool:
+    """Whether ``skill`` is a chain step: routed, and above READ tier."""
+    return skill is not None and skill.permission_tier is not PermissionTier.READ
+
+
+def _known_stop(routes: tuple[Skill | None, ...]) -> int | None:
+    """The index of the first request the Dispatcher can't route, if there is one.
+
+    The chain can't get past it, so nothing could be handed back: no chain
+    step runs, and nobody is asked to approve one. (When no chain step
+    comes before it, that is how the turn always ran.)
+    """
+    if routes and routes[-1] is None:
+        return len(routes) - 1
+    return None

@@ -21,6 +21,8 @@ from backend import views
 from backend.delivery import check_turn_file
 from backend.errors import ApiError, ErrorCode
 from backend.schemas import (
+    AwaitingConfirmationTurn,
+    ConfirmationRequest,
     CreateSessionRequest,
     CreateTurnRequest,
     ErrorBody,
@@ -245,8 +247,14 @@ def start_turn(request: Request, session_id: str, body: CreateTurnRequest) -> Ru
     responses=errors(404),
     tags=["turns"],
 )
-def get_turn(request: Request, session_id: str, turn_id: str) -> RunningTurn | FinishedTurn:
-    """One turn, with ``detail``. Poll this after starting a turn; a finished turn never changes."""
+def get_turn(
+    request: Request, session_id: str, turn_id: str
+) -> RunningTurn | AwaitingConfirmationTurn | FinishedTurn:
+    """One turn, with ``detail``. Poll this after starting a turn; a finished turn never changes.
+
+    While the turn's plan waits for the user, the turn is
+    ``awaiting_confirmation`` and carries the plan as ``pending_confirmation``.
+    """
     record = session_of(request, session_id)
     if not valid_id(turn_id):
         raise ApiError(ErrorCode.TURN_NOT_FOUND)
@@ -254,6 +262,32 @@ def get_turn(request: Request, session_id: str, turn_id: str) -> RunningTurn | F
         turn = record.turn(turn_id)
         if turn is None:
             raise ApiError(ErrorCode.TURN_NOT_FOUND)
+        return views.turn_out(session_id, turn)
+
+
+@router.post(
+    "/sessions/{session_id}/turns/{turn_id}/confirmation",
+    response_model=Turn,
+    responses=errors(404, 409, 413, 422),
+    tags=["turns"],
+)
+def answer_confirmation(
+    request: Request, session_id: str, turn_id: str, body: ConfirmationRequest
+) -> RunningTurn | AwaitingConfirmationTurn | FinishedTurn:
+    """Approve or reject the plan waiting on a turn, once. Returns the turn as it now stands.
+
+    Approving approves every step of the plan; rejecting means none of them
+    runs. The plan is no longer pending when this returns (usually the turn
+    is ``running`` again); keep polling the turn for its reply. ``409
+    no_pending_confirmation`` when no plan is waiting (none was asked, or it
+    was already answered or timed out); ``409 stale_confirmation`` when
+    ``confirmation_id`` isn't the waiting plan's.
+    """
+    record = session_of(request, session_id)
+    if not valid_id(turn_id):
+        raise ApiError(ErrorCode.TURN_NOT_FOUND)
+    with record.lock:
+        turn = runner_of(request).answer(record, turn_id, body.confirmation_id, body.decision)
         return views.turn_out(session_id, turn)
 
 

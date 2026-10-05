@@ -1,0 +1,22 @@
+tests/backend/test_confirmation_api.py
+    exit 2: 1 error in 2.27s
+    first: E   ImportError: cannot import name 'PLAN_NOTE_CHAIN' from 'backend.confirmation' (/tmp/tmpi16d0kcs/repo/backend/confirmation.py)
+tests/backend/test_confirmation_provider.py
+    exit 2: 1 error in 0.63s
+    first: E   ImportError: cannot import name 'APPROVE' from 'backend.confirmation' (/tmp/tmpi16d0kcs/repo/backend/confirmation.py)
+tests/buddy/test_hands_confirmation_plan.py
+    exit 2: 1 error in 0.68s
+    first: E   ImportError: cannot import name 'APPROVE' from 'backend.confirmation' (/tmp/tmpi16d0kcs/repo/backend/confirmation.py)
+tests/buddy/test_voice.py::test_a_rejected_plan_isnt_called_a_problem_and_says_nothing_ran
+    exit 1: 2 failed in 2.01s
+    first: E       AssertionError: assert 'problem' not in 'I ran into ...s unchanged.'
+tests/backend/test_turns.py
+    exit 2: 1 error in 2.34s
+    first: E   ImportError: cannot import name 'WebConfirmationProvider' from 'backend.confirmation' (/tmp/tmpi16d0kcs/repo/backend/confirmation.py)
+tests/backend/test_app_basics.py
+    exit 1: 9 failed, 29 passed in 3.45s
+    first: E       AttributeError: 'Settings' object has no attribute 'confirmation_timeout_s'
+tests/backend/test_openapi_sync.py
+    exit 1: 4 failed, 5 passed in 2.58s
+    first: E       KeyError: 'AwaitingConfirmationTurn'
+EXIT 0

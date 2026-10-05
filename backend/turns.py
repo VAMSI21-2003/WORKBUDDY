@@ -17,6 +17,14 @@ passes, the turn is finalized as failed and the session is free again, but
 the thread runs on until its own calls return, writing only to its
 discarded copy and its turn folder. It keeps its slot under the global cap
 until it exits (design Section 9.2).
+
+Confirmation (PR-3): each turn gets its own ``WebConfirmationProvider``
+(``backend.confirmation``). While the turn's plan waits for the user, the
+turn is ``awaiting_confirmation`` and its deadline is paused, so the
+deadline counts only the time the pipeline works (design Section 4.3); the
+plan's own timeout bounds the wait. Finishing the turn, or shutting the
+server down, closes the provider, which turns any waiting or later question
+into a rejection.
 """
 
 from __future__ import annotations
@@ -25,17 +33,27 @@ import copy
 import dataclasses
 import logging
 import threading
+import time
 from collections.abc import Callable
 from dataclasses import dataclass
 from datetime import datetime
 from pathlib import Path
 from typing import Any
 
-from backend.confirmation import confirmation_provider_for_turn
+from backend.confirmation import (
+    BY_SHUTDOWN,
+    BY_TURN_END,
+    ConfirmationOutcome,
+    PendingPlan,
+    StaticConfirmationProvider,
+    WebConfirmationProvider,
+)
 from backend.delivery import delivered_files, make_read_only, uploads_unchanged
 from backend.errors import ApiError, ErrorCode
 from backend.sessions import (
+    AWAITING_CONFIRMATION,
     FINISHED,
+    RUNNING,
     DeliveredFile,
     SessionRecord,
     SessionRegistry,
@@ -79,13 +97,27 @@ class Finalization:
 
 @dataclass
 class _Job:
+    """One unfinished turn. Its mutable fields change only under the session lock."""
+
     record: SessionRecord
     turn: TurnRecord
     work: BuddyState
     turn_dir: Path
     expected: dict[str, tuple[Path, str]]
     mode: str | None
+    # Seconds of working time the turn has left; the deadline is paused
+    # while its plan waits for the user.
+    deadline_left: float
+    provider: ConfirmationProvider | None = None
+    gate: WebConfirmationProvider | None = None
     timer: threading.Timer | None = None
+    # When the current timer was armed (time.monotonic()).
+    armed_at: float = 0.0
+    # Bumped whenever the timer is disarmed, so a timer that already fired
+    # but lost the race for the lock does nothing.
+    generation: int = 0
+    # Set once the deadline claims the turn: no plan may be published after.
+    finishing: bool = False
 
 
 def decide(
@@ -184,6 +216,10 @@ class TurnRunner:
         self._clock = clock
         self._slots_lock = threading.Lock()
         self._running = 0
+        # Every unfinished turn, by (session key, turn id), for the
+        # confirmation endpoint and for shutdown.
+        self._jobs: dict[tuple[str, str], _Job] = {}
+        self._jobs_lock = threading.Lock()
 
     @property
     def running(self) -> int:
@@ -260,6 +296,16 @@ class TurnRunner:
                     started_at=self._clock(),
                     target_file_id=target_id,
                 )
+                job = _Job(
+                    record,
+                    turn,
+                    work,
+                    turn_dir,
+                    expected,
+                    mode,
+                    deadline_left=settings.turn_deadline_s,
+                )
+                job.provider = self._provider_for(job)
                 record.turns.append(turn)
                 record.running_turn_id = turn_id
                 self._registry.saved(record, turn)
@@ -270,38 +316,96 @@ class TurnRunner:
                     _remove_empty(turn_dir)
                 self._release_slot()
                 raise
+            with self._jobs_lock:
+                self._jobs[(record.key, turn_id)] = job
 
-        job = _Job(record, turn, work, turn_dir, expected, mode)
         logger.info(
             "Turn %s started for session %s (message length %d)",
             turn_id,
             record.key,
             len(message),
         )
-        job.timer = threading.Timer(settings.turn_deadline_s, self._expire, args=(job,))
-        job.timer.daemon = True
         worker = threading.Thread(
             target=self._run, args=(job,), name=f"turn-{record.key[:8]}-{turn_id}", daemon=True
         )
-        job.timer.start()
         try:
+            with record.lock:
+                self._arm_deadline(job)
             worker.start()
         except BaseException:
-            job.timer.cancel()
+            # No worker will finish this turn, so finish it here, as failed.
             try:
+                with record.lock:
+                    self._disarm_deadline(job)
                 self._finalize(job, None, timed_out=False)
             finally:
                 self._release_slot()
             raise
         return turn
 
+    def answer(
+        self, record: SessionRecord, turn_id: str, confirmation_id: str, decision: str
+    ) -> TurnRecord:
+        """Record the user's answer to the plan waiting on a turn; return the turn.
+
+        The plan stops being pending before this returns, so no later
+        response shows it. Takes the session lock (re-entrant), so a caller
+        that holds it can build its response from the turn before the
+        worker moves on.
+
+        Raises:
+            ApiError: ``turn_not_found``; ``no_pending_confirmation`` when no
+                plan is waiting on the turn (none was asked, or it was
+                already answered, timed out or closed);
+                ``stale_confirmation`` when ``confirmation_id`` isn't the
+                waiting plan's.
+        """
+        with record.lock:
+            turn = record.turn(turn_id)
+            if turn is None:
+                raise ApiError(ErrorCode.TURN_NOT_FOUND)
+            with self._jobs_lock:
+                job = self._jobs.get((record.key, turn_id))
+            if job is None or job.gate is None or turn.pending_confirmation is None:
+                raise ApiError(ErrorCode.NO_PENDING_CONFIRMATION)
+            job.gate.answer(confirmation_id, decision)
+            return turn
+
+    def shutdown(self) -> None:
+        """The server is stopping: every plan waiting, or still to be asked, is rejected.
+
+        Design Section 1.5: a shutdown is treated as a rejection, never as
+        an approval. A turn whose worker can't finish before the process
+        exits is reported as failed after the restart (``SessionStore``).
+        """
+        with self._jobs_lock:
+            jobs = list(self._jobs.values())
+        for job in jobs:
+            if job.gate is not None:
+                job.gate.close(BY_SHUTDOWN)
+        if jobs:
+            logger.info("Shutting down with %d unfinished turn(s)", len(jobs))
+
+    def _provider_for(self, job: _Job) -> ConfirmationProvider:
+        """The turn's confirmation provider: the user's plan approval, or the test setting."""
+        if self._settings.auto_approve:
+            return StaticConfirmationProvider(approve=True)
+        gate = WebConfirmationProvider(
+            lock=job.record.lock,
+            timeout_s=self._settings.confirmation_timeout_s,
+            clock=self._clock,
+            on_publish=lambda plan: self._on_publish(job, plan),
+            on_settle=lambda outcome: self._on_settle(job, outcome),
+        )
+        job.gate = gate
+        return gate
+
     def _run(self, job: _Job) -> None:
         """The worker: run the pipeline, then finalize, whatever happens (item 4)."""
         final_state: BuddyState | None = None
         try:
-            engine = self._engine_factory(
-                confirmation_provider_for_turn(self._settings.auto_approve)
-            )
+            assert job.provider is not None
+            engine = self._engine_factory(job.provider)
             result = engine.run(job.work)
             final_state = result if isinstance(result, BuddyState) else None
         except Exception:
@@ -309,15 +413,77 @@ class TurnRunner:
             final_state = None
         finally:
             try:
-                if job.timer is not None:
-                    job.timer.cancel()
+                with job.record.lock:
+                    self._disarm_deadline(job)
                 self._finalize(job, final_state, timed_out=False)
             finally:
                 self._release_slot()
 
-    def _expire(self, job: _Job) -> None:
+    def _expire(self, job: _Job, generation: int) -> None:
         """The deadline passed: finalize as failed, unless the turn already finished."""
+        with job.record.lock:
+            if generation != job.generation or job.turn.finished or job.finishing:
+                return  # disarmed, paused or finished since this timer was armed
+            job.finishing = True
         self._finalize(job, None, timed_out=True)
+
+    # -- The deadline: armed while the pipeline works, paused while the plan waits -------
+
+    def _arm_deadline(self, job: _Job) -> None:
+        """Start the deadline timer for the working time left. The caller holds the lock."""
+        job.generation += 1
+        timer = threading.Timer(
+            max(job.deadline_left, 0.0), self._expire, args=(job, job.generation)
+        )
+        timer.daemon = True
+        job.timer = timer
+        job.armed_at = time.monotonic()
+        timer.start()
+
+    def _disarm_deadline(self, job: _Job) -> None:
+        """Stop the deadline timer, keeping the working time left. The caller holds the lock."""
+        job.generation += 1
+        if job.timer is not None:
+            job.timer.cancel()
+            job.deadline_left -= time.monotonic() - job.armed_at
+            job.timer = None
+
+    def _on_publish(self, job: _Job, plan: PendingPlan) -> bool:
+        """The provider is about to show the plan (under the session lock)."""
+        turn = job.turn
+        if turn.finished or job.finishing:
+            return False
+        turn.pending_confirmation = plan
+        turn.status = AWAITING_CONFIRMATION
+        self._disarm_deadline(job)
+        logger.info(
+            "Turn %s for session %s is waiting for its plan's answer (%d step(s))",
+            turn.turn_id,
+            job.record.key,
+            len(plan.steps),
+        )
+        return True
+
+    def _on_settle(self, job: _Job, outcome: ConfirmationOutcome) -> None:
+        """The plan was decided (under the session lock). A finished turn never changes."""
+        turn = job.turn
+        if turn.finished:
+            return
+        turn.confirmation = outcome
+        turn.pending_confirmation = None
+        if turn.status == AWAITING_CONFIRMATION:
+            turn.status = RUNNING
+            if not job.finishing:
+                self._arm_deadline(job)
+        logger.info(
+            "Turn %s for session %s: plan %s (%s)",
+            turn.turn_id,
+            job.record.key,
+            outcome.decision,
+            outcome.source,
+        )
+
+    # -- Finalization -------------------------------------------------------------------
 
     def _finalize(self, job: _Job, state: BuddyState | None, *, timed_out: bool) -> None:
         record, turn = job.record, job.turn
@@ -326,9 +492,12 @@ class TurnRunner:
                 return  # one-shot: a late worker or timer changes nothing
         if timed_out:
             logger.warning("Turn %s for session %s passed its deadline", turn.turn_id, record.key)
-        integrity_ok = uploads_unchanged(job.expected)
         now = self._clock()
+        # Nothing before the finishing block may leave the turn running for
+        # good (review round 3, R3-L4): any failure here, even a
+        # BaseException, finishes it as failed with nothing handed back.
         try:
+            integrity_ok = uploads_unchanged(job.expected)
             result = decide(
                 state,
                 timed_out=timed_out,
@@ -337,7 +506,7 @@ class TurnRunner:
                 turn_id=turn.turn_id,
                 now=now,
             )
-        except Exception:
+        except BaseException:
             logger.exception("Turn %s: finalization failed; using the fallback", turn.turn_id)
             result = Finalization(FAILED, FALLBACK_PIPELINE_ERROR, PIPELINE_FALLBACK)
         if result.outcome == INTEGRITY_FAILURE:
@@ -346,11 +515,26 @@ class TurnRunner:
                 turn.turn_id,
                 record.key,
             )
-        make_read_only(result.delivered)
+        try:
+            make_read_only(result.delivered)
+        except BaseException:
+            logger.exception(
+                "Turn %s: marking files read-only failed; using the fallback", turn.turn_id
+            )
+            result = Finalization(FAILED, FALLBACK_PIPELINE_ERROR, PIPELINE_FALLBACK)
 
         with record.lock:
             if turn.finished:
                 return
+            # No plan may be asked, or stay waiting, once the turn finishes.
+            job.finishing = True
+            try:
+                self._disarm_deadline(job)
+                if job.gate is not None:
+                    job.gate.close(BY_TURN_END)
+            except BaseException:
+                logger.exception("Turn %s: closing its plan failed", turn.turn_id)
+            turn.pending_confirmation = None
             # The finished record is written before anyone can see the turn
             # finished (review M3), so memory and disk always agree on what
             # was handed back. If it can't be written, the turn is finished
@@ -359,20 +543,12 @@ class TurnRunner:
             if not self._save_finished(record, turn, result, now):
                 result = Finalization(FAILED, FALLBACK_PIPELINE_ERROR, PIPELINE_FALLBACK)
                 self._save_finished(record, turn, result, now)
-            if result.commit and state is not None:
-                state.context.record_buddy_reply(result.reply)
-                state.reset_transient()
-                record.state = state
-                record.active_file_id = _file_id_for(record, state.context.active_file)
-            else:
-                # Design 3.3 step 7: keep the pre-turn state; record only the
-                # message and the fallback reply. The mode is the user's
-                # setting, not a result, so it applies either way.
-                context = record.state.context
-                if job.mode is not None:
-                    context.set_mode(job.mode)
-                context.record_user_message(turn.message)
-                context.record_buddy_reply(result.reply)
+            try:
+                self._record_in_session(job, state, result)
+            except BaseException:
+                # The turn still finishes as decided; only the session's
+                # conversation misses it.
+                logger.exception("Turn %s: the session couldn't record it", turn.turn_id)
             turn.outcome = result.outcome
             turn.reply = result.reply
             turn.reply_source = result.reply_source
@@ -381,6 +557,8 @@ class TurnRunner:
             turn.finished_at = now
             turn.status = FINISHED
             record.running_turn_id = None
+            with self._jobs_lock:
+                self._jobs.pop((record.key, turn.turn_id), None)
             try:
                 self._registry.save_session(record)
             except Exception:
@@ -395,6 +573,25 @@ class TurnRunner:
             result.reply_source,
         )
 
+    @staticmethod
+    def _record_in_session(job: _Job, state: BuddyState | None, result: Finalization) -> None:
+        """Commit the turn's state, or keep the pre-turn state (under the session lock)."""
+        record, turn = job.record, job.turn
+        if result.commit and state is not None:
+            state.context.record_buddy_reply(result.reply)
+            state.reset_transient()
+            record.state = state
+            record.active_file_id = _file_id_for(record, state.context.active_file)
+            return
+        # Design 3.3 step 7: keep the pre-turn state; record only the message
+        # and the fallback reply. The mode is the user's setting, not a
+        # result, so it applies either way.
+        context = record.state.context
+        if job.mode is not None:
+            context.set_mode(job.mode)
+        context.record_user_message(turn.message)
+        context.record_buddy_reply(result.reply)
+
     def _save_finished(
         self, record: SessionRecord, turn: TurnRecord, result: Finalization, now: datetime
     ) -> bool:
@@ -408,6 +605,7 @@ class TurnRunner:
             delivered_files=result.delivered,
             detail=result.detail,
             finished_at=now,
+            pending_confirmation=None,
         )
         try:
             self._registry.save_turn(record, finished)

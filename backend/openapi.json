@@ -1,6 +1,160 @@
 {
   "components": {
     "schemas": {
+      "AwaitingConfirmationTurn": {
+        "properties": {
+          "delivered_files": {
+            "items": {
+              "$ref": "#/components/schemas/DeliveredFileOut"
+            },
+            "title": "Delivered Files",
+            "type": "array"
+          },
+          "detail": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/TurnDetail"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "finished_at": {
+            "title": "Finished At",
+            "type": "null"
+          },
+          "message": {
+            "title": "Message",
+            "type": "string"
+          },
+          "mode": {
+            "enum": [
+              "friend",
+              "focus"
+            ],
+            "title": "Mode",
+            "type": "string"
+          },
+          "outcome": {
+            "title": "Outcome",
+            "type": "null"
+          },
+          "pending_confirmation": {
+            "$ref": "#/components/schemas/PendingConfirmation"
+          },
+          "reply": {
+            "title": "Reply",
+            "type": "null"
+          },
+          "reply_source": {
+            "title": "Reply Source",
+            "type": "null"
+          },
+          "seq": {
+            "title": "Seq",
+            "type": "integer"
+          },
+          "started_at": {
+            "format": "date-time",
+            "title": "Started At",
+            "type": "string"
+          },
+          "status": {
+            "const": "awaiting_confirmation",
+            "title": "Status",
+            "type": "string"
+          },
+          "turn_id": {
+            "title": "Turn Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "turn_id",
+          "seq",
+          "message",
+          "mode",
+          "started_at",
+          "delivered_files",
+          "status",
+          "pending_confirmation"
+        ],
+        "title": "AwaitingConfirmationTurn",
+        "type": "object"
+      },
+      "AwaitingConfirmationTurnSummary": {
+        "properties": {
+          "delivered_files": {
+            "items": {
+              "$ref": "#/components/schemas/DeliveredFileOut"
+            },
+            "title": "Delivered Files",
+            "type": "array"
+          },
+          "finished_at": {
+            "title": "Finished At",
+            "type": "null"
+          },
+          "message": {
+            "title": "Message",
+            "type": "string"
+          },
+          "mode": {
+            "enum": [
+              "friend",
+              "focus"
+            ],
+            "title": "Mode",
+            "type": "string"
+          },
+          "outcome": {
+            "title": "Outcome",
+            "type": "null"
+          },
+          "pending_confirmation": {
+            "$ref": "#/components/schemas/PendingConfirmation"
+          },
+          "reply": {
+            "title": "Reply",
+            "type": "null"
+          },
+          "reply_source": {
+            "title": "Reply Source",
+            "type": "null"
+          },
+          "seq": {
+            "title": "Seq",
+            "type": "integer"
+          },
+          "started_at": {
+            "format": "date-time",
+            "title": "Started At",
+            "type": "string"
+          },
+          "status": {
+            "const": "awaiting_confirmation",
+            "title": "Status",
+            "type": "string"
+          },
+          "turn_id": {
+            "title": "Turn Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "turn_id",
+          "seq",
+          "message",
+          "mode",
+          "started_at",
+          "delivered_files",
+          "status",
+          "pending_confirmation"
+        ],
+        "title": "AwaitingConfirmationTurnSummary",
+        "type": "object"
+      },
       "Body_upload_file_api_v1_sessions__session_id__files_post": {
         "properties": {
           "file": {
@@ -13,6 +167,60 @@
           "file"
         ],
         "title": "Body_upload_file_api_v1_sessions__session_id__files_post",
+        "type": "object"
+      },
+      "ConfirmationDetail": {
+        "description": "How the turn's plan was decided. Only the user ever approves.",
+        "properties": {
+          "decision": {
+            "enum": [
+              "approve",
+              "reject"
+            ],
+            "title": "Decision",
+            "type": "string"
+          },
+          "decision_source": {
+            "enum": [
+              "user",
+              "timeout",
+              "shutdown",
+              "turn_finished"
+            ],
+            "title": "Decision Source",
+            "type": "string"
+          }
+        },
+        "required": [
+          "decision",
+          "decision_source"
+        ],
+        "title": "ConfirmationDetail",
+        "type": "object"
+      },
+      "ConfirmationRequest": {
+        "additionalProperties": false,
+        "description": "The user's answer to the plan waiting on a turn.",
+        "properties": {
+          "confirmation_id": {
+            "pattern": "^[A-Za-z0-9_-]{1,64}$",
+            "title": "Confirmation Id",
+            "type": "string"
+          },
+          "decision": {
+            "enum": [
+              "approve",
+              "reject"
+            ],
+            "title": "Decision",
+            "type": "string"
+          }
+        },
+        "required": [
+          "confirmation_id",
+          "decision"
+        ],
+        "title": "ConfirmationRequest",
         "type": "object"
       },
       "CreateSessionRequest": {
@@ -132,6 +340,8 @@
           "multiple_sheets",
           "invalid_request",
           "session_busy",
+          "no_pending_confirmation",
+          "stale_confirmation",
           "server_busy",
           "file_unavailable",
           "internal_error"
@@ -399,6 +609,67 @@
           "max_message_chars"
         ],
         "title": "Limits",
+        "type": "object"
+      },
+      "PendingConfirmation": {
+        "description": "The plan waiting for the user's answer: every file-changing step, in order.\n\nApproving it approves every step; rejecting it, or no answer by\n``expires_at``, means none of them runs.",
+        "properties": {
+          "confirmation_id": {
+            "title": "Confirmation Id",
+            "type": "string"
+          },
+          "expires_at": {
+            "format": "date-time",
+            "title": "Expires At",
+            "type": "string"
+          },
+          "plan_note": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Set, to a fixed line, when the plan has two or more steps; else null.",
+            "title": "Plan Note"
+          },
+          "steps": {
+            "items": {
+              "$ref": "#/components/schemas/PlanStep"
+            },
+            "minItems": 1,
+            "title": "Steps",
+            "type": "array"
+          }
+        },
+        "required": [
+          "confirmation_id",
+          "steps",
+          "plan_note",
+          "expires_at"
+        ],
+        "title": "PendingConfirmation",
+        "type": "object"
+      },
+      "PlanStep": {
+        "description": "One step of the plan: its capability, and what it proposes to do (no result).",
+        "properties": {
+          "capability": {
+            "title": "Capability",
+            "type": "string"
+          },
+          "prompt": {
+            "title": "Prompt",
+            "type": "string"
+          }
+        },
+        "required": [
+          "capability",
+          "prompt"
+        ],
+        "title": "PlanStep",
         "type": "object"
       },
       "RunningTurn": {
@@ -708,8 +979,15 @@
             "type": "string"
           },
           "pending_confirmation": {
-            "title": "Pending Confirmation",
-            "type": "null"
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/PendingConfirmation"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "The plan waiting on the session's unfinished turn, if one is waiting."
           },
           "retention_hours": {
             "anyOf": [
@@ -730,6 +1008,7 @@
             "items": {
               "discriminator": {
                 "mapping": {
+                  "awaiting_confirmation": "#/components/schemas/AwaitingConfirmationTurnSummary",
                   "finished": "#/components/schemas/FinishedTurnSummary",
                   "running": "#/components/schemas/RunningTurnSummary"
                 },
@@ -738,6 +1017,9 @@
               "oneOf": [
                 {
                   "$ref": "#/components/schemas/RunningTurnSummary"
+                },
+                {
+                  "$ref": "#/components/schemas/AwaitingConfirmationTurnSummary"
                 },
                 {
                   "$ref": "#/components/schemas/FinishedTurnSummary"
@@ -755,6 +1037,7 @@
           "active_file_id",
           "files",
           "turns",
+          "pending_confirmation",
           "limits",
           "retention_hours"
         ],
@@ -827,6 +1110,16 @@
               }
             ],
             "title": "Clarification Required"
+          },
+          "confirmation": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/ConfirmationDetail"
+              },
+              {
+                "type": "null"
+              }
+            ]
           },
           "intent": {
             "anyOf": [
@@ -1408,7 +1701,7 @@
     },
     "/api/v1/sessions/{session_id}/turns/{turn_id}": {
       "get": {
-        "description": "One turn, with ``detail``. Poll this after starting a turn; a finished turn never changes.",
+        "description": "One turn, with ``detail``. Poll this after starting a turn; a finished turn never changes.\n\nWhile the turn's plan waits for the user, the turn is\n``awaiting_confirmation`` and carries the plan as ``pending_confirmation``.",
         "operationId": "get_turn_api_v1_sessions__session_id__turns__turn_id__get",
         "parameters": [
           {
@@ -1437,6 +1730,7 @@
                 "schema": {
                   "discriminator": {
                     "mapping": {
+                      "awaiting_confirmation": "#/components/schemas/AwaitingConfirmationTurn",
                       "finished": "#/components/schemas/FinishedTurn",
                       "running": "#/components/schemas/RunningTurn"
                     },
@@ -1445,6 +1739,9 @@
                   "oneOf": [
                     {
                       "$ref": "#/components/schemas/RunningTurn"
+                    },
+                    {
+                      "$ref": "#/components/schemas/AwaitingConfirmationTurn"
                     },
                     {
                       "$ref": "#/components/schemas/FinishedTurn"
@@ -1488,6 +1785,127 @@
           }
         },
         "summary": "Get Turn",
+        "tags": [
+          "turns"
+        ]
+      }
+    },
+    "/api/v1/sessions/{session_id}/turns/{turn_id}/confirmation": {
+      "post": {
+        "description": "Approve or reject the plan waiting on a turn, once. Returns the turn as it now stands.\n\nApproving approves every step of the plan; rejecting means none of them\nruns. The plan is no longer pending when this returns (usually the turn\nis ``running`` again); keep polling the turn for its reply. ``409\nno_pending_confirmation`` when no plan is waiting (none was asked, or it\nwas already answered or timed out); ``409 stale_confirmation`` when\n``confirmation_id`` isn't the waiting plan's.",
+        "operationId": "answer_confirmation_api_v1_sessions__session_id__turns__turn_id__confirmation_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "session_id",
+            "required": true,
+            "schema": {
+              "title": "Session Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "turn_id",
+            "required": true,
+            "schema": {
+              "title": "Turn Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ConfirmationRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "discriminator": {
+                    "mapping": {
+                      "awaiting_confirmation": "#/components/schemas/AwaitingConfirmationTurn",
+                      "finished": "#/components/schemas/FinishedTurn",
+                      "running": "#/components/schemas/RunningTurn"
+                    },
+                    "propertyName": "status"
+                  },
+                  "oneOf": [
+                    {
+                      "$ref": "#/components/schemas/RunningTurn"
+                    },
+                    {
+                      "$ref": "#/components/schemas/AwaitingConfirmationTurn"
+                    },
+                    {
+                      "$ref": "#/components/schemas/FinishedTurn"
+                    }
+                  ],
+                  "title": "Response Answer Confirmation Api V1 Sessions  Session Id  Turns  Turn Id  Confirmation Post"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "Not found"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "Conflict"
+          },
+          "413": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "Too large"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "Invalid request or file"
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "Internal error"
+          }
+        },
+        "summary": "Answer Confirmation",
         "tags": [
           "turns"
         ]
