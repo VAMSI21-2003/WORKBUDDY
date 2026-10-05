@@ -1,0 +1,238 @@
+focus     01_dedupe_approve                          SAME
+friend    01_dedupe_approve                          SAME
+template  01_dedupe_approve                          SAME
+focus     02_dedupe_reject                           SAME
+friend    02_dedupe_reject                           SAME
+template  02_dedupe_reject                           SAME
+focus     03_dedupe_timeout                          SAME
+friend    03_dedupe_timeout                          SAME
+template  03_dedupe_timeout                          SAME
+focus     04_empty_approve                           SAME
+friend    04_empty_approve                           SAME
+template  04_empty_approve                           SAME
+focus     05_empty_reject                            SAME
+friend    05_empty_reject                            SAME
+template  05_empty_reject                            SAME
+focus     06_chain_approve                           SAME
+friend    06_chain_approve                           SAME
+template  06_chain_approve                           SAME
+focus     07_chain_reject                            SAME
+friend    07_chain_reject                            SAME
+template  07_chain_reject                            SAME
+focus     08_chain_timeout                           SAME
+friend    08_chain_timeout                           SAME
+template  08_chain_timeout                           SAME
+focus     09_reverse_chain_approve                   SAME
+friend    09_reverse_chain_approve                   SAME
+template  09_reverse_chain_approve                   SAME
+focus     10_three_steps_approve                     SAME
+friend    10_three_steps_approve                     SAME
+template  10_three_steps_approve                     SAME
+focus     11_no_duplicates_approve                   SAME
+friend    11_no_duplicates_approve                   SAME
+template  11_no_duplicates_approve                   SAME
+focus     12_no_duplicates_reject                    SAME
+friend    12_no_duplicates_reject                    SAME
+template  12_no_duplicates_reject                    SAME
+focus     13_greeting_unclear                        SAME
+friend    13_greeting_unclear                        SAME
+template  13_greeting_unclear                        SAME
+focus     14_clarification                           SAME
+friend    14_clarification                           SAME
+template  14_clarification                           SAME
+focus     15_no_file                                 SAME
+friend    15_no_file                                 SAME
+template  15_no_file                                 SAME
+focus     16_misread_as_empty_rows_reject            SAME
+friend    16_misread_as_empty_rows_reject            SAME
+template  16_misread_as_empty_rows_reject            SAME
+focus     17_misread_as_empty_rows_approve           SAME
+friend    17_misread_as_empty_rows_approve           SAME
+template  17_misread_as_empty_rows_approve           SAME
+focus     18_approve_after_deadline_length_wait      SAME
+friend    18_approve_after_deadline_length_wait      SAME
+template  18_approve_after_deadline_length_wait      SAME
+focus     19_unsupported_second_step_approve         DIFFERS
+    plans:
+      A: [{"plan_note": null, "steps": [["spreadsheet.deduplicate", "Remove duplicate rows from report.xlsx."]]}]
+      B: []
+    answers:
+      A: [{"decision": "approve", "error": null, "http": 200, "pending_after": null, "status_after": "running"}]
+      B: []
+    reply:
+      A: "Before anything else, here's what I noticed: name: 1 missing value(s) (16.7%); amount: 1 missing value(s) (16.7%). Want me to tackle any of these? I ran into a problem partway through. The sort step: couldn't be run because no available skill can do it. I stopped at the sort step and no file was handed back; your original file is unchanged."
+      B: "Before anything else, here's what I noticed: name: 1 missing value(s) (16.7%); amount: 1 missing value(s) (16.7%). Want me to tackle any of these? I ran into a problem partway through. The sort step: couldn't be run because no available skill can do it. I stopped at the sort step, so deduplicate never ran and no file was handed back; your original file is unchanged."
+    confirmation:
+      A: {"decision": "approve", "decision_source": "user"}
+      B: null
+    detail_steps:
+      A: ["spreadsheet.analyze[success] report.xlsx->[]", "spreadsheet.deduplicate[success] report.xlsx->['report_deduplicated_<id>.xlsx']", "spreadsheet.sort[failure] report_deduplicated_<id>.xlsx->[]"]
+      B: ["spreadsheet.analyze[success] report.xlsx->[]", "spreadsheet.deduplicate[skipped] None->[]", "spreadsheet.sort[failure] report.xlsx->[]"]
+    written_in_turn_folder:
+      A: ["report_deduplicated_<id>.xlsx"]
+      B: []
+friend    19_unsupported_second_step_approve         DIFFERS
+    plans:
+      A: [{"plan_note": null, "steps": [["spreadsheet.deduplicate", "Remove duplicate rows from report.xlsx."]]}]
+      B: []
+    answers:
+      A: [{"decision": "approve", "error": null, "http": 200, "pending_after": null, "status_after": "running"}]
+      B: []
+    reply:
+      A: "Before anything else, here's what I noticed: name: 1 missing value(s) (16.7%); amount: 1 missing value(s) (16.7%). Want me to tackle any of these? I ran into a problem partway through. The sort step: couldn't be run because no available skill can do it. I stopped at the sort step and no file was handed back; your original file is unchanged."
+      B: "Before anything else, here's what I noticed: name: 1 missing value(s) (16.7%); amount: 1 missing value(s) (16.7%). Want me to tackle any of these? I ran into a problem partway through. The sort step: couldn't be run because no available skill can do it. I stopped at the sort step, so deduplicate never ran and no file was handed back; your original file is unchanged."
+    confirmation:
+      A: {"decision": "approve", "decision_source": "user"}
+      B: null
+    detail_steps:
+      A: ["spreadsheet.analyze[success] report.xlsx->[]", "spreadsheet.deduplicate[success] report.xlsx->['report_deduplicated_<id>.xlsx']", "spreadsheet.sort[failure] report_deduplicated_<id>.xlsx->[]"]
+      B: ["spreadsheet.analyze[success] report.xlsx->[]", "spreadsheet.deduplicate[skipped] None->[]", "spreadsheet.sort[failure] report.xlsx->[]"]
+    written_in_turn_folder:
+      A: ["report_deduplicated_<id>.xlsx"]
+      B: []
+template  19_unsupported_second_step_approve         DIFFERS
+    plans:
+      A: [{"plan_note": null, "steps": [["spreadsheet.deduplicate", "Remove duplicate rows from report.xlsx."]]}]
+      B: []
+    answers:
+      A: [{"decision": "approve", "error": null, "http": 200, "pending_after": null, "status_after": "running"}]
+      B: []
+    reply:
+      A: "Before anything else, here's what I noticed: name: 1 missing value(s) (16.7%); amount: 1 missing value(s) (16.7%). Want me to tackle any of these? I ran into a problem partway through. The sort step: couldn't be run because no available skill can do it. I stopped at the sort step and no file was handed back; your original file is unchanged."
+      B: "Before anything else, here's what I noticed: name: 1 missing value(s) (16.7%); amount: 1 missing value(s) (16.7%). Want me to tackle any of these? I ran into a problem partway through. The sort step: couldn't be run because no available skill can do it. I stopped at the sort step, so deduplicate never ran and no file was handed back; your original file is unchanged."
+    confirmation:
+      A: {"decision": "approve", "decision_source": "user"}
+      B: null
+    detail_steps:
+      A: ["spreadsheet.analyze[success] report.xlsx->[]", "spreadsheet.deduplicate[success] report.xlsx->['report_deduplicated_<id>.xlsx']", "spreadsheet.sort[failure] report_deduplicated_<id>.xlsx->[]"]
+      B: ["spreadsheet.analyze[success] report.xlsx->[]", "spreadsheet.deduplicate[skipped] None->[]", "spreadsheet.sort[failure] report.xlsx->[]"]
+    written_in_turn_folder:
+      A: ["report_deduplicated_<id>.xlsx"]
+      B: []
+focus     20_unsupported_first_step                  SAME
+friend    20_unsupported_first_step                  SAME
+template  20_unsupported_first_step                  SAME
+focus     21_unsupported_middle_step_approve         DIFFERS
+    plans:
+      A: [{"plan_note": null, "steps": [["spreadsheet.deduplicate", "Remove duplicate rows from report.xlsx."]]}]
+      B: []
+    answers:
+      A: [{"decision": "approve", "error": null, "http": 200, "pending_after": null, "status_after": "running"}]
+      B: []
+    reply:
+      A: "Before anything else, here's what I noticed: name: 1 missing value(s) (16.7%); amount: 1 missing value(s) (16.7%). Want me to tackle any of these? I ran into a problem partway through. The sort step: couldn't be run because no available skill can do it. I stopped at the sort step, so remove empty rows never ran and no file was handed back; your original file is unchanged."
+      B: "Before anything else, here's what I noticed: name: 1 missing value(s) (16.7%); amount: 1 missing value(s) (16.7%). Want me to tackle any of these? I ran into a problem partway through. The sort step: couldn't be run because no available skill can do it. I stopped at the sort step, so deduplicate, remove empty rows never ran and no file was handed back; your original file is unchanged."
+    confirmation:
+      A: {"decision": "approve", "decision_source": "user"}
+      B: null
+    detail_steps:
+      A: ["spreadsheet.analyze[success] report.xlsx->[]", "spreadsheet.deduplicate[success] report.xlsx->['report_deduplicated_<id>.xlsx']", "spreadsheet.sort[failure] report_deduplicated_<id>.xlsx->[]", "spreadsheet.remove_empty_rows[skipped] None->[]"]
+      B: ["spreadsheet.analyze[success] report.xlsx->[]", "spreadsheet.deduplicate[skipped] None->[]", "spreadsheet.sort[failure] report.xlsx->[]", "spreadsheet.remove_empty_rows[skipped] None->[]"]
+    written_in_turn_folder:
+      A: ["report_deduplicated_<id>.xlsx"]
+      B: []
+friend    21_unsupported_middle_step_approve         DIFFERS
+    plans:
+      A: [{"plan_note": null, "steps": [["spreadsheet.deduplicate", "Remove duplicate rows from report.xlsx."]]}]
+      B: []
+    answers:
+      A: [{"decision": "approve", "error": null, "http": 200, "pending_after": null, "status_after": "running"}]
+      B: []
+    reply:
+      A: "Before anything else, here's what I noticed: name: 1 missing value(s) (16.7%); amount: 1 missing value(s) (16.7%). Want me to tackle any of these? I ran into a problem partway through. The sort step: couldn't be run because no available skill can do it. I stopped at the sort step, so remove empty rows never ran and no file was handed back; your original file is unchanged."
+      B: "Before anything else, here's what I noticed: name: 1 missing value(s) (16.7%); amount: 1 missing value(s) (16.7%). Want me to tackle any of these? I ran into a problem partway through. The sort step: couldn't be run because no available skill can do it. I stopped at the sort step, so deduplicate, remove empty rows never ran and no file was handed back; your original file is unchanged."
+    confirmation:
+      A: {"decision": "approve", "decision_source": "user"}
+      B: null
+    detail_steps:
+      A: ["spreadsheet.analyze[success] report.xlsx->[]", "spreadsheet.deduplicate[success] report.xlsx->['report_deduplicated_<id>.xlsx']", "spreadsheet.sort[failure] report_deduplicated_<id>.xlsx->[]", "spreadsheet.remove_empty_rows[skipped] None->[]"]
+      B: ["spreadsheet.analyze[success] report.xlsx->[]", "spreadsheet.deduplicate[skipped] None->[]", "spreadsheet.sort[failure] report.xlsx->[]", "spreadsheet.remove_empty_rows[skipped] None->[]"]
+    written_in_turn_folder:
+      A: ["report_deduplicated_<id>.xlsx"]
+      B: []
+template  21_unsupported_middle_step_approve         DIFFERS
+    plans:
+      A: [{"plan_note": null, "steps": [["spreadsheet.deduplicate", "Remove duplicate rows from report.xlsx."]]}]
+      B: []
+    answers:
+      A: [{"decision": "approve", "error": null, "http": 200, "pending_after": null, "status_after": "running"}]
+      B: []
+    reply:
+      A: "Before anything else, here's what I noticed: name: 1 missing value(s) (16.7%); amount: 1 missing value(s) (16.7%). Want me to tackle any of these? I ran into a problem partway through. The sort step: couldn't be run because no available skill can do it. I stopped at the sort step, so remove empty rows never ran and no file was handed back; your original file is unchanged."
+      B: "Before anything else, here's what I noticed: name: 1 missing value(s) (16.7%); amount: 1 missing value(s) (16.7%). Want me to tackle any of these? I ran into a problem partway through. The sort step: couldn't be run because no available skill can do it. I stopped at the sort step, so deduplicate, remove empty rows never ran and no file was handed back; your original file is unchanged."
+    confirmation:
+      A: {"decision": "approve", "decision_source": "user"}
+      B: null
+    detail_steps:
+      A: ["spreadsheet.analyze[success] report.xlsx->[]", "spreadsheet.deduplicate[success] report.xlsx->['report_deduplicated_<id>.xlsx']", "spreadsheet.sort[failure] report_deduplicated_<id>.xlsx->[]", "spreadsheet.remove_empty_rows[skipped] None->[]"]
+      B: ["spreadsheet.analyze[success] report.xlsx->[]", "spreadsheet.deduplicate[skipped] None->[]", "spreadsheet.sort[failure] report.xlsx->[]", "spreadsheet.remove_empty_rows[skipped] None->[]"]
+    written_in_turn_folder:
+      A: ["report_deduplicated_<id>.xlsx"]
+      B: []
+focus     22_analyze_planned_between_writes          SAME
+friend    22_analyze_planned_between_writes          SAME
+template  22_analyze_planned_between_writes          SAME
+focus     23_hostile_name_approve                    SAME
+friend    23_hostile_name_approve                    SAME
+template  23_hostile_name_approve                    SAME
+focus     24_dedupe_answered_reject_after_delay      SAME
+friend    24_dedupe_answered_reject_after_delay      SAME
+template  24_dedupe_answered_reject_after_delay      SAME
+focus     25_two_steps_then_unsupported_approve      DIFFERS
+    plans:
+      A: [{"plan_note": "The steps run in this order, each on the previous step's result. Only the final file is handed back.", "steps": [["spreadsheet.deduplicate", "Remove duplicate rows from report.xlsx."], ["spreadsheet.remove_empty_rows", "Then remove empty rows from the result of step 1."]]}]
+      B: []
+    answers:
+      A: [{"decision": "approve", "error": null, "http": 200, "pending_after": null, "status_after": "running"}]
+      B: []
+    reply:
+      A: "Before anything else, here's what I noticed: name: 1 missing value(s) (16.7%); amount: 1 missing value(s) (16.7%). Want me to tackle any of these? I ran into a problem partway through. The sort step: couldn't be run because no available skill can do it. I stopped at the sort step and no file was handed back; your original file is unchanged. I couldn't tell for sure from your message what order you wanted, so the steps ran in this order: deduplicate, then remove empty rows."
+      B: "Before anything else, here's what I noticed: name: 1 missing value(s) (16.7%); amount: 1 missing value(s) (16.7%). Want me to tackle any of these? I ran into a problem partway through. The sort step: couldn't be run because no available skill can do it. I stopped at the sort step, so deduplicate, remove empty rows never ran and no file was handed back; your original file is unchanged."
+    confirmation:
+      A: {"decision": "approve", "decision_source": "user"}
+      B: null
+    detail_steps:
+      A: ["spreadsheet.analyze[success] report.xlsx->[]", "spreadsheet.deduplicate[success] report.xlsx->['report_deduplicated_<id>.xlsx']", "spreadsheet.remove_empty_rows[success] report_deduplicated_<id>.xlsx->['report_deduplicated_<id>_no_empty_rows_<id>.xlsx']", "spreadsheet.sort[failure] report_deduplicated_<id>_no_empty_rows_<id>.xlsx->[]"]
+      B: ["spreadsheet.analyze[success] report.xlsx->[]", "spreadsheet.deduplicate[skipped] None->[]", "spreadsheet.remove_empty_rows[skipped] None->[]", "spreadsheet.sort[failure] report.xlsx->[]"]
+    written_in_turn_folder:
+      A: ["report_deduplicated_<id>.xlsx", "report_deduplicated_<id>_no_empty_rows_<id>.xlsx"]
+      B: []
+friend    25_two_steps_then_unsupported_approve      DIFFERS
+    plans:
+      A: [{"plan_note": "The steps run in this order, each on the previous step's result. Only the final file is handed back.", "steps": [["spreadsheet.deduplicate", "Remove duplicate rows from report.xlsx."], ["spreadsheet.remove_empty_rows", "Then remove empty rows from the result of step 1."]]}]
+      B: []
+    answers:
+      A: [{"decision": "approve", "error": null, "http": 200, "pending_after": null, "status_after": "running"}]
+      B: []
+    reply:
+      A: "Before anything else, here's what I noticed: name: 1 missing value(s) (16.7%); amount: 1 missing value(s) (16.7%). Want me to tackle any of these? I ran into a problem partway through. The sort step: couldn't be run because no available skill can do it. I stopped at the sort step and no file was handed back; your original file is unchanged. I couldn't tell for sure from your message what order you wanted, so the steps ran in this order: deduplicate, then remove empty rows."
+      B: "Before anything else, here's what I noticed: name: 1 missing value(s) (16.7%); amount: 1 missing value(s) (16.7%). Want me to tackle any of these? I ran into a problem partway through. The sort step: couldn't be run because no available skill can do it. I stopped at the sort step, so deduplicate, remove empty rows never ran and no file was handed back; your original file is unchanged."
+    confirmation:
+      A: {"decision": "approve", "decision_source": "user"}
+      B: null
+    detail_steps:
+      A: ["spreadsheet.analyze[success] report.xlsx->[]", "spreadsheet.deduplicate[success] report.xlsx->['report_deduplicated_<id>.xlsx']", "spreadsheet.remove_empty_rows[success] report_deduplicated_<id>.xlsx->['report_deduplicated_<id>_no_empty_rows_<id>.xlsx']", "spreadsheet.sort[failure] report_deduplicated_<id>_no_empty_rows_<id>.xlsx->[]"]
+      B: ["spreadsheet.analyze[success] report.xlsx->[]", "spreadsheet.deduplicate[skipped] None->[]", "spreadsheet.remove_empty_rows[skipped] None->[]", "spreadsheet.sort[failure] report.xlsx->[]"]
+    written_in_turn_folder:
+      A: ["report_deduplicated_<id>.xlsx", "report_deduplicated_<id>_no_empty_rows_<id>.xlsx"]
+      B: []
+template  25_two_steps_then_unsupported_approve      DIFFERS
+    plans:
+      A: [{"plan_note": "The steps run in this order, each on the previous step's result. Only the final file is handed back.", "steps": [["spreadsheet.deduplicate", "Remove duplicate rows from report.xlsx."], ["spreadsheet.remove_empty_rows", "Then remove empty rows from the result of step 1."]]}]
+      B: []
+    answers:
+      A: [{"decision": "approve", "error": null, "http": 200, "pending_after": null, "status_after": "running"}]
+      B: []
+    reply:
+      A: "Before anything else, here's what I noticed: name: 1 missing value(s) (16.7%); amount: 1 missing value(s) (16.7%). Want me to tackle any of these? I ran into a problem partway through. The sort step: couldn't be run because no available skill can do it. I stopped at the sort step and no file was handed back; your original file is unchanged. I couldn't tell for sure from your message what order you wanted, so the steps ran in this order: deduplicate, then remove empty rows."
+      B: "Before anything else, here's what I noticed: name: 1 missing value(s) (16.7%); amount: 1 missing value(s) (16.7%). Want me to tackle any of these? I ran into a problem partway through. The sort step: couldn't be run because no available skill can do it. I stopped at the sort step, so deduplicate, remove empty rows never ran and no file was handed back; your original file is unchanged."
+    confirmation:
+      A: {"decision": "approve", "decision_source": "user"}
+      B: null
+    detail_steps:
+      A: ["spreadsheet.analyze[success] report.xlsx->[]", "spreadsheet.deduplicate[success] report.xlsx->['report_deduplicated_<id>.xlsx']", "spreadsheet.remove_empty_rows[success] report_deduplicated_<id>.xlsx->['report_deduplicated_<id>_no_empty_rows_<id>.xlsx']", "spreadsheet.sort[failure] report_deduplicated_<id>_no_empty_rows_<id>.xlsx->[]"]
+      B: ["spreadsheet.analyze[success] report.xlsx->[]", "spreadsheet.deduplicate[skipped] None->[]", "spreadsheet.remove_empty_rows[skipped] None->[]", "spreadsheet.sort[failure] report.xlsx->[]"]
+    written_in_turn_folder:
+      A: ["report_deduplicated_<id>.xlsx", "report_deduplicated_<id>_no_empty_rows_<id>.xlsx"]
+      B: []
+# 66 same, 9 differ

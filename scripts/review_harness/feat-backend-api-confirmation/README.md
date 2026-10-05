@@ -19,3 +19,16 @@ Round 1 outputs are in `out/`:
 - `live_plan_check_reject.json`, `live_plan_check_approve.json`
 - `mutations.txt` (`mutations_rerun.txt` names the failing test for six kills whose first line was a log record), `new_tests_on_base.txt`
 - `older_harnesses.txt` (earlier reviews' pipeline harnesses, head vs base), `rule_checks.txt` (every run's original hash, and every delivered file's counts against its reply)
+
+## Round 2 (head `b1059d3`)
+
+Run from the repo root. The round-1 probes above were re-run unchanged on the round-2 head (`api_probe.py`, `adversarial_probe.py`, `live_plan_check.py`); the new scripts are prefixed `r2_`. Make worktrees of the round-1 head and the base first, for example `git worktree add --detach ../r1head 3ef871c` and `git worktree add --detach ../base origin/main`.
+
+- `r2_probe.py [--tree DIR] [--part api|engine] [--speaker S] [--only NAME]`: 16 cases aimed at the M1 fix (a chain the Dispatcher can tell won't finish), through the API (`--part api`) or through `build_engine` alone with its default `NullConfirmationProvider` (`--part engine`, the CLI path): an unsupported step last, in the middle, first (control), with analysis planned, repeated steps, misspelled or hostile capability ids, a read-like unsupported step, an unconfirmed order, a header-only and a no-duplicates file, a second turn after a delivery, and a supported chain (control).
+- `r2_l2_probe.py [--only NAME] [--trials N] [--speaker S]`: what the L2 fix leaves and changes: the provider closed between the answer and the worker's wake-up (deterministic), an answer with no working time left (trials), and a server shutdown after the approval while step 1 runs.
+- `r2_mutations.py [--jobs 4] [--only NAME]`: 17 mutations of the round-1 fixes' guards, plus round 1's 14 surviving mutations again. Hands mutations also run `tests/buddy/test_engine_factory.py`. About 40 minutes with 4 jobs.
+- `r2_new_tests_on_old.py OLD_TREE`: the tests added or changed since round 1, run on the round-1 code (one line per test case).
+- `r2_compare.py A.jsonl B.jsonl [--key scenario|case] [--strip-catalog] [--ignore statuses,...]`: compares two runs of the same probe; `--strip-catalog` drops the seeded openers and closers.
+- `r2_rule_checks.py [FILE ...]`: rule 2 (the original's hash) and rule 1 (delivered files against the reply's numbers; claim words in replies that delivered nothing) over every round-2 output.
+
+Round 2 outputs are in `out/r2/` (each file's name says which probe and tree; `*_vs_*.txt` are comparisons). The earlier harnesses' raw outputs are gzipped (`prb_harness_*.json.gz` from `scripts/review_harness/harness.py --out …`, `round5_*.json.gz` from `scripts/review_harness/round5.py --out …`, each on head and with `--tree` on base); `older_harnesses_head_vs_base.txt` compares them (`r2_older_compare.py`), and `pipeline_compare_head_vs_base.txt` is `feat-backend-api-core/pipeline_compare.py --diff HEAD_TREE BASE_TREE`.

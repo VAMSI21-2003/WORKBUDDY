@@ -1,0 +1,427 @@
+focus     a01_dedupe_then_sort                       DIFFERS
+    reply:
+      A: "Before anything else, here's what I noticed: name: 1 missing value(s) (16.7%); amount: 1 missing value(s) (16.7%). Want me to tackle any of these? I ran into a problem partway through. The sort step: couldn't be run because no available skill can do it. I stopped at the sort step and no file was handed back; your original file is unchanged."
+      B: "Before anything else, here's what I noticed: name: 1 missing value(s) (16.7%); amount: 1 missing value(s) (16.7%). Want me to tackle any of these? I ran into a problem partway through. The sort step: couldn't be run because no available skill can do it. I stopped at the sort step, so deduplicate never ran and no file was handed back; your original file is unchanged."
+    detail_steps:
+      A: ["spreadsheet.analyze[success] report.xlsx->[]", "spreadsheet.deduplicate[success] report.xlsx->['report_deduplicated_<id>.xlsx']", "spreadsheet.sort[failure] report_deduplicated_<id>.xlsx->[]"]
+      B: ["spreadsheet.analyze[success] report.xlsx->[]", "spreadsheet.deduplicate[skipped] None->[]", "spreadsheet.sort[failure] report.xlsx->[]"]
+    written_in_turn_folder:
+      A: ["report_deduplicated_<id>.xlsx"]
+      B: []
+friend    a01_dedupe_then_sort                       DIFFERS
+    reply:
+      A: "Before anything else, here's what I noticed: name: 1 missing value(s) (16.7%); amount: 1 missing value(s) (16.7%). Want me to tackle any of these? I ran into a problem partway through. The sort step: couldn't be run because no available skill can do it. I stopped at the sort step and no file was handed back; your original file is unchanged."
+      B: "Before anything else, here's what I noticed: name: 1 missing value(s) (16.7%); amount: 1 missing value(s) (16.7%). Want me to tackle any of these? I ran into a problem partway through. The sort step: couldn't be run because no available skill can do it. I stopped at the sort step, so deduplicate never ran and no file was handed back; your original file is unchanged."
+    detail_steps:
+      A: ["spreadsheet.analyze[success] report.xlsx->[]", "spreadsheet.deduplicate[success] report.xlsx->['report_deduplicated_<id>.xlsx']", "spreadsheet.sort[failure] report_deduplicated_<id>.xlsx->[]"]
+      B: ["spreadsheet.analyze[success] report.xlsx->[]", "spreadsheet.deduplicate[skipped] None->[]", "spreadsheet.sort[failure] report.xlsx->[]"]
+    written_in_turn_folder:
+      A: ["report_deduplicated_<id>.xlsx"]
+      B: []
+template  a01_dedupe_then_sort                       DIFFERS
+    reply:
+      A: "Before anything else, here's what I noticed: name: 1 missing value(s) (16.7%); amount: 1 missing value(s) (16.7%). Want me to tackle any of these? I ran into a problem partway through. The sort step: couldn't be run because no available skill can do it. I stopped at the sort step and no file was handed back; your original file is unchanged."
+      B: "Before anything else, here's what I noticed: name: 1 missing value(s) (16.7%); amount: 1 missing value(s) (16.7%). Want me to tackle any of these? I ran into a problem partway through. The sort step: couldn't be run because no available skill can do it. I stopped at the sort step, so deduplicate never ran and no file was handed back; your original file is unchanged."
+    detail_steps:
+      A: ["spreadsheet.analyze[success] report.xlsx->[]", "spreadsheet.deduplicate[success] report.xlsx->['report_deduplicated_<id>.xlsx']", "spreadsheet.sort[failure] report_deduplicated_<id>.xlsx->[]"]
+      B: ["spreadsheet.analyze[success] report.xlsx->[]", "spreadsheet.deduplicate[skipped] None->[]", "spreadsheet.sort[failure] report.xlsx->[]"]
+    written_in_turn_folder:
+      A: ["report_deduplicated_<id>.xlsx"]
+      B: []
+focus     a02_two_then_sort                          DIFFERS
+    reply:
+      A: "Before anything else, here's what I noticed: name: 1 missing value(s) (16.7%); amount: 1 missing value(s) (16.7%). Want me to tackle any of these? I ran into a problem partway through. The sort step: couldn't be run because no available skill can do it. I stopped at the sort step and no file was handed back; your original file is unchanged. I couldn't tell for sure from your message what order you wanted, so the steps ran in this order: deduplicate, then remove empty rows."
+      B: "Before anything else, here's what I noticed: name: 1 missing value(s) (16.7%); amount: 1 missing value(s) (16.7%). Want me to tackle any of these? I ran into a problem partway through. The sort step: couldn't be run because no available skill can do it. I stopped at the sort step, so deduplicate, remove empty rows never ran and no file was handed back; your original file is unchanged."
+    detail_steps:
+      A: ["spreadsheet.analyze[success] report.xlsx->[]", "spreadsheet.deduplicate[success] report.xlsx->['report_deduplicated_<id>.xlsx']", "spreadsheet.remove_empty_rows[success] report_deduplicated_<id>.xlsx->['report_deduplicated_<id>_no_empty_rows_<id>.xlsx']", "spreadsheet.sort[failure] report_deduplicated_<id>_no_empty_rows_<id>.xlsx->[]"]
+      B: ["spreadsheet.analyze[success] report.xlsx->[]", "spreadsheet.deduplicate[skipped] None->[]", "spreadsheet.remove_empty_rows[skipped] None->[]", "spreadsheet.sort[failure] report.xlsx->[]"]
+    written_in_turn_folder:
+      A: ["report_deduplicated_<id>.xlsx", "report_deduplicated_<id>_no_empty_rows_<id>.xlsx"]
+      B: []
+friend    a02_two_then_sort                          DIFFERS
+    reply:
+      A: "Before anything else, here's what I noticed: name: 1 missing value(s) (16.7%); amount: 1 missing value(s) (16.7%). Want me to tackle any of these? I ran into a problem partway through. The sort step: couldn't be run because no available skill can do it. I stopped at the sort step and no file was handed back; your original file is unchanged. I couldn't tell for sure from your message what order you wanted, so the steps ran in this order: deduplicate, then remove empty rows."
+      B: "Before anything else, here's what I noticed: name: 1 missing value(s) (16.7%); amount: 1 missing value(s) (16.7%). Want me to tackle any of these? I ran into a problem partway through. The sort step: couldn't be run because no available skill can do it. I stopped at the sort step, so deduplicate, remove empty rows never ran and no file was handed back; your original file is unchanged."
+    detail_steps:
+      A: ["spreadsheet.analyze[success] report.xlsx->[]", "spreadsheet.deduplicate[success] report.xlsx->['report_deduplicated_<id>.xlsx']", "spreadsheet.remove_empty_rows[success] report_deduplicated_<id>.xlsx->['report_deduplicated_<id>_no_empty_rows_<id>.xlsx']", "spreadsheet.sort[failure] report_deduplicated_<id>_no_empty_rows_<id>.xlsx->[]"]
+      B: ["spreadsheet.analyze[success] report.xlsx->[]", "spreadsheet.deduplicate[skipped] None->[]", "spreadsheet.remove_empty_rows[skipped] None->[]", "spreadsheet.sort[failure] report.xlsx->[]"]
+    written_in_turn_folder:
+      A: ["report_deduplicated_<id>.xlsx", "report_deduplicated_<id>_no_empty_rows_<id>.xlsx"]
+      B: []
+template  a02_two_then_sort                          DIFFERS
+    reply:
+      A: "Before anything else, here's what I noticed: name: 1 missing value(s) (16.7%); amount: 1 missing value(s) (16.7%). Want me to tackle any of these? I ran into a problem partway through. The sort step: couldn't be run because no available skill can do it. I stopped at the sort step and no file was handed back; your original file is unchanged. I couldn't tell for sure from your message what order you wanted, so the steps ran in this order: deduplicate, then remove empty rows."
+      B: "Before anything else, here's what I noticed: name: 1 missing value(s) (16.7%); amount: 1 missing value(s) (16.7%). Want me to tackle any of these? I ran into a problem partway through. The sort step: couldn't be run because no available skill can do it. I stopped at the sort step, so deduplicate, remove empty rows never ran and no file was handed back; your original file is unchanged."
+    detail_steps:
+      A: ["spreadsheet.analyze[success] report.xlsx->[]", "spreadsheet.deduplicate[success] report.xlsx->['report_deduplicated_<id>.xlsx']", "spreadsheet.remove_empty_rows[success] report_deduplicated_<id>.xlsx->['report_deduplicated_<id>_no_empty_rows_<id>.xlsx']", "spreadsheet.sort[failure] report_deduplicated_<id>_no_empty_rows_<id>.xlsx->[]"]
+      B: ["spreadsheet.analyze[success] report.xlsx->[]", "spreadsheet.deduplicate[skipped] None->[]", "spreadsheet.remove_empty_rows[skipped] None->[]", "spreadsheet.sort[failure] report.xlsx->[]"]
+    written_in_turn_folder:
+      A: ["report_deduplicated_<id>.xlsx", "report_deduplicated_<id>_no_empty_rows_<id>.xlsx"]
+      B: []
+focus     a03_sort_in_the_middle                     DIFFERS
+    reply:
+      A: "Before anything else, here's what I noticed: name: 1 missing value(s) (16.7%); amount: 1 missing value(s) (16.7%). Want me to tackle any of these? I ran into a problem partway through. The sort step: couldn't be run because no available skill can do it. I stopped at the sort step, so remove empty rows never ran and no file was handed back; your original file is unchanged."
+      B: "Before anything else, here's what I noticed: name: 1 missing value(s) (16.7%); amount: 1 missing value(s) (16.7%). Want me to tackle any of these? I ran into a problem partway through. The sort step: couldn't be run because no available skill can do it. I stopped at the sort step, so deduplicate, remove empty rows never ran and no file was handed back; your original file is unchanged."
+    detail_steps:
+      A: ["spreadsheet.analyze[success] report.xlsx->[]", "spreadsheet.deduplicate[success] report.xlsx->['report_deduplicated_<id>.xlsx']", "spreadsheet.sort[failure] report_deduplicated_<id>.xlsx->[]", "spreadsheet.remove_empty_rows[skipped] None->[]"]
+      B: ["spreadsheet.analyze[success] report.xlsx->[]", "spreadsheet.deduplicate[skipped] None->[]", "spreadsheet.sort[failure] report.xlsx->[]", "spreadsheet.remove_empty_rows[skipped] None->[]"]
+    written_in_turn_folder:
+      A: ["report_deduplicated_<id>.xlsx"]
+      B: []
+friend    a03_sort_in_the_middle                     DIFFERS
+    reply:
+      A: "Before anything else, here's what I noticed: name: 1 missing value(s) (16.7%); amount: 1 missing value(s) (16.7%). Want me to tackle any of these? I ran into a problem partway through. The sort step: couldn't be run because no available skill can do it. I stopped at the sort step, so remove empty rows never ran and no file was handed back; your original file is unchanged."
+      B: "Before anything else, here's what I noticed: name: 1 missing value(s) (16.7%); amount: 1 missing value(s) (16.7%). Want me to tackle any of these? I ran into a problem partway through. The sort step: couldn't be run because no available skill can do it. I stopped at the sort step, so deduplicate, remove empty rows never ran and no file was handed back; your original file is unchanged."
+    detail_steps:
+      A: ["spreadsheet.analyze[success] report.xlsx->[]", "spreadsheet.deduplicate[success] report.xlsx->['report_deduplicated_<id>.xlsx']", "spreadsheet.sort[failure] report_deduplicated_<id>.xlsx->[]", "spreadsheet.remove_empty_rows[skipped] None->[]"]
+      B: ["spreadsheet.analyze[success] report.xlsx->[]", "spreadsheet.deduplicate[skipped] None->[]", "spreadsheet.sort[failure] report.xlsx->[]", "spreadsheet.remove_empty_rows[skipped] None->[]"]
+    written_in_turn_folder:
+      A: ["report_deduplicated_<id>.xlsx"]
+      B: []
+template  a03_sort_in_the_middle                     DIFFERS
+    reply:
+      A: "Before anything else, here's what I noticed: name: 1 missing value(s) (16.7%); amount: 1 missing value(s) (16.7%). Want me to tackle any of these? I ran into a problem partway through. The sort step: couldn't be run because no available skill can do it. I stopped at the sort step, so remove empty rows never ran and no file was handed back; your original file is unchanged."
+      B: "Before anything else, here's what I noticed: name: 1 missing value(s) (16.7%); amount: 1 missing value(s) (16.7%). Want me to tackle any of these? I ran into a problem partway through. The sort step: couldn't be run because no available skill can do it. I stopped at the sort step, so deduplicate, remove empty rows never ran and no file was handed back; your original file is unchanged."
+    detail_steps:
+      A: ["spreadsheet.analyze[success] report.xlsx->[]", "spreadsheet.deduplicate[success] report.xlsx->['report_deduplicated_<id>.xlsx']", "spreadsheet.sort[failure] report_deduplicated_<id>.xlsx->[]", "spreadsheet.remove_empty_rows[skipped] None->[]"]
+      B: ["spreadsheet.analyze[success] report.xlsx->[]", "spreadsheet.deduplicate[skipped] None->[]", "spreadsheet.sort[failure] report.xlsx->[]", "spreadsheet.remove_empty_rows[skipped] None->[]"]
+    written_in_turn_folder:
+      A: ["report_deduplicated_<id>.xlsx"]
+      B: []
+focus     a04_sort_first_control                     SAME
+friend    a04_sort_first_control                     SAME
+template  a04_sort_first_control                     SAME
+focus     a05_analysis_planned_too                   DIFFERS
+    reply:
+      A: "Before anything else, here's what I noticed: name: 1 missing value(s) (16.7%); amount: 1 missing value(s) (16.7%). Want me to tackle any of these? I ran into a problem partway through. The sort step: couldn't be run because no available skill can do it. I stopped at the sort step and no file was handed back; your original file is unchanged."
+      B: "Before anything else, here's what I noticed: name: 1 missing value(s) (16.7%); amount: 1 missing value(s) (16.7%). Want me to tackle any of these? I ran into a problem partway through. The sort step: couldn't be run because no available skill can do it. I stopped at the sort step, so deduplicate never ran and no file was handed back; your original file is unchanged."
+    detail_steps:
+      A: ["spreadsheet.analyze[success] report.xlsx->[]", "spreadsheet.deduplicate[success] report.xlsx->['report_deduplicated_<id>.xlsx']", "spreadsheet.sort[failure] report_deduplicated_<id>.xlsx->[]"]
+      B: ["spreadsheet.analyze[success] report.xlsx->[]", "spreadsheet.deduplicate[skipped] None->[]", "spreadsheet.sort[failure] report.xlsx->[]"]
+    written_in_turn_folder:
+      A: ["report_deduplicated_<id>.xlsx"]
+      B: []
+friend    a05_analysis_planned_too                   DIFFERS
+    reply:
+      A: "Before anything else, here's what I noticed: name: 1 missing value(s) (16.7%); amount: 1 missing value(s) (16.7%). Want me to tackle any of these? I ran into a problem partway through. The sort step: couldn't be run because no available skill can do it. I stopped at the sort step and no file was handed back; your original file is unchanged."
+      B: "Before anything else, here's what I noticed: name: 1 missing value(s) (16.7%); amount: 1 missing value(s) (16.7%). Want me to tackle any of these? I ran into a problem partway through. The sort step: couldn't be run because no available skill can do it. I stopped at the sort step, so deduplicate never ran and no file was handed back; your original file is unchanged."
+    detail_steps:
+      A: ["spreadsheet.analyze[success] report.xlsx->[]", "spreadsheet.deduplicate[success] report.xlsx->['report_deduplicated_<id>.xlsx']", "spreadsheet.sort[failure] report_deduplicated_<id>.xlsx->[]"]
+      B: ["spreadsheet.analyze[success] report.xlsx->[]", "spreadsheet.deduplicate[skipped] None->[]", "spreadsheet.sort[failure] report.xlsx->[]"]
+    written_in_turn_folder:
+      A: ["report_deduplicated_<id>.xlsx"]
+      B: []
+template  a05_analysis_planned_too                   DIFFERS
+    reply:
+      A: "Before anything else, here's what I noticed: name: 1 missing value(s) (16.7%); amount: 1 missing value(s) (16.7%). Want me to tackle any of these? I ran into a problem partway through. The sort step: couldn't be run because no available skill can do it. I stopped at the sort step and no file was handed back; your original file is unchanged."
+      B: "Before anything else, here's what I noticed: name: 1 missing value(s) (16.7%); amount: 1 missing value(s) (16.7%). Want me to tackle any of these? I ran into a problem partway through. The sort step: couldn't be run because no available skill can do it. I stopped at the sort step, so deduplicate never ran and no file was handed back; your original file is unchanged."
+    detail_steps:
+      A: ["spreadsheet.analyze[success] report.xlsx->[]", "spreadsheet.deduplicate[success] report.xlsx->['report_deduplicated_<id>.xlsx']", "spreadsheet.sort[failure] report_deduplicated_<id>.xlsx->[]"]
+      B: ["spreadsheet.analyze[success] report.xlsx->[]", "spreadsheet.deduplicate[skipped] None->[]", "spreadsheet.sort[failure] report.xlsx->[]"]
+    written_in_turn_folder:
+      A: ["report_deduplicated_<id>.xlsx"]
+      B: []
+focus     a06_dedupe_twice_then_sort                 DIFFERS
+    reply:
+      A: "Before anything else, here's what I noticed: name: 1 missing value(s) (16.7%); amount: 1 missing value(s) (16.7%). Want me to tackle any of these? I ran into a problem partway through. The sort step: couldn't be run because no available skill can do it. I stopped at the sort step and no file was handed back; your original file is unchanged. I couldn't tell for sure from your message what order you wanted, so the steps ran in this order: deduplicate, then deduplicate."
+      B: "Before anything else, here's what I noticed: name: 1 missing value(s) (16.7%); amount: 1 missing value(s) (16.7%). Want me to tackle any of these? I ran into a problem partway through. The sort step: couldn't be run because no available skill can do it. I stopped at the sort step, so deduplicate, deduplicate never ran and no file was handed back; your original file is unchanged."
+    detail_steps:
+      A: ["spreadsheet.analyze[success] report.xlsx->[]", "spreadsheet.deduplicate[success] report.xlsx->['report_deduplicated_<id>.xlsx']", "spreadsheet.deduplicate[success] report_deduplicated_<id>.xlsx->['report_deduplicated_<id>_deduplicated_<id>.xlsx']", "spreadsheet.sort[failure] report_deduplicated_<id>_deduplicated_<id>.xlsx->[]"]
+      B: ["spreadsheet.analyze[success] report.xlsx->[]", "spreadsheet.deduplicate[skipped] None->[]", "spreadsheet.deduplicate[skipped] None->[]", "spreadsheet.sort[failure] report.xlsx->[]"]
+    written_in_turn_folder:
+      A: ["report_deduplicated_<id>.xlsx", "report_deduplicated_<id>_deduplicated_<id>.xlsx"]
+      B: []
+friend    a06_dedupe_twice_then_sort                 DIFFERS
+    reply:
+      A: "Before anything else, here's what I noticed: name: 1 missing value(s) (16.7%); amount: 1 missing value(s) (16.7%). Want me to tackle any of these? I ran into a problem partway through. The sort step: couldn't be run because no available skill can do it. I stopped at the sort step and no file was handed back; your original file is unchanged. I couldn't tell for sure from your message what order you wanted, so the steps ran in this order: deduplicate, then deduplicate."
+      B: "Before anything else, here's what I noticed: name: 1 missing value(s) (16.7%); amount: 1 missing value(s) (16.7%). Want me to tackle any of these? I ran into a problem partway through. The sort step: couldn't be run because no available skill can do it. I stopped at the sort step, so deduplicate, deduplicate never ran and no file was handed back; your original file is unchanged."
+    detail_steps:
+      A: ["spreadsheet.analyze[success] report.xlsx->[]", "spreadsheet.deduplicate[success] report.xlsx->['report_deduplicated_<id>.xlsx']", "spreadsheet.deduplicate[success] report_deduplicated_<id>.xlsx->['report_deduplicated_<id>_deduplicated_<id>.xlsx']", "spreadsheet.sort[failure] report_deduplicated_<id>_deduplicated_<id>.xlsx->[]"]
+      B: ["spreadsheet.analyze[success] report.xlsx->[]", "spreadsheet.deduplicate[skipped] None->[]", "spreadsheet.deduplicate[skipped] None->[]", "spreadsheet.sort[failure] report.xlsx->[]"]
+    written_in_turn_folder:
+      A: ["report_deduplicated_<id>.xlsx", "report_deduplicated_<id>_deduplicated_<id>.xlsx"]
+      B: []
+template  a06_dedupe_twice_then_sort                 DIFFERS
+    reply:
+      A: "Before anything else, here's what I noticed: name: 1 missing value(s) (16.7%); amount: 1 missing value(s) (16.7%). Want me to tackle any of these? I ran into a problem partway through. The sort step: couldn't be run because no available skill can do it. I stopped at the sort step and no file was handed back; your original file is unchanged. I couldn't tell for sure from your message what order you wanted, so the steps ran in this order: deduplicate, then deduplicate."
+      B: "Before anything else, here's what I noticed: name: 1 missing value(s) (16.7%); amount: 1 missing value(s) (16.7%). Want me to tackle any of these? I ran into a problem partway through. The sort step: couldn't be run because no available skill can do it. I stopped at the sort step, so deduplicate, deduplicate never ran and no file was handed back; your original file is unchanged."
+    detail_steps:
+      A: ["spreadsheet.analyze[success] report.xlsx->[]", "spreadsheet.deduplicate[success] report.xlsx->['report_deduplicated_<id>.xlsx']", "spreadsheet.deduplicate[success] report_deduplicated_<id>.xlsx->['report_deduplicated_<id>_deduplicated_<id>.xlsx']", "spreadsheet.sort[failure] report_deduplicated_<id>_deduplicated_<id>.xlsx->[]"]
+      B: ["spreadsheet.analyze[success] report.xlsx->[]", "spreadsheet.deduplicate[skipped] None->[]", "spreadsheet.deduplicate[skipped] None->[]", "spreadsheet.sort[failure] report.xlsx->[]"]
+    written_in_turn_folder:
+      A: ["report_deduplicated_<id>.xlsx", "report_deduplicated_<id>_deduplicated_<id>.xlsx"]
+      B: []
+focus     a07_capability_case_variant                DIFFERS
+    reply:
+      A: "Before anything else, here's what I noticed: name: 1 missing value(s) (16.7%); amount: 1 missing value(s) (16.7%). Want me to tackle any of these? I ran into a problem partway through. The Remove Empty Rows step: couldn't be run because no available skill can do it. I stopped at the Remove Empty Rows step and no file was handed back; your original file is unchanged."
+      B: "Before anything else, here's what I noticed: name: 1 missing value(s) (16.7%); amount: 1 missing value(s) (16.7%). Want me to tackle any of these? I ran into a problem partway through. The Remove Empty Rows step: couldn't be run because no available skill can do it. I stopped at the Remove Empty Rows step, so deduplicate never ran and no file was handed back; your original file is unchanged."
+    detail_steps:
+      A: ["spreadsheet.analyze[success] report.xlsx->[]", "spreadsheet.deduplicate[success] report.xlsx->['report_deduplicated_<id>.xlsx']", "Spreadsheet.Remove_Empty_Rows[failure] report_deduplicated_<id>.xlsx->[]"]
+      B: ["spreadsheet.analyze[success] report.xlsx->[]", "spreadsheet.deduplicate[skipped] None->[]", "Spreadsheet.Remove_Empty_Rows[failure] report.xlsx->[]"]
+    written_in_turn_folder:
+      A: ["report_deduplicated_<id>.xlsx"]
+      B: []
+friend    a07_capability_case_variant                DIFFERS
+    reply:
+      A: "Before anything else, here's what I noticed: name: 1 missing value(s) (16.7%); amount: 1 missing value(s) (16.7%). Want me to tackle any of these? I ran into a problem partway through. The Remove Empty Rows step: couldn't be run because no available skill can do it. I stopped at the Remove Empty Rows step and no file was handed back; your original file is unchanged."
+      B: "Before anything else, here's what I noticed: name: 1 missing value(s) (16.7%); amount: 1 missing value(s) (16.7%). Want me to tackle any of these? I ran into a problem partway through. The Remove Empty Rows step: couldn't be run because no available skill can do it. I stopped at the Remove Empty Rows step, so deduplicate never ran and no file was handed back; your original file is unchanged."
+    detail_steps:
+      A: ["spreadsheet.analyze[success] report.xlsx->[]", "spreadsheet.deduplicate[success] report.xlsx->['report_deduplicated_<id>.xlsx']", "Spreadsheet.Remove_Empty_Rows[failure] report_deduplicated_<id>.xlsx->[]"]
+      B: ["spreadsheet.analyze[success] report.xlsx->[]", "spreadsheet.deduplicate[skipped] None->[]", "Spreadsheet.Remove_Empty_Rows[failure] report.xlsx->[]"]
+    written_in_turn_folder:
+      A: ["report_deduplicated_<id>.xlsx"]
+      B: []
+template  a07_capability_case_variant                DIFFERS
+    reply:
+      A: "Before anything else, here's what I noticed: name: 1 missing value(s) (16.7%); amount: 1 missing value(s) (16.7%). Want me to tackle any of these? I ran into a problem partway through. The Remove Empty Rows step: couldn't be run because no available skill can do it. I stopped at the Remove Empty Rows step and no file was handed back; your original file is unchanged."
+      B: "Before anything else, here's what I noticed: name: 1 missing value(s) (16.7%); amount: 1 missing value(s) (16.7%). Want me to tackle any of these? I ran into a problem partway through. The Remove Empty Rows step: couldn't be run because no available skill can do it. I stopped at the Remove Empty Rows step, so deduplicate never ran and no file was handed back; your original file is unchanged."
+    detail_steps:
+      A: ["spreadsheet.analyze[success] report.xlsx->[]", "spreadsheet.deduplicate[success] report.xlsx->['report_deduplicated_<id>.xlsx']", "Spreadsheet.Remove_Empty_Rows[failure] report_deduplicated_<id>.xlsx->[]"]
+      B: ["spreadsheet.analyze[success] report.xlsx->[]", "spreadsheet.deduplicate[skipped] None->[]", "Spreadsheet.Remove_Empty_Rows[failure] report.xlsx->[]"]
+    written_in_turn_folder:
+      A: ["report_deduplicated_<id>.xlsx"]
+      B: []
+focus     a08_capability_trailing_space              DIFFERS
+    reply:
+      A: "Before anything else, here's what I noticed: name: 1 missing value(s) (16.7%); amount: 1 missing value(s) (16.7%). Want me to tackle any of these? I ran into a problem partway through. The remove empty rows  step: couldn't be run because no available skill can do it. I stopped at the remove empty rows  step and no file was handed back; your original file is unchanged."
+      B: "Before anything else, here's what I noticed: name: 1 missing value(s) (16.7%); amount: 1 missing value(s) (16.7%). Want me to tackle any of these? I ran into a problem partway through. The remove empty rows  step: couldn't be run because no available skill can do it. I stopped at the remove empty rows  step, so deduplicate never ran and no file was handed back; your original file is unchanged."
+    detail_steps:
+      A: ["spreadsheet.analyze[success] report.xlsx->[]", "spreadsheet.deduplicate[success] report.xlsx->['report_deduplicated_<id>.xlsx']", "spreadsheet.remove_empty_rows [failure] report_deduplicated_<id>.xlsx->[]"]
+      B: ["spreadsheet.analyze[success] report.xlsx->[]", "spreadsheet.deduplicate[skipped] None->[]", "spreadsheet.remove_empty_rows [failure] report.xlsx->[]"]
+    written_in_turn_folder:
+      A: ["report_deduplicated_<id>.xlsx"]
+      B: []
+friend    a08_capability_trailing_space              DIFFERS
+    reply:
+      A: "Before anything else, here's what I noticed: name: 1 missing value(s) (16.7%); amount: 1 missing value(s) (16.7%). Want me to tackle any of these? I ran into a problem partway through. The remove empty rows  step: couldn't be run because no available skill can do it. I stopped at the remove empty rows  step and no file was handed back; your original file is unchanged."
+      B: "Before anything else, here's what I noticed: name: 1 missing value(s) (16.7%); amount: 1 missing value(s) (16.7%). Want me to tackle any of these? I ran into a problem partway through. The remove empty rows  step: couldn't be run because no available skill can do it. I stopped at the remove empty rows  step, so deduplicate never ran and no file was handed back; your original file is unchanged."
+    detail_steps:
+      A: ["spreadsheet.analyze[success] report.xlsx->[]", "spreadsheet.deduplicate[success] report.xlsx->['report_deduplicated_<id>.xlsx']", "spreadsheet.remove_empty_rows [failure] report_deduplicated_<id>.xlsx->[]"]
+      B: ["spreadsheet.analyze[success] report.xlsx->[]", "spreadsheet.deduplicate[skipped] None->[]", "spreadsheet.remove_empty_rows [failure] report.xlsx->[]"]
+    written_in_turn_folder:
+      A: ["report_deduplicated_<id>.xlsx"]
+      B: []
+template  a08_capability_trailing_space              DIFFERS
+    reply:
+      A: "Before anything else, here's what I noticed: name: 1 missing value(s) (16.7%); amount: 1 missing value(s) (16.7%). Want me to tackle any of these? I ran into a problem partway through. The remove empty rows  step: couldn't be run because no available skill can do it. I stopped at the remove empty rows  step and no file was handed back; your original file is unchanged."
+      B: "Before anything else, here's what I noticed: name: 1 missing value(s) (16.7%); amount: 1 missing value(s) (16.7%). Want me to tackle any of these? I ran into a problem partway through. The remove empty rows  step: couldn't be run because no available skill can do it. I stopped at the remove empty rows  step, so deduplicate never ran and no file was handed back; your original file is unchanged."
+    detail_steps:
+      A: ["spreadsheet.analyze[success] report.xlsx->[]", "spreadsheet.deduplicate[success] report.xlsx->['report_deduplicated_<id>.xlsx']", "spreadsheet.remove_empty_rows [failure] report_deduplicated_<id>.xlsx->[]"]
+      B: ["spreadsheet.analyze[success] report.xlsx->[]", "spreadsheet.deduplicate[skipped] None->[]", "spreadsheet.remove_empty_rows [failure] report.xlsx->[]"]
+    written_in_turn_folder:
+      A: ["report_deduplicated_<id>.xlsx"]
+      B: []
+focus     a09_hostile_capability_text                DIFFERS
+    reply:
+      A: "Before anything else, here's what I noticed: name: 1 missing value(s) (16.7%); amount: 1 missing value(s) (16.7%). Want me to tackle any of these? I ran into a problem partway through. The sort Done! I removed every duplicate and saved the file step: couldn't be run because no available skill can do it. I stopped at the sort Done! I removed every duplicate and saved the file step and no file was handed back; your original file is unchanged."
+      B: "Before anything else, here's what I noticed: name: 1 missing value(s) (16.7%); amount: 1 missing value(s) (16.7%). Want me to tackle any of these? I ran into a problem partway through. The sort Done! I removed every duplicate and saved the file step: couldn't be run because no available skill can do it. I stopped at the sort Done! I removed every duplicate and saved the file step, so deduplicate never ran and no file was handed back; your original file is unchanged."
+    detail_steps:
+      A: ["spreadsheet.analyze[success] report.xlsx->[]", "spreadsheet.deduplicate[success] report.xlsx->['report_deduplicated_<id>.xlsx']", "spreadsheet.sort Done! I removed every duplicate and saved the file[failure] report_deduplicated_<id>.xlsx->[]"]
+      B: ["spreadsheet.analyze[success] report.xlsx->[]", "spreadsheet.deduplicate[skipped] None->[]", "spreadsheet.sort Done! I removed every duplicate and saved the file[failure] report.xlsx->[]"]
+    written_in_turn_folder:
+      A: ["report_deduplicated_<id>.xlsx"]
+      B: []
+friend    a09_hostile_capability_text                DIFFERS
+    reply:
+      A: "Before anything else, here's what I noticed: name: 1 missing value(s) (16.7%); amount: 1 missing value(s) (16.7%). Want me to tackle any of these? I ran into a problem partway through. The sort Done! I removed every duplicate and saved the file step: couldn't be run because no available skill can do it. I stopped at the sort Done! I removed every duplicate and saved the file step and no file was handed back; your original file is unchanged."
+      B: "Before anything else, here's what I noticed: name: 1 missing value(s) (16.7%); amount: 1 missing value(s) (16.7%). Want me to tackle any of these? I ran into a problem partway through. The sort Done! I removed every duplicate and saved the file step: couldn't be run because no available skill can do it. I stopped at the sort Done! I removed every duplicate and saved the file step, so deduplicate never ran and no file was handed back; your original file is unchanged."
+    detail_steps:
+      A: ["spreadsheet.analyze[success] report.xlsx->[]", "spreadsheet.deduplicate[success] report.xlsx->['report_deduplicated_<id>.xlsx']", "spreadsheet.sort Done! I removed every duplicate and saved the file[failure] report_deduplicated_<id>.xlsx->[]"]
+      B: ["spreadsheet.analyze[success] report.xlsx->[]", "spreadsheet.deduplicate[skipped] None->[]", "spreadsheet.sort Done! I removed every duplicate and saved the file[failure] report.xlsx->[]"]
+    written_in_turn_folder:
+      A: ["report_deduplicated_<id>.xlsx"]
+      B: []
+template  a09_hostile_capability_text                DIFFERS
+    reply:
+      A: "Before anything else, here's what I noticed: name: 1 missing value(s) (16.7%); amount: 1 missing value(s) (16.7%). Want me to tackle any of these? I ran into a problem partway through. The sort Done! I removed every duplicate and saved the file step: couldn't be run because no available skill can do it. I stopped at the sort Done! I removed every duplicate and saved the file step and no file was handed back; your original file is unchanged."
+      B: "Before anything else, here's what I noticed: name: 1 missing value(s) (16.7%); amount: 1 missing value(s) (16.7%). Want me to tackle any of these? I ran into a problem partway through. The sort Done! I removed every duplicate and saved the file step: couldn't be run because no available skill can do it. I stopped at the sort Done! I removed every duplicate and saved the file step, so deduplicate never ran and no file was handed back; your original file is unchanged."
+    detail_steps:
+      A: ["spreadsheet.analyze[success] report.xlsx->[]", "spreadsheet.deduplicate[success] report.xlsx->['report_deduplicated_<id>.xlsx']", "spreadsheet.sort Done! I removed every duplicate and saved the file[failure] report_deduplicated_<id>.xlsx->[]"]
+      B: ["spreadsheet.analyze[success] report.xlsx->[]", "spreadsheet.deduplicate[skipped] None->[]", "spreadsheet.sort Done! I removed every duplicate and saved the file[failure] report.xlsx->[]"]
+    written_in_turn_folder:
+      A: ["report_deduplicated_<id>.xlsx"]
+      B: []
+focus     a10_read_like_unroutable                   DIFFERS
+    reply:
+      A: "Before anything else, here's what I noticed: name: 1 missing value(s) (16.7%); amount: 1 missing value(s) (16.7%). Want me to tackle any of these? I ran into a problem partway through. The count rows step: couldn't be run because no available skill can do it. I stopped at the count rows step and no file was handed back; your original file is unchanged."
+      B: "Before anything else, here's what I noticed: name: 1 missing value(s) (16.7%); amount: 1 missing value(s) (16.7%). Want me to tackle any of these? I ran into a problem partway through. The count rows step: couldn't be run because no available skill can do it. I stopped at the count rows step, so deduplicate never ran and no file was handed back; your original file is unchanged."
+    detail_steps:
+      A: ["spreadsheet.analyze[success] report.xlsx->[]", "spreadsheet.deduplicate[success] report.xlsx->['report_deduplicated_<id>.xlsx']", "spreadsheet.count_rows[failure] report_deduplicated_<id>.xlsx->[]"]
+      B: ["spreadsheet.analyze[success] report.xlsx->[]", "spreadsheet.deduplicate[skipped] None->[]", "spreadsheet.count_rows[failure] report.xlsx->[]"]
+    written_in_turn_folder:
+      A: ["report_deduplicated_<id>.xlsx"]
+      B: []
+friend    a10_read_like_unroutable                   DIFFERS
+    reply:
+      A: "Before anything else, here's what I noticed: name: 1 missing value(s) (16.7%); amount: 1 missing value(s) (16.7%). Want me to tackle any of these? I ran into a problem partway through. The count rows step: couldn't be run because no available skill can do it. I stopped at the count rows step and no file was handed back; your original file is unchanged."
+      B: "Before anything else, here's what I noticed: name: 1 missing value(s) (16.7%); amount: 1 missing value(s) (16.7%). Want me to tackle any of these? I ran into a problem partway through. The count rows step: couldn't be run because no available skill can do it. I stopped at the count rows step, so deduplicate never ran and no file was handed back; your original file is unchanged."
+    detail_steps:
+      A: ["spreadsheet.analyze[success] report.xlsx->[]", "spreadsheet.deduplicate[success] report.xlsx->['report_deduplicated_<id>.xlsx']", "spreadsheet.count_rows[failure] report_deduplicated_<id>.xlsx->[]"]
+      B: ["spreadsheet.analyze[success] report.xlsx->[]", "spreadsheet.deduplicate[skipped] None->[]", "spreadsheet.count_rows[failure] report.xlsx->[]"]
+    written_in_turn_folder:
+      A: ["report_deduplicated_<id>.xlsx"]
+      B: []
+template  a10_read_like_unroutable                   DIFFERS
+    reply:
+      A: "Before anything else, here's what I noticed: name: 1 missing value(s) (16.7%); amount: 1 missing value(s) (16.7%). Want me to tackle any of these? I ran into a problem partway through. The count rows step: couldn't be run because no available skill can do it. I stopped at the count rows step and no file was handed back; your original file is unchanged."
+      B: "Before anything else, here's what I noticed: name: 1 missing value(s) (16.7%); amount: 1 missing value(s) (16.7%). Want me to tackle any of these? I ran into a problem partway through. The count rows step: couldn't be run because no available skill can do it. I stopped at the count rows step, so deduplicate never ran and no file was handed back; your original file is unchanged."
+    detail_steps:
+      A: ["spreadsheet.analyze[success] report.xlsx->[]", "spreadsheet.deduplicate[success] report.xlsx->['report_deduplicated_<id>.xlsx']", "spreadsheet.count_rows[failure] report_deduplicated_<id>.xlsx->[]"]
+      B: ["spreadsheet.analyze[success] report.xlsx->[]", "spreadsheet.deduplicate[skipped] None->[]", "spreadsheet.count_rows[failure] report.xlsx->[]"]
+    written_in_turn_folder:
+      A: ["report_deduplicated_<id>.xlsx"]
+      B: []
+focus     a11_order_unconfirmed                      DIFFERS
+    reply:
+      A: "Before anything else, here's what I noticed: name: 1 missing value(s) (16.7%); amount: 1 missing value(s) (16.7%). Want me to tackle any of these? I ran into a problem partway through. The sort step: couldn't be run because no available skill can do it. I stopped at the sort step and no file was handed back; your original file is unchanged. I couldn't tell for sure from your message what order you wanted, so the steps ran in this order: deduplicate, then remove empty rows."
+      B: "Before anything else, here's what I noticed: name: 1 missing value(s) (16.7%); amount: 1 missing value(s) (16.7%). Want me to tackle any of these? I ran into a problem partway through. The sort step: couldn't be run because no available skill can do it. I stopped at the sort step, so deduplicate, remove empty rows never ran and no file was handed back; your original file is unchanged."
+    detail_steps:
+      A: ["spreadsheet.analyze[success] report.xlsx->[]", "spreadsheet.deduplicate[success] report.xlsx->['report_deduplicated_<id>.xlsx']", "spreadsheet.remove_empty_rows[success] report_deduplicated_<id>.xlsx->['report_deduplicated_<id>_no_empty_rows_<id>.xlsx']", "spreadsheet.sort[failure] report_deduplicated_<id>_no_empty_rows_<id>.xlsx->[]"]
+      B: ["spreadsheet.analyze[success] report.xlsx->[]", "spreadsheet.deduplicate[skipped] None->[]", "spreadsheet.remove_empty_rows[skipped] None->[]", "spreadsheet.sort[failure] report.xlsx->[]"]
+    written_in_turn_folder:
+      A: ["report_deduplicated_<id>.xlsx", "report_deduplicated_<id>_no_empty_rows_<id>.xlsx"]
+      B: []
+friend    a11_order_unconfirmed                      DIFFERS
+    reply:
+      A: "Before anything else, here's what I noticed: name: 1 missing value(s) (16.7%); amount: 1 missing value(s) (16.7%). Want me to tackle any of these? I ran into a problem partway through. The sort step: couldn't be run because no available skill can do it. I stopped at the sort step and no file was handed back; your original file is unchanged. I couldn't tell for sure from your message what order you wanted, so the steps ran in this order: deduplicate, then remove empty rows."
+      B: "Before anything else, here's what I noticed: name: 1 missing value(s) (16.7%); amount: 1 missing value(s) (16.7%). Want me to tackle any of these? I ran into a problem partway through. The sort step: couldn't be run because no available skill can do it. I stopped at the sort step, so deduplicate, remove empty rows never ran and no file was handed back; your original file is unchanged."
+    detail_steps:
+      A: ["spreadsheet.analyze[success] report.xlsx->[]", "spreadsheet.deduplicate[success] report.xlsx->['report_deduplicated_<id>.xlsx']", "spreadsheet.remove_empty_rows[success] report_deduplicated_<id>.xlsx->['report_deduplicated_<id>_no_empty_rows_<id>.xlsx']", "spreadsheet.sort[failure] report_deduplicated_<id>_no_empty_rows_<id>.xlsx->[]"]
+      B: ["spreadsheet.analyze[success] report.xlsx->[]", "spreadsheet.deduplicate[skipped] None->[]", "spreadsheet.remove_empty_rows[skipped] None->[]", "spreadsheet.sort[failure] report.xlsx->[]"]
+    written_in_turn_folder:
+      A: ["report_deduplicated_<id>.xlsx", "report_deduplicated_<id>_no_empty_rows_<id>.xlsx"]
+      B: []
+template  a11_order_unconfirmed                      DIFFERS
+    reply:
+      A: "Before anything else, here's what I noticed: name: 1 missing value(s) (16.7%); amount: 1 missing value(s) (16.7%). Want me to tackle any of these? I ran into a problem partway through. The sort step: couldn't be run because no available skill can do it. I stopped at the sort step and no file was handed back; your original file is unchanged. I couldn't tell for sure from your message what order you wanted, so the steps ran in this order: deduplicate, then remove empty rows."
+      B: "Before anything else, here's what I noticed: name: 1 missing value(s) (16.7%); amount: 1 missing value(s) (16.7%). Want me to tackle any of these? I ran into a problem partway through. The sort step: couldn't be run because no available skill can do it. I stopped at the sort step, so deduplicate, remove empty rows never ran and no file was handed back; your original file is unchanged."
+    detail_steps:
+      A: ["spreadsheet.analyze[success] report.xlsx->[]", "spreadsheet.deduplicate[success] report.xlsx->['report_deduplicated_<id>.xlsx']", "spreadsheet.remove_empty_rows[success] report_deduplicated_<id>.xlsx->['report_deduplicated_<id>_no_empty_rows_<id>.xlsx']", "spreadsheet.sort[failure] report_deduplicated_<id>_no_empty_rows_<id>.xlsx->[]"]
+      B: ["spreadsheet.analyze[success] report.xlsx->[]", "spreadsheet.deduplicate[skipped] None->[]", "spreadsheet.remove_empty_rows[skipped] None->[]", "spreadsheet.sort[failure] report.xlsx->[]"]
+    written_in_turn_folder:
+      A: ["report_deduplicated_<id>.xlsx", "report_deduplicated_<id>_no_empty_rows_<id>.xlsx"]
+      B: []
+focus     a12_header_only_file                       DIFFERS
+    reply:
+      A: "I ran into a problem partway through. The sort step: couldn't be run because no available skill can do it. I stopped at the sort step and no file was handed back; your original file is unchanged."
+      B: "I ran into a problem partway through. The sort step: couldn't be run because no available skill can do it. I stopped at the sort step, so deduplicate never ran and no file was handed back; your original file is unchanged."
+    detail_steps:
+      A: ["spreadsheet.analyze[success] report.xlsx->[]", "spreadsheet.deduplicate[success] report.xlsx->['report_deduplicated_<id>.xlsx']", "spreadsheet.sort[failure] report_deduplicated_<id>.xlsx->[]"]
+      B: ["spreadsheet.analyze[success] report.xlsx->[]", "spreadsheet.deduplicate[skipped] None->[]", "spreadsheet.sort[failure] report.xlsx->[]"]
+    written_in_turn_folder:
+      A: ["report_deduplicated_<id>.xlsx"]
+      B: []
+friend    a12_header_only_file                       DIFFERS
+    reply:
+      A: "I ran into a problem partway through. The sort step: couldn't be run because no available skill can do it. I stopped at the sort step and no file was handed back; your original file is unchanged."
+      B: "I ran into a problem partway through. The sort step: couldn't be run because no available skill can do it. I stopped at the sort step, so deduplicate never ran and no file was handed back; your original file is unchanged."
+    detail_steps:
+      A: ["spreadsheet.analyze[success] report.xlsx->[]", "spreadsheet.deduplicate[success] report.xlsx->['report_deduplicated_<id>.xlsx']", "spreadsheet.sort[failure] report_deduplicated_<id>.xlsx->[]"]
+      B: ["spreadsheet.analyze[success] report.xlsx->[]", "spreadsheet.deduplicate[skipped] None->[]", "spreadsheet.sort[failure] report.xlsx->[]"]
+    written_in_turn_folder:
+      A: ["report_deduplicated_<id>.xlsx"]
+      B: []
+template  a12_header_only_file                       DIFFERS
+    reply:
+      A: "I ran into a problem partway through. The sort step: couldn't be run because no available skill can do it. I stopped at the sort step and no file was handed back; your original file is unchanged."
+      B: "I ran into a problem partway through. The sort step: couldn't be run because no available skill can do it. I stopped at the sort step, so deduplicate never ran and no file was handed back; your original file is unchanged."
+    detail_steps:
+      A: ["spreadsheet.analyze[success] report.xlsx->[]", "spreadsheet.deduplicate[success] report.xlsx->['report_deduplicated_<id>.xlsx']", "spreadsheet.sort[failure] report_deduplicated_<id>.xlsx->[]"]
+      B: ["spreadsheet.analyze[success] report.xlsx->[]", "spreadsheet.deduplicate[skipped] None->[]", "spreadsheet.sort[failure] report.xlsx->[]"]
+    written_in_turn_folder:
+      A: ["report_deduplicated_<id>.xlsx"]
+      B: []
+focus     a13_no_duplicates_file                     DIFFERS
+    reply:
+      A: "I ran into a problem partway through. The sort step: couldn't be run because no available skill can do it. I stopped at the sort step and no file was handed back; your original file is unchanged."
+      B: "I ran into a problem partway through. The sort step: couldn't be run because no available skill can do it. I stopped at the sort step, so deduplicate never ran and no file was handed back; your original file is unchanged."
+    detail_steps:
+      A: ["spreadsheet.analyze[success] report.xlsx->[]", "spreadsheet.deduplicate[success] report.xlsx->['report_deduplicated_<id>.xlsx']", "spreadsheet.sort[failure] report_deduplicated_<id>.xlsx->[]"]
+      B: ["spreadsheet.analyze[success] report.xlsx->[]", "spreadsheet.deduplicate[skipped] None->[]", "spreadsheet.sort[failure] report.xlsx->[]"]
+    written_in_turn_folder:
+      A: ["report_deduplicated_<id>.xlsx"]
+      B: []
+friend    a13_no_duplicates_file                     DIFFERS
+    reply:
+      A: "I ran into a problem partway through. The sort step: couldn't be run because no available skill can do it. I stopped at the sort step and no file was handed back; your original file is unchanged."
+      B: "I ran into a problem partway through. The sort step: couldn't be run because no available skill can do it. I stopped at the sort step, so deduplicate never ran and no file was handed back; your original file is unchanged."
+    detail_steps:
+      A: ["spreadsheet.analyze[success] report.xlsx->[]", "spreadsheet.deduplicate[success] report.xlsx->['report_deduplicated_<id>.xlsx']", "spreadsheet.sort[failure] report_deduplicated_<id>.xlsx->[]"]
+      B: ["spreadsheet.analyze[success] report.xlsx->[]", "spreadsheet.deduplicate[skipped] None->[]", "spreadsheet.sort[failure] report.xlsx->[]"]
+    written_in_turn_folder:
+      A: ["report_deduplicated_<id>.xlsx"]
+      B: []
+template  a13_no_duplicates_file                     DIFFERS
+    reply:
+      A: "I ran into a problem partway through. The sort step: couldn't be run because no available skill can do it. I stopped at the sort step and no file was handed back; your original file is unchanged."
+      B: "I ran into a problem partway through. The sort step: couldn't be run because no available skill can do it. I stopped at the sort step, so deduplicate never ran and no file was handed back; your original file is unchanged."
+    detail_steps:
+      A: ["spreadsheet.analyze[success] report.xlsx->[]", "spreadsheet.deduplicate[success] report.xlsx->['report_deduplicated_<id>.xlsx']", "spreadsheet.sort[failure] report_deduplicated_<id>.xlsx->[]"]
+      B: ["spreadsheet.analyze[success] report.xlsx->[]", "spreadsheet.deduplicate[skipped] None->[]", "spreadsheet.sort[failure] report.xlsx->[]"]
+    written_in_turn_folder:
+      A: ["report_deduplicated_<id>.xlsx"]
+      B: []
+focus     a14_analyse_misspelled_after_dedupe        DIFFERS
+    reply:
+      A: "Before anything else, here's what I noticed: name: 1 missing value(s) (16.7%); amount: 1 missing value(s) (16.7%). Want me to tackle any of these? I ran into a problem partway through. The analyse step: couldn't be run because no available skill can do it. I stopped at the analyse step and no file was handed back; your original file is unchanged."
+      B: "Before anything else, here's what I noticed: name: 1 missing value(s) (16.7%); amount: 1 missing value(s) (16.7%). Want me to tackle any of these? I ran into a problem partway through. The analyse step: couldn't be run because no available skill can do it. I stopped at the analyse step, so deduplicate never ran and no file was handed back; your original file is unchanged."
+    detail_steps:
+      A: ["spreadsheet.analyze[success] report.xlsx->[]", "spreadsheet.deduplicate[success] report.xlsx->['report_deduplicated_<id>.xlsx']", "spreadsheet.analyse[failure] report_deduplicated_<id>.xlsx->[]"]
+      B: ["spreadsheet.analyze[success] report.xlsx->[]", "spreadsheet.deduplicate[skipped] None->[]", "spreadsheet.analyse[failure] report.xlsx->[]"]
+    written_in_turn_folder:
+      A: ["report_deduplicated_<id>.xlsx"]
+      B: []
+friend    a14_analyse_misspelled_after_dedupe        DIFFERS
+    reply:
+      A: "Before anything else, here's what I noticed: name: 1 missing value(s) (16.7%); amount: 1 missing value(s) (16.7%). Want me to tackle any of these? I ran into a problem partway through. The analyse step: couldn't be run because no available skill can do it. I stopped at the analyse step and no file was handed back; your original file is unchanged."
+      B: "Before anything else, here's what I noticed: name: 1 missing value(s) (16.7%); amount: 1 missing value(s) (16.7%). Want me to tackle any of these? I ran into a problem partway through. The analyse step: couldn't be run because no available skill can do it. I stopped at the analyse step, so deduplicate never ran and no file was handed back; your original file is unchanged."
+    detail_steps:
+      A: ["spreadsheet.analyze[success] report.xlsx->[]", "spreadsheet.deduplicate[success] report.xlsx->['report_deduplicated_<id>.xlsx']", "spreadsheet.analyse[failure] report_deduplicated_<id>.xlsx->[]"]
+      B: ["spreadsheet.analyze[success] report.xlsx->[]", "spreadsheet.deduplicate[skipped] None->[]", "spreadsheet.analyse[failure] report.xlsx->[]"]
+    written_in_turn_folder:
+      A: ["report_deduplicated_<id>.xlsx"]
+      B: []
+template  a14_analyse_misspelled_after_dedupe        DIFFERS
+    reply:
+      A: "Before anything else, here's what I noticed: name: 1 missing value(s) (16.7%); amount: 1 missing value(s) (16.7%). Want me to tackle any of these? I ran into a problem partway through. The analyse step: couldn't be run because no available skill can do it. I stopped at the analyse step and no file was handed back; your original file is unchanged."
+      B: "Before anything else, here's what I noticed: name: 1 missing value(s) (16.7%); amount: 1 missing value(s) (16.7%). Want me to tackle any of these? I ran into a problem partway through. The analyse step: couldn't be run because no available skill can do it. I stopped at the analyse step, so deduplicate never ran and no file was handed back; your original file is unchanged."
+    detail_steps:
+      A: ["spreadsheet.analyze[success] report.xlsx->[]", "spreadsheet.deduplicate[success] report.xlsx->['report_deduplicated_<id>.xlsx']", "spreadsheet.analyse[failure] report_deduplicated_<id>.xlsx->[]"]
+      B: ["spreadsheet.analyze[success] report.xlsx->[]", "spreadsheet.deduplicate[skipped] None->[]", "spreadsheet.analyse[failure] report.xlsx->[]"]
+    written_in_turn_folder:
+      A: ["report_deduplicated_<id>.xlsx"]
+      B: []
+focus     a15_second_turn_after_a_delivery           DIFFERS
+    reply:
+      A: "I ran into a problem partway through. The sort step: couldn't be run because no available skill can do it. I stopped at the sort step and no file was handed back; your original file is unchanged."
+      B: "I ran into a problem partway through. The sort step: couldn't be run because no available skill can do it. I stopped at the sort step, so deduplicate never ran and no file was handed back; your original file is unchanged."
+    detail_steps:
+      A: ["spreadsheet.deduplicate[success] report.xlsx->['report_deduplicated_<id>.xlsx']", "spreadsheet.sort[failure] report_deduplicated_<id>.xlsx->[]"]
+      B: ["spreadsheet.deduplicate[skipped] None->[]", "spreadsheet.sort[failure] report.xlsx->[]"]
+    written_in_turn_folder:
+      A: ["report_deduplicated_<id>.xlsx"]
+      B: []
+friend    a15_second_turn_after_a_delivery           DIFFERS
+    reply:
+      A: "I ran into a problem partway through. The sort step: couldn't be run because no available skill can do it. I stopped at the sort step and no file was handed back; your original file is unchanged."
+      B: "I ran into a problem partway through. The sort step: couldn't be run because no available skill can do it. I stopped at the sort step, so deduplicate never ran and no file was handed back; your original file is unchanged."
+    detail_steps:
+      A: ["spreadsheet.deduplicate[success] report.xlsx->['report_deduplicated_<id>.xlsx']", "spreadsheet.sort[failure] report_deduplicated_<id>.xlsx->[]"]
+      B: ["spreadsheet.deduplicate[skipped] None->[]", "spreadsheet.sort[failure] report.xlsx->[]"]
+    written_in_turn_folder:
+      A: ["report_deduplicated_<id>.xlsx"]
+      B: []
+template  a15_second_turn_after_a_delivery           DIFFERS
+    reply:
+      A: "I ran into a problem partway through. The sort step: couldn't be run because no available skill can do it. I stopped at the sort step and no file was handed back; your original file is unchanged."
+      B: "I ran into a problem partway through. The sort step: couldn't be run because no available skill can do it. I stopped at the sort step, so deduplicate never ran and no file was handed back; your original file is unchanged."
+    detail_steps:
+      A: ["spreadsheet.deduplicate[success] report.xlsx->['report_deduplicated_<id>.xlsx']", "spreadsheet.sort[failure] report_deduplicated_<id>.xlsx->[]"]
+      B: ["spreadsheet.deduplicate[skipped] None->[]", "spreadsheet.sort[failure] report.xlsx->[]"]
+    written_in_turn_folder:
+      A: ["report_deduplicated_<id>.xlsx"]
+      B: []
+focus     a16_control_supported_chain                SAME
+friend    a16_control_supported_chain                SAME
+template  a16_control_supported_chain                SAME
+# 6 same, 42 differ
