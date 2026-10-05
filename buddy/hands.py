@@ -233,8 +233,9 @@ class Hands:
             return state
 
         routes = self._routes(state, requests)
-        # A chain that can't finish: nothing could be handed back, so no chain
-        # step runs and nobody is asked to approve one (review M1).
+        # A chain that can't finish (a request the Dispatcher can't route):
+        # nothing could be handed back, so no chain step runs and nobody is
+        # asked to approve one (review M1).
         blocked_at = _known_stop(routes)
         provider = self._confirmation_provider
         if isinstance(provider, PlanAwareConfirmationProvider):
@@ -781,15 +782,12 @@ def _changes_files(skill: Skill | None) -> bool:
 
 
 def _known_stop(routes: tuple[Skill | None, ...]) -> int | None:
-    """The index of a request that will stop a chain already started, if there is one.
+    """The index of the first request the Dispatcher can't route, if there is one.
 
-    That's a request the Dispatcher can't route, after a file-changing
-    step: the chain can't finish, so nothing could be handed back. A
-    request that can't be routed before any file-changing step stops the
-    turn before the chain starts, as it always did, so it isn't one.
+    The chain can't get past it, so nothing could be handed back: no chain
+    step runs, and nobody is asked to approve one. (When no chain step
+    comes before it, that is how the turn always ran.)
     """
-    if not routes or routes[-1] is not None:
-        return None
-    if any(_changes_files(skill) for skill in routes[:-1]):
+    if routes and routes[-1] is None:
         return len(routes) - 1
     return None

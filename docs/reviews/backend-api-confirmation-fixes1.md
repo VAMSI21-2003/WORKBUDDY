@@ -55,7 +55,8 @@ L1 (a mismatch refusal reported as "wasn't confirmed"; not reachable with today'
 
 ## Checks
 
-- New and changed tests on the round-1 code (`3ef871c`, a worktree with this branch's `tests/`): see "Results" below.
-- `python -m pytest -q`, `ruff check buddy tests` and the OpenAPI check: see "Results" below.
-
-## Results
+- **New and changed tests on the round-1 code** (`3ef871c`, a worktree with this branch's `tests/`): 20 failed, 16 passed. The 20 are every M1, L2 and L7 test above: the three Hands tests; two of the three new Hands-plan tests; the three engine tests (five cases); the six API cases; the two L2 tests; and the two L7 cases. The 16 that pass are pre-existing cases in the same selection and `test_a_step_the_dispatcher_cant_route_before_any_chain_step_stops_as_before`, which pins unchanged behaviour. The L3 tests guard code that round 1 already had, so they pass there by design.
+- **Self-mutations** (a throwaway worktree): removing the pre-check, showing the plan anyway, skipping read-only steps too, letting a closed provider approve, dropping the cap, ignoring `finishing` when publishing, dropping either tier check, never emptying `_jobs`, restoring a running turn with a decision, and not finishing a turn whose worker can't start: each is killed by a named test. One mutation survived because it was equivalent: `_known_stop`'s "a chain step comes first" condition changed nothing (with no chain step before the unroutable request there is nothing to pre-skip, and the plan is empty anyway). It's removed, which makes the code simpler.
+- `python -m pytest -q` (Python 3.11.15): **2258 passed**, 11 warnings, 274 s.
+- `ruff check buddy tests`: 22 errors, identical to `origin/main` by file and rule. `ruff check backend core skills scripts/live_api_runs.py tests/backend tests/buddy/test_hands_confirmation_plan.py`: clean. `python -m backend.export_openapi --check`: in sync.
+- `origin/main` hasn't moved (`3ed023f`).
