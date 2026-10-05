@@ -127,6 +127,12 @@ class BuddyState:
             keeps each skill's legacy path. A caller that runs several
             turns in one session sets a fresh folder per turn, so a later
             turn can't overwrite a file handed back earlier.
+        earlier_deliveries: How many files the session had handed back
+            before this turn, set by a caller that runs several turns in
+            one session (the backend API). Every turn works from the
+            original upload, so when this is above 0 a delivered reply says
+            the copy was made from the original
+            (``buddy.voice_catalog.FROM_ORIGINAL_SENTENCE``).
     """
 
     context: Context
@@ -148,6 +154,7 @@ class BuddyState:
     reply: str | None = None
     failure: StageFailure | None = None
     turn_output_dir: str | None = None
+    earlier_deliveries: int = 0
 
     @classmethod
     def new(cls, session_id: str, workspace_id: str) -> "BuddyState":
@@ -239,3 +246,4 @@ class BuddyState:
         self.reply = None
         self.failure = None
         self.turn_output_dir = None
+        self.earlier_deliveries = 0

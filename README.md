@@ -73,7 +73,7 @@ WorkBuddy/
 ├── requirements.txt
 │
 ├── docs/                  # Architecture notes and product documentation
-├── backend/                # API layer (introduced in a later sprint)
+├── backend/                # HTTP API (FastAPI): sessions, uploads, turns, downloads
 ├── frontend/                # Client application (introduced in a later sprint)
 │
 ├── buddy/                  # Buddy's cognitive cycle
@@ -148,7 +148,17 @@ python -m venv .venv
 pip install -r requirements.txt
 ```
 
-Sprint 1 contains architecture only — there is no runnable application yet.
+Serve the HTTP API (see `docs/design/backend-api-design.md`) on
+127.0.0.1, with `GROQ_API_KEY` (or `ANTHROPIC_API_KEY`) in the environment:
+
+```bash
+python -m backend --port 8000
+```
+
+`WORKBUDDY_DATA_DIR` sets the data root (default `workspace/`). Until the
+confirm/reject endpoint exists, file-changing steps run only with
+`WORKBUDDY_AUTO_APPROVE=1`; otherwise they are declined. The API contract
+is `backend/openapi.json` (regenerate with `python -m backend.export_openapi`).
 
 ## License
 

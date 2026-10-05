@@ -28,7 +28,12 @@ from buddy.outcome import (
     render_outcome,
 )
 from buddy.state import BuddyState, StageFailure
-from buddy.voice_catalog import failure_reply, select_phrases
+from buddy.voice_catalog import (
+    FROM_ORIGINAL_SENTENCE,
+    NOTHING_RAN_REPLY,
+    failure_reply,
+    select_phrases,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -330,6 +335,8 @@ class SpeakingRequest:
             choice of catalog phrases (``buddy.voice_catalog``).
         failure: The stage that raised this turn, if one did. The reply
             is then ``buddy.voice_catalog.failure_reply``, nothing else.
+        earlier_deliveries: ``BuddyState.earlier_deliveries``: how many
+            files the session handed back before this turn.
     """
 
     understanding: Understanding
@@ -340,6 +347,7 @@ class SpeakingRequest:
     session_id: str = ""
     turn_index: int = 0
     failure: StageFailure | None = None
+    earlier_deliveries: int = 0
 
 
 # Leads the analysis findings on a delivered turn, after the outcome.
@@ -418,6 +426,8 @@ def _verified_delivery_reply(
         opener, closer = opener_phrase.text, closer_phrase.text
 
     parts = [opener, render_outcome(report, file_style)]
+    if request.earlier_deliveries > 0:
+        parts.append(FROM_ORIGINAL_SENTENCE)
     if open_findings:
         parts.append(DELIVERED_ANALYSIS_LEAD + "; ".join(open_findings) + ". " + ANALYSIS_QUESTION)
     if analysis_notes:
@@ -503,6 +513,12 @@ class TemplateSpeaker:
         # or no verified file came back, no later branch may run — they
         # can say "Done" because an earlier step passed.
         if _nothing_delivered(request):
+            if execution_result is not None and not (
+                execution_result.steps or execution_result.outputs or execution_result.errors
+            ):
+                # Nothing ran at all. Said plainly, and nothing more: no
+                # verifier wording, no order sentence.
+                return NOTHING_RAN_REPLY
             if execution_result is not None and execution_result.stopped_at is not None:
                 reply = self._stopped_message(execution_result, verification_result)
             elif verification_result is None:
@@ -799,6 +815,7 @@ class Voice:
             session_id=state.session_id,
             turn_index=state.context.buddy_reply_count(),
             failure=state.failure,
+            earlier_deliveries=state.earlier_deliveries,
         )
 
     @staticmethod
@@ -810,6 +827,17 @@ class Voice:
             reply: The reply text to record.
         """
         state.reply = reply
+
+
+def is_verified_delivery(state: BuddyState) -> bool:
+    """Whether the reply for ``state``'s turn says a verified file was handed back.
+
+    The same predicate the speakers use (``_verified_delivery``), on the
+    request Voice builds from ``state``. A caller that hands files to the
+    user (the backend API) checks it, so what it hands back can never
+    disagree with what the reply says. False whenever a stage raised.
+    """
+    return _verified_delivery(Voice._build_request(state))
 
 
 class PersonalityVoice:

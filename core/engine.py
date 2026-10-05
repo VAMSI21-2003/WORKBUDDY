@@ -134,7 +134,10 @@ class Engine:
 
         Raises:
             Exception: Only what Voice itself raises. With no stage left to
-                give a reply, that is the caller's to handle.
+                give a reply, that is the caller's to handle. ``state.failure``
+                is set first (to Voice's, unless an earlier stage had already
+                failed), so the state left behind never looks like a verified
+                delivery.
         """
         logger.info("Starting cognitive cycle for session %r", state.session_id)
         for name, stage in self._cycle.named_stages():
@@ -150,6 +153,12 @@ class Engine:
                     "Stage %r failed for session %r", stage_name, state.session_id
                 )
                 if name == VOICE_STAGE:
+                    # No stage is left to give a reply, so this goes to the
+                    # caller. The state still describes itself: whatever it
+                    # holds, it isn't a verified delivery (review M1). An
+                    # earlier stage's failure is kept.
+                    if state.failure is None:
+                        state.failure = StageFailure(stage=name, error_type=type(exc).__name__)
                     raise
                 state.failure = StageFailure(stage=name, error_type=type(exc).__name__)
         logger.info("Completed cognitive cycle for session %r", state.session_id)

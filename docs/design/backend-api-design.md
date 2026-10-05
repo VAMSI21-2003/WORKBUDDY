@@ -1065,3 +1065,40 @@ Not changed: same-origin deployment with empty CORS (Section 6.1, part 1 item 1)
 - the global byte cap on the data root, which depends on the host.
 
 **Not addressed here: the frontend review's C5.** The plan is built before `Hands` runs, but a step's permission tier is only known after dispatch (`buddy/hands.py:240-252`; `CapabilityRequest` has no tier). PR-3 must resolve tiers through the Dispatcher before publishing the plan, or the plan can list the wrong steps. That's for PR-3's design and review.
+
+---
+
+## Decisions (2026-10-04)
+
+An owner decision, recorded with PR-2 (`feat/backend-api-core`). Where this section conflicts with an earlier one, **this section wins**. Earlier text isn't edited.
+
+### 1. `.xls` is out of scope
+
+- **Accepted extensions are `[".xlsx"]` only.** That is the upload validator's allowlist itself (`backend/settings.py`, `ACCEPTED_EXTENSIONS`), and what `limits.accepted_extensions` reports in the session response, from the same object.
+- **`xlrd` is not added** to `requirements.txt` or `pyproject.toml`.
+- **An `.xls` upload is refused** with `415 unsupported_file_type` and a fixed message of its own (`backend/errors.py`, `XLS_MESSAGE`): "Older .xls workbooks aren't supported. Save the file as .xlsx (Excel Workbook) and upload that." The check is on the sanitized name's extension, case-insensitively, before anything is written. Every other extension outside the allowlist gets the code's general message ("Only .xlsx files can be uploaded."). OLE2 content under an `.xlsx` name fails the content sniff (`422 invalid_file`), so an `.xls` can't get in renamed either.
+
+### What this supersedes
+
+- **Part 1, item 4** (".xls is accepted", "PR-1 adds `xlrd`", the `.xls` fixture test for PR-2/PR-3, and "a missing `xlrd` is a startup failure"). None of it applies: there is no `.xls` path.
+- **Section 6.2**: the extension row ("`.xlsx`, `.xls` … `.xls` is accepted only if `xlrd` imports at startup") now reads `.xlsx` only, and the `.xls` half of the content-sniff row (OLE2 header) no longer applies.
+- **Part 2, ask 2**: the example `"accepted_extensions": [".xlsx", ".xls"]` is `[".xlsx"]`, and "`.xls` is in it only in the PR that adds the `.xls` fixture test" no longer arises.
+- **Section 9.1, item 3** (whether `.xls` ships now): answered, no.
+- **"Decisions (2026-10-01)", item 6, ".xls isn't covered"**, and **item 9's owner question** (whether `.xls` may be on for the public link before its sheets can be checked): answered, no. The multi-sheet refusal only ever has to handle `.xlsx`.
+
+### Not changed
+
+The skills still refuse an OLE2 workbook inside a turn ("older .xls workbooks … aren't supported yet"), and backlog 1a's note stands: don't add `xlrd` until the sheet count covers chart sheets, macro sheets and VB modules, which `xlrd` skips. Turning `.xls` on later needs a new owner decision, that work, and a fixture test that an `.xls` upload is cleaned, delivered under the name and format the reply states, and left byte-identical.
+
+### 2. Implementation note, recorded with PR-2 (not an owner decision)
+
+From PR-2's independent review (`docs/reviews/backend-api-core-review.md`, round 1 M2 and round 2 R2-L3). Overview item 7 lists the pipeline inputs the API depends on; PR-2 adds one.
+
+- **`BuddyState.earlier_deliveries`** (an `int`, cleared by `reset_transient()`). Before each run, the API sets it to the number of files the session already handed back **from the same upload** this turn works on (`backend/turns.py`, `TurnRunner.start`).
+- **Why.** Every turn works from the original upload, never from a file handed back earlier. So "now remove the empty rows too" gives a copy without the first turn's change. When the count is above 0, Voice adds the reviewed constant `FROM_ORIGINAL_SENTENCE` after the outcome block of a delivered reply: "I made this copy from your original upload, not from a file I handed back earlier."
+- **Counted per upload.** A copy the user downloaded and uploaded again is an upload of its own, with its own count, so its delivered reply doesn't carry the sentence.
+- **Still the owner's to decide:** whether later turns should instead build on the last delivered file (review round 1, M2 option (a)). This note records option (b), which PR-2 implements until then.
+
+### 3. Upload cap: 2 MiB
+
+- **The default upload cap is 2 MiB (2,097,152 bytes)**, replacing "Decisions (2026-09-30, part 2)", item 3's 5 MiB. That item's evidence rule says to lower the default to 2 MB when a two-step chain on a 5 MB fixture takes over 120 s through the API. PR-2's live run 9 took 256 s for one step and 308 s for the chain (`docs/reviews/backend-api-core-live-runs.md`). `WORKBUDDY_MAX_UPLOAD_BYTES` still overrides it, and the `413` message and `limits.max_upload_bytes` follow the setting.

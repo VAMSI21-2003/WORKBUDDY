@@ -1,11 +1,9 @@
-# WorkBuddy — Sprint 1 & 2 dependencies
+# WorkBuddy dependencies
 #
-# Sprint 1 built Buddy's core architecture only (no LLM integration, no
-# Excel/PDF/Word processing, no FastAPI, no React). Sprint 2 introduces the
-# first real vertical slice: LLM-backed Understand/Think (Claude, via
-# buddy/llm.py) and the Excel deduplicate skill. Runtime dependencies for
-# still-unbuilt capabilities (PDF, Word, FastAPI, React) will be added in
-# the sprints that introduce them.
+# Buddy's pipeline (buddy/, core/), the Excel skills (skills/excel/) and the
+# HTTP API (backend/, see docs/design/backend-api-design.md). Runtime
+# dependencies for still-unbuilt capabilities (PDF, Word, a JS frontend)
+# will be added in the work that introduces them.
 
 # --- LLM (Understand/Think — see buddy/llm.py) ---
 anthropic>=0.40
@@ -29,6 +27,17 @@ splink>=4,<5
 # skills/excel/analyze.py is imported. A fresh uv venv on Python 3.11 lacks
 # setuptools too, so without this line the analysis fails there as well.
 setuptools>=68,<81
+
+# --- HTTP API (backend/ — see docs/design/backend-api-design.md) ---
+# fastapi is pinned to a minor version, and pydantic with it, so a library
+# upgrade that changes the generated backend/openapi.json is a deliberate
+# diff rather than CI noise (design "Decisions (2026-09-30, part 2)", ask 3).
+fastapi>=0.142,<0.143
+pydantic>=2.13,<2.14
+uvicorn>=0.30
+python-multipart>=0.0.18
+# httpx backs fastapi.testclient in the API tests.
+httpx>=0.27
 
 # --- Development & quality tooling ---
 black>=24.0

@@ -1,0 +1,40 @@
+focus     10_hands_raises_after              failed         pipeline           SAME
+friend    10_hands_raises_after              failed         pipeline           SAME
+template  10_hands_raises_after              failed         pipeline           SAME
+focus     11_llm_raises_everywhere           not_delivered  pipeline           SAME
+friend    11_llm_raises_everywhere           not_delivered  pipeline           SAME
+template  11_llm_raises_everywhere           not_delivered  pipeline           SAME
+focus     12_empty_rows_approved             delivered      pipeline           SAME except values-only sentence / seeded catalog phrases
+friend    12_empty_rows_approved             delivered      pipeline           SAME except values-only sentence / seeded catalog phrases
+template  12_empty_rows_approved             delivered      pipeline           SAME except values-only sentence / seeded catalog phrases
+focus     13_clarification                   not_delivered  pipeline           SAME
+friend    13_clarification                   not_delivered  pipeline           SAME
+template  13_clarification                   not_delivered  pipeline           SAME
+focus     1_dedupe_approved                  delivered      pipeline           SAME except values-only sentence / seeded catalog phrases
+friend    1_dedupe_approved                  delivered      pipeline           SAME except values-only sentence / seeded catalog phrases
+template  1_dedupe_approved                  delivered      pipeline           SAME except values-only sentence / seeded catalog phrases
+focus     2_dedupe_default_config_declined   not_delivered  pipeline           SAME
+friend    2_dedupe_default_config_declined   not_delivered  pipeline           SAME
+template  2_dedupe_default_config_declined   not_delivered  pipeline           SAME
+focus     3_chain_approved                   delivered      pipeline           SAME except values-only sentence / seeded catalog phrases
+friend    3_chain_approved                   delivered      pipeline           SAME except values-only sentence / seeded catalog phrases
+template  3_chain_approved                   delivered      pipeline           SAME except values-only sentence / seeded catalog phrases
+focus     4_chain_declined                   not_delivered  pipeline           SAME
+friend    4_chain_declined                   not_delivered  pipeline           SAME
+template  4_chain_declined                   not_delivered  pipeline           SAME
+focus     5_no_duplicates                    delivered      pipeline           SAME except values-only sentence / seeded catalog phrases
+friend    5_no_duplicates                    delivered      pipeline           SAME except values-only sentence / seeded catalog phrases
+template  5_no_duplicates                    delivered      pipeline           SAME except values-only sentence / seeded catalog phrases
+focus     6_greeting_unclear                 not_delivered  pipeline           SAME
+friend    6_greeting_unclear                 not_delivered  pipeline           SAME
+template  6_greeting_unclear                 not_delivered  pipeline           SAME
+focus     7_no_file                          not_delivered  pipeline           SAME
+friend    7_no_file                          not_delivered  pipeline           SAME
+template  7_no_file                          not_delivered  pipeline           SAME
+focus     8_inspector_raises_after           failed         pipeline           SAME
+friend    8_inspector_raises_after           failed         pipeline           SAME
+template  8_inspector_raises_after           failed         pipeline           SAME
+focus     9_voice_raises                     failed         pipeline_fallback  SAME
+friend    9_voice_raises                     failed         pipeline_fallback  SAME
+template  9_voice_raises                     failed         pipeline_fallback  SAME
+invariant violations on head: [(('9_voice_raises', 'focus'), 'pipeline_reply_equal'), (('9_voice_raises', 'friend'), 'pipeline_reply_equal'), (('9_voice_raises', 'template'), 'pipeline_reply_equal')]

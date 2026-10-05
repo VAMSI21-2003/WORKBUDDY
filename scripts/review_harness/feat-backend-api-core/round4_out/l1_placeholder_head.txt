@@ -1,0 +1,4 @@
+GET /api/v1/sessions/[REDACTED]/files
+Authorization: [REDACTED]
+[REDACTED]
+plain /api/v1/sessions/[REDACTED]

@@ -248,8 +248,21 @@ FALLBACK_PIPELINE_ERROR = _FAILURE_REPLY_TEMPLATE.format(where=FAILURE_STAGE_LAB
 # runtime check, docs/design/backend-api-design.md Section 5.2). Defined here
 # so it is reviewed with the rest; nothing in the pipeline uses it.
 FALLBACK_INTEGRITY_FAILURE = (
-    "I can't vouch for this result: your original file changed while I was working. "
-    "I've held back every file from this turn."
+    "I can't vouch for this result: your original file no longer matches the one you "
+    "uploaded. I've held back every file from this turn."
+)
+
+# The reply for a turn in which nothing ran at all: no step, no output, no
+# error (no file to work on, or nothing to do for this message). It says only
+# that, so it can't read as doubt about a file handed back in an earlier turn.
+NOTHING_RAN_REPLY = "I didn't run anything on a file this turn, so no file was changed."
+
+# Added to a delivered reply when the session had already handed back a file in
+# an earlier turn. Every turn works from the original upload, never from a file
+# handed back before, so a "now ... too" request doesn't build on earlier
+# changes; this says so. Fixed text: it names no file and claims no change.
+FROM_ORIGINAL_SENTENCE = (
+    "I made this copy from your original upload, not from a file I handed back earlier."
 )
 
 
