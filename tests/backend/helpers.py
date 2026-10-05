@@ -103,15 +103,32 @@ def start_turn(client: TestClient, session_id: str, message: str, **extra: Any) 
     )
 
 
+PLAN_KEYS = {"confirmation_id", "steps", "plan_note", "expires_at"}
+
+
 def wait_finished(
-    client: TestClient, session_id: str, turn_id: str, timeout_s: float = 30.0
+    client: TestClient,
+    session_id: str,
+    turn_id: str,
+    timeout_s: float = 30.0,
+    *,
+    decision: str | None = "approve",
+    plans: list[dict[str, Any]] | None = None,
 ) -> dict[str, Any]:
     """Poll the turn until it's finished; fail (never hang) after ``timeout_s``.
 
     Every poll before the last is checked to have no reply, outcome or
-    reply source (design "Decisions (2026-09-30, part 2)", ask 7).
+    reply source (design "Decisions (2026-09-30, part 2)", ask 7). While the
+    turn is ``awaiting_confirmation``, its plan is checked for the public
+    shape ("Decisions (2026-10-01)", item 5: ``steps`` non-empty, no
+    step-1-only fields), collected into ``plans`` once per confirmation id,
+    and answered with ``decision`` (``None`` leaves it to time out). Once a
+    plan is answered it must never be shown again, and the answer's
+    response must already show it gone.
     """
     deadline = time.monotonic() + timeout_s
+    seen: set[str] = set()
+    answered: set[str] = set()
     while True:
         response = client.get(f"/api/v1/sessions/{session_id}/turns/{turn_id}")
         assert response.status_code == 200, response.text
@@ -119,9 +136,32 @@ def wait_finished(
         if body["status"] == "finished":
             assert body["reply"] and body["reply_source"] and body["outcome"]
             assert body["finished_at"] is not None
+            assert body["pending_confirmation"] is None
             return body
         assert body["reply"] is None and body["reply_source"] is None
         assert body["outcome"] is None and body["delivered_files"] == []
+        assert body["status"] in ("running", "awaiting_confirmation"), body["status"]
+        if body["status"] == "running":
+            assert body["pending_confirmation"] is None
+        else:
+            plan = body["pending_confirmation"]
+            assert set(plan) == PLAN_KEYS, plan
+            assert plan["steps"], "a plan is never published without a step"
+            assert all(set(step) == {"capability", "prompt"} for step in plan["steps"])
+            confirmation_id = plan["confirmation_id"]
+            assert confirmation_id not in answered, "an answered plan was shown again"
+            if confirmation_id not in seen:
+                seen.add(confirmation_id)
+                if plans is not None:
+                    plans.append(plan)
+            if decision is not None:
+                answer = client.post(
+                    f"/api/v1/sessions/{session_id}/turns/{turn_id}/confirmation",
+                    json={"confirmation_id": confirmation_id, "decision": decision},
+                )
+                assert answer.status_code == 200, answer.text
+                assert answer.json()["pending_confirmation"] is None
+                answered.add(confirmation_id)
         if time.monotonic() > deadline:
             raise AssertionError(f"turn {turn_id} didn't finish within {timeout_s} s")
         time.sleep(0.02)

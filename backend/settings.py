@@ -7,6 +7,7 @@ response's ``limits`` (``docs/design/backend-api-design.md``, "Decisions
 
 from __future__ import annotations
 
+import logging
 import os
 from collections.abc import Mapping
 from dataclasses import dataclass
@@ -31,6 +32,12 @@ BODY_OVERHEAD_BYTES = 64 * 1024
 # the upload validator's allowlist itself, not a copy of it.
 ACCEPTED_EXTENSIONS: tuple[str, ...] = (".xlsx",)
 
+# Read by PR-2 only. Since PR-3 every file-changing step asks the user, and
+# approving without asking is a test setting that no variable turns on.
+RETIRED_AUTO_APPROVE_VARIABLE = "WORKBUDDY_AUTO_APPROVE"
+
+logger = logging.getLogger(__name__)
+
 
 class SettingsError(ValueError):
     """A setting is missing or invalid. The app refuses to start."""
@@ -49,14 +56,17 @@ class Settings:
         max_zip_uncompressed_bytes: The largest total declared uncompressed
             size of an ``.xlsx``'s entries.
         turn_deadline_s: Wall-clock seconds a turn may run before it's
-            finalized as failed.
+            finalized as failed, not counting the time its plan waits for
+            the user's answer.
+        confirmation_timeout_s: Seconds a turn's plan waits for the user's
+            answer. No answer in time is a rejection.
         max_concurrent_turns: Turns that may be running at once, across all
             sessions. A turn counts until its worker thread exits.
         busy_retry_after_s: The ``Retry-After`` hint on ``429 server_busy``.
-        auto_approve: Approve every Write-tier step without asking. There is
-            no confirmation endpoint until PR-3, so with this off (the
-            default) no file-changing step runs. Tests and live runs turn
-            it on explicitly.
+        auto_approve: A test setting: approve every file-changing step
+            without asking. Off by default, and never read from the
+            environment, so a server always asks the user (design Section
+            8.3, PR-3). Only tests that aren't about confirmation turn it on.
     """
 
     data_dir: Path
@@ -65,6 +75,7 @@ class Settings:
     max_zip_entries: int = 1000
     max_zip_uncompressed_bytes: int = 200 * MIB
     turn_deadline_s: float = 180.0
+    confirmation_timeout_s: float = 120.0
     max_concurrent_turns: int = 2
     busy_retry_after_s: int = 10
     auto_approve: bool = False
@@ -82,8 +93,9 @@ class Settings:
             value = getattr(self, name)
             if isinstance(value, bool) or not isinstance(value, int) or value < 1:
                 raise SettingsError(f"{name} must be a positive integer")
-        if not self.turn_deadline_s > 0:
-            raise SettingsError("turn_deadline_s must be positive")
+        for name in ("turn_deadline_s", "confirmation_timeout_s"):
+            if not getattr(self, name) > 0:
+                raise SettingsError(f"{name} must be positive")
 
     @property
     def accepted_extensions(self) -> tuple[str, ...]:
@@ -115,13 +127,18 @@ class Settings:
             SettingsError: A variable is set to something invalid.
         """
         env = os.environ if environ is None else environ
+        if env.get(RETIRED_AUTO_APPROVE_VARIABLE):
+            logger.warning(
+                "%s is no longer read: every file-changing step asks for confirmation",
+                RETIRED_AUTO_APPROVE_VARIABLE,
+            )
         return cls(
             data_dir=Path(env.get("WORKBUDDY_DATA_DIR") or _REPO_ROOT / "workspace"),
             max_upload_bytes=_int(env, "WORKBUDDY_MAX_UPLOAD_BYTES", DEFAULT_MAX_UPLOAD_BYTES),
             turn_deadline_s=float(_int(env, "WORKBUDDY_TURN_DEADLINE_S", 180)),
+            confirmation_timeout_s=float(_int(env, "WORKBUDDY_CONFIRMATION_TIMEOUT_S", 120)),
             max_concurrent_turns=_int(env, "WORKBUDDY_MAX_CONCURRENT_TURNS", 2),
             busy_retry_after_s=_int(env, "WORKBUDDY_BUSY_RETRY_AFTER_S", 10),
-            auto_approve=_flag(env, "WORKBUDDY_AUTO_APPROVE"),
         )
 
 
@@ -133,12 +150,3 @@ def _int(env: Mapping[str, str], name: str, default: int) -> int:
         return int(raw)
     except ValueError:
         raise SettingsError(f"{name} must be an integer") from None
-
-
-def _flag(env: Mapping[str, str], name: str) -> bool:
-    raw = (env.get(name) or "").strip().lower()
-    if raw in ("", "0", "false", "no", "off"):
-        return False
-    if raw in ("1", "true", "yes", "on"):
-        return True
-    raise SettingsError(f"{name} must be 1/true/yes/on or 0/false/no/off")

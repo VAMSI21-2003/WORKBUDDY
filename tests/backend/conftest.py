@@ -26,4 +26,10 @@ def _restore_log_record_factory() -> Iterator[None]:
 
 @pytest.fixture
 def settings(tmp_path: Path) -> Settings:
-    return Settings(data_dir=tmp_path / "data", auto_approve=True)
+    """The default configuration: every file-changing step asks for confirmation.
+
+    ``wait_finished`` approves each plan it sees unless told otherwise, so
+    every turn goes through the real confirmation flow, as in production
+    (design Section 7.1). ``auto_approve`` is for tests that need it.
+    """
+    return Settings(data_dir=tmp_path / "data")

@@ -36,6 +36,8 @@ class ErrorCode(StrEnum):
     MULTIPLE_SHEETS = "multiple_sheets"
     INVALID_REQUEST = "invalid_request"
     SESSION_BUSY = "session_busy"
+    NO_PENDING_CONFIRMATION = "no_pending_confirmation"
+    STALE_CONFIRMATION = "stale_confirmation"
     SERVER_BUSY = "server_busy"
     FILE_UNAVAILABLE = "file_unavailable"
     INTERNAL_ERROR = "internal_error"
@@ -54,6 +56,8 @@ STATUS: dict[ErrorCode, int] = {
     ErrorCode.MULTIPLE_SHEETS: 422,
     ErrorCode.INVALID_REQUEST: 422,
     ErrorCode.SESSION_BUSY: 409,
+    ErrorCode.NO_PENDING_CONFIRMATION: 409,
+    ErrorCode.STALE_CONFIRMATION: 409,
     ErrorCode.SERVER_BUSY: 429,
     ErrorCode.FILE_UNAVAILABLE: 410,
     ErrorCode.INTERNAL_ERROR: 500,
@@ -79,6 +83,8 @@ MESSAGES: dict[ErrorCode, str] = {
     ErrorCode.SESSION_BUSY: (
         "Something is still running in this session. Wait for it to finish and try again."
     ),
+    ErrorCode.NO_PENDING_CONFIRMATION: "This turn has no plan waiting for an answer.",
+    ErrorCode.STALE_CONFIRMATION: "That answer is for a plan that isn't the one waiting.",
     ErrorCode.SERVER_BUSY: "The server is busy right now. Try again shortly.",
     ErrorCode.FILE_UNAVAILABLE: "That file is no longer available.",
     ErrorCode.INTERNAL_ERROR: "Something went wrong on the server.",

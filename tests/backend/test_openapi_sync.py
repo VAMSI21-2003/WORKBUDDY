@@ -79,13 +79,60 @@ def test_a_finished_turn_requires_reply_source_and_outcome() -> None:
         "integrity_failure",
     }
     assert set(finished["properties"]["reply_source"]["enum"]) == {"pipeline", "pipeline_fallback"}
-    for name in ("reply", "reply_source", "outcome"):
-        assert running["properties"][name]["type"] == "null"
+    awaiting = schemas["AwaitingConfirmationTurn"]
+    for variant in (running, awaiting):
+        for name in ("reply", "reply_source", "outcome"):
+            assert variant["properties"][name]["type"] == "null"
 
     poll = _committed()["paths"]["/api/v1/sessions/{session_id}/turns/{turn_id}"]["get"]
     union = poll["responses"]["200"]["content"]["application/json"]["schema"]
     assert union["discriminator"]["propertyName"] == "status"
-    assert set(union["discriminator"]["mapping"]) == {"running", "finished"}
+    statuses = {"running", "awaiting_confirmation", "finished"}
+    assert set(union["discriminator"]["mapping"]) == statuses
+
+
+def test_pending_confirmation_has_the_plan_and_no_step_one_only_fields() -> None:
+    """Decisions (2026-10-01), items 4 and 5: ``steps`` (at least one) and ``plan_note``."""
+    schemas = _committed()["components"]["schemas"]
+    pending = schemas["PendingConfirmation"]
+
+    assert set(pending["properties"]) == {"confirmation_id", "steps", "plan_note", "expires_at"}
+    assert set(pending["required"]) == {"confirmation_id", "steps", "plan_note", "expires_at"}
+    for removed in ("capability", "permission_tier", "input_name", "prompt"):
+        assert removed not in pending["properties"]
+    assert pending["properties"]["steps"]["minItems"] == 1
+    assert pending["properties"]["steps"]["items"] == {"$ref": "#/components/schemas/PlanStep"}
+    assert {"type": "null"} in pending["properties"]["plan_note"]["anyOf"]
+    assert set(schemas["PlanStep"]["properties"]) == {"capability", "prompt"}
+    assert set(schemas["PlanStep"]["required"]) == {"capability", "prompt"}
+
+
+def test_only_the_awaiting_turn_carries_the_plan_and_there_it_is_required() -> None:
+    schemas = _committed()["components"]["schemas"]
+    ref = {"$ref": "#/components/schemas/PendingConfirmation"}
+
+    for name in ("AwaitingConfirmationTurn", "AwaitingConfirmationTurnSummary"):
+        assert schemas[name]["properties"]["pending_confirmation"] == ref
+        assert "pending_confirmation" in schemas[name]["required"]
+    for name in ("RunningTurn", "RunningTurnSummary", "FinishedTurn", "FinishedTurnSummary"):
+        assert schemas[name]["properties"]["pending_confirmation"]["type"] == "null"
+    state = schemas["SessionState"]["properties"]["pending_confirmation"]
+    assert state["anyOf"] == [ref, {"type": "null"}]
+
+
+def test_the_confirmation_route_is_declared_with_its_errors() -> None:
+    path = "/api/v1/sessions/{session_id}/turns/{turn_id}/confirmation"
+    operation = _committed()["paths"][path]["post"]
+    body = operation["requestBody"]["content"]["application/json"]["schema"]
+    request = _committed()["components"]["schemas"]["ConfirmationRequest"]
+
+    assert body == {"$ref": "#/components/schemas/ConfirmationRequest"}
+    assert set(request["required"]) == {"confirmation_id", "decision"}
+    assert request["properties"]["decision"]["enum"] == ["approve", "reject"]
+    assert request["additionalProperties"] is False
+    assert {"200", "404", "409", "413", "422"} <= set(operation["responses"])
+    union = operation["responses"]["200"]["content"]["application/json"]["schema"]
+    assert union["discriminator"]["propertyName"] == "status"
 
 
 def test_the_session_response_declares_limits_and_a_nullable_retention() -> None:

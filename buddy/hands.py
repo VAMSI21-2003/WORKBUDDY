@@ -1,9 +1,9 @@
 """Hands — carries out delegated work and produces results."""
 
 import logging
-from dataclasses import replace
+from dataclasses import dataclass, replace
 from pathlib import Path
-from typing import Protocol
+from typing import Protocol, runtime_checkable
 
 from buddy.inspector import VerificationRequest, Verifier
 from buddy.models import (
@@ -40,6 +40,54 @@ class ConfirmationProvider(Protocol):
 
     def confirm(self, task: SkillTask, tier: PermissionTier) -> bool:
         """Return whether ``task`` may proceed at permission tier ``tier``."""
+        ...
+
+
+@dataclass(frozen=True)
+class ConfirmationStep:
+    """One step of a turn that will ask for confirmation, as Hands will run it.
+
+    Hands builds these from ``state.delegation`` before any step runs, with
+    each step's tier resolved through the Dispatcher the way the step itself
+    will be (``Hands.confirmation_plan``). A ``CapabilityRequest`` carries
+    no tier, so this is the only place the whole plan's tiers are known
+    before anything runs.
+
+    Attributes:
+        task_id: The ``SkillTask.task_id`` Hands will give the step and
+            pass to ``ConfirmationProvider.confirm``.
+        capability: The capability the step requests.
+        tier: The permission tier of the Skill the Dispatcher selects.
+        input_reference: The delegated target. The plan's first step reads
+            it. Every later step reads the previous step's output: the
+            steps that ask for confirmation (every tier above READ) are
+            exactly the chain.
+    """
+
+    task_id: str
+    capability: str
+    tier: PermissionTier
+    input_reference: str
+
+
+@runtime_checkable
+class PlanAwareConfirmationProvider(Protocol):
+    """A ``ConfirmationProvider`` that is told the whole plan before any step runs.
+
+    Hands calls ``expect_plan`` once per run, before its first step, with
+    every step that will ask for confirmation, in the order it will ask.
+    A provider that shows the user one plan for the whole turn uses it to
+    show the plan Hands runs, and to refuse any ``confirm`` call that isn't
+    the next step of that plan. ``confirm`` keeps its signature, so a
+    provider without ``expect_plan`` works as before.
+    """
+
+    def confirm(self, task: SkillTask, tier: PermissionTier) -> bool:
+        """Return whether ``task`` may proceed at permission tier ``tier``."""
+        ...
+
+    def expect_plan(self, steps: tuple[ConfirmationStep, ...]) -> None:
+        """Receive every step that will ask for confirmation this run, in order."""
         ...
 
 
@@ -102,6 +150,9 @@ class Hands:
     question, not a fixed architectural rule — so it follows the same
     swappable-protocol-plus-``Null*``-default pattern every other stage's
     collaborator does: ``ConfirmationProvider`` / ``NullConfirmationProvider``.
+    A provider that is also a ``PlanAwareConfirmationProvider`` is told,
+    before the first step runs, every step that will ask for confirmation
+    (``confirmation_plan``), so it can ask the user once for the whole plan.
 
     **Chaining.** Steps whose Skill changes files (any tier above READ)
     form a chain: each reads the previous chain step's output, so the user
@@ -173,6 +224,10 @@ class Hands:
             logger.debug("Hands: nothing to execute for session %r", state.session_id)
             self._apply(state, ExecutionResult(success=True, warnings=("nothing to execute",)), [])
             return state
+
+        provider = self._confirmation_provider
+        if isinstance(provider, PlanAwareConfirmationProvider):
+            provider.expect_plan(self.confirmation_plan(state, requests))
 
         warnings: list[str] = []
         errors: list[str] = []
@@ -430,6 +485,48 @@ class Hands:
             state.session_id,
         )
         return state
+
+    def confirmation_plan(
+        self, state: BuddyState, requests: tuple[CapabilityRequest, ...]
+    ) -> tuple[ConfirmationStep, ...]:
+        """Every step of ``requests`` that will ask for confirmation, in the order it will ask.
+
+        Each request is resolved through the Dispatcher with the task id
+        ``__call__`` gives it, so a step's tier is the selected Skill's own
+        declared tier, not a guess. A request the Dispatcher can't route
+        stops the chain in ``__call__``, so nothing after it is listed: it
+        would never run.
+
+        The resolution reads the delegated target for every step. A later
+        chain step really reads the previous step's output, which doesn't
+        exist yet. If the Dispatcher then selects a Skill of another tier,
+        or none, that step isn't the one listed here, and a plan-aware
+        provider refuses it rather than approving a step nobody was shown.
+
+        Args:
+            state: The current ``BuddyState`` for this turn.
+            requests: Every request delegated this turn, in order.
+
+        Returns:
+            One ``ConfirmationStep`` per step above READ tier, in order.
+        """
+        steps: list[ConfirmationStep] = []
+        for index, request in enumerate(requests):
+            probe = self._build_task(state, request, index, request.target)
+            try:
+                skill = self._dispatcher.select(probe, request.capability)
+            except DispatchError:
+                break
+            if skill.permission_tier in _CONFIRMATION_REQUIRED_TIERS:
+                steps.append(
+                    ConfirmationStep(
+                        task_id=probe.task_id,
+                        capability=request.capability,
+                        tier=skill.permission_tier,
+                        input_reference=request.target,
+                    )
+                )
+        return tuple(steps)
 
     def _recheck_final_file(
         self,

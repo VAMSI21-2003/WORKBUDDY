@@ -89,6 +89,7 @@ def test_settings_defaults_match_the_design(tmp_path: Path) -> None:
     assert settings.turn_deadline_s == 180
     assert settings.max_concurrent_turns == 2
     assert settings.busy_retry_after_s == 10
+    assert settings.confirmation_timeout_s == 120  # design Section 1.5
     assert settings.auto_approve is False
 
 
@@ -109,7 +110,8 @@ def test_the_data_root_is_absolute_even_when_given_relative(
         ("WORKBUDDY_MAX_UPLOAD_BYTES", "lots"),
         ("WORKBUDDY_MAX_UPLOAD_BYTES", "0"),
         ("WORKBUDDY_MAX_CONCURRENT_TURNS", "-1"),
-        ("WORKBUDDY_AUTO_APPROVE", "maybe"),
+        ("WORKBUDDY_CONFIRMATION_TIMEOUT_S", "0"),
+        ("WORKBUDDY_CONFIRMATION_TIMEOUT_S", "soon"),
     ],
 )
 def test_an_invalid_setting_refuses_to_start(tmp_path: Path, name: str, value: str) -> None:
@@ -122,11 +124,24 @@ def test_auto_approve_is_off_unless_set(tmp_path: Path) -> None:
     assert Settings(data_dir=tmp_path).auto_approve is False
 
 
-@pytest.mark.parametrize("value", ["1", "true", "YES", "on"])
-def test_auto_approve_is_on_only_when_asked(tmp_path: Path, value: str) -> None:
+@pytest.mark.parametrize("value", ["1", "true", "YES", "on", "maybe"])
+def test_auto_approve_is_never_read_from_the_environment(
+    tmp_path: Path, value: str, caplog: pytest.LogCaptureFixture
+) -> None:
+    """PR-3: approving without asking is a test setting; a server always asks."""
     env = {"WORKBUDDY_DATA_DIR": str(tmp_path), "WORKBUDDY_AUTO_APPROVE": value}
 
-    assert Settings.from_env(env).auto_approve is True
+    with caplog.at_level(logging.WARNING, logger="backend.settings"):
+        settings = Settings.from_env(env)
+
+    assert settings.auto_approve is False
+    assert "WORKBUDDY_AUTO_APPROVE is no longer read" in caplog.text
+
+
+def test_the_confirmation_timeout_comes_from_its_variable(tmp_path: Path) -> None:
+    env = {"WORKBUDDY_DATA_DIR": str(tmp_path), "WORKBUDDY_CONFIRMATION_TIMEOUT_S": "30"}
+
+    assert Settings.from_env(env).confirmation_timeout_s == 30
 
 
 # -- LLM provider and secrets ----------------------------------------------------------
