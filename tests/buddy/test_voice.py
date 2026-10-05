@@ -1235,6 +1235,75 @@ def test_template_speaker_never_says_done_when_the_last_step_stopped_the_chain(
     assert "0 duplicate row(s) remaining" not in reply
 
 
+def _declined_plan_request(mode: str = "friend") -> SpeakingRequest:
+    """The user rejected the plan (or didn't answer it): the first file-changing
+    step was declined, so no step changed a file and the next was skipped.
+    Shaped the way Hands and Inspector record it."""
+    declined = _dedupe_step(
+        status="declined",
+        outputs=(),
+        summary="confirmation was declined",
+        failure_reason="wasn't confirmed, so it didn't run",
+    )
+    skipped = StepResult(
+        capability="spreadsheet.remove_empty_rows",
+        skill="",
+        status="skipped",
+        summary="skipped because spreadsheet.deduplicate was not confirmed",
+    )
+    return _request(
+        mode=mode,
+        understanding=Understanding(intent="multi_step_request"),
+        execution_result=ExecutionResult(
+            success=False,
+            errors=(
+                "excel.deduplicate was not confirmed for a write-tier action; skipped",
+                "stopped: spreadsheet.deduplicate was not confirmed; 1 later step(s) were "
+                "skipped and no file was handed back",
+            ),
+            steps=(declined, skipped),
+            stopped_at="spreadsheet.deduplicate",
+        ),
+        verification_result=VerificationResult(
+            passed=False,
+            findings=(
+                "[spreadsheet.deduplicate] wasn't confirmed, so it didn't run",
+                "[spreadsheet.remove_empty_rows] skipped because an earlier step failed",
+            ),
+            steps=(
+                StepVerification(
+                    capability="spreadsheet.deduplicate",
+                    passed=False,
+                    findings=("wasn't confirmed, so it didn't run",),
+                    input_reference="uploads/report.xlsx",
+                ),
+                StepVerification(
+                    capability="spreadsheet.remove_empty_rows",
+                    passed=False,
+                    findings=("skipped because an earlier step failed",),
+                ),
+            ),
+        ),
+    )
+
+
+@pytest.mark.parametrize("mode", ["friend", "focus"])
+def test_a_rejected_plan_isnt_called_a_problem_and_says_nothing_ran(mode: str) -> None:
+    """PR-3: the user's "no" to a plan is an ordinary answer, not a failure."""
+    request = _declined_plan_request(mode)
+
+    reply = TemplateSpeaker()(request)
+
+    assert "problem" not in reply
+    assert reply == (
+        "The deduplicate step: wasn't confirmed, so it didn't run. I stopped at the "
+        "deduplicate step, so remove empty rows never ran and no file was handed back; "
+        "your original file is unchanged."
+    )
+    _assert_no_completion_claim(reply, "deduplicate")
+    assert PersonalityVoice(_FakeLLMProvider(reply="All done!"))(request) == reply
+
+
 @pytest.mark.parametrize(
     ("last", "stopped_step"),
     [(_undispatchable_report(), "report"), (_declined_empty_rows(), "remove empty rows")],

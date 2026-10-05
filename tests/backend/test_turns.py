@@ -552,7 +552,11 @@ def test_rule_1_holds_in_every_scenario(
     tmp_path: Path, scenario: str, speaker: str
 ) -> None:
     replies, options, message = _SCENARIOS[scenario]
-    settings = Settings(data_dir=tmp_path / "data", confirmation_timeout_s=0.3)
+    # Only the scenario that leaves its plan unanswered gets a short window.
+    timed_out = "decision" in options and options["decision"] is None
+    settings = Settings(
+        data_dir=tmp_path / "data", confirmation_timeout_s=0.3 if timed_out else 120.0
+    )
     wrap = raise_in(options["raise"], after=True) if "raise" in options else None
     factory = PipelineFactory(QueuedProvider(replies), speaker=speaker, wrap=wrap)
     client = _app(settings, factory)
