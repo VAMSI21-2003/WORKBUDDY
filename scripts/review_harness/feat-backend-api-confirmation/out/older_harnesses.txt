@@ -1,0 +1,29 @@
+# Older harnesses, head 3ef871c vs base 3ed023f (pipeline only, NullConfirmationProvider or a declining provider)
+
+## feat-backend-api-core/pipeline_compare.py --diff
+template  dedupe                   SAME
+template  no_dups                  SAME
+template  chain                    SAME
+template  greeting                 SAME
+template  two_turns_then_thanks    SAME
+template  no_file                  SAME
+template  voice_raises             SAME
+friend    dedupe                   SAME
+friend    no_dups                  SAME
+friend    chain                    SAME
+friend    greeting                 SAME
+friend    two_turns_then_thanks    SAME
+friend    no_file                  SAME
+friend    voice_raises             SAME
+focus     dedupe                   SAME
+focus     no_dups                  SAME
+focus     chain                    SAME
+focus     greeting                 SAME
+focus     two_turns_then_thanks    SAME
+focus     no_file                  SAME
+focus     voice_raises             SAME
+
+## scripts/review_harness/harness.py (PR-B, 532 turns): identical on head and base; 0 voice calls; every original unchanged
+
+## scripts/review_harness/round5.py (228 turns): 6 turns differ, all d03-decline (3 speakers x 2 sessions): head drops 'I ran into a problem partway through.'; every original unchanged
+   (6 rows on each tree are c-fail-voice-speaker, which raises by design: identical on both.)

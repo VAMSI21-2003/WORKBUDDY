@@ -1,0 +1,6 @@
+killed           next_step_ignores_refusing         FAILED tests/backend/test_confirmation_provider.py::test_an_unlisted_step_is_refused_without_asking
+killed           next_not_advanced                  FAILED tests/backend/test_confirmation_api.py::test_a_two_step_chain_asks_once_and_the_plan_is_what_runs
+killed           hands_never_announces              FAILED tests/backend/test_confirmation_api.py::test_the_plan_is_shown_before_any_file_changes_and_approving_it_delivers
+killed           plan_continues_past_unroutable     FAILED tests/buddy/test_hands_confirmation_plan.py::test_a_step_the_dispatcher_cant_route_ends_the_plan
+killed           plan_includes_read_steps           FAILED tests/backend/test_confirmation_api.py::test_the_plan_is_shown_before_any_file_changes_and_approving_it_delivers
+killed           plan_task_id_off_by_one            FAILED tests/backend/test_confirmation_api.py::test_the_plan_is_shown_before_any_file_changes_and_approving_it_delivers
