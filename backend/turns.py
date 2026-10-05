@@ -349,8 +349,9 @@ class TurnRunner:
         """Record the user's answer to the plan waiting on a turn; return the turn.
 
         The plan stops being pending before this returns, so no later
-        response shows it. The caller holds no lock; the turn returned is
-        read under the session lock by the caller.
+        response shows it. Takes the session lock (re-entrant), so a caller
+        that holds it can build its response from the turn before the
+        worker moves on.
 
         Raises:
             ApiError: ``turn_not_found``; ``no_pending_confirmation`` when no
