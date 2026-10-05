@@ -517,8 +517,9 @@ class TurnRunner:
         try:
             make_read_only(result.delivered)
         except BaseException:
-            logger.exception("Turn %s: marking files read-only failed; using the fallback",
-                             turn.turn_id)
+            logger.exception(
+                "Turn %s: marking files read-only failed; using the fallback", turn.turn_id
+            )
             result = Finalization(FAILED, FALLBACK_PIPELINE_ERROR, PIPELINE_FALLBACK)
 
         with record.lock:
@@ -526,9 +527,12 @@ class TurnRunner:
                 return
             # No plan may be asked, or stay waiting, once the turn finishes.
             job.finishing = True
-            self._disarm_deadline(job)
-            if job.gate is not None:
-                job.gate.close(BY_TURN_END)
+            try:
+                self._disarm_deadline(job)
+                if job.gate is not None:
+                    job.gate.close(BY_TURN_END)
+            except BaseException:
+                logger.exception("Turn %s: closing its plan failed", turn.turn_id)
             turn.pending_confirmation = None
             # The finished record is written before anyone can see the turn
             # finished (review M3), so memory and disk always agree on what
@@ -538,20 +542,12 @@ class TurnRunner:
             if not self._save_finished(record, turn, result, now):
                 result = Finalization(FAILED, FALLBACK_PIPELINE_ERROR, PIPELINE_FALLBACK)
                 self._save_finished(record, turn, result, now)
-            if result.commit and state is not None:
-                state.context.record_buddy_reply(result.reply)
-                state.reset_transient()
-                record.state = state
-                record.active_file_id = _file_id_for(record, state.context.active_file)
-            else:
-                # Design 3.3 step 7: keep the pre-turn state; record only the
-                # message and the fallback reply. The mode is the user's
-                # setting, not a result, so it applies either way.
-                context = record.state.context
-                if job.mode is not None:
-                    context.set_mode(job.mode)
-                context.record_user_message(turn.message)
-                context.record_buddy_reply(result.reply)
+            try:
+                self._record_in_session(job, state, result)
+            except BaseException:
+                # The turn still finishes as decided; only the session's
+                # conversation misses it.
+                logger.exception("Turn %s: the session couldn't record it", turn.turn_id)
             turn.outcome = result.outcome
             turn.reply = result.reply
             turn.reply_source = result.reply_source
@@ -575,6 +571,25 @@ class TurnRunner:
             result.outcome,
             result.reply_source,
         )
+
+    @staticmethod
+    def _record_in_session(job: _Job, state: BuddyState | None, result: Finalization) -> None:
+        """Commit the turn's state, or keep the pre-turn state (under the session lock)."""
+        record, turn = job.record, job.turn
+        if result.commit and state is not None:
+            state.context.record_buddy_reply(result.reply)
+            state.reset_transient()
+            record.state = state
+            record.active_file_id = _file_id_for(record, state.context.active_file)
+            return
+        # Design 3.3 step 7: keep the pre-turn state; record only the message
+        # and the fallback reply. The mode is the user's setting, not a
+        # result, so it applies either way.
+        context = record.state.context
+        if job.mode is not None:
+            context.set_mode(job.mode)
+        context.record_user_message(turn.message)
+        context.record_buddy_reply(result.reply)
 
     def _save_finished(
         self, record: SessionRecord, turn: TurnRecord, result: Finalization, now: datetime

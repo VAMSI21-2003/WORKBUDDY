@@ -21,9 +21,10 @@ import pytest
 from fastapi.testclient import TestClient
 
 from backend import turns as turns_module
-from backend.confirmation import PLAN_NOTE_CHAIN
+from backend.confirmation import PLAN_NOTE_CHAIN, WebConfirmationProvider
 from backend.main import create_app
 from backend.settings import Settings
+from buddy.context import Context
 from buddy.hands import ConfirmationStep
 from buddy.models import DECLINED_STATUS, SKIPPED_STATUS
 from buddy.state import BuddyState
@@ -817,6 +818,34 @@ def test_a_raise_inside_finalization_still_finishes_the_turn(
     assert turn["delivered_files"] == []
     files = client.get(f"/api/v1/sessions/{session_id}/files").json()["files"]
     assert [f["kind"] for f in files] == ["upload"]
+    _wait_idle(client, session_id)
+    _wait_workers_gone(client)
+    after = wait_finished(client, session_id, _start(client, session_id, "remove duplicate rows"))
+    assert after["outcome"] == "delivered"
+
+
+@pytest.mark.filterwarnings("ignore::pytest.PytestUnhandledThreadExceptionWarning")
+@pytest.mark.parametrize("target", ["close_the_plan", "record_the_reply"])
+def test_a_raise_while_finishing_still_finishes_the_turn_as_decided(
+    settings: Settings, monkeypatch: pytest.MonkeyPatch, target: str
+) -> None:
+    """The finishing block's bookkeeping can't leave the turn running either."""
+    provider = QueuedProvider(single("remove_duplicate_rows") + single("remove_duplicate_rows"))
+    client = _app(settings, PipelineFactory(provider))
+    session_id, _ = _session_with_upload(client)
+
+    def raising(*args: Any, **kwargs: Any) -> Any:
+        raise _Halt
+
+    if target == "close_the_plan":
+        monkeypatch.setattr(WebConfirmationProvider, "close", raising)
+    else:
+        monkeypatch.setattr(Context, "record_buddy_reply", raising)
+    turn = wait_finished(client, session_id, _start(client, session_id, "remove duplicate rows"))
+    monkeypatch.undo()
+
+    assert turn["outcome"] == "delivered"  # what was decided and written stands
+    assert turn["reply_source"] == "pipeline"
     _wait_idle(client, session_id)
     _wait_workers_gone(client)
     after = wait_finished(client, session_id, _start(client, session_id, "remove duplicate rows"))

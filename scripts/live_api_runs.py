@@ -1,14 +1,27 @@
 """Live runs through the real HTTP server with a real LLM (design Section 7.5).
 
 Starts ``python -m backend`` as a subprocess (uvicorn on 127.0.0.1, one
-worker) with ``WORKBUDDY_AUTO_APPROVE=1`` (there is no confirm endpoint
-until PR-3) and a fresh data root under ``scratch/live-api/``, then drives
-it over HTTP: sessions, uploads, turns, polling, downloads. Runs 1, 2, 5,
-6, 7, 8 and 9 of design 7.5 (3 and 4 need PR-3's confirmation), plus "R":
-the delivered copy downloaded, uploaded again, and "now remove the empty
-rows too" on it (review round 3's suggestion), and "9b": run 9's two turns
-on a fixture just under the 2 MiB default cap ("Decisions (2026-10-04)",
-item 3), at the default deadline.
+worker) in its default configuration, with a fresh data root under
+``scratch/live-api/``, then drives it over HTTP: sessions, uploads, turns,
+polling, the plan confirmation, downloads. Every file-changing turn shows
+its plan and waits for an answer (PR-3); the driver answers it over HTTP
+(``POST .../confirmation``) with the run's decision, and records each plan
+shown.
+
+Runs 1, 2, 5, 6, 7, 8 and 9 of design 7.5 (approving each plan), plus:
+- "3": "Remove the empty rows and then the duplicates", approved (a chain
+  through the API: one plan, one final file);
+- "4": "Remove duplicate rows", rejected (no file; the reply doesn't say it
+  was done);
+- "T": "remove duplicate rows", never answered: the plan times out at the
+  server's confirmation timeout, which counts as a rejection;
+- "C": "remove duplicate rows, then remove empty rows", approved once (a
+  two-step chain: exactly one plan, both steps run, step 2 reads step 1's
+  result);
+- "R": the delivered copy downloaded, uploaded again, and "now remove the
+  empty rows too" on it (review round 3's suggestion);
+- "9b": run 9's two turns on a fixture just under the 2 MiB default cap
+  ("Decisions (2026-10-04)", item 3), at the default deadline.
 
 For each turn it prints what ``CLAUDE.md`` asks for: the intent,
 ``clarification_required``, the steps, whether a file was delivered, an
@@ -22,7 +35,7 @@ in the server log, even one the SDK retried) and reports how many runs
 completed.
 
 Usage (``GROQ_API_KEY`` or ``ANTHROPIC_API_KEY`` set; never printed):
-    python scripts/live_api_runs.py [--runs 1,2,5,6,7,R,8,9] [--port 8765] [--pause 8]
+    python scripts/live_api_runs.py [--runs 3,4,T,C] [--port 8765] [--pause 8]
 """
 
 from __future__ import annotations
@@ -145,7 +158,7 @@ class Server:
     def start(self) -> None:
         env = dict(os.environ)
         env["WORKBUDDY_DATA_DIR"] = str(self.data_dir)
-        env["WORKBUDDY_AUTO_APPROVE"] = "1"
+        env.pop("WORKBUDDY_AUTO_APPROVE", None)  # retired; a server always asks
         env["PYTHONUNBUFFERED"] = "1"
         env.update(self.extra_env)
         log = open(self.log_path, "ab")
@@ -232,7 +245,19 @@ class Driver:
         response.raise_for_status()
         return dict(response.json())
 
-    def turn(self, session_id: str, message: str, timeout_s: float = 1200) -> dict[str, Any]:
+    def turn(
+        self,
+        session_id: str,
+        message: str,
+        decision: str | None = "approve",
+        timeout_s: float = 1200,
+    ) -> dict[str, Any]:
+        """Run one turn: poll it, answer its plan with ``decision`` (``None``: never answer).
+
+        The finished turn gets ``_plans`` (each plan shown, once, with how long
+        after the start it appeared), ``_answers`` (each answer sent and the
+        HTTP status it got) and ``_statuses`` (the statuses seen, in order).
+        """
         time.sleep(PAUSE_S)
         started = time.monotonic()
         response = self.client.post(
@@ -240,13 +265,38 @@ class Driver:
         )
         response.raise_for_status()
         turn_id = response.json()["turn_id"]
+        plans: list[dict[str, Any]] = []
+        answers: list[dict[str, Any]] = []
+        statuses: list[str] = []
         while True:
             body = self.get(f"/api/v1/sessions/{session_id}/turns/{turn_id}").json()
+            if not statuses or statuses[-1] != body["status"]:
+                statuses.append(body["status"])
             if body["status"] == "finished":
                 body["_wall_s"] = round(time.monotonic() - started, 1)
                 body["_get_retries_so_far"] = self.get_retries
+                body["_plans"] = plans
+                body["_answers"] = answers
+                body["_statuses"] = statuses
                 self.check_rate_limit()
                 return dict(body)
+            plan = body.get("pending_confirmation")
+            if body["status"] == "awaiting_confirmation" and plan is not None:
+                if all(p["confirmation_id"] != plan["confirmation_id"] for p in plans):
+                    plans.append({**plan, "_shown_after_s": round(time.monotonic() - started, 1)})
+                    if decision is not None:
+                        answer = self.client.post(
+                            f"/api/v1/sessions/{session_id}/turns/{turn_id}/confirmation",
+                            json={"confirmation_id": plan["confirmation_id"], "decision": decision},
+                        )
+                        answers.append(
+                            {
+                                "decision": decision,
+                                "http_status": answer.status_code,
+                                "status_after": answer.json().get("status"),
+                                "plan_after": answer.json().get("pending_confirmation"),
+                            }
+                        )
             if time.monotonic() - started > timeout_s:
                 raise SystemExit(f"turn {turn_id} didn't finish in {timeout_s} s")
             time.sleep(0.5)
@@ -342,6 +392,39 @@ def report_turn(
         == entry["original_sha256_at_upload"]
         == entry["original_sha256_stored_after"]
     )
+    # The plan confirmation (PR-3): what was shown, what was answered, what ran.
+    entry["statuses_seen"] = turn.get("_statuses")
+    entry["plans_shown"] = [
+        {
+            "steps": [(step["capability"], step["prompt"]) for step in plan["steps"]],
+            "plan_note": plan["plan_note"],
+            "shown_after_s": plan["_shown_after_s"],
+            "expires_at": plan["expires_at"],
+        }
+        for plan in turn.get("_plans", [])
+    ]
+    entry["answers_sent"] = turn.get("_answers")
+    entry["confirmation"] = detail.get("confirmation")
+    writes = [
+        s
+        for s in detail.get("steps", [])
+        if s["permission_tier"] in ("write", "external_effect") and not s["recheck"]
+    ]
+    entry["write_steps"] = [f"{s['capability']} [{s['status']}]" for s in writes]
+    if entry["plans_shown"]:
+        shown = [capability for capability, _ in entry["plans_shown"][0]["steps"]]
+        entry["plan_lists_the_write_steps_in_order"] = shown == [s["capability"] for s in writes]
+    ran = [s for s in writes if s["status"] == "success"]
+    if len(ran) >= 2:
+        entry["each_later_step_read_the_previous_result"] = all(
+            later["input_name"] in earlier["output_names"]
+            for earlier, later in zip(ran, ran[1:], strict=False)
+        )
+    key = hashlib.sha256(session_id.encode()).hexdigest()[:32]
+    turn_dir = driver.server.data_dir / "outputs" / key / turn["turn_id"]
+    entry["spreadsheets_written_in_turn_folder"] = (
+        sorted(p.name for p in turn_dir.glob("*.xlsx")) if turn_dir.is_dir() else []
+    )
     source = pd.read_excel(io.BytesIO(original))
     entry["original_measured"] = measure(source)
     if turn["delivered_files"]:
@@ -378,13 +461,13 @@ def _same(left: pd.DataFrame, right: pd.DataFrame) -> bool:
 
 def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("--runs", default="1,2,5,6,7,R,8,9,9b")
+    parser.add_argument("--runs", default="3,4,T,C")
     parser.add_argument("--port", type=int, default=8765)
     parser.add_argument(
         "--pause", type=float, default=8.0, help="seconds between turns, to spare the rate limit"
     )
     args = parser.parse_args()
-    runs = [r if r in ("R", "9b") else int(r) for r in args.runs.split(",")]
+    runs = [r if r in ("R", "9b", "T", "C") else int(r) for r in args.runs.split(",")]
     global PAUSE_S
     PAUSE_S = args.pause
     stamp = datetime.now(UTC).strftime("%Y%m%dT%H%M%S")
@@ -442,6 +525,45 @@ def main() -> None:
                 report_turn(driver, "7", first_session, first_upload, default, turn, "empty")
             )
             completed.append(7)
+        if 3 in runs:
+            session = driver.session("focus")
+            upload = driver.upload(session, default, "manual_report.xlsx")
+            turn = driver.turn(session, "Remove the empty rows and then the duplicates", "approve")
+            results.append(report_turn(driver, "3", session, upload, default, turn, "both"))
+            completed.append(3)
+        if 4 in runs:
+            session = driver.session("focus")
+            upload = driver.upload(session, default, "manual_report.xlsx")
+            turn = driver.turn(session, "Remove duplicate rows", "reject")
+            results.append(report_turn(driver, "4", session, upload, default, turn, None))
+            completed.append(4)
+        if "T" in runs:
+            session = driver.session("friend")
+            upload = driver.upload(session, default, "manual_report.xlsx")
+            turn = driver.turn(session, "remove duplicate rows", None)
+            entry = report_turn(driver, "T", session, upload, default, turn, None)
+            if turn["_plans"]:
+                late = driver.client.post(
+                    f"/api/v1/sessions/{session}/turns/{turn['turn_id']}/confirmation",
+                    json={
+                        "confirmation_id": turn["_plans"][0]["confirmation_id"],
+                        "decision": "approve",
+                    },
+                )
+                entry["late_approve_after_timeout"] = {
+                    "http_status": late.status_code,
+                    "error_code": late.json().get("error", {}).get("code"),
+                }
+            results.append(entry)
+            completed.append("T")
+        if "C" in runs:
+            session = driver.session("focus")
+            upload = driver.upload(session, default, "manual_report.xlsx")
+            turn = driver.turn(
+                session, "remove duplicate rows, then remove empty rows", "approve"
+            )
+            results.append(report_turn(driver, "C", session, upload, default, turn, "both"))
+            completed.append("C")
         if "R" in runs:
             session = driver.session("focus")
             upload = driver.upload(session, default, "manual_report.xlsx")
