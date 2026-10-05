@@ -54,4 +54,5 @@ Any change that could affect either rule counts as rule-touching (see below).
   - The chain stops on any failure, including failed verification, and then nothing is handed back.
   - Only the final file is handed back.
   - `spreadsheet.analyze` runs first, on the original, outside the chain, and is re-run on the final file.
+  - **A chain that contains a step no skill can run doesn't start.** No file-changing step runs, no plan is shown, and the reply says which steps never ran. (Confirmed by the owner after the PR-3 review: `docs/reviews/backend-api-confirmation-review.md`, "For the owner".)
 - **The planner drops any step whose `source_phrase` is empty,** because the user never asked for it.
