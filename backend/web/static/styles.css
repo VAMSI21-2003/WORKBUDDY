@@ -1,5 +1,5 @@
 /* WorkBuddy demo page. Frontend design 5 and 8: light and dark from the system setting, a focus
-   ring that is never removed, 44px touch targets, rem sizes, one column below 720px. Nothing here
+   ring that is always shown, 44px touch targets, rem sizes, one column below 720px. Nothing here
    is coloured by how a turn ended: replies, plans and downloads look the same whatever happened. */
 
 :root {

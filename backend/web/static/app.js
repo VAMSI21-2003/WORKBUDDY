@@ -81,7 +81,7 @@
     }
   }
 
-  // Disable a control for a while. Done after htmx has put its own disabled state back.
+  // Disable a control for a while, once htmx has put its own disabled state back.
   function disableFor(buttons, seconds) {
     window.setTimeout(() => {
       buttons.forEach((button) => { button.disabled = true; });
@@ -137,7 +137,7 @@
     const turn = form.closest('.turn');
     const id = form.querySelector('[name="confirmation_id"]').value;
     const url = form.dataset.refetchUrl + '?unconfirmed=' + encodeURIComponent(id);
-    htmx.ajax('GET', url, { target: turn, swap: 'outerHTML' }).catch(() => {
+    htmx.ajax('GET', url, { target: turn }).catch(() => {
       showNotice(copyText('cant-reach'), 'request');
     });
   }
@@ -172,10 +172,7 @@
         }
         // The server has a newer turn: show the session as it is. A draft that isn't that turn's
         // message stays in the box.
-        return htmx.ajax('GET', form.dataset.transcriptUrl, {
-          target: '#conversation',
-          swap: 'outerHTML',
-        }).then(() => {
+        return htmx.ajax('GET', form.dataset.transcriptUrl, { target: '#conversation' }).then(() => {
           if (!mine) {
             const fresh = document.getElementById('message');
             if (fresh) fresh.value = draft;
@@ -191,7 +188,7 @@
   function refetchConversation(form) {
     const box = form.querySelector('textarea');
     const draft = box.value;
-    htmx.ajax('GET', form.dataset.transcriptUrl, { target: '#conversation', swap: 'outerHTML' })
+    htmx.ajax('GET', form.dataset.transcriptUrl, { target: '#conversation' })
       .then(() => {
         const fresh = document.getElementById('message');
         if (fresh) fresh.value = draft;

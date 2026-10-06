@@ -202,7 +202,9 @@ def transcript(request: Request, session_id: str, after: int | None = None) -> R
             "conversation_fragment.html",
             conversation=conversation,
             awaiting=conversation.awaiting_plan,
-        )
+        ),
+        # The page asks for this by script and has no swap style of its own to give.
+        headers={"HX-Retarget": "#conversation", "HX-Reswap": "outerHTML"},
     )
 
 
