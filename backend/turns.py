@@ -461,6 +461,7 @@ class TurnRunner:
             return False
         turn.pending_confirmation = plan
         turn.status = AWAITING_CONFIRMATION
+        turn.version += 1
         self._disarm_deadline(job)
         logger.info(
             "Turn %s for session %s is waiting for its plan's answer (%d step(s))",
@@ -479,6 +480,7 @@ class TurnRunner:
         turn.pending_confirmation = None
         if turn.status == AWAITING_CONFIRMATION:
             turn.status = RUNNING
+            turn.version += 1
             if not job.finishing:
                 self._arm_deadline(job)
         logger.info(
@@ -562,6 +564,7 @@ class TurnRunner:
             turn.detail = result.detail
             turn.finished_at = now
             turn.status = FINISHED
+            turn.version += 1
             record.running_turn_id = None
             with self._jobs_lock:
                 self._jobs.pop((record.key, turn.turn_id), None)

@@ -151,6 +151,32 @@ Open work, in priority order. Each item follows the working method in `CLAUDE.md
 - Tests: two turns in one session never overwrite each other's outputs. A raising verifier gives an honest reply and leaves the original unchanged.
 - Confirm/reject is tested for both answers.
 
+## 4a. The web page (FE-1 and FE-2)
+
+**Status (2026-10-06):** FE-1 (`feat/frontend-demo`, not merged, under independent review) implements the page of `docs/design/frontend-design.md` Section 13.1: the gate with the access cookie, upload, the composer with the mode choice, polling with `429` handling, the plan card, the reply shown verbatim, download links only when delivered, error messages verbatim, page notices kept out of the reply slot, and session-scoped state with the reset on `404`. It also fixes the PR-4 review's L5 (the dev origin follows `--port` and accepts `localhost`). How it was built, and where it differs from the design: `docs/reviews/frontend-demo-impl.md`. FE-2 (Dockerfile, deployment, the rest of the security headers, static-file caching) is open. For the owner: the spike (design 3.4) found that htmx 2.0.5 and later write one `sessionStorage` key at load that no setting turns off, so FE-1 pins 2.0.4 (impl notes, Section 1).
+
+Deferred from FE-1 (`frontend-demo-impl.md`, Section 7; the design's own Section 16 list stands as well):
+- A "New session" control. A quota message says "Start a new session.", and today the only ways are the `404` reset and clearing the cookie.
+- Versioned static file names and long caching (FE-2); static files are `no-store` for now.
+- A collapsible Files panel on a phone (design 8 asks for a `<details>`); on a narrow screen the conversation comes first and the Files panel follows it.
+- The download link's label is the API's `name`, but the download route saves it under the upload rules (at most 100 characters), so a long delivered name is saved shortened. Show the saved name, or lift the cap.
+- The newer htmx release, if the owner accepts its one `sessionStorage` key (the path of the page).
+- On a phone, moving focus to the composer when a turn finishes raises the on-screen keyboard. The design asks for it; it is untested on a real phone.
+- Accessibility checks beyond one axe-core run: axe in CI, the 390×844 and 768 px viewports, and a manual screen-reader pass.
+
+Deferred by the FE-1 review, round 1 (`docs/reviews/frontend-demo-review.md`; prototypes in `scripts/review_harness/feat-frontend-demo/out/proto_fix.diff`). Fix M1 and M2 before the public link:
+- **M1 (Medium, dev without a password only):** `TurnRecord.version` is memory-only, so after a server restart a page holding version 1 or 2 drops every poll answer (version 0) as older and shows a stale plan card for good. Fix: `poll` answers `HX-Refresh: true` when `v > version`; add a browser test that restarts the server under a waiting card.
+- **M2 (Medium, a race):** after a `409` on the plan card, `app.js` fires `wb:retry` while the confirmation request still holds the turn's `hx-sync` lock, so no refetch is sent; if a poll was in flight at the click, the card (live buttons, "Approval needed") stays for good. Fix: refetch with `htmx.ajax('GET', refetchUrl, {target: turn})` in a `setTimeout(…, 0)`; add browser tests for a poll in flight and idle.
+- **L1:** the lost-contact notice says "before the turn finished", which the page can't know. Reword it (design 7 too).
+- **L2:** the "so this is a new one" notice shows before the new session exists; if `POST /ui/sessions` is refused, it's false. Render it with the new workspace instead.
+- **L3:** a plan step with a long unbroken file name overflows at 360 px. `overflow-wrap: anywhere` on `.plan-steps li` and the message.
+- **L4:** guard-test gaps (surviving mutations m08, m22, m23, m24): the Files panel's exclusion of a turn shown running, the lost answer keeping its buttons off, a 5xx on the message POST running the ambiguous-POST check (never a resend), and the `409` refetch.
+- **L5:** `scripts/frontend_spike/run_spike.py` has 8 E501 (outside `buddy tests`).
+- **L6:** a quota refusal says "Start a new session." and the page has no such control (with the "New session" item above).
+- **L7:** the copy snapshot doesn't cover the strings `backend/web/views.py` builds ("… up to 2 MB", size units).
+- **L8 (backend download route):** with a long upload name the 100-character cap can cut the whole `_deduplicated_…` part, so the cleaned copy is saved under exactly the original's file name (with the download-name item above).
+- **L9:** design 11.2's `Referrer-Policy: no-referrer` isn't sent (backend or FE-2).
+
 ## 5. Remaining deferred items from the reviews
 
 Each item has its own acceptance criterion: fixed with a test, or explicitly closed as won't-fix with a reason.
@@ -235,7 +261,7 @@ Each item has its own acceptance criterion: fixed with a test, or explicitly clo
   - **L2:** rate limits are per full IPv6 address, so a `/64` has 2^64 sets of buckets. Owner call: key IPv6 clients by `/64`.
   - **L3:** guard-test gaps. Nothing tests `require_access`'s own `401` (the gate hides it), and nothing tests the upload-byte quota at its exact boundary.
   - **L4:** `check_route_declarations` and the gate see only `APIRoute`s. A `Route`, `Mount` or websocket route under `/api/v1` would get no credential check and no startup refusal.
-  - **L5:** the dev public origin is fixed at `http://127.0.0.1:8000`, so the access route refuses `localhost` or any other port with `403` in dev (matters to FE-1).
+  - **L5 (fixed on `feat/frontend-demo`):** the dev public origin was fixed at `http://127.0.0.1:8000`, so the access route refused `localhost` or any other port with `403` in dev. It now follows `--port` and accepts `localhost` (design, "Implementation notes, recorded with FE-1", item 1).
   - **L6:** outputs aren't counted against the storage cap before a turn, and `StorageMeter` walks the data root on the event loop in the async upload handler.
   - **L7:** `WORKBUDDY_TRUSTED_PROXY_HOPS=0` behind a proxy makes every user share one set of buckets, with no warning. Add a production startup warning or a deployment-checklist item.
   - **L8:** the writer's notes give 2241 base tests and "adds 199". The base runs 2258, so the branch adds 182.

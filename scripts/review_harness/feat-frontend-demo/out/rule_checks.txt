@@ -1,0 +1,3 @@
+# 126 rows, 0 with problems
+{"rows": 150, "rule2_checked": 150, "replies": 150, "delivered_checked": 60}
+0 problem(s)

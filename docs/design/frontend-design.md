@@ -1,6 +1,6 @@
 # Frontend design: the web UI for the public demo
 
-**Status:** design only. Nothing in this document is implemented. Revised on 2026-10-01 to apply `docs/reviews/frontend-design-review.md` (branch `review/frontend-design`, verdict APPROVE WITH CHANGES) and the owner's decision on the stack.
+**Status:** design. FE-1 is implemented on `feat/frontend-demo` (see `docs/reviews/frontend-demo-impl.md` for how, and where it differs); FE-2 isn't. Revised on 2026-10-01 to apply `docs/reviews/frontend-design-review.md` (branch `review/frontend-design`, verdict APPROVE WITH CHANGES) and the owner's decision on the stack.
 
 **Owner's decisions (2026-10-01):**
 - The UI is **htmx with Jinja templates, served by the same FastAPI process**, as the review recommends (its Section 3.5). React, TypeScript and Vite are dropped.
@@ -760,10 +760,14 @@ Each PR goes on its own branch from `main`, and only the user merges it.
 The demo link goes public only when **all** of these hold:
 1. **Merged:** backend PR-1 to PR-4, FE-1 and FE-2.
 2. **Multi-sheet `.xlsx` (H3a).** Backlog 1a is closed, or the upload-time multi-sheet refusal (backend Decisions 2026-10-01) is merged with its tests passing.
-3. **`.xls` (H3a), an owner decision, not yet made.** The stopgap can't count the sheets in an `.xls`. One of these has to be true:
+3. **`.xls` (H3a), an owner decision.** The stopgap can't count the sheets in an `.xls`. One of these has to be true:
    - `.xls` stays out of `accepted_extensions` on the public link until it can be checked; or
    - the owner accepts, in writing in the backend Decisions, that a multi-sheet `.xls` can still get a "cleaned copy" reply for a file that has lost sheets.
-4. **PR-B (H3b), an owner decision, not yet made.** The owner gives an explicit, written go or no-go on going public while PR-B / review M2 is open ("Done —" on a misclassified request, `buddy/outcome.py` `lead_word`). It's recorded in the backend Decisions section.
+
+   **Settled (owner, recorded 2026-10-06 with FE-1):** `.xls` is out of scope. This is backend "Decisions (2026-10-04)", item 1: `accepted_extensions` is `[".xlsx"]` and an `.xls` upload is refused with `415`. The first option holds, and this item is met. Turning `.xls` on later needs a new owner decision.
+4. **PR-B (H3b), an owner decision.** The owner gives an explicit, written go or no-go on going public while PR-B / review M2 is open ("Done —" on a misclassified request, `buddy/outcome.py` `lead_word`). It's recorded in the backend Decisions section.
+
+   **Settled (owner, recorded 2026-10-06 with FE-1):** PR-B is merged, so the question of going public while it is open no longer arises, and this item is met.
 5. **Code visibility (M7), an owner decision, not yet made.** The owner decides whether the code may be public, and that decides the host (11.3).
 6. **Measured on the host.** Backend part 2's live run 9 is repeated on the chosen host. If a two-step chain on 5 MB takes more than 120 s, its 2 MB fallback is applied.
 7. **The proxy setting is tested.** The rate limiter's `WORKBUDDY_TRUSTED_PROXY_HOPS` is tested for the chosen host (review H2).

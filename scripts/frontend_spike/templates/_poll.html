@@ -1,0 +1,5 @@
+{%- macro poll(t, delay) -%}
+<div class="poll" data-session-id="S1" data-turn-id="t0001" data-version="{{ t.version }}"
+     hx-get="/ui/poll?v={{ t.version }}" hx-trigger="load delay:{{ delay }}s, wb:retry"
+     hx-swap="outerHTML" hx-sync="closest .turn:drop"></div>
+{%- endmacro -%}

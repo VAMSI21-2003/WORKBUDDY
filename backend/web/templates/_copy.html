@@ -1,0 +1,61 @@
+{#- Every sentence and label the page writes itself lives in this file (frontend design 7). Nothing
+    here says what happened to a user's file: only labels, empty states, progress while the server
+    says a turn is running, and problems with a request. app.js has no text of its own; it reads
+    the <template data-copy> elements at the bottom. -#}
+{%- macro site_title() -%}WorkBuddy demo{%- endmacro -%}
+{%- macro title_approval() -%}Approval needed – WorkBuddy{%- endmacro -%}
+{%- macro notices_label() -%}Notices{%- endmacro -%}
+{%- macro demo_notice() -%}This is a public demo. Don't upload sensitive data.{%- endmacro -%}
+{%- macro retention_notice(hours) -%}
+Sessions and their files are deleted once a session has been idle for {{ hours }} {{ "hour" if hours == 1 else "hours" }}.
+{%- endmacro -%}
+{%- macro session_gone() -%}That session no longer exists on the server, so this is a new one.{%- endmacro -%}
+
+{#- the gate -#}
+{%- macro gate_label() -%}Demo password{%- endmacro -%}
+{%- macro gate_button() -%}Continue{%- endmacro -%}
+
+{#- files -#}
+{%- macro files_heading() -%}Files{%- endmacro -%}
+{%- macro upload_label() -%}Spreadsheet to upload{%- endmacro -%}
+{%- macro upload_help(limit) -%}Accepts {{ limit }}.{%- endmacro -%}
+{%- macro upload_button() -%}Upload{%- endmacro -%}
+{%- macro uploads_heading() -%}Uploaded files{%- endmacro -%}
+{%- macro uploads_empty() -%}No files uploaded yet.{%- endmacro -%}
+{%- macro active_tag() -%}active{%- endmacro -%}
+{%- macro delivered_heading() -%}Files from Buddy{%- endmacro -%}
+
+{#- the conversation -#}
+{%- macro conversation_heading() -%}Conversation{%- endmacro -%}
+{%- macro who_user() -%}You{%- endmacro -%}
+{%- macro who_buddy() -%}Buddy{%- endmacro -%}
+{%- macro transcript_empty() -%}No messages yet.{%- endmacro -%}
+{%- macro working() -%}Buddy is working{%- endmacro -%}
+{%- macro plan_needs_approval() -%}A plan needs your approval{%- endmacro -%}
+{%- macro download_label(name, size) -%}Download {{ name }} ({{ size }}){%- endmacro -%}
+
+{#- the composer -#}
+{%- macro mode_legend() -%}Mode{%- endmacro -%}
+{%- macro mode_friend() -%}Friend{%- endmacro -%}
+{%- macro mode_focus() -%}Focus{%- endmacro -%}
+{%- macro mode_help() -%}Friend: chattier. Focus: brief.{%- endmacro -%}
+{%- macro message_label() -%}Message to Buddy{%- endmacro -%}
+{%- macro message_hint() -%}Enter sends. Shift+Enter adds a new line.{%- endmacro -%}
+{%- macro send_button() -%}Send{%- endmacro -%}
+
+{#- the plan card -#}
+{%- macro plan_heading() -%}Plan for your approval{%- endmacro -%}
+{%- macro approve_button() -%}Approve plan{%- endmacro -%}
+{%- macro reject_button() -%}Reject plan{%- endmacro -%}
+{%- macro sending_answer() -%}Sending your answer…{%- endmacro -%}
+{%- macro time_left(seconds) -%}about {{ seconds }} s left{%- endmacro -%}
+{%- macro plan_missing() -%}The server didn't send the plan, so it can't be approved here.{%- endmacro -%}
+{%- macro answer_may_be_lost() -%}Your answer may not have reached the server.{%- endmacro -%}
+
+{#- the text app.js shows, kept here so that app.js has none of its own -#}
+{%- macro script_copy() -%}
+<template data-copy="lost-contact">This page lost contact with the server before the turn finished, so its result isn't shown. Reload the page to check.</template>
+<template data-copy="cant-reach">This page can't reach the server.</template>
+<template data-copy="not-confirmed">The server didn't confirm receiving that message.</template>
+<template data-copy="enter-password-again">Enter the password again</template>
+{%- endmacro -%}

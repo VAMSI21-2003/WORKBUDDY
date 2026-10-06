@@ -1,0 +1,18 @@
+{% import "_copy.html" as copy %}
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="color-scheme" content="light dark">
+<meta name="htmx-config" content='{"allowEval":false,"allowScriptTags":false,"includeIndicatorStyles":false,"selfRequestsOnly":true,"historyEnabled":false,"historyCacheSize":0}'>
+<title>{% block title %}{{ copy.site_title() }}{% endblock %}</title>
+<link rel="stylesheet" href="/static/styles.css">
+<script src="/static/htmx.min.js" defer></script>
+<script src="/static/app.js" defer></script>
+</head>
+<body>
+{% block body %}{% endblock %}
+{{ copy.script_copy() }}
+</body>
+</html>

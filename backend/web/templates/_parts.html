@@ -1,0 +1,138 @@
+{% import "_copy.html" as copy %}
+
+{#- The workspace: the Files panel and the conversation, inside #workspace. -#}
+{% macro workspace(c) %}
+<div id="workspace" class="workspace" data-session-id="{{ c.session_id }}">
+  {{ files_panel(c.files, false) }}
+  {{ conversation_section(c) }}
+</div>
+{% endmacro %}
+
+{% macro files_panel(f, oob) %}
+<section id="files" class="files panel" aria-labelledby="files-h" data-session-id="{{ f.session_id }}"{% if oob %} hx-swap-oob="true"{% endif %}>
+  <h2 id="files-h">{{ copy.files_heading() }}</h2>
+  <form id="upload-form" class="upload" method="post" action="/ui/s/{{ f.session_id }}/files" enctype="multipart/form-data" hx-post="/ui/s/{{ f.session_id }}/files" hx-encoding="multipart/form-data" hx-target="#files" hx-swap="outerHTML" hx-disabled-elt="find button" data-error-slot="upload-error">
+    <label for="file">{{ copy.upload_label() }}</label>
+    <input id="file" name="file" type="file" accept="{{ f.accept }}" aria-describedby="upload-help upload-error"{% if not f.upload_open %} disabled{% endif %}>
+    <p id="upload-help" class="hint">{{ copy.upload_help(f.limit_text) }}</p>
+    <button type="submit" class="btn"{% if not f.upload_open %} disabled{% endif %}>{{ copy.upload_button() }}</button>
+    <p id="upload-error" class="error-slot" role="alert"></p>
+  </form>
+  <h3>{{ copy.uploads_heading() }}</h3>
+  <ul class="file-list">
+    {% for u in f.uploads %}
+    <li><span class="file-name">{{ u.name }}</span> <span class="file-size">{{ u.size }}</span>{% if u.active %} <span class="tag">{{ copy.active_tag() }}</span>{% endif %}</li>
+    {% else %}
+    <li class="empty">{{ copy.uploads_empty() }}</li>
+    {% endfor %}
+  </ul>
+  {% if f.delivered %}
+  <h3>{{ copy.delivered_heading() }}</h3>
+  <ul class="file-list">
+    {% for d in f.delivered %}
+    <li><a href="{{ d.url }}" download>{{ copy.download_label(d.name, d.size) }}</a></li>
+    {% endfor %}
+  </ul>
+  {% endif %}
+</section>
+{% endmacro %}
+
+{% macro conversation_section(c) %}
+<section id="conversation" class="conversation" aria-labelledby="conversation-h" data-session-id="{{ c.session_id }}">
+  <h2 id="conversation-h" class="visually-hidden">{{ copy.conversation_heading() }}</h2>
+  <ol id="transcript" class="transcript">
+    {% for t in c.turns %}
+    {{ turn_item(t) }}
+    {% endfor %}
+    <li class="empty">{{ copy.transcript_empty() }}</li>
+  </ol>
+  {{ composer_form(c.composer, false) }}
+</section>
+{% endmacro %}
+
+{#- One turn. Its reply slot holds the reply and nothing else; the download area is one subtree,
+    drawn from the turn's own delivered files, and its presence is the only thing that differs. -#}
+{% macro turn_item(t) %}
+<li id="turn-{{ t.turn_id }}" class="turn" data-session-id="{{ t.session_id }}" data-turn-id="{{ t.turn_id }}" data-seq="{{ t.seq }}" data-version="{{ t.version }}" data-status="{{ t.status }}">
+  <div class="bubble bubble-user"><span class="who">{{ copy.who_user() }}</span><p class="text" data-slot="message">{{ t.message }}</p></div>
+  {% if t.status == "finished" %}
+  <div class="bubble bubble-buddy">
+    <span class="who">{{ copy.who_buddy() }}</span>
+    <div class="text reply" data-slot="reply">{{ t.reply }}</div>
+    {% if t.downloads %}
+    <ul class="downloads" data-slot="downloads">
+      {% for d in t.downloads %}
+      <li><a class="download" href="{{ d.url }}" download>{{ copy.download_label(d.name, d.size) }}</a></li>
+      {% endfor %}
+    </ul>
+    {% endif %}
+  </div>
+  {% elif t.plan %}
+  {{ plan_card(t) }}
+  {{ poll_element(t) }}
+  {% else %}
+  <p class="progress"><span class="spinner" aria-hidden="true"></span>{{ copy.working() }}</p>
+  {{ poll_element(t) }}
+  {% endif %}
+</li>
+{% endmacro %}
+
+{% macro poll_element(t) %}
+<div class="poll" data-session-id="{{ t.session_id }}" data-turn-id="{{ t.turn_id }}" data-version="{{ t.version }}" hx-get="/ui/s/{{ t.session_id }}/turns/{{ t.turn_id }}/poll?v={{ t.version }}" hx-trigger="load delay:{{ t.poll_delay_s }}s, wb:retry" hx-swap="outerHTML" hx-sync="closest .turn:drop"></div>
+{% endmacro %}
+
+{% macro time_left(t, oob) %}
+<p id="timeleft-{{ t.turn_id }}" class="time-left"{% if oob %} hx-swap-oob="true"{% endif %}>{{ copy.time_left(t.plan.seconds_left) }}</p>
+{% endmacro %}
+
+{#- The plan card: the server's steps and note, verbatim, and two equal buttons. Neither button has
+    focus when it appears; the heading does. -#}
+{% macro plan_card(t) %}
+{% set p = t.plan %}
+<section class="plan" aria-labelledby="plan-h-{{ t.turn_id }}">
+  <h3 id="plan-h-{{ t.turn_id }}" tabindex="-1" autofocus>{{ copy.plan_heading() }}</h3>
+  <ol class="plan-steps">
+    {% for step in p.steps %}
+    <li>{{ step }}</li>
+    {% endfor %}
+  </ol>
+  {% if p.note %}
+  <p class="plan-note">{{ p.note }}</p>
+  {% endif %}
+  {% if p.answer_may_be_lost %}
+  <p class="plan-warning" role="status">{{ copy.answer_may_be_lost() }}</p>
+  {% endif %}
+  {% if not p.can_approve %}
+  <p class="plan-warning">{{ copy.plan_missing() }}</p>
+  {% endif %}
+  <form id="plan-form-{{ t.turn_id }}" class="plan-actions" method="post" action="/ui/s/{{ t.session_id }}/turns/{{ t.turn_id }}/confirmation" hx-post="/ui/s/{{ t.session_id }}/turns/{{ t.turn_id }}/confirmation" hx-target="closest .turn" hx-swap="outerHTML" hx-sync="closest .turn:replace" hx-disabled-elt="#plan-form-{{ t.turn_id }} button" data-error-slot="plan-error-{{ t.turn_id }}" data-plan-form data-refetch-url="/ui/s/{{ t.session_id }}/turns/{{ t.turn_id }}/poll">
+    <input type="hidden" name="confirmation_id" value="{{ p.confirmation_id }}">
+    {% if p.can_approve %}
+    <button type="submit" class="btn" name="decision" value="approve">{{ copy.approve_button() }}</button>
+    {% endif %}
+    <button type="submit" class="btn" name="decision" value="reject">{{ copy.reject_button() }}</button>
+  </form>
+  <p class="sending">{{ copy.sending_answer() }}</p>
+  {{ time_left(t, false) }}
+  <p id="plan-error-{{ t.turn_id }}" class="error-slot" role="alert"></p>
+</section>
+{% endmacro %}
+
+{% macro composer_form(c, oob) %}
+<form id="composer" class="composer" method="post" action="/ui/s/{{ c.session_id }}/turns" hx-post="/ui/s/{{ c.session_id }}/turns" hx-target="#transcript" hx-swap="beforeend" hx-sync="this:drop" hx-disabled-elt="find button[type=submit]" data-error-slot="composer-error" data-composer data-transcript-url="/ui/s/{{ c.session_id }}/transcript"{% if oob %} hx-swap-oob="true"{% endif %}>
+  <input type="hidden" name="last_seq" value="{{ c.last_seq }}">
+  <fieldset class="mode"{% if not c.open %} disabled{% endif %}>
+    <legend>{{ copy.mode_legend() }}</legend>
+    <label class="choice"><input type="radio" name="mode" value="friend"{% if c.mode == "friend" %} checked{% endif %}> {{ copy.mode_friend() }}</label>
+    <label class="choice"><input type="radio" name="mode" value="focus"{% if c.mode == "focus" %} checked{% endif %}> {{ copy.mode_focus() }}</label>
+    <p class="hint">{{ copy.mode_help() }}</p>
+  </fieldset>
+  <label for="message">{{ copy.message_label() }}</label>
+  <textarea id="message" name="message" rows="3" maxlength="{{ c.max_chars }}" required aria-describedby="message-hint composer-error"{% if not c.open %} disabled{% endif %}{% if oob and c.open %} autofocus{% endif %}></textarea>
+  <p id="message-hint" class="hint">{{ copy.message_hint() }}</p>
+  <div class="composer-actions">
+    <button type="submit" class="btn btn-primary"{% if not c.open %} disabled{% endif %}>{{ copy.send_button() }}</button>
+  </div>
+  <p id="composer-error" class="error-slot" role="alert"></p>
+</form>
+{% endmacro %}

@@ -1,0 +1,3 @@
+.when-sending { display: none; }
+.htmx-request .when-sending { display: inline; }
+.visually-hidden { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); }
