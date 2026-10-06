@@ -49,7 +49,7 @@ def main() -> None:
     args = parser.parse_args()
     logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(name)s %(message)s")
     try:
-        settings = Settings.from_env()
+        settings = Settings.from_env(port=args.port)
         host = choose_host(settings, args.host)
     except SettingsError as exc:
         # The message names the setting, never a value.

@@ -234,6 +234,9 @@ def unauthorized() -> ApiError:
 def origin_allowed(scope: Scope, settings: Settings) -> bool:
     """Whether the request's ``Origin`` is exactly the configured public origin.
 
+    (Outside production, with no origin set, the same port on ``localhost``
+    is accepted as well: ``Settings.accepted_origins``.)
+
     A missing header, ``null``, a second header or any other value is refused.
     Compared after lower-casing, so ``HTTPS://Demo.Example`` matches
     ``https://demo.example``; the header's value is never derived from
@@ -242,7 +245,7 @@ def origin_allowed(scope: Scope, settings: Settings) -> bool:
     values = [v for k, v in scope.get("headers", []) if k.lower() == b"origin"]
     if len(values) != 1:
         return False
-    return values[0].decode("latin-1").strip().lower() == settings.public_origin
+    return values[0].decode("latin-1").strip().lower() in settings.accepted_origins
 
 
 def origin_check_needed(scope: Scope, result: CredentialResult) -> bool:

@@ -18,7 +18,9 @@ from backend.errors import ErrorCode, error_response
 
 logger = logging.getLogger(__name__)
 
-_UPLOAD_PATH = re.compile(r"^/api/v1/sessions/[^/]+/files/?$")
+# The JSON API's upload route and the page's (``backend.web``): both answer an
+# oversized upload with the same ``file_too_large`` message.
+_UPLOAD_PATH = re.compile(r"^/(?:api/v1/sessions|ui/s)/[^/]+/files/?$")
 
 
 class SecurityHeadersMiddleware:

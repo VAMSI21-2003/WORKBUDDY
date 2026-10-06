@@ -48,9 +48,14 @@ ENV_PRODUCTION = "production"
 ENV_UNSET = ""
 _ENVS = (ENV_DEV, ENV_PRODUCTION, ENV_UNSET)
 # Where a non-production server is expected to be reached (design "Decisions
-# (2026-10-01)", item 2).
-DEV_PUBLIC_ORIGIN = "http://127.0.0.1:8000"
+# (2026-10-01)", item 2). With no ``WORKBUDDY_PUBLIC_ORIGIN`` the origin is
+# derived from the port the server is started on, and the same port on
+# ``localhost`` is accepted as well (review L5 of backend-api-retention: a
+# browser on ``http://localhost:8000`` otherwise gets ``403`` from the access
+# route). An origin that is set explicitly is matched exactly, with no alias.
+DEFAULT_PORT = 8000
 LOOPBACK_HOST = "127.0.0.1"
+LOCALHOST_NAME = "localhost"
 ALL_INTERFACES_HOST = "0.0.0.0"  # only ever bound in production
 
 # Read by PR-2 only. Since PR-3 every file-changing step asks the user, and
@@ -129,7 +134,10 @@ class Settings:
         public_origin: The one origin the demo page is served from
             (``WORKBUDDY_PUBLIC_ORIGIN``), normalized (lower case, no
             default port). Required, and ``https://``, in production;
-            ``http://127.0.0.1:8000`` elsewhere when not given.
+            ``http://127.0.0.1:<port>`` elsewhere when not given (see ``port``).
+        port: The port the server listens on (``python -m backend --port``).
+            Only used to derive the default ``public_origin`` outside
+            production; the same port on ``localhost`` is accepted too (L5).
         access_ttl_hours: How long an access cookie's token is valid, from
             issue; not renewed by use.
         access_max_tokens: The most live access tokens held at once.
@@ -164,6 +172,7 @@ class Settings:
     env: str = ENV_DEV
     demo_password: str | None = field(default=None, repr=False)
     public_origin: str = ""
+    port: int = DEFAULT_PORT
     access_ttl_hours: float = 12.0
     access_max_tokens: int = 10_000
     trusted_proxy_hops: int = 0
@@ -175,6 +184,8 @@ class Settings:
     max_session_upload_bytes: int = 100 * MIB
     max_turns_per_session: int = 50
     max_total_bytes: int = 2 * 1024 * MIB
+    # Set by ``_check_access``: whether ``public_origin`` was derived from ``port``.
+    origin_is_derived: bool = field(default=False, init=False, repr=False, compare=False)
 
     def __post_init__(self) -> None:
         object.__setattr__(self, "data_dir", Path(self.data_dir).expanduser().resolve())
@@ -225,11 +236,15 @@ class Settings:
             raise SettingsError(
                 "WORKBUDDY_DEMO_PASSWORD is not set; set it, or set WORKBUDDY_ENV=dev"
             )
+        port = self.port
+        if isinstance(port, bool) or not isinstance(port, int) or not 1 <= port <= 65535:
+            raise SettingsError("port must be a port number")
         origin = self.public_origin
         if not origin:
             if self.env == ENV_PRODUCTION:
                 raise SettingsError("WORKBUDDY_PUBLIC_ORIGIN is required in production")
-            origin = DEV_PUBLIC_ORIGIN
+            origin = f"http://{LOOPBACK_HOST}:{self.port}"
+            object.__setattr__(self, "origin_is_derived", True)
         origin = normalize_origin(origin, "public_origin")
         if self.env == ENV_PRODUCTION and not origin.startswith("https://"):
             raise SettingsError("public_origin must be an https:// origin in production")
@@ -270,6 +285,18 @@ class Settings:
         return ALL_INTERFACES_HOST if self.env == ENV_PRODUCTION else LOOPBACK_HOST
 
     @property
+    def accepted_origins(self) -> tuple[str, ...]:
+        """The ``Origin`` values the CSRF check accepts.
+
+        ``public_origin`` exactly. When it was derived from the port (nothing
+        set, outside production), the same port on ``localhost`` as well.
+        """
+        if not self.origin_is_derived:
+            return (self.public_origin,)
+        alias = normalize_origin(f"http://{LOCALHOST_NAME}:{self.port}", "port")
+        return (self.public_origin, alias)
+
+    @property
     def retention_hours(self) -> int | float:
         """What the session response advertises: the sweep's own TTL, as a whole number if it is."""
         ttl = self.session_ttl_hours
@@ -298,8 +325,13 @@ class Settings:
         return self.data_dir / "sessions"
 
     @classmethod
-    def from_env(cls, environ: Mapping[str, str] | None = None) -> Settings:
+    def from_env(
+        cls, environ: Mapping[str, str] | None = None, *, port: int = DEFAULT_PORT
+    ) -> Settings:
         """Read settings from ``WORKBUDDY_*`` environment variables.
+
+        ``port`` is the port the server will listen on (``--port``); it only
+        decides the default public origin outside production.
 
         Raises:
             SettingsError: A variable is set to something invalid.
@@ -328,6 +360,7 @@ class Settings:
             env=env.get("WORKBUDDY_ENV", ENV_UNSET),
             demo_password=env.get("WORKBUDDY_DEMO_PASSWORD") or None,
             public_origin=env.get("WORKBUDDY_PUBLIC_ORIGIN", ""),
+            port=port,
             access_ttl_hours=_number(
                 env, "WORKBUDDY_ACCESS_TTL_HOURS", defaults["access_ttl_hours"].default
             ),

@@ -122,6 +122,10 @@ class TurnRecord:
     detail: dict[str, Any] | None = None
     pending_confirmation: PendingPlan | None = None
     confirmation: ConfirmationOutcome | None = None
+    # Counts the turn's status changes (running, awaiting its plan's answer,
+    # running again, finished). Live state for the page's polling
+    # (``backend.web``): never written to disk, never in the JSON API.
+    version: int = 0
 
     @property
     def finished(self) -> bool:
