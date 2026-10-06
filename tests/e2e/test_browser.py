@@ -57,7 +57,7 @@ def test_golden_path_at_360_by_640(
     send(page, CHAIN)
 
     # the plan card: both steps in order, the chain wording, the server's plan note
-    card = page.locator(f"#turn-t0001 .plan")
+    card = page.locator("#turn-t0001 .plan")
     expect(card).to_be_visible()
     steps = card.locator("ol li").all_inner_texts()
     assert steps == [
@@ -206,8 +206,10 @@ def test_a_plan_nobody_answers_times_out_with_no_download_and_the_page_never_say
     while page.locator("#turn-t0001 [data-slot=reply]").count() == 0:
         assert time.monotonic() < deadline, "the turn never finished"
         samples.append(page.inner_text("body").lower())
-        if page.locator("#turn-t0001 .plan").count():
-            enabled.append(not page.locator("#turn-t0001 .plan button").first.is_disabled())
+        states = page.evaluate(
+            "[...document.querySelectorAll('#turn-t0001 .plan button')].map((b) => !b.disabled)"
+        )
+        enabled.extend(states)
         page.wait_for_timeout(250)
 
     api = live.turn(sid)

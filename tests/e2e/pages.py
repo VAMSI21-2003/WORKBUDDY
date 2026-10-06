@@ -3,9 +3,11 @@
 from __future__ import annotations
 
 import hashlib
+import time
 from pathlib import Path
 from typing import Any
 
+from playwright.sync_api import Error as PlaywrightError
 from playwright.sync_api import Page
 
 from tests.backend.helpers import xlsx_bytes
@@ -18,17 +20,21 @@ CHAIN = "remove duplicate rows, then remove empty rows"
 # script runs: a notice that flashed up and went away is still a notice.
 WATCH_NOTICES = """
 window.__notices = [];
+const seen = new WeakSet();
+const remember = (notice) => {
+  if (!seen.has(notice)) { seen.add(notice); window.__notices.push(notice.textContent); }
+};
 new MutationObserver((records) => {
   for (const record of records) {
     for (const node of record.addedNodes) {
       if (node.nodeType !== 1) continue;
       const found = node.matches('.notice') ? [node] : Array.from(node.querySelectorAll('.notice'));
-      for (const notice of found) window.__notices.push(notice.textContent);
+      for (const notice of found) remember(notice);
     }
   }
 }).observe(document, { childList: true, subtree: true });
 document.addEventListener('DOMContentLoaded', () => {
-  for (const notice of document.querySelectorAll('.notice')) window.__notices.push(notice.textContent);
+  for (const notice of document.querySelectorAll('.notice')) remember(notice);
 });
 """
 
@@ -121,3 +127,20 @@ def reachable(page: Page, selector: str) -> bool:
     return bool(
         locator.is_visible() and box and box["x"] >= 0 and box["x"] + box["width"] <= width + 1
     )
+
+
+def wait_until(page: Page, expression: str, *, timeout_s: float = 30, arg: Any = None) -> None:
+    """Poll ``expression`` (a function body or arrow function) until it is truthy.
+
+    ``page.wait_for_function`` evaluates its text in the page, which the page's own
+    Content-Security-Policy refuses (and these tests keep that policy on), so the poll runs here.
+    """
+    deadline = time.monotonic() + timeout_s
+    while True:
+        try:
+            if page.evaluate(expression, arg):
+                return
+        except PlaywrightError:  # the page is navigating (a reload): try again
+            pass
+        assert time.monotonic() < deadline, f"never became true: {expression}"
+        page.wait_for_timeout(100)
