@@ -87,7 +87,9 @@ def create_app() -> FastAPI:
     app.mount("/static", StaticFiles(directory=STATIC), name="static")
     app.mount("/spike-static", StaticFiles(directory=HERE / "static"), name="spike-static")
 
-    def html(content: str, status: int = 200, headers: dict[str, str] | None = None) -> HTMLResponse:
+    def html(
+        content: str, status: int = 200, headers: dict[str, str] | None = None
+    ) -> HTMLResponse:
         response = HTMLResponse(content, status_code=status, headers=headers)
         response.headers["Content-Security-Policy"] = CSP
         response.headers["Cache-Control"] = "no-store"

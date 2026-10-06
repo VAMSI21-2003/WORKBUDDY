@@ -34,6 +34,7 @@ from backend.sessions import SessionRegistry
 from backend.settings import ENV_PRODUCTION, Settings
 from backend.store import SessionStore
 from backend.turns import EngineFactory, TurnRunner
+from backend.web import mount_web
 from buddy.engine_factory import build_engine
 from buddy.hands import ConfirmationProvider
 from buddy.llm import ClaudeProvider, GroqProvider, LLMConfigurationError, LLMProvider
@@ -174,6 +175,7 @@ def create_app(
     app.include_router(health_router)
     app.include_router(access_router)
     app.include_router(router)
+    mount_web(app)
     check_route_declarations(app)
     # Added innermost first. The security headers wrap everything, including
     # the guard's own 413 and 500 responses and the gate's 401, 403 and 429;

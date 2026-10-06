@@ -1,0 +1,5 @@
+{% import "_parts.html" as ui %}
+{% import "_copy.html" as copy %}
+{% if awaiting %}<title>{{ copy.title_approval() }}</title>{% else %}<title>{{ copy.site_title() }}</title>{% endif %}
+{{ ui.conversation_section(conversation) }}
+{{ ui.files_panel(conversation.files, true) }}

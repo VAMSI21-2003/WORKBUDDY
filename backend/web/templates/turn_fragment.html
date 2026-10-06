@@ -1,0 +1,13 @@
+{% import "_parts.html" as ui %}
+{% import "_copy.html" as copy %}
+{% if turn.plan %}<title>{{ copy.title_approval() }}</title>{% else %}<title>{{ copy.site_title() }}</title>{% endif %}
+{{ ui.turn_item(turn) }}
+{{ ui.files_panel(files, true) }}
+{{ ui.composer_form(composer, true) }}
+{% if turn.status == "finished" %}
+<div hx-swap-oob="innerHTML:#live">{{ turn.reply }}</div>
+{% elif turn.plan %}
+<div hx-swap-oob="innerHTML:#live">{{ copy.plan_needs_approval() }}</div>
+{% else %}
+<div hx-swap-oob="innerHTML:#live">{{ copy.working() }}</div>
+{% endif %}

@@ -1,0 +1,15 @@
+{% extends "base.html" %}
+{% import "_copy.html" as copy %}
+{% block body %}
+<main class="gate">
+  <h1>{{ copy.site_title() }}</h1>
+  <p class="demo-notice">{{ copy.demo_notice() }}{% if retention_hours is not none %} {{ copy.retention_notice(retention_hours) }}{% endif %}</p>
+  <div id="page-notices" class="notices" role="region" aria-label="{{ copy.notices_label() }}"></div>
+  <form id="gate-form" class="gate-form" method="post" action="/api/v1/access" hx-post="/api/v1/access" hx-swap="none" data-error-slot="gate-error" data-gate>
+    <label for="password">{{ copy.gate_label() }}</label>
+    <input id="password" name="password" type="password" autocomplete="current-password" required autofocus aria-describedby="gate-error">
+    <button type="submit" class="btn btn-primary">{{ copy.gate_button() }}</button>
+    <p id="gate-error" class="error-slot" role="alert"></p>
+  </form>
+</main>
+{% endblock %}

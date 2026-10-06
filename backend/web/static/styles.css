@@ -1,0 +1,609 @@
+/* WorkBuddy demo page. Frontend design 5 and 8: light and dark from the system setting, a focus
+   ring that is never removed, 44px touch targets, rem sizes, one column below 720px. Nothing here
+   is coloured by how a turn ended: replies, plans and downloads look the same whatever happened. */
+
+:root {
+  --bg: #f4f5f8;
+  --surface: #ffffff;
+  --surface-2: #eceef4;
+  --text: #1a1e29;
+  --muted: #566075;
+  --line: #d3d8e3;
+  --accent: #2a4bc4;
+  --accent-text: #ffffff;
+  --accent-soft: #e4eafc;
+  --focus: #1a3fd0;
+  --shadow: 0 1px 2px rgb(20 30 60 / 8%), 0 4px 14px rgb(20 30 60 / 6%);
+  --radius: 0.75rem;
+  --gap: 1rem;
+  --font: system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+  --mono: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  color-scheme: light dark;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --bg: #0f121a;
+    --surface: #181d28;
+    --surface-2: #222938;
+    --text: #e9ecf3;
+    --muted: #a3acbf;
+    --line: #333b4e;
+    --accent: #93acff;
+    --accent-text: #0c1020;
+    --accent-soft: #232c4a;
+    --focus: #b3c4ff;
+    --shadow: 0 1px 2px rgb(0 0 0 / 40%);
+  }
+}
+
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
+html {
+  font-size: 100%;
+  -webkit-text-size-adjust: 100%;
+}
+
+body {
+  margin: 0;
+  background: var(--bg);
+  color: var(--text);
+  font: 1rem/1.55 var(--font);
+}
+
+h1,
+h2,
+h3 {
+  margin: 0;
+  line-height: 1.25;
+}
+
+h1 {
+  font-size: 1.375rem;
+  letter-spacing: -0.01em;
+}
+
+h2 {
+  font-size: 1.0625rem;
+}
+
+h3 {
+  font-size: 0.9375rem;
+}
+
+p {
+  margin: 0;
+}
+
+a {
+  color: var(--accent);
+  text-underline-offset: 0.18em;
+}
+
+:focus-visible {
+  outline: 3px solid var(--focus);
+  outline-offset: 2px;
+  border-radius: 0.25rem;
+}
+
+.visually-hidden {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  margin: -1px;
+  padding: 0;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  white-space: nowrap;
+  border: 0;
+}
+
+/* -- Layout -------------------------------------------------------------------------------- */
+
+.app {
+  display: flex;
+  flex-direction: column;
+  gap: var(--gap);
+  min-height: 100vh;
+  min-height: 100dvh;
+  max-width: 76rem;
+  margin: 0 auto;
+  padding: var(--gap) var(--gap) 0;
+}
+
+.app-header {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+}
+
+.demo-notice,
+.hint {
+  color: var(--muted);
+  font-size: 0.875rem;
+}
+
+.workspace {
+  display: flex;
+  flex: 1 1 auto;
+  flex-direction: column;
+  gap: var(--gap);
+  min-height: 0;
+}
+
+.panel {
+  padding: var(--gap);
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  box-shadow: var(--shadow);
+}
+
+.conversation {
+  display: flex;
+  flex: 1 1 auto;
+  flex-direction: column;
+  gap: var(--gap);
+  min-width: 0;
+}
+
+@media (min-width: 720px) {
+  .app {
+    padding-bottom: var(--gap);
+  }
+
+  .workspace {
+    display: grid;
+    grid-template-columns: minmax(15rem, 20rem) minmax(0, 1fr);
+    align-items: start;
+    gap: 1.25rem;
+  }
+
+  .files {
+    position: sticky;
+    top: var(--gap);
+  }
+}
+
+/* -- Gate ---------------------------------------------------------------------------------- */
+
+.gate {
+  display: flex;
+  flex-direction: column;
+  gap: var(--gap);
+  max-width: 26rem;
+  margin: 12vh auto 0;
+  padding: 1.5rem var(--gap);
+}
+
+.gate-form {
+  display: flex;
+  flex-direction: column;
+  gap: 0.625rem;
+  padding: 1.25rem;
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  box-shadow: var(--shadow);
+}
+
+/* -- Controls ------------------------------------------------------------------------------ */
+
+label,
+legend {
+  font-size: 0.875rem;
+  font-weight: 600;
+}
+
+input[type="password"],
+input[type="file"],
+textarea {
+  width: 100%;
+  min-height: 2.75rem;
+  padding: 0.6rem 0.75rem;
+  color: var(--text);
+  background: var(--bg);
+  border: 1px solid var(--line);
+  border-radius: 0.5rem;
+  font: inherit;
+  font-size: 1rem;
+}
+
+input[type="file"] {
+  padding: 0.5rem;
+  font-size: 0.875rem;
+}
+
+textarea {
+  display: block;
+  min-height: 5.5rem;
+  resize: vertical;
+}
+
+input:disabled,
+textarea:disabled,
+fieldset:disabled {
+  opacity: 0.55;
+}
+
+.btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 2.75rem;
+  min-height: 2.75rem;
+  padding: 0.5rem 1.1rem;
+  color: var(--text);
+  background: var(--surface);
+  border: 1.5px solid var(--accent);
+  border-radius: 0.5rem;
+  font: inherit;
+  font-size: 0.9375rem;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.btn:hover:not(:disabled) {
+  background: var(--accent-soft);
+}
+
+.btn-primary {
+  color: var(--accent-text);
+  background: var(--accent);
+}
+
+.btn-primary:hover:not(:disabled) {
+  background: var(--accent);
+  filter: brightness(1.08);
+}
+
+.btn:disabled {
+  cursor: not-allowed;
+  opacity: 0.5;
+}
+
+.error-slot {
+  color: var(--text);
+  font-size: 0.875rem;
+}
+
+.error-slot:empty {
+  display: none;
+}
+
+.error-slot:not(:empty) {
+  padding: 0.5rem 0.75rem;
+  border-left: 4px solid var(--accent);
+  background: var(--surface-2);
+  border-radius: 0.25rem;
+}
+
+/* -- Files --------------------------------------------------------------------------------- */
+
+.files {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+
+.upload {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.file-list {
+  display: flex;
+  flex-direction: column;
+  gap: 0.375rem;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  font-size: 0.9375rem;
+}
+
+.file-list li {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.25rem 0.5rem;
+  align-items: baseline;
+  overflow-wrap: anywhere;
+}
+
+.file-name {
+  font-weight: 600;
+}
+
+.file-size,
+.empty {
+  color: var(--muted);
+  font-size: 0.8125rem;
+}
+
+.tag {
+  padding: 0.05rem 0.45rem;
+  color: var(--text);
+  background: var(--accent-soft);
+  border-radius: 999px;
+  font-size: 0.75rem;
+  font-weight: 600;
+}
+
+/* -- Conversation -------------------------------------------------------------------------- */
+
+.transcript {
+  display: flex;
+  flex: 1 1 auto;
+  flex-direction: column;
+  gap: 1.25rem;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.transcript:has(.turn) > .empty {
+  display: none;
+}
+
+.turn {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+
+.bubble {
+  max-width: min(100%, 44rem);
+  padding: 0.7rem 0.95rem;
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  background: var(--surface);
+}
+
+.bubble-user {
+  align-self: flex-end;
+  background: var(--accent-soft);
+  border-color: transparent;
+}
+
+.bubble-buddy {
+  align-self: flex-start;
+  box-shadow: var(--shadow);
+}
+
+.who {
+  display: block;
+  margin-bottom: 0.15rem;
+  color: var(--muted);
+  font-size: 0.75rem;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.text {
+  margin: 0;
+  overflow-wrap: anywhere;
+  white-space: pre-wrap;
+}
+
+.downloads {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  margin: 0.75rem 0 0;
+  padding: 0;
+  list-style: none;
+}
+
+.download {
+  display: inline-flex;
+  align-items: center;
+  min-height: 2.75rem;
+  padding: 0.4rem 0.9rem;
+  color: var(--text);
+  background: var(--surface-2);
+  border: 1.5px solid var(--accent);
+  border-radius: 0.5rem;
+  font-weight: 600;
+  text-decoration: none;
+  overflow-wrap: anywhere;
+}
+
+.download:hover {
+  background: var(--accent-soft);
+}
+
+.progress {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  color: var(--muted);
+}
+
+.spinner {
+  width: 1rem;
+  height: 1rem;
+  border: 2px solid var(--line);
+  border-top-color: var(--accent);
+  border-radius: 50%;
+  animation: spin 0.9s linear infinite;
+}
+
+@keyframes spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .spinner {
+    animation: none;
+    border-top-color: var(--line);
+  }
+}
+
+/* -- Plan card ----------------------------------------------------------------------------- */
+
+.plan {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+  max-width: 44rem;
+  padding: 1rem 1.1rem;
+  background: var(--surface);
+  border: 2px solid var(--accent);
+  border-radius: var(--radius);
+  box-shadow: var(--shadow);
+}
+
+.plan h3 {
+  font-size: 1.0625rem;
+}
+
+.plan-steps {
+  margin: 0;
+  padding-left: 1.4rem;
+}
+
+.plan-steps li + li {
+  margin-top: 0.25rem;
+}
+
+.plan-note,
+.plan-warning {
+  padding: 0.5rem 0.75rem;
+  background: var(--surface-2);
+  border-radius: 0.375rem;
+  font-size: 0.9375rem;
+}
+
+.plan-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.75rem;
+}
+
+.plan-actions .btn {
+  flex: 1 1 8rem;
+}
+
+.sending {
+  display: none;
+  color: var(--muted);
+  font-size: 0.875rem;
+}
+
+.plan-actions.htmx-request + .sending {
+  display: block;
+}
+
+.time-left {
+  color: var(--muted);
+  font-size: 0.875rem;
+}
+
+/* -- Composer ------------------------------------------------------------------------------ */
+
+.composer {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  padding: 0.9rem var(--gap);
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  box-shadow: var(--shadow);
+}
+
+.mode {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.25rem 1rem;
+  margin: 0;
+  padding: 0;
+  border: 0;
+}
+
+.mode legend {
+  float: left;
+  margin-right: 0.75rem;
+  padding: 0;
+}
+
+.mode .hint {
+  flex-basis: 100%;
+}
+
+.choice {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  min-height: 2.75rem;
+  font-weight: 500;
+}
+
+.choice input {
+  width: 1.15rem;
+  height: 1.15rem;
+  accent-color: var(--accent);
+}
+
+.composer-actions {
+  display: flex;
+  justify-content: flex-end;
+}
+
+/* -- Notices (the page's own voice, never Buddy's) -------------------------------------------- */
+
+.notices:empty {
+  display: none;
+}
+
+.notice {
+  padding: 0.65rem 0.9rem;
+  background: var(--surface);
+  border: 2px dashed var(--muted);
+  border-radius: 0.5rem;
+  font-size: 0.9375rem;
+}
+
+.notice + .notice {
+  margin-top: 0.5rem;
+}
+
+/* -- Narrow screens: one column, the composer pinned to the bottom -------------------------------- */
+
+@media (max-width: 719px) {
+  .composer {
+    position: sticky;
+    bottom: 0;
+    z-index: 2;
+    margin: 0 calc(var(--gap) * -1);
+    padding-bottom: calc(0.9rem + env(safe-area-inset-bottom, 0px));
+    border-radius: var(--radius) var(--radius) 0 0;
+    border-bottom: 0;
+  }
+
+  .files .hint,
+  .composer .hint {
+    font-size: 0.8125rem;
+  }
+
+  .btn,
+  .download {
+    width: 100%;
+  }
+
+  .composer-actions {
+    justify-content: stretch;
+  }
+
+  .bubble {
+    max-width: 100%;
+  }
+}

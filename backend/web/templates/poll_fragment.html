@@ -1,0 +1,5 @@
+{% import "_parts.html" as ui %}
+{{ ui.poll_element(turn) }}
+{% if turn.plan %}
+{{ ui.time_left(turn, true) }}
+{% endif %}

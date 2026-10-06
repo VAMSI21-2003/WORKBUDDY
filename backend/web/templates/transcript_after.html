@@ -1,0 +1,6 @@
+{% import "_parts.html" as ui %}
+<ol id="transcript-check" data-session-id="{{ conversation.session_id }}">
+{% for t in conversation.turns %}
+{{ ui.turn_item(t) }}
+{% endfor %}
+</ol>

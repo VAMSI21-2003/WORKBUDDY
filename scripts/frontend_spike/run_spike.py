@@ -59,9 +59,7 @@ def fresh(page: Page, base: str, **settings: Any) -> None:
 def run(base: str, host_alias: str, page: Page) -> None:
     # --- A. cookie and Origin on a plain-http loopback origin -------------------------------
     page.goto(base + "/")
-    echo = page.evaluate(
-        "async () => (await fetch('/ui/echo', {method: 'POST'})).json()"
-    )
+    echo = page.evaluate("async () => (await fetch('/ui/echo', {method: 'POST'})).json()")
     record(
         f"A_host_cookie_and_origin[{host_alias}]",
         echo["cookie_arrived"] and echo["origin"] == base,
@@ -73,7 +71,11 @@ def run(base: str, host_alias: str, page: Page) -> None:
     assert page.locator("#turn-t0001").get_attribute("data-version") == "0"
     ctl(page, "awaiting")
     page.wait_for_selector("#turn-t0001[data-version='1']", timeout=5000)
-    record("B1_retarget_replaces_whole_container", page.locator("#plan-h").count() == 1, "plan card present")
+    record(
+        "B1_retarget_replaces_whole_container",
+        page.locator("#plan-h").count() == 1,
+        "plan card present",
+    )
     record("B2_title_applied", page.title() == "Approval needed – WorkBuddy", page.title())
     record(
         "B3_title_element_left_in_dom",
@@ -93,7 +95,11 @@ def run(base: str, host_alias: str, page: Page) -> None:
     polls_after = page.evaluate("fetch('/_ctl/received').then(r => r.json())")["polls"]
     active = page.evaluate("document.activeElement.getAttribute('value')")
     after = page.locator("#timeleft").inner_text()
-    record("C1_no_change_poll_rearms", polls_after - polls_before >= 2, {"polls": polls_after - polls_before})
+    record(
+        "C1_no_change_poll_rearms",
+        polls_after - polls_before >= 2,
+        {"polls": polls_after - polls_before},
+    )
     record("C2_no_change_poll_keeps_focus", active == "reject", {"focused_button_value": active})
     record("C3_oob_by_id_updates_time_left", before != after, {"before": before, "after": after})
     record(
@@ -112,7 +118,9 @@ def run(base: str, host_alias: str, page: Page) -> None:
     ctl(page, "set", {"confirm_delay_s": 1.0})
     page.locator("#plan-form button[value=approve]").click()
     page.wait_for_timeout(300)
-    disabled = page.evaluate("[...document.querySelectorAll('#plan-form button')].map(b => b.disabled)")
+    disabled = page.evaluate(
+        "[...document.querySelectorAll('#plan-form button')].map(b => b.disabled)"
+    )
     sending_visible = page.locator("#plan-form .when-sending").is_visible()
     record("D1_both_buttons_disabled_in_flight", all(disabled) and len(disabled) == 2, disabled)
     record("D2_in_flight_label_shown_by_css_class", sending_visible, {"visible": sending_visible})
@@ -152,13 +160,19 @@ def run(base: str, host_alias: str, page: Page) -> None:
     )
     page.wait_for_timeout(400)
     end = page.evaluate("fetch('/_ctl/received').then(r => r.json())")["polls"]
-    record("F2_extra_triggers_while_in_flight_are_dropped", end - start == 0, {"started_meanwhile": end - start})
+    record(
+        "F2_extra_triggers_while_in_flight_are_dropped",
+        end - start == 0,
+        {"started_meanwhile": end - start},
+    )
 
     # --- G. error statuses are not swapped, and the events carry what app.js needs ------------
     fresh(page, base)
     for status in (422, 500, 429):
         page.evaluate("window.__events = []")
-        before_html = page.locator("#generic-error").inner_html() + page.locator("#generic").inner_html()
+        before_html = (
+            page.locator("#generic-error").inner_html() + page.locator("#generic").inner_html()
+        )
         page.evaluate(
             "(s) => { const f = document.getElementById('generic'); f.setAttribute('hx-post', '/ui/err/' + s); htmx.process(f); htmx.trigger(f, 'submit'); }",
             status,
@@ -171,12 +185,17 @@ def run(base: str, host_alias: str, page: Page) -> None:
             and errs[0]["status"] == status
             and json.loads(errs[0]["body"])["error"]["message"] == f"Stub error {status}."
             and not swapped
-            and page.locator("#generic-error").inner_html() + page.locator("#generic").inner_html() == before_html
+            and page.locator("#generic-error").inner_html() + page.locator("#generic").inner_html()
+            == before_html
         )
         record(
             f"G_{status}_no_swap_and_error_event",
             ok,
-            {"events": errs, "afterSwap": len(swapped), "retry_after": errs[0]["retryAfter"] if errs else None},
+            {
+                "events": errs,
+                "afterSwap": len(swapped),
+                "retry_after": errs[0]["retryAfter"] if errs else None,
+            },
         )
     page.evaluate("window.__events = []")
     page.route("**/ui/err/503", lambda route: route.abort())
@@ -213,10 +232,21 @@ def run(base: str, host_alias: str, page: Page) -> None:
         "includeIndicatorStyles: htmx.config.includeIndicatorStyles, "
         "selfRequestsOnly: htmx.config.selfRequestsOnly, historyEnabled: htmx.config.historyEnabled})"
     )
-    record("H1_config_meta_applied", config == {
-        "allowEval": False, "allowScriptTags": False, "includeIndicatorStyles": False,
-        "selfRequestsOnly": True, "historyEnabled": False}, config)
-    record("H2_hx_on_not_run_with_allowEval_false", page.evaluate("window.__evaled") is None, "no eval")
+    record(
+        "H1_config_meta_applied",
+        config
+        == {
+            "allowEval": False,
+            "allowScriptTags": False,
+            "includeIndicatorStyles": False,
+            "selfRequestsOnly": True,
+            "historyEnabled": False,
+        },
+        config,
+    )
+    record(
+        "H2_hx_on_not_run_with_allowEval_false", page.evaluate("window.__evaled") is None, "no eval"
+    )
     record("H3_no_csp_violation", not events(page, "csp-violation"), events(page, "csp-violation"))
     record(
         "H4_no_inline_style_injected",
@@ -246,7 +276,9 @@ def run(base: str, host_alias: str, page: Page) -> None:
     fresh(page, base)
     ctl(page, "awaiting")
     page.wait_for_selector("#plan-h")
-    page.evaluate("htmx.ajax('GET', '/ui/poll?v=0&unconfirmed=c_1', {target: '#turn-t0001', swap: 'outerHTML'})")
+    page.evaluate(
+        "htmx.ajax('GET', '/ui/poll?v=0&unconfirmed=c_1', {target: '#turn-t0001', swap: 'outerHTML'})"
+    )
     page.wait_for_timeout(500)
     record(
         "J1_ajax_with_retarget_header_and_explicit_target",
@@ -294,7 +326,9 @@ def main() -> int:
                 run(base, alias, page)
             else:
                 page.goto(base + "/")
-                echo = page.evaluate("async () => (await fetch('/ui/echo', {method: 'POST'})).json()")
+                echo = page.evaluate(
+                    "async () => (await fetch('/ui/echo', {method: 'POST'})).json()"
+                )
                 record(
                     f"A_host_cookie_and_origin[{alias}]",
                     echo["cookie_arrived"] and echo["origin"] == base,

@@ -1,0 +1,19 @@
+{% extends "base.html" %}
+{% import "_copy.html" as copy %}
+{% import "_parts.html" as ui %}
+{% block title %}{% if awaiting %}{{ copy.title_approval() }}{% else %}{{ copy.site_title() }}{% endif %}{% endblock %}
+{% block body %}
+<main class="app">
+  <header class="app-header">
+    <h1>{{ copy.site_title() }}</h1>
+    <p class="demo-notice">{{ copy.demo_notice() }}{% if retention_hours is not none %} {{ copy.retention_notice(retention_hours) }}{% endif %}</p>
+  </header>
+  <div id="page-notices" class="notices" role="region" aria-label="{{ copy.notices_label() }}">{% if notice_gone %}<p class="notice" role="status">{{ copy.session_gone() }}</p>{% endif %}</div>
+  {% if conversation is not none %}
+  {{ ui.workspace(conversation) }}
+  {% else %}
+  <div id="workspace" class="workspace" hx-post="/ui/sessions" hx-trigger="load" hx-swap="outerHTML" data-error-slot="page-notices"></div>
+  {% endif %}
+  <div id="live" class="visually-hidden" aria-live="polite"></div>
+</main>
+{% endblock %}
