@@ -17,3 +17,14 @@ Round 1 outputs are in `out/`:
 - `startup_probe.jsonl`
 - `r2_l1_unit_head.jsonl`, `r2_l1_unit_base.jsonl`
 - `mutations.txt`
+
+## Round 2 (commit `6959db2`)
+
+Also make a round-1 worktree: `git worktree add --detach ../r1 4352d1c`.
+
+- `r2_probe.py [--tree DIR] [--only NAME]`: 4 cases on the M1 fix, through the real app and pipeline, reusing `pr4_probe.py`. w1 (Windows rule; two expired sessions, a plan waiting across the sweep, a session used at +23 h, then turns after the sweep), w2 (Windows rule; swept from disk by a second process), pf (Windows rule plus one upload whose unlink fails, as for a file still open on Windows), hl (a read-only file outside the data root hard-linked into outputs). w1, w2 and pf run per speaker. Run with no `--tree`, with `--tree ../r1`, and with `--tree` on a copy that has `out/r2_proto_fix.diff` applied.
+- `r2_foreign_owner.py [--tree DIR]`: run as root. It calls that tree's `remove_tree` as user `nobody` on a folder holding a `0o444` file owned by root (needs `setpriv`, and the tree must be readable by `nobody`).
+- `r2_mutations.py`: 5 one-line mutations of the M1 fix, each against `tests/backend/test_retention.py` in a `git archive HEAD` copy (about 1 minute).
+- Also rerun: `pr4_probe.py`, `windows_readonly_sim.py` (now without `--fixed`), `startup_probe.py`, and `old_probe.py api_probe.py` on head and on `--tree ../base`, compared with `../feat-backend-api-confirmation/r2_compare.py --key scenario --strip-catalog`. Rule checks: `../feat-backend-api-confirmation/r2_rule_checks.py FILE...`.
+
+Round 2 outputs are the `out/r2_*` files.

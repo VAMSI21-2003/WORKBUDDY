@@ -1,0 +1,89 @@
+  0%|          | 0/2 [00:00<?, ?it/s]100%|██████████| 2/2 [00:00<00:00, 233.28it/s]
+  0%|          | 0/2 [00:00<?, ?it/s]100%|██████████| 2/2 [00:00<00:00, 282.76it/s]
+  0%|          | 0/2 [00:00<?, ?it/s]100%|██████████| 2/2 [00:00<00:00, 307.58it/s]
+  0%|          | 0/2 [00:00<?, ?it/s]100%|██████████| 2/2 [00:00<00:00, 3729.93it/s]
+  0%|          | 0/2 [00:00<?, ?it/s]100%|██████████| 2/2 [00:00<00:00, 241.76it/s]
+  0%|          | 0/2 [00:00<?, ?it/s]100%|██████████| 2/2 [00:00<00:00, 421.54it/s]
+  0%|          | 0/2 [00:00<?, ?it/s]100%|██████████| 2/2 [00:00<00:00, 144.25it/s]
+  0%|          | 0/2 [00:00<?, ?it/s]100%|██████████| 2/2 [00:00<00:00, 192.21it/s]
+  0%|          | 0/2 [00:00<?, ?it/s]100%|██████████| 2/2 [00:00<00:00, 193.49it/s]
+  0%|          | 0/2 [00:00<?, ?it/s]100%|██████████| 2/2 [00:00<00:00, 60349.70it/s]
+  0%|          | 0/2 [00:00<?, ?it/s]100%|██████████| 2/2 [00:00<00:00, 247.25it/s]
+  0%|          | 0/2 [00:00<?, ?it/s]100%|██████████| 2/2 [00:00<00:00, 311.86it/s]
+  0%|          | 0/2 [00:00<?, ?it/s]100%|██████████| 2/2 [00:00<00:00, 43464.29it/s]
+  0%|          | 0/2 [00:00<?, ?it/s]100%|██████████| 2/2 [00:00<00:00, 191.28it/s]
+  0%|          | 0/2 [00:00<?, ?it/s]100%|██████████| 2/2 [00:00<00:00, 443.91it/s]
+  0%|          | 0/2 [00:00<?, ?it/s]100%|██████████| 2/2 [00:00<00:00, 402.31it/s]
+  0%|          | 0/2 [00:00<?, ?it/s]100%|██████████| 2/2 [00:00<00:00, 43240.25it/s]
+  0%|          | 0/2 [00:00<?, ?it/s]100%|██████████| 2/2 [00:00<00:00, 253.92it/s]
+  0%|          | 0/2 [00:00<?, ?it/s]100%|██████████| 2/2 [00:00<00:00, 232.12it/s]
+  0%|          | 0/2 [00:00<?, ?it/s]100%|██████████| 2/2 [00:00<00:00, 53430.62it/s]
+  0%|          | 0/2 [00:00<?, ?it/s]100%|██████████| 2/2 [00:00<00:00, 210.68it/s]
+  0%|          | 0/2 [00:00<?, ?it/s]100%|██████████| 2/2 [00:00<00:00, 560.62it/s]
+  0%|          | 0/2 [00:00<?, ?it/s]100%|██████████| 2/2 [00:00<00:00, 476.49it/s]
+  0%|          | 0/2 [00:00<?, ?it/s]100%|██████████| 2/2 [00:00<00:00, 82.55it/s]
+  0%|          | 0/2 [00:00<?, ?it/s]100%|██████████| 2/2 [00:00<00:00, 334.18it/s]
+  0%|          | 0/2 [00:00<?, ?it/s]100%|██████████| 2/2 [00:00<00:00, 302.87it/s]
+  0%|          | 0/2 [00:00<?, ?it/s]100%|██████████| 2/2 [00:00<00:00, 356.16it/s]
+  0%|          | 0/2 [00:00<?, ?it/s]100%|██████████| 2/2 [00:00<00:00, 181.70it/s]
+  0%|          | 0/2 [00:00<?, ?it/s]100%|██████████| 2/2 [00:00<00:00, 468.93it/s]
+  0%|          | 0/2 [00:00<?, ?it/s]100%|██████████| 2/2 [00:00<00:00, 195.42it/s]
+  0%|          | 0/2 [00:00<?, ?it/s]100%|██████████| 2/2 [00:00<00:00, 233.99it/s]
+  0%|          | 0/2 [00:00<?, ?it/s]100%|██████████| 2/2 [00:00<00:00, 427.64it/s]
+Retention sweep: couldn't remove session 6e5ce14dfb262093af7c21561723011f
+Traceback (most recent call last):
+  File "/home/user/WORKBUDDY/backend/retention.py", line 189, in _remove
+    self._remove_one(root, key)
+  File "/home/user/WORKBUDDY/backend/retention.py", line 211, in _remove_one
+    remove_tree(path)
+  File "/home/user/WORKBUDDY/backend/retention.py", line 132, in remove_tree
+    remove_tree(Path(child))
+  File "/home/user/WORKBUDDY/backend/retention.py", line 132, in remove_tree
+    remove_tree(Path(child))
+  File "/home/user/WORKBUDDY/backend/retention.py", line 140, in remove_tree
+    os.unlink(path)
+  File "/home/user/WORKBUDDY/scripts/review_harness/feat-backend-retention/r2_probe.py", line 50, in windows_unlink
+    raise PermissionError(32, "[WinError 32] The process cannot access the file (simulated: still open)", str(path))
+PermissionError: [Errno 32] [WinError 32] The process cannot access the file (simulated: still open): '/tmp/tmpwpvgv1vg/data/uploads/6e5ce14dfb262093af7c21561723011f/f_3HNteXmFdZXu_BvN/second.xlsx'
+Upload f_EsSTfxkxrXjmfDQp is missing or replaced after a turn
+Turn t0002 for session 6e5ce14dfb262093af7c21561723011f: an upload changed; every file is held back
+  0%|          | 0/2 [00:00<?, ?it/s]100%|██████████| 2/2 [00:00<00:00, 520.58it/s]
+  0%|          | 0/2 [00:00<?, ?it/s]100%|██████████| 2/2 [00:00<00:00, 368.13it/s]
+Retention sweep: couldn't remove session 8a69aec6535dcd9acf6f340dd86ef01e
+Traceback (most recent call last):
+  File "/home/user/WORKBUDDY/backend/retention.py", line 189, in _remove
+    self._remove_one(root, key)
+  File "/home/user/WORKBUDDY/backend/retention.py", line 211, in _remove_one
+    remove_tree(path)
+  File "/home/user/WORKBUDDY/backend/retention.py", line 132, in remove_tree
+    remove_tree(Path(child))
+  File "/home/user/WORKBUDDY/backend/retention.py", line 132, in remove_tree
+    remove_tree(Path(child))
+  File "/home/user/WORKBUDDY/backend/retention.py", line 140, in remove_tree
+    os.unlink(path)
+  File "/home/user/WORKBUDDY/scripts/review_harness/feat-backend-retention/r2_probe.py", line 50, in windows_unlink
+    raise PermissionError(32, "[WinError 32] The process cannot access the file (simulated: still open)", str(path))
+PermissionError: [Errno 32] [WinError 32] The process cannot access the file (simulated: still open): '/tmp/tmprsc720iq/data/uploads/8a69aec6535dcd9acf6f340dd86ef01e/f_r3kr3NmmGmFoffYK/second.xlsx'
+Upload f_2M7hAXIE3l8wTCch is missing or replaced after a turn
+Turn t0002 for session 8a69aec6535dcd9acf6f340dd86ef01e: an upload changed; every file is held back
+  0%|          | 0/2 [00:00<?, ?it/s]100%|██████████| 2/2 [00:00<00:00, 269.49it/s]
+  0%|          | 0/2 [00:00<?, ?it/s]100%|██████████| 2/2 [00:00<00:00, 516.64it/s]
+Retention sweep: couldn't remove session b4bb371c56b59028b8810999cd76a8c4
+Traceback (most recent call last):
+  File "/home/user/WORKBUDDY/backend/retention.py", line 189, in _remove
+    self._remove_one(root, key)
+  File "/home/user/WORKBUDDY/backend/retention.py", line 211, in _remove_one
+    remove_tree(path)
+  File "/home/user/WORKBUDDY/backend/retention.py", line 132, in remove_tree
+    remove_tree(Path(child))
+  File "/home/user/WORKBUDDY/backend/retention.py", line 132, in remove_tree
+    remove_tree(Path(child))
+  File "/home/user/WORKBUDDY/backend/retention.py", line 140, in remove_tree
+    os.unlink(path)
+  File "/home/user/WORKBUDDY/scripts/review_harness/feat-backend-retention/r2_probe.py", line 50, in windows_unlink
+    raise PermissionError(32, "[WinError 32] The process cannot access the file (simulated: still open)", str(path))
+PermissionError: [Errno 32] [WinError 32] The process cannot access the file (simulated: still open): '/tmp/tmpuvaj2upt/data/uploads/b4bb371c56b59028b8810999cd76a8c4/f_nnpOxzQgm1GhhlzZ/second.xlsx'
+Upload f_IuY956vF8AzmhMz_ is missing or replaced after a turn
+Turn t0002 for session b4bb371c56b59028b8810999cd76a8c4: an upload changed; every file is held back
+  0%|          | 0/2 [00:00<?, ?it/s]100%|██████████| 2/2 [00:00<00:00, 627.70it/s]
+  0%|          | 0/2 [00:00<?, ?it/s]100%|██████████| 2/2 [00:00<00:00, 358.49it/s]

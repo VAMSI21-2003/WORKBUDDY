@@ -1,0 +1,25 @@
+--- backend/retention.py	2026-10-06 12:47:07.477506318 +0000
++++ backend/retention.py	2026-10-06 12:59:32.144627685 +0000
+@@ -132,12 +132,17 @@
+             remove_tree(Path(child))
+         os.rmdir(path)
+     else:
+-        if stat.S_ISREG(mode) and not mode & stat.S_IWRITE:
+-            # On Windows ``chmod(0o444)`` sets the read-only attribute, and a
+-            # read-only file can't be deleted until it is cleared (review round 1,
+-            # M1). Never done to a symlink: that would change its target.
++        try:
++            os.unlink(path)
++        except PermissionError:
++            if not (stat.S_ISREG(mode) and not mode & stat.S_IWRITE and os.lstat(path).st_nlink == 1):
++                raise
+             os.chmod(path, stat.S_IWRITE | stat.S_IREAD)
+-        os.unlink(path)
++            try:
++                os.unlink(path)
++            except OSError:
++                os.chmod(path, stat.S_IMODE(mode))
++                raise
+ 
+ 
+ class RetentionSweeper:

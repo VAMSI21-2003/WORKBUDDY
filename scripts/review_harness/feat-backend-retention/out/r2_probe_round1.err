@@ -1,0 +1,218 @@
+  0%|          | 0/2 [00:00<?, ?it/s]100%|██████████| 2/2 [00:00<00:00, 227.62it/s]
+  0%|          | 0/2 [00:00<?, ?it/s]100%|██████████| 2/2 [00:00<00:00, 398.09it/s]
+  0%|          | 0/2 [00:00<?, ?it/s]100%|██████████| 2/2 [00:00<00:00, 297.50it/s]
+  0%|          | 0/2 [00:00<?, ?it/s]100%|██████████| 2/2 [00:00<00:00, 390.31it/s]
+  0%|          | 0/2 [00:00<?, ?it/s]100%|██████████| 2/2 [00:00<00:00, 621.06it/s]
+  0%|          | 0/2 [00:00<?, ?it/s]100%|██████████| 2/2 [00:00<00:00, 386.25it/s]
+  0%|          | 0/2 [00:00<?, ?it/s]100%|██████████| 2/2 [00:00<00:00, 2229.23it/s]
+Retention sweep: couldn't remove session 2583126fe20c7b78152813d572154542
+Traceback (most recent call last):
+  File "/home/user/r1/backend/retention.py", line 182, in _remove
+    self._remove_one(root, key)
+  File "/home/user/r1/backend/retention.py", line 204, in _remove_one
+    remove_tree(path)
+  File "/home/user/r1/backend/retention.py", line 130, in remove_tree
+    remove_tree(Path(child))
+  File "/home/user/r1/backend/retention.py", line 130, in remove_tree
+    remove_tree(Path(child))
+  File "/home/user/r1/backend/retention.py", line 133, in remove_tree
+    os.unlink(path)
+  File "/home/user/WORKBUDDY/scripts/review_harness/feat-backend-retention/r2_probe.py", line 52, in windows_unlink
+    raise PermissionError(13, "[WinError 5] Access is denied (simulated read-only attribute)", str(path))
+PermissionError: [Errno 13] [WinError 5] Access is denied (simulated read-only attribute): '/tmp/tmpvf4cx2u3/data/uploads/2583126fe20c7b78152813d572154542/f_ItmaVwAn23j5AMYH/report.xlsx'
+Retention sweep: couldn't remove session 6653c5a72a3777407b574f46c38c87c5
+Traceback (most recent call last):
+  File "/home/user/r1/backend/retention.py", line 182, in _remove
+    self._remove_one(root, key)
+  File "/home/user/r1/backend/retention.py", line 204, in _remove_one
+    remove_tree(path)
+  File "/home/user/r1/backend/retention.py", line 130, in remove_tree
+    remove_tree(Path(child))
+  File "/home/user/r1/backend/retention.py", line 130, in remove_tree
+    remove_tree(Path(child))
+  File "/home/user/r1/backend/retention.py", line 133, in remove_tree
+    os.unlink(path)
+  File "/home/user/WORKBUDDY/scripts/review_harness/feat-backend-retention/r2_probe.py", line 52, in windows_unlink
+    raise PermissionError(13, "[WinError 5] Access is denied (simulated read-only attribute)", str(path))
+PermissionError: [Errno 13] [WinError 5] Access is denied (simulated read-only attribute): '/tmp/tmpvf4cx2u3/data/uploads/6653c5a72a3777407b574f46c38c87c5/f_GBDR2UpFg3EL0iVm/report.xlsx'
+  0%|          | 0/2 [00:00<?, ?it/s]100%|██████████| 2/2 [00:00<00:00, 386.02it/s]
+  0%|          | 0/2 [00:00<?, ?it/s]100%|██████████| 2/2 [00:00<00:00, 295.73it/s]
+  0%|          | 0/2 [00:00<?, ?it/s]100%|██████████| 2/2 [00:00<00:00, 279.10it/s]
+  0%|          | 0/2 [00:00<?, ?it/s]100%|██████████| 2/2 [00:00<00:00, 366.86it/s]
+  0%|          | 0/2 [00:00<?, ?it/s]100%|██████████| 2/2 [00:00<00:00, 259.74it/s]
+  0%|          | 0/2 [00:00<?, ?it/s]100%|██████████| 2/2 [00:00<00:00, 196.90it/s]
+  0%|          | 0/2 [00:00<?, ?it/s]100%|██████████| 2/2 [00:00<00:00, 537.49it/s]
+  0%|          | 0/2 [00:00<?, ?it/s]100%|██████████| 2/2 [00:00<00:00, 249.73it/s]
+Retention sweep: couldn't remove session 20e25489389a1a6840581e50ccb18d44
+Traceback (most recent call last):
+  File "/home/user/r1/backend/retention.py", line 182, in _remove
+    self._remove_one(root, key)
+  File "/home/user/r1/backend/retention.py", line 204, in _remove_one
+    remove_tree(path)
+  File "/home/user/r1/backend/retention.py", line 130, in remove_tree
+    remove_tree(Path(child))
+  File "/home/user/r1/backend/retention.py", line 130, in remove_tree
+    remove_tree(Path(child))
+  File "/home/user/r1/backend/retention.py", line 133, in remove_tree
+    os.unlink(path)
+  File "/home/user/WORKBUDDY/scripts/review_harness/feat-backend-retention/r2_probe.py", line 52, in windows_unlink
+    raise PermissionError(13, "[WinError 5] Access is denied (simulated read-only attribute)", str(path))
+PermissionError: [Errno 13] [WinError 5] Access is denied (simulated read-only attribute): '/tmp/tmpfzjijvaz/data/uploads/20e25489389a1a6840581e50ccb18d44/f_hEu9_eOUFFuLsrpy/report.xlsx'
+Retention sweep: couldn't remove session bb742e088c92a583177b5b00b74d2ffc
+Traceback (most recent call last):
+  File "/home/user/r1/backend/retention.py", line 182, in _remove
+    self._remove_one(root, key)
+  File "/home/user/r1/backend/retention.py", line 204, in _remove_one
+    remove_tree(path)
+  File "/home/user/r1/backend/retention.py", line 130, in remove_tree
+    remove_tree(Path(child))
+  File "/home/user/r1/backend/retention.py", line 130, in remove_tree
+    remove_tree(Path(child))
+  File "/home/user/r1/backend/retention.py", line 133, in remove_tree
+    os.unlink(path)
+  File "/home/user/WORKBUDDY/scripts/review_harness/feat-backend-retention/r2_probe.py", line 52, in windows_unlink
+    raise PermissionError(13, "[WinError 5] Access is denied (simulated read-only attribute)", str(path))
+PermissionError: [Errno 13] [WinError 5] Access is denied (simulated read-only attribute): '/tmp/tmpfzjijvaz/data/uploads/bb742e088c92a583177b5b00b74d2ffc/f_cRh-NQ2cKyE3OTJ7/report.xlsx'
+  0%|          | 0/2 [00:00<?, ?it/s]100%|██████████| 2/2 [00:00<00:00, 310.02it/s]
+  0%|          | 0/2 [00:00<?, ?it/s]100%|██████████| 2/2 [00:00<00:00, 345.51it/s]
+  0%|          | 0/2 [00:00<?, ?it/s]100%|██████████| 2/2 [00:00<00:00, 223.14it/s]
+  0%|          | 0/2 [00:00<?, ?it/s]100%|██████████| 2/2 [00:00<00:00, 270.10it/s]
+  0%|          | 0/2 [00:00<?, ?it/s]100%|██████████| 2/2 [00:00<00:00, 293.82it/s]
+  0%|          | 0/2 [00:00<?, ?it/s]100%|██████████| 2/2 [00:00<00:00, 210.04it/s]
+  0%|          | 0/2 [00:00<?, ?it/s]100%|██████████| 2/2 [00:00<00:00, 360.78it/s]
+  0%|          | 0/2 [00:00<?, ?it/s]100%|██████████| 2/2 [00:00<00:00, 556.53it/s]
+Retention sweep: couldn't remove session 684bdcb5dad39d722b62ad6e52bd8c2e
+Traceback (most recent call last):
+  File "/home/user/r1/backend/retention.py", line 182, in _remove
+    self._remove_one(root, key)
+  File "/home/user/r1/backend/retention.py", line 204, in _remove_one
+    remove_tree(path)
+  File "/home/user/r1/backend/retention.py", line 130, in remove_tree
+    remove_tree(Path(child))
+  File "/home/user/r1/backend/retention.py", line 130, in remove_tree
+    remove_tree(Path(child))
+  File "/home/user/r1/backend/retention.py", line 133, in remove_tree
+    os.unlink(path)
+  File "/home/user/WORKBUDDY/scripts/review_harness/feat-backend-retention/r2_probe.py", line 52, in windows_unlink
+    raise PermissionError(13, "[WinError 5] Access is denied (simulated read-only attribute)", str(path))
+PermissionError: [Errno 13] [WinError 5] Access is denied (simulated read-only attribute): '/tmp/tmpuxzwdks4/data/uploads/684bdcb5dad39d722b62ad6e52bd8c2e/f_5EQBtas89zT1yHSL/report.xlsx'
+Retention sweep: couldn't remove session 892eabd8d5606f12d6fc55f23c394932
+Traceback (most recent call last):
+  File "/home/user/r1/backend/retention.py", line 182, in _remove
+    self._remove_one(root, key)
+  File "/home/user/r1/backend/retention.py", line 204, in _remove_one
+    remove_tree(path)
+  File "/home/user/r1/backend/retention.py", line 130, in remove_tree
+    remove_tree(Path(child))
+  File "/home/user/r1/backend/retention.py", line 130, in remove_tree
+    remove_tree(Path(child))
+  File "/home/user/r1/backend/retention.py", line 133, in remove_tree
+    os.unlink(path)
+  File "/home/user/WORKBUDDY/scripts/review_harness/feat-backend-retention/r2_probe.py", line 52, in windows_unlink
+    raise PermissionError(13, "[WinError 5] Access is denied (simulated read-only attribute)", str(path))
+PermissionError: [Errno 13] [WinError 5] Access is denied (simulated read-only attribute): '/tmp/tmpuxzwdks4/data/uploads/892eabd8d5606f12d6fc55f23c394932/f_fMCfuGemLsRJm1pr/report.xlsx'
+  0%|          | 0/2 [00:00<?, ?it/s]100%|██████████| 2/2 [00:00<00:00, 501.23it/s]
+  0%|          | 0/2 [00:00<?, ?it/s]100%|██████████| 2/2 [00:00<00:00, 464.82it/s]
+  0%|          | 0/2 [00:00<?, ?it/s]100%|██████████| 2/2 [00:00<00:00, 179.89it/s]
+Retention sweep: couldn't remove session a4384ba13197cfa41f698f437f8c7704
+Traceback (most recent call last):
+  File "/home/user/r1/backend/retention.py", line 182, in _remove
+    self._remove_one(root, key)
+  File "/home/user/r1/backend/retention.py", line 204, in _remove_one
+    remove_tree(path)
+  File "/home/user/r1/backend/retention.py", line 130, in remove_tree
+    remove_tree(Path(child))
+  File "/home/user/r1/backend/retention.py", line 130, in remove_tree
+    remove_tree(Path(child))
+  File "/home/user/r1/backend/retention.py", line 133, in remove_tree
+    os.unlink(path)
+  File "/home/user/WORKBUDDY/scripts/review_harness/feat-backend-retention/r2_probe.py", line 52, in windows_unlink
+    raise PermissionError(13, "[WinError 5] Access is denied (simulated read-only attribute)", str(path))
+PermissionError: [Errno 13] [WinError 5] Access is denied (simulated read-only attribute): '/tmp/tmpt5i4bgir/data/uploads/a4384ba13197cfa41f698f437f8c7704/f_7aC61o44ZolMattt/report.xlsx'
+  0%|          | 0/2 [00:00<?, ?it/s]100%|██████████| 2/2 [00:00<00:00, 339.81it/s]
+  0%|          | 0/2 [00:00<?, ?it/s]100%|██████████| 2/2 [00:00<00:00, 362.37it/s]
+Retention sweep: couldn't remove session b9efe8969102e884640b8faf489b90a8
+Traceback (most recent call last):
+  File "/home/user/r1/backend/retention.py", line 182, in _remove
+    self._remove_one(root, key)
+  File "/home/user/r1/backend/retention.py", line 204, in _remove_one
+    remove_tree(path)
+  File "/home/user/r1/backend/retention.py", line 130, in remove_tree
+    remove_tree(Path(child))
+  File "/home/user/r1/backend/retention.py", line 130, in remove_tree
+    remove_tree(Path(child))
+  File "/home/user/r1/backend/retention.py", line 133, in remove_tree
+    os.unlink(path)
+  File "/home/user/WORKBUDDY/scripts/review_harness/feat-backend-retention/r2_probe.py", line 52, in windows_unlink
+    raise PermissionError(13, "[WinError 5] Access is denied (simulated read-only attribute)", str(path))
+PermissionError: [Errno 13] [WinError 5] Access is denied (simulated read-only attribute): '/tmp/tmpm1l3cofj/data/uploads/b9efe8969102e884640b8faf489b90a8/f_GSjNgytlfcsgBkTK/report.xlsx'
+  0%|          | 0/2 [00:00<?, ?it/s]100%|██████████| 2/2 [00:00<00:00, 255.28it/s]
+  0%|          | 0/2 [00:00<?, ?it/s]100%|██████████| 2/2 [00:00<00:00, 234.30it/s]
+Retention sweep: couldn't remove session 43a158ff4949b11773cf0e07146538c2
+Traceback (most recent call last):
+  File "/home/user/r1/backend/retention.py", line 182, in _remove
+    self._remove_one(root, key)
+  File "/home/user/r1/backend/retention.py", line 204, in _remove_one
+    remove_tree(path)
+  File "/home/user/r1/backend/retention.py", line 130, in remove_tree
+    remove_tree(Path(child))
+  File "/home/user/r1/backend/retention.py", line 130, in remove_tree
+    remove_tree(Path(child))
+  File "/home/user/r1/backend/retention.py", line 133, in remove_tree
+    os.unlink(path)
+  File "/home/user/WORKBUDDY/scripts/review_harness/feat-backend-retention/r2_probe.py", line 52, in windows_unlink
+    raise PermissionError(13, "[WinError 5] Access is denied (simulated read-only attribute)", str(path))
+PermissionError: [Errno 13] [WinError 5] Access is denied (simulated read-only attribute): '/tmp/tmp1_vxkzak/data/uploads/43a158ff4949b11773cf0e07146538c2/f_qNSMrAi1bDlr5pxF/report.xlsx'
+  0%|          | 0/2 [00:00<?, ?it/s]100%|██████████| 2/2 [00:00<00:00, 25731.93it/s]
+  0%|          | 0/2 [00:00<?, ?it/s]100%|██████████| 2/2 [00:00<00:00, 232.47it/s]
+Retention sweep: couldn't remove session b56debf32def060694b9183156d9c52c
+Traceback (most recent call last):
+  File "/home/user/r1/backend/retention.py", line 182, in _remove
+    self._remove_one(root, key)
+  File "/home/user/r1/backend/retention.py", line 204, in _remove_one
+    remove_tree(path)
+  File "/home/user/r1/backend/retention.py", line 130, in remove_tree
+    remove_tree(Path(child))
+  File "/home/user/r1/backend/retention.py", line 130, in remove_tree
+    remove_tree(Path(child))
+  File "/home/user/r1/backend/retention.py", line 133, in remove_tree
+    os.unlink(path)
+  File "/home/user/WORKBUDDY/scripts/review_harness/feat-backend-retention/r2_probe.py", line 52, in windows_unlink
+    raise PermissionError(13, "[WinError 5] Access is denied (simulated read-only attribute)", str(path))
+PermissionError: [Errno 13] [WinError 5] Access is denied (simulated read-only attribute): '/tmp/tmpxj5uau_i/data/uploads/b56debf32def060694b9183156d9c52c/f_d3bdwumnsoPxNM2f/first.xlsx'
+  0%|          | 0/2 [00:00<?, ?it/s]100%|██████████| 2/2 [00:00<00:00, 369.17it/s]
+  0%|          | 0/2 [00:00<?, ?it/s]100%|██████████| 2/2 [00:00<00:00, 288.18it/s]
+Retention sweep: couldn't remove session 2fdb321d5790a1402f2203a50bfb0bcd
+Traceback (most recent call last):
+  File "/home/user/r1/backend/retention.py", line 182, in _remove
+    self._remove_one(root, key)
+  File "/home/user/r1/backend/retention.py", line 204, in _remove_one
+    remove_tree(path)
+  File "/home/user/r1/backend/retention.py", line 130, in remove_tree
+    remove_tree(Path(child))
+  File "/home/user/r1/backend/retention.py", line 130, in remove_tree
+    remove_tree(Path(child))
+  File "/home/user/r1/backend/retention.py", line 133, in remove_tree
+    os.unlink(path)
+  File "/home/user/WORKBUDDY/scripts/review_harness/feat-backend-retention/r2_probe.py", line 50, in windows_unlink
+    raise PermissionError(32, "[WinError 32] The process cannot access the file (simulated: still open)", str(path))
+PermissionError: [Errno 32] [WinError 32] The process cannot access the file (simulated: still open): '/tmp/tmpdhup5ev8/data/uploads/2fdb321d5790a1402f2203a50bfb0bcd/f_-efLrCtmjgpNv-qT/second.xlsx'
+  0%|          | 0/2 [00:00<?, ?it/s]100%|██████████| 2/2 [00:00<00:00, 385.05it/s]
+  0%|          | 0/2 [00:00<?, ?it/s]100%|██████████| 2/2 [00:00<00:00, 1430.04it/s]
+Retention sweep: couldn't remove session ac7b3c5aecfcade8cb899302d9dbeaf5
+Traceback (most recent call last):
+  File "/home/user/r1/backend/retention.py", line 182, in _remove
+    self._remove_one(root, key)
+  File "/home/user/r1/backend/retention.py", line 204, in _remove_one
+    remove_tree(path)
+  File "/home/user/r1/backend/retention.py", line 130, in remove_tree
+    remove_tree(Path(child))
+  File "/home/user/r1/backend/retention.py", line 130, in remove_tree
+    remove_tree(Path(child))
+  File "/home/user/r1/backend/retention.py", line 133, in remove_tree
+    os.unlink(path)
+  File "/home/user/WORKBUDDY/scripts/review_harness/feat-backend-retention/r2_probe.py", line 52, in windows_unlink
+    raise PermissionError(13, "[WinError 5] Access is denied (simulated read-only attribute)", str(path))
+PermissionError: [Errno 13] [WinError 5] Access is denied (simulated read-only attribute): '/tmp/tmpjfth4ezy/data/uploads/ac7b3c5aecfcade8cb899302d9dbeaf5/f_QtpGkd_-FrrL6k16/first.xlsx'
+  0%|          | 0/2 [00:00<?, ?it/s]100%|██████████| 2/2 [00:00<00:00, 199.39it/s]
+  0%|          | 0/2 [00:00<?, ?it/s]100%|██████████| 2/2 [00:00<00:00, 23899.17it/s]

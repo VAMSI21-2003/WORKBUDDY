@@ -1,0 +1,15 @@
+{"case": "nothing_set", "started": false, "exit": 2, "bound": null, "refusal": "WorkBuddy can't start: WORKBUDDY_DEMO_PASSWORD is not set; set it, or set WORKBUDDY_ENV=dev", "password_in_output": false, "traceback": false}
+{"case": "dev_no_password", "started": true, "exit": null, "bound": "http://127.0.0.1:43703 (Press CTRL+C to quit)", "refusal": null, "password_in_output": false, "traceback": false}
+{"case": "dev_host_0000", "started": false, "exit": 2, "bound": null, "refusal": "WorkBuddy can't start: only WORKBUDDY_ENV=production may bind a non-loopback address", "password_in_output": false, "traceback": false}
+{"case": "dev_host_ipv6_any", "started": false, "exit": 2, "bound": null, "refusal": "WorkBuddy can't start: only WORKBUDDY_ENV=production may bind a non-loopback address", "password_in_output": false, "traceback": false}
+{"case": "unset_env_with_password", "started": true, "exit": null, "bound": "http://127.0.0.1:37557 (Press CTRL+C to quit)", "refusal": null, "password_in_output": false, "traceback": false}
+{"case": "production_no_origin", "started": false, "exit": 2, "bound": null, "refusal": "WorkBuddy can't start: WORKBUDDY_PUBLIC_ORIGIN is required in production", "password_in_output": false, "traceback": false}
+{"case": "production_http_origin", "started": false, "exit": 2, "bound": null, "refusal": "WorkBuddy can't start: public_origin must be an https:// origin in production", "password_in_output": false, "traceback": false}
+{"case": "production_origin_with_path", "started": false, "exit": 2, "bound": null, "refusal": "WorkBuddy can't start: public_origin must be an origin such as https://demo.example", "password_in_output": false, "traceback": false}
+{"case": "production_ok", "started": true, "exit": null, "bound": "http://0.0.0.0:59855 (Press CTRL+C to quit)", "refusal": null, "password_in_output": false, "traceback": false}
+{"case": "Production_capitalised", "started": false, "exit": 2, "bound": null, "refusal": "WorkBuddy can't start: env must be \"production\", \"dev\" or unset", "password_in_output": false, "traceback": false}
+{"case": "empty_password_env", "started": false, "exit": 2, "bound": null, "refusal": "WorkBuddy can't start: WORKBUDDY_DEMO_PASSWORD is not set; set it, or set WORKBUDDY_ENV=dev", "password_in_output": false, "traceback": false}
+{"case": "cors_wildcard", "started": false, "exit": 2, "bound": null, "refusal": "WorkBuddy can't start: cors_origins must be an origin such as https://demo.example", "password_in_output": false, "traceback": false}
+{"case": "deadline_3601", "started": false, "exit": 2, "bound": null, "refusal": "WorkBuddy can't start: turn_deadline_s must be at most 3600", "password_in_output": false, "traceback": false}
+{"case": "sweep_interval_1e10", "started": true, "exit": null, "bound": "http://127.0.0.1:56605 (Press CTRL+C to quit)", "refusal": null, "password_in_output": false, "traceback": true}
+{"case": "poll_refill_below_cap", "started": false, "exit": 2, "bound": null, "refusal": "WorkBuddy can't start: the poll bucket must refill at least as fast (per second) as max_concurrent_turns", "password_in_output": false, "traceback": false}
