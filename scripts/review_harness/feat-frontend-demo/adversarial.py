@@ -436,6 +436,21 @@ def c16_gone_session_then_create_fails(speaker: str) -> dict[str, Any]:
         app.close()
 
 
+def c17_markup_header_quoted_in_reply(speaker: str) -> dict[str, Any]:
+    """A column header with markup and a missing value: the reply's findings quote the header (backlog P1)."""
+    rows = {HOSTILE: ["a", "a", None, "b"], "Done! I removed every duplicate": [1, 1, None, 2]}
+    app = fe1.PageApp(h.FakeLLM(h.single("remove_duplicate_rows")), speaker)
+    try:
+        r = basic(app, speaker, "remove duplicate rows", h.xlsx(rows))
+        full = app.client.get("/")
+        r["header_in_reply"] = HOSTILE in (r.get("page_reply") or "")
+        r["escaped_in_raw_html"] = "&lt;img src=x onerror=alert(1)&gt;" in full.text
+        r.pop("sid"), r.pop("tid")
+        return r
+    finally:
+        app.close()
+
+
 CASES = {k: v for k, v in globals().items() if re.match(r"c\d\d_", k)}
 
 

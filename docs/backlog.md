@@ -164,6 +164,19 @@ Deferred from FE-1 (`frontend-demo-impl.md`, Section 7; the design's own Section
 - On a phone, moving focus to the composer when a turn finishes raises the on-screen keyboard. The design asks for it; it is untested on a real phone.
 - Accessibility checks beyond one axe-core run: axe in CI, the 390×844 and 768 px viewports, and a manual screen-reader pass.
 
+Deferred by the FE-1 review, round 1 (`docs/reviews/frontend-demo-review.md`; prototypes in `scripts/review_harness/feat-frontend-demo/out/proto_fix.diff`). Fix M1 and M2 before the public link:
+- **M1 (Medium, dev without a password only):** `TurnRecord.version` is memory-only, so after a server restart a page holding version 1 or 2 drops every poll answer (version 0) as older and shows a stale plan card for good. Fix: `poll` answers `HX-Refresh: true` when `v > version`; add a browser test that restarts the server under a waiting card.
+- **M2 (Medium, a race):** after a `409` on the plan card, `app.js` fires `wb:retry` while the confirmation request still holds the turn's `hx-sync` lock, so no refetch is sent; if a poll was in flight at the click, the card (live buttons, "Approval needed") stays for good. Fix: refetch with `htmx.ajax('GET', refetchUrl, {target: turn})` in a `setTimeout(…, 0)`; add browser tests for a poll in flight and idle.
+- **L1:** the lost-contact notice says "before the turn finished", which the page can't know. Reword it (design 7 too).
+- **L2:** the "so this is a new one" notice shows before the new session exists; if `POST /ui/sessions` is refused, it's false. Render it with the new workspace instead.
+- **L3:** a plan step with a long unbroken file name overflows at 360 px. `overflow-wrap: anywhere` on `.plan-steps li` and the message.
+- **L4:** guard-test gaps (surviving mutations m08, m22, m23, m24): the Files panel's exclusion of a turn shown running, the lost answer keeping its buttons off, a 5xx on the message POST running the ambiguous-POST check (never a resend), and the `409` refetch.
+- **L5:** `scripts/frontend_spike/run_spike.py` has 8 E501 (outside `buddy tests`).
+- **L6:** a quota refusal says "Start a new session." and the page has no such control (with the "New session" item above).
+- **L7:** the copy snapshot doesn't cover the strings `backend/web/views.py` builds ("… up to 2 MB", size units).
+- **L8 (backend download route):** with a long upload name the 100-character cap can cut the whole `_deduplicated_…` part, so the cleaned copy is saved under exactly the original's file name (with the download-name item above).
+- **L9:** design 11.2's `Referrer-Policy: no-referrer` isn't sent (backend or FE-2).
+
 ## 5. Remaining deferred items from the reviews
 
 Each item has its own acceptance criterion: fixed with a test, or explicitly closed as won't-fix with a reason.

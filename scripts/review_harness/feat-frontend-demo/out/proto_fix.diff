@@ -1,0 +1,32 @@
+--- /home/user/WORKBUDDY/backend/web/static/app.js	2026-10-06 18:46:26.396069169 +0000
++++ backend/web/static/app.js	2026-10-06 19:35:01.678750614 +0000
+@@ -248,8 +248,14 @@
+     } else if (status === 409 && error.code === 'session_busy' && composer) {
+       refetchConversation(composer);
+     } else if (status === 409 && plan) {
+-      const poll = plan.closest('.turn').querySelector('.poll');
+-      if (poll) retryPoll(poll);
++      // PROTOTYPE FIX: refetch the whole turn once this request has ended (its own sync lock is
++      // released), whatever state the poll element is in.
++      const turn = plan.closest('.turn');
++      window.setTimeout(() => {
++        htmx.ajax('GET', plan.dataset.refetchUrl, { target: turn }).catch(() => {
++          showNotice(copyText('cant-reach'), 'request');
++        });
++      }, 0);
+     } else if (status >= 500 && composer) {
+       ambiguousPost(composer);
+     } else if (status >= 500 && plan) {
+--- /home/user/WORKBUDDY/backend/web/routes.py	2026-10-06 18:40:36.705156423 +0000
++++ backend/web/routes.py	2026-10-06 19:35:01.678967995 +0000
+@@ -277,6 +277,10 @@
+         assert stored is not None  # get_turn found it, under this same lock
+         version = stored.version
+         now = now_of(request)
++        if v is not None and v > version:
++            # PROTOTYPE FIX: the page holds a version this server never gave out (it restarted):
++            # reload the page so it renders the session as this server has it.
++            return html("", headers={"HX-Refresh": "true"})
+         if unconfirmed is None and v == version and turn.status != views.FINISHED:
+             view = views.turn_view(session_id, turn, version, now)
+             return html(render("poll_fragment.html", turn=view))

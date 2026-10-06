@@ -1,0 +1,35 @@
+# python -m pytest -q (branch 6522a21)
+34 failed, 2542 passed, 3469 warnings in 586.78s (0:09:46)
+# python -m pytest -q (base d903ba0)
+34 failed, 2408 passed, 3379 warnings in 403.60s (0:06:43)
+# failing test ids: branch vs base
+identical (34): tests/buddy/test_values_only_copy.py, tests/skills/excel/test_plain_table.py
+# ruff check buddy tests: branch vs base, by file and rule (line numbers dropped)
+identical: 22 errors each
+# ruff check on the branch's new code outside buddy/tests
+scripts/frontend_spike/run_spike.py:36:101: E501 Line too long (112 > 100)
+scripts/frontend_spike/run_spike.py:177:101: E501 Line too long (158 > 100)
+scripts/frontend_spike/run_spike.py:203:101: E501 Line too long (151 > 100)
+scripts/frontend_spike/run_spike.py:214:101: E501 Line too long (124 > 100)
+scripts/frontend_spike/run_spike.py:233:101: E501 Line too long (102 > 100)
+scripts/frontend_spike/run_spike.py:260:101: E501 Line too long (227 > 100)
+scripts/frontend_spike/run_spike.py:271:101: E501 Line too long (143 > 100)
+scripts/frontend_spike/run_spike.py:280:101: E501 Line too long (102 > 100)
+Found 8 errors.
+# new backend tests on base
+FAILED tests/backend/test_turn_version.py::test_a_plan_goes_through_three_changes_when_approved
+FAILED tests/backend/test_turn_version.py::test_a_rejected_plan_goes_through_the_same_three
+FAILED tests/backend/test_turn_version.py::test_a_turn_with_no_plan_changes_once
+3 failed, 10 warnings in 11.70s
+ImportError while importing test module '/tmp/claude-0/-home-user-WORKBUDDY/a8c5e438-635f-535e-82a2-37964194ea6a/scratchpad/rv/basewt/tests/backend/test_dev_origin.py'.
+E   ImportError: cannot import name 'DEFAULT_PORT' from 'backend.settings' (/tmp/claude-0/-home-user-WORKBUDDY/a8c5e438-635f-535e-82a2-37964194ea6a/scratchpad/rv/basewt/backend/settings.py)
+ERROR tests/backend/test_dev_origin.py
+# axe-core 4.10.2 rerun of scripts/frontend_axe_run.py
+gate (light) violations 0 needs_review []
+empty workspace (light) violations 0 needs_review ['color-contrast']
+plan card (light) violations 0 needs_review []
+finished turn (light) violations 0 needs_review ['color-contrast']
+gate (dark) violations 0 needs_review []
+empty workspace (dark) violations 0 needs_review ['color-contrast']
+plan card (dark) violations 0 needs_review []
+finished turn (dark) violations 0 needs_review ['color-contrast']
