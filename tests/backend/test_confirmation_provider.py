@@ -294,6 +294,30 @@ def test_once_closed_no_later_step_runs_even_after_an_approval(pool: ThreadPoolE
     assert host.settled == [ConfirmationOutcome(APPROVE, BY_USER)]
 
 
+def test_the_step_just_approved_does_not_start_if_the_provider_closes_first(
+    pool: ThreadPoolExecutor,
+) -> None:
+    """PR-3 review round 2, R2-L1: the user answers while the worker waits, and the turn
+    finishes (the deadline) before the worker takes the lock back. The step the user just
+    approved must not start after the turn is over."""
+    host = _Host()
+    provider = _provider(host)
+    provider.expect_plan((_step(1), _step(2, EMPTY)))
+    first = _ask(pool, provider, _task(1))
+    plan = _published(host)
+
+    with host.lock:
+        # The answer and the end of the turn both land before the worker, which was
+        # woken by the answer, can take the lock.
+        provider.answer(plan.confirmation_id, APPROVE)
+        provider.close(BY_TURN_END)
+        time.sleep(0.05)  # the worker is now blocked on the lock, holding the approval
+
+    assert first.result(5) is False
+    assert provider.confirm(_task(2), WRITE) is False
+    assert host.settled == [ConfirmationOutcome(APPROVE, BY_USER)]  # the user's answer stands
+
+
 def test_a_second_answer_is_refused_and_the_first_stands(pool: ThreadPoolExecutor) -> None:
     host = _Host()
     provider = _provider(host)

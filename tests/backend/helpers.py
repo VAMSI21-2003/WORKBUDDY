@@ -174,3 +174,60 @@ def wait_finished(
         if time.monotonic() > deadline:
             raise AssertionError(f"turn {turn_id} didn't finish within {timeout_s} s")
         time.sleep(0.02)
+
+
+# -- Access, rate limits and retention (PR-4) -------------------------------------------------
+
+# Obvious placeholders, never a real secret.
+PASSWORD = "correct horse battery staple"
+PUBLIC_ORIGIN = "https://demo.example"
+BEARER = {"Authorization": f"Bearer {PASSWORD}"}
+ORIGIN = {"Origin": PUBLIC_ORIGIN}
+COOKIE_NAME = "__Host-wb_access"
+
+
+class FakeClock:
+    """A clock the test advances: monotonic seconds, or epoch seconds for retention."""
+
+    def __init__(self, start: float = 1_000_000.0) -> None:
+        self.now = start
+
+    def __call__(self) -> float:
+        return self.now
+
+    def advance(self, seconds: float) -> None:
+        self.now += seconds
+
+
+def locked_settings(tmp_path: Any, **overrides: Any) -> Any:
+    """Production-like settings: a password, an https public origin, the real buckets."""
+    from backend.settings import Settings
+
+    values: dict[str, Any] = {
+        "data_dir": tmp_path / "data",
+        "env": "production",
+        "demo_password": PASSWORD,
+        "public_origin": PUBLIC_ORIGIN,
+    }
+    values.update(overrides)
+    return Settings(**values)
+
+
+def exchange(client: TestClient, password: str = PASSWORD, **headers: str) -> Any:
+    """``POST /api/v1/access`` the way the demo page does (a form, with its Origin)."""
+    return client.post(
+        "/api/v1/access", data={"password": password}, headers={**ORIGIN, **headers}
+    )
+
+
+def cookie_value(response: Any) -> str:
+    """The access token out of a ``Set-Cookie`` header."""
+    header = response.headers["set-cookie"]
+    assert header.startswith(COOKIE_NAME + "=")
+    return str(header.split(";", 1)[0].split("=", 1)[1])
+
+
+def with_cookie(token: str, **extra: str) -> dict[str, str]:
+    """Request headers carrying the access cookie (the test client is plain http, and the
+    cookie is ``Secure``, so a jar would never send it)."""
+    return {"Cookie": f"{COOKIE_NAME}={token}", **extra}

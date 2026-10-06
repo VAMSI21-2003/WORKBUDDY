@@ -192,12 +192,14 @@ class AccessControl:
         return self.tokens.issue()
 
     def _bearer_valid(self, header: str) -> bool:
-        parts = header.strip().split(None, 1)
-        if len(parts) != 2 or parts[0].lower() != "bearer":
+        # ``Bearer`` and one space, then the credential exactly as sent: a
+        # password may contain spaces, so nothing after the first one is trimmed.
+        scheme, space, credential = header.partition(" ")
+        if not space or scheme.lower() != "bearer":
             return False
         # ASGI hands header text over as latin-1: re-encoding gives back the
         # bytes the client sent, which are compared as UTF-8 with the password.
-        return self._password_matches(parts[1].encode("latin-1", "replace"))
+        return self._password_matches(credential.encode("latin-1", "replace"))
 
     def _password_matches(self, candidate: bytes) -> bool:
         assert self._password is not None
