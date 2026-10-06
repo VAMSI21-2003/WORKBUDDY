@@ -1,0 +1,45 @@
+# WorkBuddy runtime dependencies: what the server needs, and what the Docker image installs
+# (Dockerfile). requirements.txt includes this file and adds the development tooling.
+#
+# Buddy's pipeline (buddy/, core/), the Excel skills (skills/excel/) and the
+# HTTP API and page (backend/, see docs/design/backend-api-design.md and
+# docs/design/frontend-design.md). Runtime dependencies for still-unbuilt
+# capabilities (PDF, Word) will be added in the work that introduces them.
+
+# --- LLM (Understand/Think — see buddy/llm.py) ---
+anthropic>=0.40
+groq>=0.11
+
+# --- Spreadsheet processing (skills/excel — see docs/design/slice-1-dedupe-design.md) ---
+pandas>=2.2
+openpyxl>=3.1
+
+# --- Proactive spreadsheet analysis (skills/excel/analyze.py — see
+# docs/design/proactive-analysis-design.md) ---
+# Promoted from the spike-only section below once the design was approved
+# and implemented: ydata-profiling backs missing-value detection,
+# splink backs near-duplicate row detection. See
+# scripts/spike_tools_test.py for the real-tool spike that validated both.
+ydata-profiling>=4.10
+splink>=4,<5
+# ydata-profiling (4.18.4) imports pkg_resources, which comes from
+# setuptools and is missing from setuptools 82 and later (80.10.2 still has
+# it). The failure happens when the analysis runs, not when
+# skills/excel/analyze.py is imported. A fresh uv venv on Python 3.11 lacks
+# setuptools too, so without this line the analysis fails there as well.
+setuptools>=68,<81
+
+# --- HTTP API (backend/ — see docs/design/backend-api-design.md) ---
+# fastapi is pinned to a minor version, and pydantic with it, so a library
+# upgrade that changes the generated backend/openapi.json is a deliberate
+# diff rather than CI noise (design "Decisions (2026-09-30, part 2)", ask 3).
+fastapi>=0.142,<0.143
+pydantic>=2.13,<2.14
+uvicorn>=0.30
+python-multipart>=0.0.18
+# httpx backs fastapi.testclient in the API tests.
+httpx>=0.27
+
+# --- The web page (backend/web/ — see docs/design/frontend-design.md) ---
+# Server-rendered with Jinja; htmx itself is vendored in backend/web/static (no Node, no CDN).
+jinja2>=3.1,<4

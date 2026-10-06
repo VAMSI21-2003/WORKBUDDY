@@ -7,6 +7,8 @@ wrapper, an autoescape block or setting) is banned in ``backend/web`` by a test.
 
 from __future__ import annotations
 
+import hashlib
+from functools import cache
 from pathlib import Path
 from typing import Any
 
@@ -23,6 +25,21 @@ environment = Environment(
     trim_blocks=True,
     lstrip_blocks=True,
 )
+
+
+@cache
+def static_version(name: str) -> str:
+    """The first 12 hex digits of the SHA-256 of ``static/<name>``: its version in a URL."""
+    return hashlib.sha256((STATIC_DIR / name).read_bytes()).hexdigest()[:12]
+
+
+def static_url(name: str) -> str:
+    """``/static/<name>?v=<version>``: the URL changes whenever the file does, so the file can be
+    cached for good (``backend.web.routes.StaticAssets``)."""
+    return f"/static/{name}?v={static_version(name)}"
+
+
+environment.globals["static_url"] = static_url
 
 
 def render(template: str, **context: Any) -> str:

@@ -1,6 +1,6 @@
 # Frontend design: the web UI for the public demo
 
-**Status:** design. FE-1 is implemented on `feat/frontend-demo` (see `docs/reviews/frontend-demo-impl.md` for how, and where it differs); FE-2 isn't. Revised on 2026-10-01 to apply `docs/reviews/frontend-design-review.md` (branch `review/frontend-design`, verdict APPROVE WITH CHANGES) and the owner's decision on the stack.
+**Status:** design. FE-1 is merged (see `docs/reviews/frontend-demo-impl.md` for how, and where it differs). FE-2 is implemented on `feat/frontend-deploy` (`docs/reviews/frontend-deploy-impl.md`, `docs/deploy.md`); Sections 11.1 to 11.3 and 13.1 say where it differs from the first design. Revised on 2026-10-01 to apply `docs/reviews/frontend-design-review.md` (branch `review/frontend-design`, verdict APPROVE WITH CHANGES) and the owner's decision on the stack.
 
 **Owner's decisions (2026-10-01):**
 - The UI is **htmx with Jinja templates, served by the same FastAPI process**, as the review recommends (its Section 3.5). React, TypeScript and Vite are dropped.
@@ -45,7 +45,7 @@ Where this design doesn't follow the review, Section 15 says so.
 4. **One screen after the password gate.** Files, chat, the plan card and the downloads are parts of one page. The "What happened" details panel isn't in the demo (M1).
 5. **Polling, not streaming.** Every 2 s, then every 3 s once the turn is 20 s old by the server's clock. A `429` on a poll waits `Retry-After` and doesn't count as a connection failure (H2).
 6. **The tests are pytest.** The HTML-route tests run through `TestClient` in the same suite as the backend's rule-1 tests. Five browser end-to-end tests use `pytest-playwright` against the real app and the fake LLM (Section 10).
-7. **No host is chosen until the owner decides on code visibility** (M7). A public Hugging Face Space [Likely] shows the code, and the project is licensed `Proprietary` (Sections 11.3 and 13.2).
+7. **No host is chosen until the owner chooses one** (M7), from the measurements in `docs/deploy.md`. The image is host-neutral. Code visibility still matters, because the project is licensed `Proprietary` (Sections 11.3 and 13.2).
 
 ---
 
@@ -625,11 +625,14 @@ Record them in `docs/reviews/frontend-demo-live-runs.md`, in the format `CLAUDE.
 
 ### 11.1 One container, one process
 
-FE-2 adds a single-stage `Dockerfile` at the repo root. It:
+FE-2 adds a single-stage `Dockerfile` at the repo root and a `.dockerignore` that sends only `backend/`, `buddy/`, `core/`, `skills/` and `requirements-runtime.txt` to the build. The image:
 - starts from `python:3.11-slim` (the minimum version, backend Decisions item 3);
-- runs `pip install -r requirements.txt`;
+- installs `requirements-runtime.txt` (the runtime packages only; `requirements.txt` includes it and adds the test and lint tooling, which the image doesn't carry);
 - copies `backend/`, `buddy/`, `core/` and `skills/`;
-- runs `uvicorn backend.main:app --host 0.0.0.0 --port $PORT --workers 1`.
+- runs as a non-root user (uid 10001) that can write only to `/data`, where the data root is (`WORKBUDDY_DATA_DIR=/data`; mount a volume there to keep sessions across restarts);
+- runs `python -m backend --port "$PORT"` with one worker, in production mode (`WORKBUDDY_ENV=production`, bound to `0.0.0.0`, `PORT` defaulting to 8000).
+
+**Where this differs from the first design.** The first design ran `uvicorn backend.main:app --host 0.0.0.0 --port $PORT --workers 1`. `backend.main` has no module-level `app`: `create_app()` reads the settings when it is called, and a bad setting has to stop the server with a message that names it. `python -m backend` is the entry point that does that, and the one the live runs use, so the image uses it.
 
 There's no Node stage, because the templates and static files are part of `backend/web/`.
 
@@ -637,16 +640,9 @@ Routes:
 - `/api/v1/*`: JSON;
 - `GET /` and `/ui/*`: HTML;
 - `/static/*`: `app.js`, `htmx.min.js`, `styles.css`;
-- `/healthz`.
+- `/healthz`: the image's `HEALTHCHECK` calls it (liveness only; whether an LLM key is set isn't a reason to restart).
 
-Configuration is by environment variable, all from the backend design:
-- `WORKBUDDY_ENV=production`;
-- `WORKBUDDY_DEMO_PASSWORD`;
-- `WORKBUDDY_PUBLIC_ORIGIN`: the exact `https://…` origin, which the CSRF check uses (backend Decisions 2026-10-01);
-- `GROQ_API_KEY`;
-- `WORKBUDDY_SESSION_TTL_HOURS` and `WORKBUDDY_ACCESS_TTL_HOURS`;
-- `WORKBUDDY_TRUSTED_PROXY_HOPS`;
-- the limits.
+Configuration is by environment variable, all from the backend design. `docs/deploy.md` lists every one, with its default and what happens if it's wrong. The ones a host must set are `WORKBUDDY_DEMO_PASSWORD`, `WORKBUDDY_PUBLIC_ORIGIN` (the exact `https://…` origin, which the CSRF check uses, backend Decisions 2026-10-01) and `GROQ_API_KEY`. In production the server won't start without the first two.
 
 Secrets go in the host's secret store, never in the image or the repo.
 
@@ -661,46 +657,30 @@ Because everything is served from one origin, there's no CORS configuration (`WO
   - `selfRequestsOnly: true`.
   - History caching off. The page never pushes URLs, and [Likely] htmx's history cache would store page HTML, replies included, in `localStorage`.
 - **Other headers:**
-  - `X-Content-Type-Options: nosniff` and `Referrer-Policy: no-referrer`;
-  - HSTS behind TLS;
-  - `Cache-Control: no-store` on every HTML and API response;
-  - long, immutable caching for `/static/*`, with the version in the file name.
-- **Who sets them.** The backend sets these headers, because PR-4 owns hosted-demo hardening. FE-2 adds the parts that are specific to static files.
+  - `X-Content-Type-Options: nosniff` and `Referrer-Policy: no-referrer`, on every response (FE-2 added the second; FE-1 sent only the first);
+  - HSTS in production;
+  - `Cache-Control: no-store` on every HTML and API response, and on an error from `/static/*`;
+  - long, immutable caching for `/static/*` (`public, max-age=31536000, immutable`) **when the URL carries the file's current version**.
+- **Who sets them.** The backend sets these headers, because PR-4 owns hosted-demo hardening (`SecurityHeadersMiddleware`). FE-2 adds the parts that are specific to static files.
+- **Static files and their version (a change from the first design, which put the version in the file name).** The pages link `/static/app.js?v=<first 12 hex digits of the file's SHA-256>` (`static_url` in `backend/web/templating.py`). A URL whose `v` is the file's current one is cached for a year, because it can never mean anything else. Any other URL for the file (no `v`, an old one) gets `Cache-Control: no-cache`, so a browser revalidates with the ETag and gets a `304`. A deploy that changes a file changes its URL in the pages, and nothing stale can be served from the cache. File names stay as they are, so there's no build step and no renaming.
 
 ### 11.3 Where to host it (M7)
 
 **What the app needs:**
-- a Docker container;
+- a Docker container (the image of 11.1, which names no host);
 - one long-lived process with threads, not serverless: turns run for tens of seconds, a confirmation wait holds a thread for up to 120 s, and all state is in memory;
-- enough RAM for pandas, `ydata-profiling` and `splink`. Backend part 2 measured about 300 MB at import, and estimated 0.9–1.0 GB for two concurrent 5 MB turns. Those figures come from outside the API and not from any host;
+- enough RAM for pandas, `ydata-profiling` and `splink`. `docs/deploy.md` has the measured idle and peak memory of the image for the small fixture and for a 2 MB file (single step and two-step chain), and which of 512 MB, 1 GB and 2 GB it survives. They replace the estimates the first design quoted from backend part 2 (about 300 MB at import, 0.9–1.0 GB for two concurrent 5 MB turns, before the 2 MB cap);
 - outbound HTTPS to Groq, TLS, and secrets.
 
-**No host is chosen until the owner decides on code visibility.** The project is licensed `Proprietary` (`pyproject.toml`).
+**The first design's Option A, a free Hugging Face Space, is gone.** It assumed the free CPU tier. Hugging Face's documentation (`huggingface.co/docs/hub/en/spaces-overview`) now says Gradio and Docker Spaces require a paid plan, as the owner reported on 2026-10-06. [Certain that the owner said so; not checked by the author of this section, because `huggingface.co` is blocked by this session's network policy, as it was for the review.] So the free-tier case for a public demo no longer holds, and what was argued for and against that option no longer decides anything. Two of its points apply to any host, and are kept in `docs/deploy.md`: an ephemeral disk makes `404 session_not_found` and the new-session notice (1.3) the normal restart path, and the page must be opened at its own address, not inside someone else's frame.
 
-**Option A: a Hugging Face Space (Docker SDK), on the free CPU tier.** I couldn't check any of these claims, because `huggingface.co` is blocked by this session's network policy (as it was for the review):
-- **[Likely] The code would be public.** A Docker Space has to be public to be reachable without a Hugging Face login, and a public Space shows its repository's files, which is the code that goes into the image. That publishes a `Proprietary` codebase. Keeping the code private would mean the image build pulls it from a private GitHub repo using a build secret. This design hasn't tried or costed that.
-- **[Likely] The disk is ephemeral, and the Space sleeps when idle.** A restart or a wake-up therefore deletes every session and upload, and the in-memory access tokens too.
-- **So the backend's restart repair doesn't apply** (its Section 7.5, run 8). It reads turn records from disk, and they're gone. The user sees the gate (the tokens are lost), then `404 session_not_found` and the new-session notice (1.3), not a turn reported as failed. That's honest. It also makes the H1 reset the normal path on this host, which is why the route and e2e tests cover it.
-- **[Possible] The free tier's RAM is generous.** The previous revision said roughly 16 GB, from memory. Unverified.
-- **Use the direct `*.hf.space` URL,** not the embedded Space page. In an iframe, [Likely] third-party-cookie restrictions block the access cookie, and `frame-ancestors 'none'` blocks the frame anyway.
-- **[Possible] SameSite may not protect against other Spaces.** If `hf.space` isn't on the Public Suffix List, other Spaces count as the same site, so SameSite=Strict doesn't stop their requests from carrying the cookie. The backend's `Origin` check doesn't depend on this, which is why it's required.
+**The owner will choose the host from the measurements.** What the choice has to settle:
+- **A paid container host with 1 to 2 GB of RAM** (a small VPS, or a platform that runs a Docker image all the time): the code stays private, there's no cold start, and with a persistent volume the restart repair applies (backend 7.5, run 8). It costs a few dollars a month and needs a card. Prices aren't checked here.
+- **Which memory size.** The measurements say what the image needs at 2 MB; the backend's `WORKBUDDY_MAX_CONCURRENT_TURNS` (default 2) is the knob if the host is small.
+- **Code visibility.** A host that builds from a public repository publishes a `Proprietary` codebase. A private repository or a pushed image avoids that. The owner's decision, precondition 5 in 13.2.
+- **Not suitable:** serverless and scale-to-zero platforms, because of the in-memory state, the single worker and threads that outlive a request; any free web tier that spins down when idle or has too little RAM [Likely, not checked].
 
-**Option B: a small always-on container or VM with 1 to 2 GB RAM** (for example Fly.io, Railway, or a $5 to $10 VPS):
-- The code stays private.
-- There's no cold start.
-- With a persistent volume, the restart repair does apply.
-- It costs a few dollars a month, needs a card, and needs a bit more operations work.
-- [Possible] 1 GB is tight, given the backend's 0.9–1.0 GB estimate for two concurrent turns. 2 GB is the safer size.
-- The prices are from memory and unverified.
-
-**Not recommended:**
-- serverless and scale-to-zero platforms, because of the in-memory state, the single worker and threads that outlive a request;
-- [Likely] Render's free web service, which has too little RAM and spins down when idle.
-
-**Evidence that would change this:**
-- the owner accepting public code (Option A is then the cheapest);
-- a measured RSS for the real pipeline on the chosen host (backend part 2, live run 9 repeated on the host);
-- Groq's limits under real traffic.
+**Evidence that would change this:** Groq's limits under real traffic, and a measurement on the chosen host itself (13.2 item 6).
 
 ### 11.4 Local development
 
@@ -751,9 +731,10 @@ Each PR goes on its own branch from `main`, and only the user merges it.
 - **It merges after** backend PR-3 (plan confirmation, `plan_note`) **and PR-4a** (password, access cookie, CSRF check, rate limiter). The gate needs the access route, and the H2 behaviour only means something against the real buckets. The review said "after PR-3", and Section 15 explains the change.
 
 **FE-2 `feat/frontend-deploy`.**
-- Contents: the Dockerfile, the static mount and caching, the security headers and htmx configuration (with backend PR-4), and deploy notes for the chosen host.
-- It merges with or after backend PR-4.
-- Its review covers the headers and secrets handling. It isn't rule-touching.
+- Contents: the Dockerfile and `.dockerignore`, the static caching, `Referrer-Policy`, the health check, `docs/deploy.md` (every environment variable, the 13.2 checklist, the measurements) and this section's host-neutral 11.3. No host is chosen.
+- It also carries the fixes from the FE-1 review (`docs/reviews/frontend-demo-review.md`) and a fix to the workbook test fixtures, which `docs/reviews/frontend-deploy-impl.md` explains.
+- It merges after backend PR-4, which has merged.
+- Its review covers the headers, the static caching and secrets handling, and, because it carries the FE-1 fixes to the page's script and routes, it went through the review loop.
 
 ### 13.2 Preconditions for the public link (H3, M7)
 
@@ -768,7 +749,7 @@ The demo link goes public only when **all** of these hold:
 4. **PR-B (H3b), an owner decision.** The owner gives an explicit, written go or no-go on going public while PR-B / review M2 is open ("Done —" on a misclassified request, `buddy/outcome.py` `lead_word`). It's recorded in the backend Decisions section.
 
    **Settled (owner, recorded 2026-10-06 with FE-1):** PR-B is merged, so the question of going public while it is open no longer arises, and this item is met.
-5. **Code visibility (M7), an owner decision, not yet made.** The owner decides whether the code may be public, and that decides the host (11.3).
+5. **Code visibility (M7), an owner decision, not yet made.** The owner decides whether the code may be public, which limits the choice of host (11.3).
 6. **Measured on the host.** Backend part 2's live run 9 is repeated on the chosen host. If a two-step chain on 5 MB takes more than 120 s, its 2 MB fallback is applied.
 7. **The proxy setting is tested.** The rate limiter's `WORKBUDDY_TRUSTED_PROXY_HOPS` is tested for the chosen host (review H2).
 
@@ -824,5 +805,5 @@ These aren't in the demo, and are stated here as not done. They're proposed for 
 - **`.xls` in the UI tests,** once backend Decisions item 4's test passes and the owner has decided 13.2 precondition 3.
 - **More e2e cases:** clarification, rate-limit messages and server restart.
 - **Backlog 1a.** The multi-sheet refusal is only a stopgap. Backlog 1a (keep every sheet, or refuse with a reply) is the real fix.
-- **The Hugging Face terms** (11.3) still need verifying.
+- **The Hugging Face terms** (11.3): the owner's report that Docker Spaces need a paid plan hasn't been checked against the page from a session that can reach it.
 - **Logging out,** to end the access cookie before it expires.

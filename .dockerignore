@@ -1,0 +1,20 @@
+# Only what the image copies goes in the build context: backend/, buddy/, core/, skills/ and
+# requirements-runtime.txt (see the Dockerfile). Everything else stays out, and above all
+# anything that could hold a secret or a user's file.
+*
+
+!requirements-runtime.txt
+!backend/
+!buddy/
+!core/
+!skills/
+
+# Inside the copied folders
+**/__pycache__/
+**/*.pyc
+**/.pytest_cache/
+**/.ruff_cache/
+**/.mypy_cache/
+**/.env
+**/.env.*
+backend/openapi.json
