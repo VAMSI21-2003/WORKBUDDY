@@ -1,0 +1,82 @@
+focus     01_dedupe_approve                          DIFFERS
+    statuses:
+      A: ["running", "awaiting_confirmation", "running", "finished"]
+      B: ["awaiting_confirmation", "running", "finished"]
+friend    01_dedupe_approve                          SAME
+template  01_dedupe_approve                          SAME
+focus     02_dedupe_reject                           SAME
+friend    02_dedupe_reject                           SAME
+template  02_dedupe_reject                           SAME
+focus     03_dedupe_timeout                          SAME
+friend    03_dedupe_timeout                          SAME
+template  03_dedupe_timeout                          SAME
+focus     04_empty_approve                           SAME
+friend    04_empty_approve                           SAME
+template  04_empty_approve                           SAME
+focus     05_empty_reject                            SAME
+friend    05_empty_reject                            SAME
+template  05_empty_reject                            SAME
+focus     06_chain_approve                           SAME
+friend    06_chain_approve                           SAME
+template  06_chain_approve                           SAME
+focus     07_chain_reject                            SAME
+friend    07_chain_reject                            SAME
+template  07_chain_reject                            SAME
+focus     08_chain_timeout                           SAME
+friend    08_chain_timeout                           SAME
+template  08_chain_timeout                           DIFFERS
+    statuses:
+      A: ["running", "awaiting_confirmation", "running", "finished"]
+      B: ["running", "awaiting_confirmation", "finished"]
+focus     09_reverse_chain_approve                   SAME
+friend    09_reverse_chain_approve                   SAME
+template  09_reverse_chain_approve                   SAME
+focus     10_three_steps_approve                     SAME
+friend    10_three_steps_approve                     SAME
+template  10_three_steps_approve                     SAME
+focus     11_no_duplicates_approve                   SAME
+friend    11_no_duplicates_approve                   SAME
+template  11_no_duplicates_approve                   SAME
+focus     12_no_duplicates_reject                    SAME
+friend    12_no_duplicates_reject                    SAME
+template  12_no_duplicates_reject                    SAME
+focus     13_greeting_unclear                        SAME
+friend    13_greeting_unclear                        SAME
+template  13_greeting_unclear                        SAME
+focus     14_clarification                           SAME
+friend    14_clarification                           SAME
+template  14_clarification                           SAME
+focus     15_no_file                                 SAME
+friend    15_no_file                                 SAME
+template  15_no_file                                 SAME
+focus     16_misread_as_empty_rows_reject            SAME
+friend    16_misread_as_empty_rows_reject            SAME
+template  16_misread_as_empty_rows_reject            SAME
+focus     17_misread_as_empty_rows_approve           SAME
+friend    17_misread_as_empty_rows_approve           SAME
+template  17_misread_as_empty_rows_approve           SAME
+focus     18_approve_after_deadline_length_wait      SAME
+friend    18_approve_after_deadline_length_wait      SAME
+template  18_approve_after_deadline_length_wait      SAME
+focus     19_unsupported_second_step_approve         SAME
+friend    19_unsupported_second_step_approve         SAME
+template  19_unsupported_second_step_approve         SAME
+focus     20_unsupported_first_step                  SAME
+friend    20_unsupported_first_step                  SAME
+template  20_unsupported_first_step                  SAME
+focus     21_unsupported_middle_step_approve         SAME
+friend    21_unsupported_middle_step_approve         SAME
+template  21_unsupported_middle_step_approve         SAME
+focus     22_analyze_planned_between_writes          SAME
+friend    22_analyze_planned_between_writes          SAME
+template  22_analyze_planned_between_writes          SAME
+focus     23_hostile_name_approve                    SAME
+friend    23_hostile_name_approve                    SAME
+template  23_hostile_name_approve                    SAME
+focus     24_dedupe_answered_reject_after_delay      SAME
+friend    24_dedupe_answered_reject_after_delay      SAME
+template  24_dedupe_answered_reject_after_delay      SAME
+focus     25_two_steps_then_unsupported_approve      SAME
+friend    25_two_steps_then_unsupported_approve      SAME
+template  25_two_steps_then_unsupported_approve      SAME
+# 73 same, 2 differ

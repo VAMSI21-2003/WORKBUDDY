@@ -1,0 +1,37 @@
+{
+ "fixed": true,
+ "outcome": "delivered",
+ "retention_hours_advertised": 24,
+ "sweeps_25h_apart": [
+  {
+   "removed": 1,
+   "failed": 0,
+   "folders": {
+    "uploads": false,
+    "outputs": false,
+    "sessions": false
+   }
+  },
+  {
+   "removed": 0,
+   "failed": 0,
+   "folders": {
+    "uploads": false,
+    "outputs": false,
+    "sessions": false
+   }
+  },
+  {
+   "removed": 0,
+   "failed": 0,
+   "folders": {
+    "uploads": false,
+    "outputs": false,
+    "sessions": false
+   }
+  }
+ ],
+ "upload_still_on_disk": false,
+ "session_after_75h_idle_http": 404,
+ "download_after_75h_idle_http": 404
+}

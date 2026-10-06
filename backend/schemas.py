@@ -73,8 +73,11 @@ class SessionCreated(BaseModel):
     mode: Mode
     created_at: datetime
     limits: Limits
-    retention_hours: int | None = Field(
-        description="Hours an idle session is kept. Always null until a retention sweep exists."
+    retention_hours: int | float | None = Field(
+        description=(
+            "Hours a session may sit idle before the retention sweep deletes it and its files: "
+            "the sweep's own setting. Null only if no sweep runs."
+        )
     )
 
 
@@ -246,4 +249,4 @@ class SessionState(BaseModel):
         description="The plan waiting on the session's unfinished turn, if one is waiting."
     )
     limits: Limits
-    retention_hours: int | None
+    retention_hours: int | float | None

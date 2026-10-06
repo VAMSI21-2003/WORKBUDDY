@@ -23,6 +23,7 @@ from backend.main import create_app
 from backend.settings import Settings
 from backend.uploads import MAX_NAME_CHARS, check_workbook, sanitize_name
 from tests.backend.helpers import (
+    RELAXED_LIMITS,
     new_session,
     rezip,
     sheet_and_chartsheet,
@@ -194,8 +195,16 @@ def test_a_request_without_a_file_part_is_refused(client: TestClient) -> None:
 
 def test_an_upload_of_exactly_the_cap_is_accepted_and_one_byte_more_is_413(tmp_path: Path) -> None:
     data = xlsx_bytes()
-    at_cap = _client(Settings(data_dir=tmp_path / "a", max_upload_bytes=len(data)))
-    under_cap = _client(Settings(data_dir=tmp_path / "b", max_upload_bytes=len(data) - 1))
+    at_cap = _client(Settings(
+        data_dir=tmp_path / "a",
+        max_upload_bytes=len(data),
+        rate_limits=RELAXED_LIMITS,
+    ))
+    under_cap = _client(Settings(
+        data_dir=tmp_path / "b",
+        max_upload_bytes=len(data) - 1,
+        rate_limits=RELAXED_LIMITS,
+    ))
 
     assert upload(at_cap, new_session(at_cap), data).status_code == 201
     refused = upload(under_cap, new_session(under_cap), data)
@@ -241,7 +250,11 @@ def _multipart(payload_size: int) -> tuple[str, Iterator[bytes]]:
 def test_a_body_over_the_cap_without_content_length_is_cut_off(
     tmp_path: Path, temp_dir: Path
 ) -> None:
-    settings = Settings(data_dir=tmp_path / "data", max_upload_bytes=1024 * 1024)
+    settings = Settings(
+        data_dir=tmp_path / "data",
+        max_upload_bytes=1024 * 1024,
+        rate_limits=RELAXED_LIMITS,
+    )
     client = _client(settings)
     content_type, body = _multipart(settings.max_body_bytes + 512 * 1024)
 
@@ -260,7 +273,11 @@ def test_a_body_over_the_cap_without_content_length_is_cut_off(
 def test_a_body_over_the_cap_with_a_false_content_length_is_cut_off(
     tmp_path: Path, temp_dir: Path
 ) -> None:
-    settings = Settings(data_dir=tmp_path / "data", max_upload_bytes=1024 * 1024)
+    settings = Settings(
+        data_dir=tmp_path / "data",
+        max_upload_bytes=1024 * 1024,
+        rate_limits=RELAXED_LIMITS,
+    )
     client = _client(settings)
     content_type, body = _multipart(settings.max_body_bytes + 512 * 1024)
 

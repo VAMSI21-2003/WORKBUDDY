@@ -10,8 +10,9 @@ from __future__ import annotations
 import logging
 import os
 from collections.abc import Mapping
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from pathlib import Path
+from urllib.parse import urlsplit
 
 MIB = 1024 * 1024
 
@@ -34,6 +35,23 @@ ACCEPTED_EXTENSIONS: tuple[str, ...] = (".xlsx",)
 
 # The longest a plan may wait for its answer: an hour.
 MAX_CONFIRMATION_TIMEOUT_S = 3600
+# The longest a turn may work before its deadline: an hour. A larger value
+# overflows ``threading.Timer``, whose thread then dies and leaves the turn
+# with no deadline at all (PR-3 review, R2-L5).
+MAX_TURN_DEADLINE_S = 3600
+
+# ``WORKBUDDY_ENV``: "production" (binds 0.0.0.0, needs an https public
+# origin), "dev" (may run with no password), or unset ("", binds 127.0.0.1
+# and still needs a password).
+ENV_DEV = "dev"
+ENV_PRODUCTION = "production"
+ENV_UNSET = ""
+_ENVS = (ENV_DEV, ENV_PRODUCTION, ENV_UNSET)
+# Where a non-production server is expected to be reached (design "Decisions
+# (2026-10-01)", item 2).
+DEV_PUBLIC_ORIGIN = "http://127.0.0.1:8000"
+LOOPBACK_HOST = "127.0.0.1"
+ALL_INTERFACES_HOST = "0.0.0.0"  # only ever bound in production
 
 # Read by PR-2 only. Since PR-3 every file-changing step asks the user, and
 # approving without asking is a test setting that no variable turns on.
@@ -44,6 +62,36 @@ logger = logging.getLogger(__name__)
 
 class SettingsError(ValueError):
     """A setting is missing or invalid. The app refuses to start."""
+
+
+@dataclass(frozen=True)
+class BucketSpec:
+    """One per-IP token bucket: its burst, and how fast it refills (tokens per hour)."""
+
+    burst: int
+    per_hour: float
+
+    @property
+    def refill_per_s(self) -> float:
+        return self.per_hour / 3600.0
+
+
+# Design "Decisions (2026-09-30, part 2)", item 1, and "Decisions
+# (2026-10-01)", item 3. ``general``: 60/min; ``poll``: 3/s; ``turns``:
+# 10/hour; ``uploads`` and ``access``: 20/hour; ``healthz`` and ``page``: 1/s.
+DEFAULT_RATE_LIMITS: dict[str, BucketSpec] = {
+    "general": BucketSpec(burst=60, per_hour=3600),
+    "poll": BucketSpec(burst=30, per_hour=10800),
+    "turns": BucketSpec(burst=10, per_hour=10),
+    "uploads": BucketSpec(burst=5, per_hour=20),
+    "access": BucketSpec(burst=10, per_hour=20),
+    "healthz": BucketSpec(burst=10, per_hour=3600),
+    "page": BucketSpec(burst=30, per_hour=3600),
+}
+
+
+def default_rate_limits() -> dict[str, BucketSpec]:
+    return dict(DEFAULT_RATE_LIMITS)
 
 
 @dataclass(frozen=True)
@@ -71,6 +119,36 @@ class Settings:
             without asking. Off by default, and never read from the
             environment, so a server always asks the user (design Section
             8.3, PR-3). Only tests that aren't about confirmation turn it on.
+        env: ``"production"``, ``"dev"`` or ``""`` (``WORKBUDDY_ENV``). The
+            default here is ``"dev"``, which is what code that builds a
+            ``Settings`` itself (the tests) gets; ``from_env`` defaults to
+            ``""``, so a deployment that sets nothing needs a password.
+        demo_password: The shared demo password. Required unless ``env`` is
+            ``"dev"``; with none, every route is open (dev only). Never
+            shown in ``repr``, logged, echoed or returned.
+        public_origin: The one origin the demo page is served from
+            (``WORKBUDDY_PUBLIC_ORIGIN``), normalized (lower case, no
+            default port). Required, and ``https://``, in production;
+            ``http://127.0.0.1:8000`` elsewhere when not given.
+        access_ttl_hours: How long an access cookie's token is valid, from
+            issue; not renewed by use.
+        access_max_tokens: The most live access tokens held at once.
+        trusted_proxy_hops: How many reverse proxies stand in front of the
+            app (``WORKBUDDY_TRUSTED_PROXY_HOPS``). ``0``: the client IP is
+            the socket's, and ``X-Forwarded-For`` is ignored.
+        cors_origins: Exact origins allowed to call the API cross-origin.
+            Empty (the same-origin deployment) sends no CORS headers.
+        rate_limits: Every per-IP token bucket's burst and refill.
+        session_ttl_hours: A session idle for longer is removed by the
+            retention sweep, and this is the ``retention_hours`` the session
+            response advertises (the same value).
+        sweep_interval_s: Seconds between sweeps.
+        max_uploads_per_session: Uploads one session may hold.
+        max_session_upload_bytes: Bytes of uploads one session may hold.
+        max_turns_per_session: Turns one session may run.
+        max_total_bytes: A cap on the bytes under the data root. At or over
+            it, a new session or upload gets ``503 storage_full``; the sweep
+            never deletes a live session to make room.
     """
 
     data_dir: Path
@@ -83,6 +161,20 @@ class Settings:
     max_concurrent_turns: int = 2
     busy_retry_after_s: int = 10
     auto_approve: bool = False
+    env: str = ENV_DEV
+    demo_password: str | None = field(default=None, repr=False)
+    public_origin: str = ""
+    access_ttl_hours: float = 12.0
+    access_max_tokens: int = 10_000
+    trusted_proxy_hops: int = 0
+    cors_origins: tuple[str, ...] = ()
+    rate_limits: dict[str, BucketSpec] = field(default_factory=default_rate_limits, compare=False)
+    session_ttl_hours: float = 24.0
+    sweep_interval_s: float = 300.0
+    max_uploads_per_session: int = 20
+    max_session_upload_bytes: int = 100 * MIB
+    max_turns_per_session: int = 50
+    max_total_bytes: int = 2 * 1024 * MIB
 
     def __post_init__(self) -> None:
         object.__setattr__(self, "data_dir", Path(self.data_dir).expanduser().resolve())
@@ -93,19 +185,95 @@ class Settings:
             "max_zip_uncompressed_bytes",
             "max_concurrent_turns",
             "busy_retry_after_s",
+            "access_max_tokens",
+            "max_uploads_per_session",
+            "max_session_upload_bytes",
+            "max_turns_per_session",
+            "max_total_bytes",
         ):
             value = getattr(self, name)
             if isinstance(value, bool) or not isinstance(value, int) or value < 1:
                 raise SettingsError(f"{name} must be a positive integer")
-        for name in ("turn_deadline_s", "confirmation_timeout_s"):
+        for name in (
+            "turn_deadline_s",
+            "confirmation_timeout_s",
+            "access_ttl_hours",
+            "session_ttl_hours",
+            "sweep_interval_s",
+        ):
             if not getattr(self, name) > 0:
                 raise SettingsError(f"{name} must be positive")
+        if self.turn_deadline_s > MAX_TURN_DEADLINE_S:
+            raise SettingsError(f"turn_deadline_s must be at most {MAX_TURN_DEADLINE_S}")
         if self.confirmation_timeout_s > MAX_CONFIRMATION_TIMEOUT_S:
             # Far beyond any wait a person makes, and it keeps the wait inside
             # what a thread can wait for (review round 1, L7).
             raise SettingsError(
                 f"confirmation_timeout_s must be at most {MAX_CONFIRMATION_TIMEOUT_S}"
             )
+        self._check_access()
+        self._check_rate_limits()
+
+    def _check_access(self) -> None:
+        """The startup checks (design "Decisions (2026-09-30)" item 1, "(2026-10-01)" item 2)."""
+        if self.env not in _ENVS:
+            raise SettingsError('env must be "production", "dev" or unset')
+        if self.demo_password is not None and not self.demo_password:
+            raise SettingsError("demo_password must not be empty")
+        if self.demo_password is None and self.env != ENV_DEV:
+            # A deployment can't silently be open.
+            raise SettingsError(
+                "WORKBUDDY_DEMO_PASSWORD is not set; set it, or set WORKBUDDY_ENV=dev"
+            )
+        origin = self.public_origin
+        if not origin:
+            if self.env == ENV_PRODUCTION:
+                raise SettingsError("WORKBUDDY_PUBLIC_ORIGIN is required in production")
+            origin = DEV_PUBLIC_ORIGIN
+        origin = normalize_origin(origin, "public_origin")
+        if self.env == ENV_PRODUCTION and not origin.startswith("https://"):
+            raise SettingsError("public_origin must be an https:// origin in production")
+        object.__setattr__(self, "public_origin", origin)
+        if (
+            isinstance(self.trusted_proxy_hops, bool)
+            or not isinstance(self.trusted_proxy_hops, int)
+            or self.trusted_proxy_hops < 0
+        ):
+            raise SettingsError("trusted_proxy_hops must be a non-negative integer")
+        origins = tuple(normalize_origin(o, "cors_origins") for o in self.cors_origins)
+        object.__setattr__(self, "cors_origins", origins)
+
+    def _check_rate_limits(self) -> None:
+        if set(self.rate_limits) != set(DEFAULT_RATE_LIMITS):
+            raise SettingsError("rate_limits must define exactly the buckets " + ", ".join(
+                sorted(DEFAULT_RATE_LIMITS)
+            ))
+        for name, spec in self.rate_limits.items():
+            if (
+                isinstance(spec.burst, bool)
+                or not isinstance(spec.burst, int)
+                or spec.burst < 1
+                or not spec.per_hour > 0
+            ):
+                raise SettingsError(f"rate limit {name!r} needs a burst of at least 1 and a refill")
+        # Raising the concurrent-turn cap without raising the poll allowance
+        # would bring back the conflict part 2 resolved (item 1).
+        if self.rate_limits["poll"].refill_per_s < self.max_concurrent_turns:
+            raise SettingsError(
+                "the poll bucket must refill at least as fast (per second) as "
+                "max_concurrent_turns"
+            )
+
+    @property
+    def bind_host(self) -> str:
+        """Where the server binds: every interface in production, else loopback only."""
+        return ALL_INTERFACES_HOST if self.env == ENV_PRODUCTION else LOOPBACK_HOST
+
+    @property
+    def retention_hours(self) -> int | float:
+        """What the session response advertises: the sweep's own TTL, as a whole number if it is."""
+        ttl = self.session_ttl_hours
+        return int(ttl) if float(ttl).is_integer() else float(ttl)
 
     @property
     def accepted_extensions(self) -> tuple[str, ...]:
@@ -142,6 +310,14 @@ class Settings:
                 "%s is no longer read: every file-changing step asks for confirmation",
                 RETIRED_AUTO_APPROVE_VARIABLE,
             )
+        rate_limits = {
+            bucket: BucketSpec(
+                burst=_int(env, f"WORKBUDDY_RATE_{bucket.upper()}_BURST", spec.burst),
+                per_hour=_number(env, f"WORKBUDDY_RATE_{bucket.upper()}_PER_HOUR", spec.per_hour),
+            )
+            for bucket, spec in DEFAULT_RATE_LIMITS.items()
+        }
+        defaults = cls.__dataclass_fields__
         return cls(
             data_dir=Path(env.get("WORKBUDDY_DATA_DIR") or _REPO_ROOT / "workspace"),
             max_upload_bytes=_int(env, "WORKBUDDY_MAX_UPLOAD_BYTES", DEFAULT_MAX_UPLOAD_BYTES),
@@ -149,7 +325,76 @@ class Settings:
             confirmation_timeout_s=float(_int(env, "WORKBUDDY_CONFIRMATION_TIMEOUT_S", 120)),
             max_concurrent_turns=_int(env, "WORKBUDDY_MAX_CONCURRENT_TURNS", 2),
             busy_retry_after_s=_int(env, "WORKBUDDY_BUSY_RETRY_AFTER_S", 10),
+            env=env.get("WORKBUDDY_ENV", ENV_UNSET),
+            demo_password=env.get("WORKBUDDY_DEMO_PASSWORD") or None,
+            public_origin=env.get("WORKBUDDY_PUBLIC_ORIGIN", ""),
+            access_ttl_hours=_number(
+                env, "WORKBUDDY_ACCESS_TTL_HOURS", defaults["access_ttl_hours"].default
+            ),
+            access_max_tokens=_int(
+                env, "WORKBUDDY_ACCESS_MAX_TOKENS", defaults["access_max_tokens"].default
+            ),
+            trusted_proxy_hops=_int(env, "WORKBUDDY_TRUSTED_PROXY_HOPS", 0),
+            cors_origins=tuple(
+                o.strip() for o in env.get("WORKBUDDY_CORS_ORIGINS", "").split(",") if o.strip()
+            ),
+            rate_limits=rate_limits,
+            session_ttl_hours=_number(
+                env, "WORKBUDDY_SESSION_TTL_HOURS", defaults["session_ttl_hours"].default
+            ),
+            sweep_interval_s=_number(
+                env, "WORKBUDDY_SWEEP_INTERVAL_S", defaults["sweep_interval_s"].default
+            ),
+            max_uploads_per_session=_int(
+                env,
+                "WORKBUDDY_MAX_UPLOADS_PER_SESSION",
+                defaults["max_uploads_per_session"].default,
+            ),
+            max_session_upload_bytes=_int(
+                env,
+                "WORKBUDDY_MAX_SESSION_UPLOAD_BYTES",
+                defaults["max_session_upload_bytes"].default,
+            ),
+            max_turns_per_session=_int(
+                env, "WORKBUDDY_MAX_TURNS_PER_SESSION", defaults["max_turns_per_session"].default
+            ),
+            max_total_bytes=_int(
+                env, "WORKBUDDY_MAX_TOTAL_BYTES", defaults["max_total_bytes"].default
+            ),
         )
+
+
+def normalize_origin(value: str, name: str) -> str:
+    """``value`` as a lower-case ``scheme://host[:port]`` origin, without a default port.
+
+    Raises:
+        SettingsError: It isn't an origin: another scheme, no host, or a
+            path, query, fragment or credentials (so ``*`` is refused too).
+    """
+    try:
+        parts = urlsplit(value.strip())
+        host = parts.hostname
+        port = parts.port
+    except ValueError:
+        raise SettingsError(f"{name} must be an origin such as https://demo.example") from None
+    if (
+        parts.scheme.lower() not in ("http", "https")
+        or not host
+        or parts.path
+        or parts.query
+        or parts.fragment
+        or parts.username is not None
+        or parts.password is not None
+        or value.strip().endswith(("/", "?", "#"))
+    ):
+        raise SettingsError(f"{name} must be an origin such as https://demo.example")
+    scheme = parts.scheme.lower()
+    host = host.lower()
+    if ":" in host:
+        host = f"[{host}]"
+    default_port = 443 if scheme == "https" else 80
+    suffix = f":{port}" if port is not None and port != default_port else ""
+    return f"{scheme}://{host}{suffix}"
 
 
 def _int(env: Mapping[str, str], name: str, default: int) -> int:
@@ -160,3 +405,16 @@ def _int(env: Mapping[str, str], name: str, default: int) -> int:
         return int(raw)
     except ValueError:
         raise SettingsError(f"{name} must be an integer") from None
+
+
+def _number(env: Mapping[str, str], name: str, default: float) -> float:
+    raw = env.get(name)
+    if raw is None or raw == "":
+        return default
+    try:
+        value = float(raw)
+    except ValueError:
+        raise SettingsError(f"{name} must be a number") from None
+    if value != value or value in (float("inf"), float("-inf")):
+        raise SettingsError(f"{name} must be a finite number")
+    return value

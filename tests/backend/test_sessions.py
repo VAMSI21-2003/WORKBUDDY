@@ -17,7 +17,7 @@ def client(settings: Settings) -> TestClient:
     return TestClient(create_app(settings, lambda provider: None))  # type: ignore[arg-type,return-value]
 
 
-def test_create_session_returns_201_with_limits_and_no_retention(
+def test_create_session_returns_201_with_limits_and_the_retention_period(
     client: TestClient, settings: Settings
 ) -> None:
     response = client.post("/api/v1/sessions", json={"mode": "focus"})
@@ -32,7 +32,8 @@ def test_create_session_returns_201_with_limits_and_no_retention(
         "accepted_extensions": [".xlsx"],
         "max_message_chars": settings.max_message_chars,
     }
-    assert body["retention_hours"] is None
+    # PR-4: the sweep exists, so the period it enforces is advertised.
+    assert body["retention_hours"] == settings.session_ttl_hours == 24
 
 
 def test_create_session_without_a_body_defaults_to_friend(client: TestClient) -> None:
@@ -64,7 +65,9 @@ def test_limits_follow_the_settings_object(tmp_path) -> None:  # type: ignore[no
         assert body["limits"]["accepted_extensions"] == list(custom.accepted_extensions)
 
 
-def test_get_session_returns_the_whole_empty_session(client: TestClient) -> None:
+def test_get_session_returns_the_whole_empty_session(
+    client: TestClient, settings: Settings
+) -> None:
     session_id = client.post("/api/v1/sessions", json={"mode": "focus"}).json()["session_id"]
 
     response = client.get(f"/api/v1/sessions/{session_id}")
@@ -80,7 +83,7 @@ def test_get_session_returns_the_whole_empty_session(client: TestClient) -> None
         "turns": [],
         "pending_confirmation": None,
         "limits": body["limits"],
-        "retention_hours": None,
+        "retention_hours": settings.session_ttl_hours,
     }
 
 

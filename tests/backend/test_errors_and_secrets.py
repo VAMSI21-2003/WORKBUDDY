@@ -18,7 +18,14 @@ from backend.main import create_app
 from backend.settings import Settings
 from buddy.voice_catalog import FALLBACK_PIPELINE_ERROR
 from tests.backend.factories import BlockingFactory, PipelineFactory, QueuedProvider, single
-from tests.backend.helpers import new_session, start_turn, upload, wait_finished, xlsx_bytes
+from tests.backend.helpers import (
+    RELAXED_LIMITS,
+    new_session,
+    start_turn,
+    upload,
+    wait_finished,
+    xlsx_bytes,
+)
 
 GROQ_PLACEHOLDER = "gsk_placeholderTESTONLY0000"
 ANTHROPIC_PLACEHOLDER = "sk-ant-placeholder-TESTONLY-0000"
@@ -129,7 +136,10 @@ def test_no_key_appears_in_any_response_or_log_on_any_path(
     def leaky_factory(confirmation_provider: Any) -> Any:
         raise RuntimeError(f"provider refused key {GROQ_PLACEHOLDER} / {ANTHROPIC_PLACEHOLDER}")
 
-    failing = TestClient(create_app(Settings(data_dir=settings.data_dir / "b"), leaky_factory))
+    failing = TestClient(create_app(Settings(
+        data_dir=settings.data_dir / "b",
+        rate_limits=RELAXED_LIMITS,
+    ), leaky_factory))
     session_id = new_session(failing)
     upload(failing, session_id, xlsx_bytes())
     turn_id = start_turn(failing, session_id, "remove duplicate rows").json()["turn_id"]

@@ -25,6 +25,10 @@ _PATTERNS = (
     (re.compile(r"sk-ant-[A-Za-z0-9_\-]+"), REDACTED),
     (re.compile(r"(?i)\bBearer\s+[^\s'\",;]+"), REDACTED),
     (re.compile(r"(?i)\bapi[_-]?key\s*[=:]\s*['\"]?[^\s'\",;]+"), REDACTED),
+    # The access cookie, in a Cookie or Set-Cookie header (the API logs neither;
+    # this is defence in depth), and the demo password in a form or a query.
+    (re.compile(r"(?i)__Host-wb_access\s*=\s*[^\s'\",;]+"), REDACTED),
+    (re.compile(r"(?i)\bpassword\s*[=:]\s*['\"]?[^\s'\",;&]+"), REDACTED),
     (re.compile(r"(/sessions/)[A-Za-z0-9_\-%.]+"), r"\1" + REDACTED),
 )
 

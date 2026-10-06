@@ -44,6 +44,7 @@ from tests.backend.factories import (
 )
 from tests.backend.helpers import (
     NO_DUPLICATE_ROWS,
+    RELAXED_LIMITS,
     new_session,
     start_turn,
     upload,
@@ -229,7 +230,11 @@ def test_each_turn_gets_its_own_provider_and_auto_approve_is_only_a_test_setting
     tmp_path: Path,
 ) -> None:
     for auto_approve in (False, True):
-        settings = Settings(data_dir=tmp_path / str(auto_approve), auto_approve=auto_approve)
+        settings = Settings(
+            data_dir=tmp_path / str(auto_approve),
+            auto_approve=auto_approve,
+            rate_limits=RELAXED_LIMITS,
+        )
         factory = PipelineFactory(QueuedProvider(_unclear() + _unclear()))
         client = _app(settings, factory)
         session_id, _ = _session_with_upload(client)
@@ -434,7 +439,12 @@ def test_a_base_exception_in_a_stage_still_finishes_the_turn(settings: Settings)
 
 
 def test_the_deadline_fails_the_turn_and_a_late_worker_changes_nothing(tmp_path: Path) -> None:
-    settings = Settings(data_dir=tmp_path / "data", turn_deadline_s=0.3, auto_approve=True)
+    settings = Settings(
+        data_dir=tmp_path / "data",
+        turn_deadline_s=0.3,
+        auto_approve=True,
+        rate_limits=RELAXED_LIMITS,
+    )
     factory = BlockingFactory(reply="Done — removed 2 duplicate row(s).")
     client = _app(settings, factory)
     session_id, _ = _session_with_upload(client)
@@ -555,7 +565,9 @@ def test_rule_1_holds_in_every_scenario(
     # Only the scenario that leaves its plan unanswered gets a short window.
     timed_out = "decision" in options and options["decision"] is None
     settings = Settings(
-        data_dir=tmp_path / "data", confirmation_timeout_s=0.3 if timed_out else 120.0
+        data_dir=tmp_path / "data",
+        confirmation_timeout_s=0.3 if timed_out else 120.0,
+        rate_limits=RELAXED_LIMITS,
     )
     wrap = raise_in(options["raise"], after=True) if "raise" in options else None
     factory = PipelineFactory(QueuedProvider(replies), speaker=speaker, wrap=wrap)
@@ -624,7 +636,11 @@ def test_a_second_turn_or_an_upload_during_a_turn_is_409_and_creates_nothing(
 
 def test_the_global_cap_refuses_with_429_and_retry_after(tmp_path: Path) -> None:
     settings = Settings(
-        data_dir=tmp_path / "data", max_concurrent_turns=2, busy_retry_after_s=7, auto_approve=True
+        data_dir=tmp_path / "data",
+        max_concurrent_turns=2,
+        busy_retry_after_s=7,
+        auto_approve=True,
+        rate_limits=RELAXED_LIMITS,
     )
     factory = BlockingFactory()
     client = _app(settings, factory)
@@ -824,7 +840,7 @@ def test_a_turn_where_nothing_ran_says_so_plainly(
         replies = single("remove_duplicate_rows")
     else:  # a first turn, then the message
         replies = single("remove_duplicate_rows") + _unclear()
-    settings = Settings(data_dir=tmp_path / "data")
+    settings = Settings(data_dir=tmp_path / "data", rate_limits=RELAXED_LIMITS)
     factory = PipelineFactory(QueuedProvider(replies), speaker=speaker)
     client = _app(settings, factory)
     mode = "focus" if speaker == "focus" else "friend"
@@ -910,7 +926,12 @@ def test_a_verified_delivery_the_api_cant_hand_back_gets_the_fallback(
 
 def test_the_worker_and_the_deadline_racing_finish_the_turn_once(tmp_path: Path) -> None:
     """Review L3: both get past the first check; only one may publish."""
-    settings = Settings(data_dir=tmp_path / "data", turn_deadline_s=0.2, auto_approve=True)
+    settings = Settings(
+        data_dir=tmp_path / "data",
+        turn_deadline_s=0.2,
+        auto_approve=True,
+        rate_limits=RELAXED_LIMITS,
+    )
     factory = BlockingFactory(reply="Hello.")
     client = _app(settings, factory)
     session_id, _ = _session_with_upload(client)

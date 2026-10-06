@@ -37,11 +37,6 @@ from backend.sessions import (
 )
 from backend.settings import Settings
 
-# Until the retention sweep exists (PR-4), nothing is deleted, so no
-# retention period may be advertised (design "Decisions (2026-09-30, part
-# 2)", ask 2).
-RETENTION_HOURS: int | None = None
-
 
 def limits(settings: Settings) -> Limits:
     return Limits(
@@ -57,7 +52,7 @@ def session_created(session_id: str, record: SessionRecord, settings: Settings) 
         mode=record.mode,  # type: ignore[arg-type]
         created_at=record.created_at,
         limits=limits(settings),
-        retention_hours=RETENTION_HOURS,
+        retention_hours=settings.retention_hours,
     )
 
 
@@ -72,7 +67,7 @@ def session_state(session_id: str, record: SessionRecord, settings: Settings) ->
         turns=[turn_summary(session_id, t) for t in record.turns],
         pending_confirmation=_waiting_plan(running) if running is not None else None,
         limits=limits(settings),
-        retention_hours=RETENTION_HOURS,
+        retention_hours=settings.retention_hours,
     )
 
 

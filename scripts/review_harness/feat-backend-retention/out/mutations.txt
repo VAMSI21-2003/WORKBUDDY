@@ -1,0 +1,46 @@
+gate_no_401                        KILLED  tests/backend/test_access.py::test_the_origin_check_runs_before_the_body_is_read
+dependency_no_401                  SURVIVED
+wrong_credential_costs_1           KILLED  tests/backend/test_ratelimit.py::test_the_charging_rules_in_one_table
+poll_non200_free                   KILLED  tests/backend/test_ratelimit.py::test_the_charging_rules_in_one_table
+access_401_no_post_charge          KILLED  tests/backend/test_ratelimit.py::test_the_charging_rules_in_one_table
+refusal_still_allowed              KILLED  tests/backend/test_access.py::test_neither_the_password_nor_a_token_reaches_a_response_body_or_a_log
+refusal_charges                    KILLED  tests/backend/test_ratelimit.py::test_a_refusal_takes_nothing_from_any_bucket_and_waits_for_the_slowest
+retry_after_plus_one               KILLED  tests/backend/test_ratelimit.py::test_a_refusal_takes_nothing_from_any_bucket_and_waits_for_the_slowest
+xff_leftmost                       KILLED  tests/backend/test_ratelimit.py::test_a_caller_cannot_choose_its_own_bucket_behind_a_trusted_proxy
+xff_ignore_hops_zero               KILLED  tests/backend/test_access.py::test_every_api_route_refuses_a_request_without_a_credential
+origin_two_headers_ok              KILLED  tests/backend/test_access.py::test_two_origin_headers_are_refused
+origin_no_lower                    KILLED  tests/backend/test_access.py::test_the_origin_matches_after_lower_casing[HTTPS://Demo.Example]
+origin_never_needed                KILLED  tests/backend/test_access.py::test_a_post_with_a_missing_or_foreign_origin_is_403_and_the_handler_does_not_run[None]
+gate_access_origin_off             SURVIVED
+access_handler_origin_off          SURVIVED
+bearer_falls_back_to_cookie        KILLED  tests/backend/test_access.py::test_every_failure_is_the_same_401_so_nobody_learns_why
+token_never_expires                KILLED  tests/backend/test_access.py::test_every_failure_is_the_same_401_so_nobody_learns_why
+token_store_unbounded              KILLED  tests/backend/test_access.py::test_the_store_is_bounded_and_evicts_the_token_closest_to_expiry
+claim_busy_ignored                 KILLED  tests/backend/test_retention.py::test_a_session_with_a_running_turn_is_never_touched
+claim_idle_ignored                 KILLED  tests/backend/test_retention.py::test_a_session_idle_past_the_ttl_is_gone_with_every_file_and_a_fresh_one_stays
+claim_unloaded_live_ok             KILLED  tests/backend/test_retention.py::test_a_session_idle_past_the_ttl_is_gone_with_every_file_and_a_fresh_one_stays
+deleting_still_served              KILLED  tests/backend/test_retention.py::test_the_sweep_takes_the_session_out_of_service_before_deleting
+touch_never_persisted              KILLED  tests/backend/test_retention.py::test_a_use_is_written_to_disk_so_a_restart_does_not_sweep_a_session_that_was_just_read
+touch_not_on_get                   KILLED  tests/backend/test_retention.py::test_using_a_session_counts_as_activity_even_by_a_poll
+symlink_followed                   KILLED  tests/backend/test_retention.py::test_a_symlinked_session_folder_is_unlinked_not_followed
+key_check_off                      SURVIVED
+no_chmod                           KILLED  tests/backend/test_retention.py::test_a_process_that_is_not_root_can_delete_read_only_uploads
+records_first                      KILLED  tests/backend/test_retention.py::test_a_failed_removal_is_reported_leaves_the_record_and_is_retried
+upload_count_quota_off_by_one      KILLED  tests/backend/test_retention.py::test_a_session_may_hold_only_so_many_uploads_and_a_refused_one_stores_nothing
+upload_bytes_quota_off_by_one      SURVIVED
+turn_quota_off_by_one              KILLED  tests/backend/test_retention.py::test_a_session_may_run_only_so_many_turns_and_a_refused_one_creates_nothing
+upload_no_storage_cap              KILLED  tests/backend/test_retention.py::test_at_the_cap_a_new_session_and_an_upload_get_503_and_the_sweep_frees_room
+open_without_dev                   KILLED  tests/backend/test_access.py::test_a_server_with_no_password_refuses_to_start_unless_it_says_dev
+http_origin_in_production          KILLED  tests/backend/test_access.py::test_production_needs_an_https_public_origin[overrides1-https://]
+poll_refill_check_off              KILLED  tests/backend/test_ratelimit.py::test_9_the_app_refuses_to_start_if_poll_refills_slower_than_the_turn_cap
+r2_l1_reverted                     KILLED  tests/backend/test_confirmation_provider.py::test_the_step_just_approved_does_not_start_if_the_provider_closes_first
+no_frame_ancestors                 KILLED  tests/backend/test_retention.py::test_hsts_is_sent_in_production_only_and_clickjacking_protection_always
+hsts_always                        KILLED  tests/backend/test_retention.py::test_hsts_is_sent_in_production_only_and_clickjacking_protection_always
+public_bind_anywhere               KILLED  tests/backend/test_retention.py::test_a_public_address_is_refused_outside_production_and_loopback_is_always_fine
+undeclared_route_ok                KILLED  tests/backend/test_ratelimit.py::test_every_route_declares_its_buckets_and_the_app_refuses_one_that_does_not
+no_require_access_ok               KILLED  tests/backend/test_ratelimit.py::test_the_declarations_are_checked_against_the_route
+cookie_not_redacted                KILLED  tests/backend/test_access.py::test_the_log_filter_redacts_the_cookie_the_bearer_and_a_password[Cookie:
+retention_hours_null               KILLED  tests/backend/test_retention.py::test_the_advertised_retention_is_the_period_the_sweep_enforces
+sweep_skips_disk_only              KILLED  tests/backend/test_retention.py::test_a_session_on_disk_only_is_swept_by_the_age_of_its_record
+loop_dies_on_error                 KILLED  tests/backend/test_retention.py::test_the_background_loop_sweeps_on_its_own_and_survives_a_failed_pass
+deadline_cap_off                   KILLED  tests/backend/test_app_basics.py::test_an_invalid_setting_refuses_to_start[WORKBUDDY_TURN_DEADLINE_S-3601]

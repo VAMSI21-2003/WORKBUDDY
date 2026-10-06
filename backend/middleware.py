@@ -22,10 +22,17 @@ _UPLOAD_PATH = re.compile(r"^/api/v1/sessions/[^/]+/files/?$")
 
 
 class SecurityHeadersMiddleware:
-    """Adds ``nosniff`` and ``no-store`` to every response (design Section 6.1)."""
+    """Adds ``nosniff`` and ``no-store`` to every response (design Section 6.1).
 
-    def __init__(self, app: ASGIApp) -> None:
+    Also ``frame-ancestors 'none'`` (clickjacking: design "Decisions
+    (2026-10-01)", item 2.4), set only if the response carries no
+    ``Content-Security-Policy`` of its own, so the frontend's full policy
+    replaces it; and, in production, HSTS.
+    """
+
+    def __init__(self, app: ASGIApp, *, hsts: bool = False) -> None:
         self.app = app
+        self.hsts = hsts
 
     async def __call__(self, scope: Scope, receive: Receive, send: Send) -> None:
         if scope["type"] != "http":
@@ -37,6 +44,10 @@ class SecurityHeadersMiddleware:
                 headers = MutableHeaders(scope=message)
                 headers["X-Content-Type-Options"] = "nosniff"
                 headers["Cache-Control"] = "no-store"
+                if "content-security-policy" not in headers:
+                    headers["Content-Security-Policy"] = "frame-ancestors 'none'"
+                if self.hsts:
+                    headers["Strict-Transport-Security"] = "max-age=31536000"
             await send(message)
 
         await self.app(scope, receive, send_with_headers)

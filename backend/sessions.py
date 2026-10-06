@@ -22,6 +22,8 @@ import logging
 import re
 import secrets
 import threading
+import time
+from collections.abc import Callable
 from dataclasses import dataclass, field
 from datetime import UTC, datetime
 from pathlib import Path
@@ -34,6 +36,8 @@ from buddy.state import BuddyState
 logger = logging.getLogger(__name__)
 
 ID_PATTERN = re.compile(r"^[A-Za-z0-9_-]{1,64}$")
+# How often a session's use is written to disk (see ``SessionRegistry._touch``).
+PERSIST_TOUCH_S = 60.0
 
 RUNNING = "running"
 AWAITING_CONFIRMATION = "awaiting_confirmation"
@@ -137,6 +141,11 @@ class SessionRecord:
     next_seq: int = 1
     running_turn_id: str | None = None
     lock: threading.RLock = field(default_factory=threading.RLock, repr=False, compare=False)
+    # Epoch seconds of the last request that used the session, and the last
+    # time that was written to disk (retention: a session idle for longer
+    # than the TTL is swept).
+    last_active: float = field(default_factory=time.time)
+    last_persisted: float = 0.0
 
     @property
     def busy(self) -> bool:
@@ -171,10 +180,18 @@ class SessionRecord:
 class SessionRegistry:
     """Every live session, by key. Sessions missing from memory are restored from disk."""
 
-    def __init__(self, settings: Settings, store: Any = None) -> None:
+    def __init__(
+        self,
+        settings: Settings,
+        store: Any = None,
+        clock: Callable[[], float] = time.time,
+    ) -> None:
         self._settings = settings
         self._store = store
+        self._clock = clock
         self._sessions: dict[str, SessionRecord] = {}
+        # Keys the retention sweep is deleting: not served, not restored.
+        self._deleting: set[str] = set()
         self._lock = threading.Lock()
 
     def create(self, mode: str) -> tuple[str, SessionRecord]:
@@ -183,7 +200,14 @@ class SessionRegistry:
         key = session_key(session_id)
         state = BuddyState.new(session_id=key, workspace_id=key)
         state.context.set_mode(mode)
-        record = SessionRecord(key=key, created_at=state.context.created_at, state=state)
+        now = self._clock()
+        record = SessionRecord(
+            key=key,
+            created_at=state.context.created_at,
+            state=state,
+            last_active=now,
+            last_persisted=now,
+        )
         with self._lock:
             if key in self._sessions:  # 128 random bits: never in practice
                 raise RuntimeError("session key collision")
@@ -226,9 +250,68 @@ class SessionRegistry:
             return None
         key = session_key(session_id)
         with self._lock:
+            if key in self._deleting:
+                return None
             record = self._sessions.get(key)
             if record is None and self._store is not None:
                 record = self._store.load_session(key)
                 if record is not None:
                     self._sessions[key] = record
+            if record is not None:
+                self._touch(record)
         return record
+
+    def _touch(self, record: SessionRecord) -> None:
+        """Note that ``record`` was just used; the caller holds the registry lock.
+
+        The use is also written to disk (the session file's modification
+        time), at most once a minute, so a restart doesn't forget it and
+        sweep the session early.
+        """
+        now = self._clock()
+        record.last_active = now
+        if self._store is not None and now - record.last_persisted >= PERSIST_TOUCH_S:
+            record.last_persisted = now
+            self._store.touch(record, now)
+
+    # -- Retention (``backend.retention``) ----------------------------------------------
+
+    def live_keys(self) -> list[str]:
+        """The keys of the sessions held in memory."""
+        with self._lock:
+            return list(self._sessions)
+
+    def claim_idle(self, key: str, cutoff: float) -> bool:
+        """Take a live session out of service for deletion, if it's idle and has no running turn.
+
+        Idle means no request has used it since ``cutoff`` (epoch seconds).
+        A session with an unfinished turn (running, or waiting for an answer)
+        is never claimed, and neither is one in use right now.
+        """
+        with self._lock:
+            record = self._sessions.get(key)
+            if record is None or key in self._deleting:
+                return False
+            if not record.lock.acquire(blocking=False):
+                return False
+            try:
+                if record.busy or record.last_active > cutoff:
+                    return False
+                del self._sessions[key]
+                self._deleting.add(key)
+                return True
+            finally:
+                record.lock.release()
+
+    def claim_unloaded(self, key: str) -> bool:
+        """Take a session that exists only on disk out of service for deletion."""
+        with self._lock:
+            if key in self._sessions or key in self._deleting:
+                return False
+            self._deleting.add(key)
+            return True
+
+    def release(self, key: str) -> None:
+        """The deletion of ``key`` is over (done, or given up)."""
+        with self._lock:
+            self._deleting.discard(key)

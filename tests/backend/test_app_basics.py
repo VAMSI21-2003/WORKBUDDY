@@ -78,9 +78,13 @@ def test_the_413_message_is_built_from_the_cap() -> None:
 
 # -- Settings -----------------------------------------------------------------------
 
+# A server that sets no password must say it's a dev server (PR-4), so every
+# environment these tests build says so.
+DEV = {"WORKBUDDY_ENV": "dev"}
+
 
 def test_settings_defaults_match_the_design(tmp_path: Path) -> None:
-    settings = Settings.from_env({"WORKBUDDY_DATA_DIR": str(tmp_path)})
+    settings = Settings.from_env({**DEV, "WORKBUDDY_DATA_DIR": str(tmp_path)})
 
     assert settings.data_dir == tmp_path.resolve()
     assert settings.max_upload_bytes == 2 * 1024 * 1024  # "Decisions (2026-10-04)", item 3
@@ -98,7 +102,7 @@ def test_the_data_root_is_absolute_even_when_given_relative(
 ) -> None:
     monkeypatch.chdir(tmp_path)
 
-    settings = Settings.from_env({"WORKBUDDY_DATA_DIR": "relative/data"})
+    settings = Settings.from_env({**DEV, "WORKBUDDY_DATA_DIR": "relative/data"})
 
     assert settings.data_dir.is_absolute()
     assert settings.data_dir == (tmp_path / "relative" / "data").resolve()
@@ -114,11 +118,22 @@ def test_the_data_root_is_absolute_even_when_given_relative(
         ("WORKBUDDY_CONFIRMATION_TIMEOUT_S", "soon"),
         ("WORKBUDDY_CONFIRMATION_TIMEOUT_S", "3601"),  # review round 1, L7
         ("WORKBUDDY_CONFIRMATION_TIMEOUT_S", "99999999999"),
+        ("WORKBUDDY_TURN_DEADLINE_S", "0"),
+        ("WORKBUDDY_TURN_DEADLINE_S", "3601"),  # PR-3 review round 2, R2-L5
+        ("WORKBUDDY_TURN_DEADLINE_S", "99999999999"),
     ],
 )
 def test_an_invalid_setting_refuses_to_start(tmp_path: Path, name: str, value: str) -> None:
+    valid = {**DEV, "WORKBUDDY_DATA_DIR": str(tmp_path)}
+    Settings.from_env(valid)  # the same environment, without the bad value, starts
     with pytest.raises(SettingsError):
-        Settings.from_env({"WORKBUDDY_DATA_DIR": str(tmp_path), name: value})
+        Settings.from_env({**valid, name: value})
+
+
+def test_the_longest_turn_deadline_is_accepted(tmp_path: Path) -> None:
+    env = {**DEV, "WORKBUDDY_DATA_DIR": str(tmp_path), "WORKBUDDY_TURN_DEADLINE_S": "3600"}
+
+    assert Settings.from_env(env).turn_deadline_s == 3600
 
 
 def test_auto_approve_is_off_unless_set(tmp_path: Path) -> None:
@@ -131,7 +146,7 @@ def test_auto_approve_is_never_read_from_the_environment(
     tmp_path: Path, value: str, caplog: pytest.LogCaptureFixture
 ) -> None:
     """PR-3: approving without asking is a test setting; a server always asks."""
-    env = {"WORKBUDDY_DATA_DIR": str(tmp_path), "WORKBUDDY_AUTO_APPROVE": value}
+    env = {**DEV, "WORKBUDDY_DATA_DIR": str(tmp_path), "WORKBUDDY_AUTO_APPROVE": value}
 
     with caplog.at_level(logging.WARNING, logger="backend.settings"):
         settings = Settings.from_env(env)
@@ -141,7 +156,7 @@ def test_auto_approve_is_never_read_from_the_environment(
 
 
 def test_the_confirmation_timeout_comes_from_its_variable(tmp_path: Path) -> None:
-    env = {"WORKBUDDY_DATA_DIR": str(tmp_path), "WORKBUDDY_CONFIRMATION_TIMEOUT_S": "30"}
+    env = {**DEV, "WORKBUDDY_DATA_DIR": str(tmp_path), "WORKBUDDY_CONFIRMATION_TIMEOUT_S": "30"}
 
     assert Settings.from_env(env).confirmation_timeout_s == 30
     longest = {**env, "WORKBUDDY_CONFIRMATION_TIMEOUT_S": "3600"}

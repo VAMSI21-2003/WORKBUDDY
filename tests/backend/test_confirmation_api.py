@@ -41,6 +41,7 @@ from tests.backend.factories import (
     single,
 )
 from tests.backend.helpers import (
+    RELAXED_LIMITS,
     new_session,
     start_turn,
     upload,
@@ -290,7 +291,11 @@ def test_a_rejected_chain_runs_neither_step(settings: Settings) -> None:
 
 @pytest.mark.parametrize("speaker", SPEAKERS)
 def test_no_answer_before_the_plan_expires_is_a_rejection(tmp_path: Path, speaker: str) -> None:
-    settings = Settings(data_dir=tmp_path / "data", confirmation_timeout_s=0.5)
+    settings = Settings(
+        data_dir=tmp_path / "data",
+        confirmation_timeout_s=0.5,
+        rate_limits=RELAXED_LIMITS,
+    )
     factory = PipelineFactory(QueuedProvider(single("remove_duplicate_rows")), speaker=speaker)
     client = _app(settings, factory)
     session_id, file_id = _session_with_upload(client, _mode(speaker))
@@ -544,7 +549,11 @@ def test_two_answers_at_once_record_exactly_one(waiting: Any) -> None:
 
 
 def test_a_waiting_turn_keeps_its_session_busy_and_its_slot(tmp_path: Path) -> None:
-    settings = Settings(data_dir=tmp_path / "data", max_concurrent_turns=1)
+    settings = Settings(
+        data_dir=tmp_path / "data",
+        max_concurrent_turns=1,
+        rate_limits=RELAXED_LIMITS,
+    )
     provider = QueuedProvider(single("remove_duplicate_rows") + single("remove_duplicate_rows"))
     client = _app(settings, PipelineFactory(provider))
     session_a, _ = _session_with_upload(client)
@@ -611,7 +620,11 @@ class _ConfirmingEngine:
 
 
 def _deadline_app(tmp_path: Path, deadline_s: float, engine: _ConfirmingEngine) -> TestClient:
-    return _app(Settings(data_dir=tmp_path / "data", turn_deadline_s=deadline_s), engine)
+    return _app(Settings(
+        data_dir=tmp_path / "data",
+        turn_deadline_s=deadline_s,
+        rate_limits=RELAXED_LIMITS,
+    ), engine)
 
 
 def test_the_deadline_doesnt_count_the_wait_for_an_answer(tmp_path: Path) -> None:
@@ -968,7 +981,12 @@ def test_a_plan_is_never_shown_once_the_deadline_has_claimed_the_turn(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     """Review round 1, L3: the deadline's finalization is under way when the worker asks."""
-    settings = Settings(data_dir=tmp_path / "data", turn_deadline_s=0.3, confirmation_timeout_s=2)
+    settings = Settings(
+        data_dir=tmp_path / "data",
+        turn_deadline_s=0.3,
+        confirmation_timeout_s=2,
+        rate_limits=RELAXED_LIMITS,
+    )
     engine = _ConfirmingEngine(before_s=0.6)
     client = _app(settings, engine)
     session_id, _ = _session_with_upload(client)

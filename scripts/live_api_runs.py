@@ -1,8 +1,11 @@
 """Live runs through the real HTTP server with a real LLM (design Section 7.5).
 
 Starts ``python -m backend`` as a subprocess (uvicorn on 127.0.0.1, one
-worker) in its default configuration, with a fresh data root under
-``scratch/live-api/``, then drives it over HTTP: sessions, uploads, turns,
+worker) with production-like settings (``WORKBUDDY_ENV=production``, a demo
+password, an https public origin) and a fresh data root under
+``scratch/live-api/``, then drives it over HTTP the way the demo page does:
+the password is exchanged once for the access cookie, which every later
+request carries together with the page's ``Origin``. Sessions, uploads, turns,
 polling, the plan confirmation, downloads. Every file-changing turn shows
 its plan and waits for an answer (PR-3); the driver answers it over HTTP
 (``POST .../confirmation``) with the run's decision, and records each plan
@@ -22,6 +25,21 @@ Runs 1, 2, 5, 6, 7, 8 and 9 of design 7.5 (approving each plan), plus:
   empty rows too" on it (review round 3's suggestion);
 - "9b": run 9's two turns on a fixture just under the 2 MiB default cap
   ("Decisions (2026-10-04)", item 3), at the default deadline.
+
+PR-4 runs (a server with the design's real rate limits):
+- "A": the full flow with the cookie: exchange the password, upload, a turn,
+  approve its plan, download, and check the delivered file and the original;
+- "W": a wrong password, a missing one, and requests with no or a wrong
+  credential: every one is the same 401, and no cookie is set;
+- "O": a wrong Origin, and none, on state-changing requests with a valid
+  cookie: 403 ``forbidden_origin``, and nothing is created; a Bearer request
+  still needs no Origin;
+- "L": going over the ``general`` rate limit (a 429 with ``Retry-After``),
+  waiting exactly that long, and being served again;
+- "S": a session removed by the retention sweep (a short
+  ``WORKBUDDY_SESSION_TTL_HOURS``): a real turn delivers a file, the session
+  survives while polled, and once idle it, its upload, its outputs and its
+  records are gone.
 
 For each turn it prints what ``CLAUDE.md`` asks for: the intent,
 ``clarification_required``, the steps, whether a file was delivered, an
@@ -65,6 +83,18 @@ MAX_UPLOAD_2MB = 2 * 1024 * 1024  # run 9b's fixture: the current default cap
 PAUSE_S = 8.0
 # Every session id created, to check none reaches a server log.
 SESSION_IDS: list[str] = []
+# The password, and every access token handed out, to check neither reaches a
+# server log. The password is a placeholder, never a real secret.
+LIVE_PASSWORD = "live-run-placeholder-password"
+PUBLIC_ORIGIN = "https://workbuddy-live.example"
+COOKIE_NAME = "__Host-wb_access"
+ACCESS_TOKENS: list[str] = []
+# The turns and uploads buckets (10 and 5 a burst) are the design's real ones;
+# the older runs make more of both than they allow, so they raise those two.
+RELAXED_ENV = {
+    "WORKBUDDY_RATE_TURNS_BURST": "200",
+    "WORKBUDDY_RATE_UPLOADS_BURST": "200",
+}
 
 
 class RateLimited(Exception):
@@ -146,8 +176,15 @@ def sha(data: bytes) -> str:
 
 class Server:
     def __init__(
-        self, data_dir: Path, port: int, log_path: Path, extra_env: dict[str, str] | None = None
+        self,
+        data_dir: Path,
+        port: int,
+        log_path: Path,
+        extra_env: dict[str, str] | None = None,
+        *,
+        strict_limits: bool = False,
     ) -> None:
+        self.strict_limits = strict_limits
         self.data_dir = data_dir
         self.port = port
         self.log_path = log_path
@@ -160,10 +197,25 @@ class Server:
         env["WORKBUDDY_DATA_DIR"] = str(self.data_dir)
         env.pop("WORKBUDDY_AUTO_APPROVE", None)  # retired; a server always asks
         env["PYTHONUNBUFFERED"] = "1"
+        # Production-like: a password, an https public origin, every real bucket
+        # (the turns and uploads ones raised unless the run is about limits).
+        env["WORKBUDDY_ENV"] = "production"
+        env["WORKBUDDY_DEMO_PASSWORD"] = LIVE_PASSWORD
+        env["WORKBUDDY_PUBLIC_ORIGIN"] = PUBLIC_ORIGIN
+        if not self.strict_limits:
+            env.update(RELAXED_ENV)
         env.update(self.extra_env)
         log = open(self.log_path, "ab")
         self.process = subprocess.Popen(
-            [sys.executable, "-m", "backend", "--port", str(self.port)],
+            [
+                sys.executable,
+                "-m",
+                "backend",
+                "--port",
+                str(self.port),
+                "--host",
+                "127.0.0.1",  # production binds every interface; this stays on loopback
+            ],
             cwd=REPO_ROOT,
             env=env,
             stdout=log,
@@ -216,6 +268,29 @@ class Driver:
         self.client = httpx.Client(base_url=server.base, timeout=30, trust_env=False)
         self.log_offset = 0
         self.get_retries = 0
+        self.set_cookie_masked = ""
+        self.sign_in()
+
+    def sign_in(self) -> None:
+        """Exchange the password for the access cookie, and carry it (and the page's
+        ``Origin``) on every later request, as the demo page does.
+
+        The cookie is ``Secure``, so a jar would never send it over this plain-http
+        loopback connection; it is attached by hand.
+        """
+        response = self.client.post(
+            "/api/v1/access",
+            data={"password": LIVE_PASSWORD},
+            headers={"Origin": PUBLIC_ORIGIN},
+        )
+        if response.status_code != 204:
+            raise SystemExit(f"the access exchange failed: HTTP {response.status_code}")
+        header = response.headers["set-cookie"]
+        token = header.split(";", 1)[0].split("=", 1)[1]
+        ACCESS_TOKENS.append(token)
+        self.token = token
+        self.set_cookie_masked = header.replace(token, "<token>")
+        self.client.headers.update({"Cookie": f"{COOKIE_NAME}={token}", "Origin": PUBLIC_ORIGIN})
 
     def get(self, url: str) -> httpx.Response:
         """A GET (idempotent), retried on a dropped connection, as a polling client would.
@@ -318,12 +393,19 @@ class Driver:
         text = self.server.log_text()
         new = text[self.log_offset:]
         self.log_offset = len(text)
-        if re.search(r"Error code: 429|RateLimitError|rate_limit_exceeded|\b429 Too Many", new):
+        if provider_429(new):
             raise RateLimited
 
     def stored_upload(self, session_id: str, upload: dict[str, Any]) -> Path:
         key = hashlib.sha256(session_id.encode()).hexdigest()[:32]
         return self.server.data_dir / "uploads" / key / upload["file_id"] / upload["name"]
+
+
+def provider_429(log: str) -> bool:
+    """Whether the log shows the LLM provider rate-limiting (not this server's own 429s)."""
+    if re.search(r"Error code: 429|RateLimitError|rate_limit_exceeded", log):
+        return True
+    return any("groq.com" in line and re.search(r"\b429\b", line) for line in log.splitlines())
 
 
 def measure(frame: pd.DataFrame) -> dict[str, int]:
@@ -467,7 +549,10 @@ def main() -> None:
         "--pause", type=float, default=8.0, help="seconds between turns, to spare the rate limit"
     )
     args = parser.parse_args()
-    runs = [r if r in ("R", "9b", "T", "C") else int(r) for r in args.runs.split(",")]
+    runs = [
+        r if r in ("R", "9b", "T", "C", "A", "W", "O", "L", "S") else int(r)
+        for r in args.runs.split(",")
+    ]
     global PAUSE_S
     PAUSE_S = args.pause
     stamp = datetime.now(UTC).strftime("%Y%m%dT%H%M%S")
@@ -665,6 +750,216 @@ def main() -> None:
                 entry["server_peak_rss_mb"] = server.peak_rss_mb()
                 results.append(entry)
             completed.append("9b")
+        if any(r in runs for r in ("A", "W", "O", "L")):
+            server.stop()
+            driver.check_rate_limit()
+            # A server with the design's real rate limits (turns 10 a burst, ...).
+            server = Server(
+                root / "dataP4", args.port, root / "serverP4.log", strict_limits=True
+            )
+            server.start()
+            driver = Driver(server)
+            data_dir = server.data_dir
+            if "A" in runs:
+                session = driver.session("focus")
+                upload = driver.upload(session, default, "manual_report.xlsx")
+                turn = driver.turn(session, "remove duplicate rows", "approve")
+                entry = report_turn(driver, "A", session, upload, default, turn, "dedupe")
+                entry["access_cookie_set"] = driver.set_cookie_masked
+                bearer = httpx.get(
+                    f"{server.base}/api/v1/sessions/{session}",
+                    headers={"Authorization": f"Bearer {LIVE_PASSWORD}"},
+                    trust_env=False,
+                )
+                entry["bearer_for_scripts_status"] = bearer.status_code
+                results.append(entry)
+                completed.append("A")
+            if "W" in runs:
+                bare = httpx.Client(base_url=server.base, trust_env=False)
+                form = {"Content-Type": "application/x-www-form-urlencoded"}
+                origin = {"Origin": PUBLIC_ORIGIN}
+                probes = {
+                    "wrong password": bare.post(
+                        "/api/v1/access", data={"password": "not-the-password"}, headers=origin
+                    ),
+                    "missing password field": bare.post(
+                        "/api/v1/access", content=b"", headers={**form, **origin}
+                    ),
+                    "no credential": bare.get("/api/v1/sessions/s_x"),
+                    "wrong bearer": bare.get(
+                        "/api/v1/sessions/s_x", headers={"Authorization": "Bearer not-it"}
+                    ),
+                    "unknown cookie": bare.get(
+                        "/api/v1/sessions/s_x", headers={"Cookie": f"{COOKIE_NAME}=nope"}
+                    ),
+                    "wrong bearer beside the valid cookie": bare.get(
+                        "/api/v1/sessions/s_x",
+                        headers={
+                            "Authorization": "Bearer not-it",
+                            "Cookie": f"{COOKIE_NAME}={driver.token}",
+                        },
+                    ),
+                }
+                results.append(
+                    {
+                        "run": "W",
+                        "probes": {
+                            name: {
+                                "http_status": r.status_code,
+                                "body": r.json(),
+                                "www_authenticate": r.headers.get("www-authenticate"),
+                                "set_cookie": r.headers.get("set-cookie"),
+                            }
+                            for name, r in probes.items()
+                        },
+                        "every_one_is_the_same_401": len(
+                            {(r.status_code, r.text) for r in probes.values()}
+                        )
+                        == 1,
+                    }
+                )
+                completed.append("W")
+            if "O" in runs:
+                def made() -> int:
+                    folder = data_dir / "sessions"
+                    return len(list(folder.iterdir())) if folder.is_dir() else 0
+
+                before = made()
+                cookie = {"Cookie": f"{COOKIE_NAME}={driver.token}"}
+                bare = httpx.Client(base_url=server.base, trust_env=False)
+                attempts = {
+                    "valid cookie, foreign Origin": bare.post(
+                        "/api/v1/sessions", headers={**cookie, "Origin": "https://evil.example"}
+                    ),
+                    "valid cookie, no Origin": bare.post("/api/v1/sessions", headers=cookie),
+                    "valid cookie, Origin: null": bare.post(
+                        "/api/v1/sessions", headers={**cookie, "Origin": "null"}
+                    ),
+                    "access route, foreign Origin, right password": bare.post(
+                        "/api/v1/access",
+                        data={"password": LIVE_PASSWORD},
+                        headers={"Origin": "https://evil.example"},
+                    ),
+                    "access route, no Origin, right password": bare.post(
+                        "/api/v1/access", data={"password": LIVE_PASSWORD}
+                    ),
+                }
+                refused_creates = made() - before
+                get_without_origin = bare.get("/api/v1/sessions/s_x", headers=cookie)
+                bearer_post = bare.post(
+                    "/api/v1/sessions", headers={"Authorization": f"Bearer {LIVE_PASSWORD}"}
+                )
+                if bearer_post.status_code == 201:
+                    SESSION_IDS.append(bearer_post.json()["session_id"])
+                results.append(
+                    {
+                        "run": "O",
+                        "attempts": {
+                            name: {
+                                "http_status": r.status_code,
+                                "error_code": r.json().get("error", {}).get("code"),
+                                "set_cookie": r.headers.get("set-cookie"),
+                            }
+                            for name, r in attempts.items()
+                        },
+                        "sessions_created_by_the_refused_requests": refused_creates,
+                        "cookie_GET_without_origin_status": get_without_origin.status_code,
+                        "bearer_POST_without_origin_status": bearer_post.status_code,
+                    }
+                )
+                completed.append("O")
+            if "L" in runs:
+                path = "/api/v1/sessions/s_ratelimit_probe"
+                fast = httpx.Client(base_url=server.base, trust_env=False)
+                headers = {"Cookie": f"{COOKIE_NAME}={driver.token}"}
+                served = 0
+                refused = None
+                for _ in range(200):
+                    r = fast.get(path, headers=headers)
+                    if r.status_code == 429:
+                        refused = r
+                        break
+                    served += 1
+                assert refused is not None, "no 429 in 200 requests"
+                wait = int(refused.headers["Retry-After"])
+                again_at_once = fast.get(path, headers=headers)
+                time.sleep(wait)
+                recovered = fast.get(path, headers=headers)
+                results.append(
+                    {
+                        "run": "L",
+                        "requests_served_before_the_429": served,
+                        "refused": {
+                            "http_status": refused.status_code,
+                            "body": refused.json(),
+                            "retry_after": refused.headers["Retry-After"],
+                        },
+                        "second_request_at_once_status": again_at_once.status_code,
+                        "waited_s": wait,
+                        "status_after_waiting_retry_after": recovered.status_code,
+                        "recovered": recovered.status_code != 429,
+                        "healthz_while_limited_status": fast.get("/healthz").status_code,
+                    }
+                )
+                completed.append("L")
+        if "S" in runs:
+            server.stop()
+            driver.check_rate_limit()
+            ttl_hours = 0.004  # 14.4 s
+            server = Server(
+                root / "dataS",
+                args.port,
+                root / "serverS.log",
+                extra_env={
+                    "WORKBUDDY_SESSION_TTL_HOURS": str(ttl_hours),
+                    "WORKBUDDY_SWEEP_INTERVAL_S": "2",
+                },
+            )
+            server.start()
+            driver = Driver(server)
+            created = driver.client.post("/api/v1/sessions", json={"mode": "focus"}).json()
+            session = created["session_id"]
+            control = driver.client.post("/api/v1/sessions", json={"mode": "focus"}).json()[
+                "session_id"
+            ]
+            SESSION_IDS.extend([session, control])
+            upload = driver.upload(session, default, "manual_report.xlsx")
+            turn = driver.turn(session, "remove duplicate rows", "approve")
+            entry = report_turn(driver, "S", session, upload, default, turn, "dedupe")
+            key = hashlib.sha256(session.encode()).hexdigest()[:32]
+            ckey = hashlib.sha256(control.encode()).hexdigest()[:32]
+
+            def present(k: str) -> dict[str, bool]:
+                return {
+                    area: (server.data_dir / area / k).exists()
+                    for area in ("uploads", "outputs", "sessions")
+                }
+
+            entry["retention_hours_advertised"] = created["retention_hours"]
+            entry["ttl_s"] = round(ttl_hours * 3600, 1)
+            entry["folders_before_idle"] = present(key)
+            (delivered,) = turn["delivered_files"]
+            entry["download_url"] = delivered["download_url"]
+            # Keep the control session in use while the other one sits idle.
+            idle_started = time.monotonic()
+            gone_after = None
+            while time.monotonic() - idle_started < 90:
+                driver.client.get(f"/api/v1/sessions/{control}")  # use: resets its idle time
+                time.sleep(3)
+                if not any(present(key).values()):
+                    gone_after = round(time.monotonic() - idle_started, 1)
+                    break
+            entry["idle_s_until_all_folders_were_gone"] = gone_after
+            entry["folders_after"] = present(key)
+            gone = driver.client.get(f"/api/v1/sessions/{session}")
+            entry["session_get_after"] = gone.status_code
+            entry["download_after"] = driver.client.get(delivered["download_url"]).status_code
+            entry["control_session_still_there"] = (
+                driver.client.get(f"/api/v1/sessions/{control}").status_code == 200
+            )
+            entry["control_folders"] = present(ckey)
+            results.append(entry)
+            completed.append("S")
     except RateLimited:
         print(f"STOPPED: the provider rate-limited (429). Runs completed: {completed}")
     finally:
@@ -677,7 +972,13 @@ def main() -> None:
                 "tracebacks": logs.count("Traceback (most recent call last)"),
                 "session_ids_in_logs": sum(1 for s in SESSION_IDS if s in logs),
                 "sessions_created": len(SESSION_IDS),
-                "http_429_lines": len(re.findall(r"\b429\b", logs)),
+                "provider_429_lines": sum(
+                    1 for line in logs.splitlines() if "groq.com" in line and "429" in line
+                ),
+                "own_429_responses": len(re.findall(r'" 429 ', logs)),
+                "password_in_server_logs": logs.count(LIVE_PASSWORD),
+                "access_tokens_in_server_logs": sum(1 for t in ACCESS_TOKENS if t in logs),
+                "access_tokens_issued": len(ACCESS_TOKENS),
             }
         )
         (root / "results.json").write_text(json.dumps(results, indent=1, default=str))

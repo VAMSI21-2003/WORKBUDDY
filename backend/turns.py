@@ -49,7 +49,7 @@ from backend.confirmation import (
     WebConfirmationProvider,
 )
 from backend.delivery import delivered_files, make_read_only, uploads_unchanged
-from backend.errors import ApiError, ErrorCode
+from backend.errors import ApiError, ErrorCode, too_many_turns_message
 from backend.sessions import (
     AWAITING_CONFIRMATION,
     FINISHED,
@@ -233,7 +233,8 @@ class TurnRunner:
         """Start a turn (design Section 3.3, steps 1 to 5). Returns it, running.
 
         Raises:
-            ApiError: ``session_busy``, ``file_not_found`` or ``server_busy``.
+            ApiError: ``session_busy``, ``file_not_found``, ``session_quota_exceeded`` (the
+                session's turn limit) or ``server_busy``.
                 A refused request creates no turn.
         """
         settings = self._settings
@@ -245,6 +246,11 @@ class TurnRunner:
                 target = record.files.get(file_id)
                 if target is None:
                     raise ApiError(ErrorCode.FILE_NOT_FOUND)
+            if len(record.turns) >= settings.max_turns_per_session:
+                raise ApiError(
+                    ErrorCode.SESSION_QUOTA_EXCEEDED,
+                    message=too_many_turns_message(settings.max_turns_per_session),
+                )
             if not self._take_slot():
                 raise ApiError(
                     ErrorCode.SERVER_BUSY,

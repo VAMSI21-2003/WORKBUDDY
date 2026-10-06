@@ -1,0 +1,5 @@
+{
+ "tree": "/home/user/WORKBUDDY",
+ "stdout": "{\"raised\": \"PermissionError: errno 1\", \"still_there\": true}",
+ "stderr_tail": ""
+}
