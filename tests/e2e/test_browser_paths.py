@@ -214,6 +214,29 @@ def test_a_plan_answer_whose_reply_was_lost_shows_the_turn_as_the_server_has_it(
     assert "may not have reached" not in page.content()  # that plan is no longer waiting
 
 
+def test_while_an_answer_is_in_flight_both_buttons_are_off_and_the_page_says_only_that(
+    live_app: LiveFactory, new_page: NewPage
+) -> None:
+    live, page, sid, _ = plan_page(live_app, new_page)
+    held: list[Route] = []
+    page.route("**/confirmation", lambda route: held.append(route))  # the answer waits here
+
+    page.click("#turn-t0001 .plan button[value=approve]")
+
+    expect(page.locator("#turn-t0001 .plan .sending")).to_have_text("Sending your answer\u2026")
+    buttons = page.locator("#turn-t0001 .plan button")
+    assert buttons.count() == 2 and all(b.is_disabled() for b in buttons.all())
+    assert page.locator("#turn-t0001 .plan .plan-warning").count() == 0
+    assert live.turn(sid)["status"] == "awaiting_confirmation"  # nothing has reached the server
+    text = page.inner_text("body").lower()
+    assert "approved" not in text and "running" not in text
+
+    held[0].continue_()
+
+    assert reply_raw(page) == live.turn(sid)["reply"]
+    assert page.locator(".sending:visible").count() == 0
+
+
 # -- An ambiguous message POST --------------------------------------------------------------------
 
 
