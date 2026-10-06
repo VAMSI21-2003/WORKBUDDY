@@ -355,6 +355,57 @@ def test_a_process_that_is_not_root_can_delete_read_only_uploads() -> None:
         shutil.rmtree(base, ignore_errors=True)
 
 
+def _windows_rule(monkeypatch: pytest.MonkeyPatch) -> list[str]:
+    """Windows' rule for ``os.unlink``: a file with the read-only attribute (``chmod`` 0o444
+    sets it) can't be deleted. Linux enforces nothing like it for root, so it is applied here."""
+    refused: list[str] = []
+    real_unlink = os.unlink
+
+    def unlink(path: Any, *args: Any, **kwargs: Any) -> None:
+        if os.path.isfile(path) and not os.path.islink(path) and not os.stat(path).st_mode & 0o200:
+            refused.append(str(path))
+            raise PermissionError(13, "Access is denied (WinError 5)", str(path))
+        real_unlink(path, *args, **kwargs)
+
+    monkeypatch.setattr(os, "unlink", unlink)
+    return refused
+
+
+def test_read_only_files_are_deleted_where_a_read_only_file_cannot_be_unlinked(
+    rig: Rig, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Review round 1, M1: on Windows every upload and delivered file (``0o444``) is read-only,
+    and the sweep must still remove the session it advertises it removes."""
+    sid = rig.delivered_session()
+    key = session_key(sid)
+    refused = _windows_rule(monkeypatch)
+    rig.wall.advance(3 * HOUR)
+
+    result = rig.sweep()
+
+    assert result.removed == (key,) and result.failed == (), refused
+    assert not any(rig.folders(sid).values())
+    assert not rig.exists(sid)
+
+
+def test_a_symlink_is_not_chmodded_when_its_target_is_read_only(
+    rig: Rig, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    outside = tmp_path / "outside.txt"
+    outside.write_text("keep")
+    outside.chmod(0o444)
+    sid = rig.delivered_session()
+    key = session_key(sid)
+    (rig.settings.outputs_dir / key / "t0001" / "link").symlink_to(outside)
+    _windows_rule(monkeypatch)
+    rig.wall.advance(3 * HOUR)
+
+    assert rig.sweep().removed == (key,)
+
+    assert outside.read_text() == "keep"
+    assert outside.stat().st_mode & 0o777 == 0o444  # the target's mode is untouched
+
+
 def test_the_sweep_takes_the_session_out_of_service_before_deleting(rig: Rig) -> None:
     """While its files are being deleted, no request can find the session or restore it."""
     sid = new_session(rig.client)

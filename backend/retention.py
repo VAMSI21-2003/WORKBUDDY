@@ -114,9 +114,11 @@ def directory_bytes(root: Path) -> int:
 def remove_tree(path: Path) -> None:
     """Delete ``path`` and everything under it, without following a symlink.
 
-    Uploads are stored read-only, in read-only folders, so each folder is made
-    writable before its entries are removed (a process that isn't root can't
-    delete from a ``0o555`` folder).
+    Uploads and delivered files are stored read-only, uploads in read-only
+    folders, so each folder is made writable before its entries are removed
+    (a process that isn't root can't delete from a ``0o555`` folder), and each
+    read-only file is made writable before it is unlinked (Windows refuses to
+    delete a read-only file).
 
     Raises:
         OSError: Something couldn't be removed.
@@ -130,6 +132,11 @@ def remove_tree(path: Path) -> None:
             remove_tree(Path(child))
         os.rmdir(path)
     else:
+        if stat.S_ISREG(mode) and not mode & stat.S_IWRITE:
+            # On Windows ``chmod(0o444)`` sets the read-only attribute, and a
+            # read-only file can't be deleted until it is cleared (review round 1,
+            # M1). Never done to a symlink: that would change its target.
+            os.chmod(path, stat.S_IWRITE | stat.S_IREAD)
         os.unlink(path)
 
 
