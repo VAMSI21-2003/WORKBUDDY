@@ -39,7 +39,14 @@ Change (`tests/workbook_fixtures.py`):
 Evidence that the workbooks are the same either way (`scripts/check_fixture_parity.py`, which builds every fixture helper's output and compares the parsed XML trees of every part, ignoring the two timestamps in `docProps/core.xml`, plus openpyxl's reading of the cells):
 - lxml in use against `OPENPYXL_LXML=False` (openpyxl's own switch for writing as it does without lxml): 16 files, 128 parts, 0 different.
 - The new helpers against the old helpers' output with `OPENPYXL_LXML=False` (where the old ones worked): 16 files, 128 parts, 0 different.
-The full-suite runs with lxml installed and with it uninstalled are in the report. The values-only probes in both environments are in `docs/reviews/frontend-deploy-live-runs.md`.
+Full suite (`python -m pytest -q`, this head before the review loop; Python 3.13.16, pandas 2.3.3, openpyxl 3.1.5, lxml 6.1.3 when installed):
+- with lxml installed (`openpyxl.LXML` is `True`): **2588 passed, 0 failed**;
+- with lxml uninstalled (`pip uninstall lxml`; `openpyxl.LXML` is `False`; reinstalled afterwards): **2588 passed, 0 failed**.
+- For comparison, the FE-1 review's own run of `main` (with lxml) was 2408 passed, 34 failed. I didn't run `main` myself. This branch adds 12 tests (2 route tests, 3 static tests, 7 browser tests) to the 2576 the FE-1 review counted on its branch.
+Summaries: `docs/reviews/frontend-deploy-lxml-parity/suite_*_summary.txt`.
+
+The product, not only the fixtures, in both environments: the existing probes `scripts/review_harness/values_only_probe.py` (725 turns: 29 odd one-sheet workbooks x 5 requests x template, friend and focus) and `round2_probe.py` (400 turns), which use the real `build_engine`, skills, Hands, Inspector and Voice with only the LLM faked. **They can't build their own fixtures when lxml is installed** (the same cause: they match openpyxl's XML text, and stop on `assert new != xml`), and they are a reviewer's scripts, so they aren't edited. `scripts/probe_lxml_parity.py` runs their fixtures and their loop unchanged, but builds each fixture once in a subprocess where openpyxl writes as it does without lxml, and runs the product in-process with lxml installed and used (`openpyxl.LXML` is `True` there). Compared by (fixture, request, speaker, session id), on the reply, whether a file was handed back, the steps, the original's hash check, and the cells and raw XML scan of the original and of the delivered copy: **0 fields differ in 725 of 725 runs, and 0 in 400 of 400**; the original changed in 0 runs, and 0 runs errored. As a control, the wrapper with `OPENPYXL_LXML=False` also equals the unmodified probe's no-lxml output in both probes. 320 and 144 of those runs delivered a file. Outputs: `docs/reviews/frontend-deploy-lxml-parity/`.
+Not run: pandas 3.0.6 (the reporter's version; this sandbox has 2.3.3, and the image resolved 2.3.3 too).
 
 ## Part C: FE-2
 
