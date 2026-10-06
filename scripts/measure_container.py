@@ -221,12 +221,28 @@ class Killed(Exception):
     pass
 
 
+class PatientDriver(live.Driver):
+    """The live driver, which waits out the server's own ``429`` on a poll.
+
+    The driver polls twice a second, as a script would; two of them from one address (the
+    two-at-once scenario) are more than the ``poll`` bucket's 3 a second per IP. A page polls
+    every 2 to 3 seconds, so real users don't meet this; the measurement shouldn't either.
+    """
+
+    def get(self, url: str) -> httpx.Response:
+        while True:
+            response = super().get(url)
+            if response.status_code != 429:
+                return response
+            time.sleep(float(response.headers.get("Retry-After", "1")))
+
+
 def run_turns(
     box: Container, runs: list[tuple[str, bytes, str, str | None]]
 ) -> list[dict[str, Any]]:
     """Each run is (message, fixture bytes, name, expected); all start together, a session each."""
     results: list[dict[str, Any] | BaseException] = [RuntimeError("didn't run")] * len(runs)
-    drivers = [live.Driver(box) for _ in runs]  # type: ignore[arg-type]
+    drivers = [PatientDriver(box) for _ in runs]  # type: ignore[arg-type]
 
     def one(index: int) -> None:
         message, data, name, expected = runs[index]

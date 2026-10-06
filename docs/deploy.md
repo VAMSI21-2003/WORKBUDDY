@@ -130,4 +130,51 @@ Also before going public, not in the design's list but needed by this document:
 
 ## 6. Measurements
 
-SECTION 6 IS FILLED IN AFTER THE MEASUREMENT RUNS.
+What the image used on the real pipeline with real Groq, so the owner can choose a host. **These are measurements on one sandbox machine, not on a host**, and checklist item 6 still has to be repeated on the host that's chosen.
+
+**How.** `scripts/measure_container.py` starts the image as a host would (`WORKBUDDY_ENV=production`, a demo password, an https public origin, one worker, a fresh data folder, the design's real limits except that the `turns` and `uploads` buckets are raised, because the matrix makes more than 10 turns an hour), under a memory limit with no swap, and drives the whole flow over HTTP with `scripts/live_api_runs.py`'s own driver: the password exchanged for the access cookie, upload, a message, the plan approved, the delivered file downloaded. For every turn it checks the file against the original with pandas, the download's SHA-256 against the recorded one, and the original's SHA-256 before and after (all matched, all runs). Memory is read from the container's cgroup (`memory.max_usage_in_bytes`, reset before each scenario, which includes page cache; the sampled peak of its anonymous memory, every 0.25 s) and the server process's peak resident set (`VmHWM`, which also counts shared library pages mapped from files). Raw numbers: `docs/reviews/frontend-deploy-measurements.json`. The image's packages: `docs/reviews/frontend-deploy-image-freeze.txt`.
+
+- **Machine:** 4 vCPUs (Intel Xeon @ 2.1 GHz), 16 GB, Docker 29.8.2 with cgroup v1. The container ran on the host's network, because this sandbox reaches the LLM only through an egress proxy; a real host uses ordinary networking.
+- **Image:** 1.39 GB; `python:3.11.17`; pandas 2.3.3, ydata-profiling 4.18.4, splink 4.0.17 (resolved at build time; nothing is pinned or locked). Build time with a cold cache, 4 min 15 s.
+- **Fixtures:** *small*, 6 rows (5,018 bytes: 2 exact duplicates, 1 empty row); *2 MB*, 20,000 rows by 14 columns, 5% exact duplicates and 3 empty rows (2,055,232 bytes, just under the default 2 MiB cap).
+- **Requests:** "remove duplicate rows" (*single*), and "remove duplicate rows, then remove empty rows" (*chain*, one plan for both steps). Each ran after the previous ones, in one container, so after the first the server is warm.
+- **Wall time** is from sending the message to the finished turn, with the plan approved the moment it appears; it includes the LLM calls (a few seconds in all).
+- Each cell is one run, not an average. The four runs below agree with each other to about 1 MB on memory and a few seconds on time, so I believe the differences between limits are noise.
+
+### Memory and time (the run with no limit)
+
+| Scenario | Wall time | Peak, container (cache included) | Peak, container anonymous | Peak, server process |
+|---|---|---|---|---|
+| Idle, 20 s after start | | 117 MB | 109 MB | 146 MB |
+| Small, single | 5.7 s | 240 MB | 227 MB | 341 MB |
+| Small, chain | 4.6 s | 240 MB | 228 MB | 342 MB |
+| 2 MB, single | 120 s | 396 MB | 374 MB | 488 MB |
+| 2 MB, chain | 150 s | 429 MB | 397 MB | 512 MB |
+| 2 MB, two chains at once (two sessions) | both stopped at the 180 s deadline, no file | 591 MB | 531 MB | 640 MB |
+| Idle again, after all of the above | | 456 MB | 424 MB | 530 MB |
+
+Memory the server has taken for a large file isn't given back: it idled at about 420 to 435 MB (anonymous) after the 2 MB runs, against 109 MB at the start. The server process's number is higher than the container's anonymous number because it includes shared libraries mapped from files.
+
+### Which limits it survives
+
+| Limit | Idle, small, 2 MB single, 2 MB chain | Two 2 MB chains at once |
+|---|---|---|
+| none | survives | survives (memory peak 591 MB); both turns hit the 180 s deadline |
+| 2 GB | survives | survives; both turns hit the deadline |
+| 1 GB | survives | survives (573 MB); both turns hit the deadline |
+| 512 MB | survives (the chain peaked at 427 MB in the container, 394 MB anonymous, about 85 MB under the limit) | **killed by the kernel (OOM, exit status 137)** at about 509 MB anonymous; the container stopped and the scenario's turns were lost |
+
+- **One turn at a time fits in 512 MB**, with about 85 MB to spare, and in 1 GB with room. I didn't run 512 MB with `WORKBUDDY_MAX_CONCURRENT_TURNS=1`, which would turn the second simultaneous request into `429 server_busy`; it's the setting that should make 512 MB safe, and it is untested.
+- **Two big turns at once need more than 512 MB** (they peaked at 518 to 534 MB anonymous, 573 to 591 MB in the container, in the runs that weren't killed). 1 GB held.
+- A limit is the container's alone; a host also needs memory for its own processes. Counting those is the host's measurement (checklist item 6).
+
+### Time is the constraint, not memory
+
+- A **single** 2 MB chain took 150 s against the 180 s turn deadline (`WORKBUDDY_TURN_DEADLINE_S`): about 30 s, 17%, of margin on this machine. The check in design 13.2 item 6 (a two-step chain on a 2 MB file must finish inside the deadline) holds here with that margin. A host with a slower CPU, or one that shares its CPU, may not meet it.
+- **Two 2 MB chains at once both missed the deadline** in every run where they weren't killed first (181 s). Each finished as `failed`, no file was handed back, the original was unchanged, and the reply said so: "Something went wrong while I was working on this, so I can't confirm that any change was made. I haven't handed back any file from this turn." The pipeline runs in Python threads in one process, so two turns share about one core's worth of compute. With the default `WORKBUDDY_MAX_CONCURRENT_TURNS=2`, two people sending 2 MB chains at the same moment would both fail.
+- The options are the owner's: `WORKBUDDY_MAX_CONCURRENT_TURNS=1` (the second request gets `429 server_busy` and waits), a longer `WORKBUDDY_TURN_DEADLINE_S` (up to 3600; the user waits longer), or a lower `WORKBUDDY_MAX_UPLOAD_BYTES`. None of them was measured here.
+- Small files take 5 to 6 s, and almost all of that is the LLM.
+
+### What wasn't measured
+
+Browsers and the page (the browser runs are in `docs/reviews/frontend-deploy-live-runs.md`); memory under many simultaneous users, or over hours; a second run of the same cell; a host's real CPU and network; swap; the `.xls` path (not accepted); inputs wider or longer than the 2 MB fixture; and any limit other than 512 MB, 1 GB, 2 GB and none.
