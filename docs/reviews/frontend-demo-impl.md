@@ -83,7 +83,7 @@ Said plainly so the reviewer can judge them. Each is small; none touches a rule.
 | `tests/e2e/test_browser.py` | The five browser tests of design 10.3, in Chromium against the real app (the real pipeline, a queued fake LLM, the production rate limits): the golden path at 360×640, reject, a pipeline failure, an approval timeout, and a lost connection then a reload. |
 | `tests/e2e/test_browser_paths.py` | The script's other paths, which `TestClient` can't show (design 10.2): a `429` on a poll, the swap guard, the reset on a `404` (on a send and on a poll), a plan answer that never arrived and one whose reply was lost, a message POST that never arrived and one whose reply was lost, the gate's errors and its `429`, upload errors, Enter and Shift+Enter, and a browser on `localhost`. |
 
-**The base suite on this machine** (Python 3.13, `origin/main` at `d903ba0`) is 2408 passed and **34 failed**, before this change. The 34 are in `tests/buddy/test_values_only_copy.py` and `tests/skills/excel/test_plain_table.py` (a workbook-fixture assertion in `tests/workbook_fixtures.py`); they fail the same way on the base and have nothing to do with this change. `ruff check buddy tests`: 22 errors on the base and 22 on the branch, identical by file and rule; the new code (`backend`, `tests/web`, `tests/e2e`, the new scripts) has none.
+**The base suite on this machine** (Python 3.13, `origin/main` at `d903ba0`) is 2408 passed and **34 failed**, before this change. The 34 are in `tests/buddy/test_values_only_copy.py` and `tests/skills/excel/test_plain_table.py` (a workbook-fixture assertion in `tests/workbook_fixtures.py`); they fail the same way on the base and have nothing to do with this change. `ruff check buddy tests`: 22 errors on the base and 22 on the branch, identical by file and rule; the new code under `backend`, `tests/web` and `tests/e2e` has none. (`scripts/frontend_spike/run_spike.py` has 8 line-length errors; `scripts/` is outside `ruff check buddy tests`. Found by the round 1 review, L5.)
 
 ## 6. Accessibility, as design 5 asks the review to say
 
@@ -105,4 +105,10 @@ For `docs/backlog.md`; the design's own list (Section 16) stands as well.
 
 - A real phone, and any browser but Chromium (design 10.5).
 - A reverse proxy and HTTPS: the browser tests run on `http://127.0.0.1`, where Chromium accepts the `Secure` cookies. Whether the pointer cookie behaves the same behind a TLS proxy on another host is untested here.
-- The live runs with Groq are in `frontend-demo-live-runs.md`, after the review's MERGE.
+- Nothing else in the live runs: see `frontend-demo-live-runs.md` for what they did and didn't cover.
+
+## 9. Review and live runs
+
+- Round 1 of the independent review (`frontend-demo-review.md`, product code `6522a21`): **MERGE**, no HIGH, two MEDIUM that an ordinary request can't reach (M1: after a restart in password-less dev, a stale plan card stays; M2: a `409` on the plan card with a poll in flight leaves the card), nine LOW. The reviewer's prototype fixes for both are in `scripts/review_harness/feat-frontend-demo/out/proto_fix.diff`. They are deferred, as the loop says, and are in `docs/backlog.md`, Section 4a. They should be fixed before the public link.
+- The reviewer ran as Opus: the strongest model the agent tool offers (Fable) was refused twice for lack of usage credits.
+- Live runs: `frontend-demo-live-runs.md` (4 of 4, no 429, no false claim, originals unchanged).

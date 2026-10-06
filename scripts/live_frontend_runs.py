@@ -57,6 +57,10 @@ from tests.e2e.pages import WATCH_NOTICES  # noqa: E402
 SCRATCH = REPO_ROOT / "scratch" / "live-frontend"
 PASSWORD = "live-run-placeholder-password"
 VIEWPORT = {"width": 1100, "height": 820}
+# Playwright's default screenshot options inject inline styles (a hidden caret, stopped
+# animations), which the page's Content-Security-Policy refuses and logs to the console. These
+# options inject nothing, so the console shows only what the page itself did.
+SHOT = {"caret": "initial", "animations": "allow"}
 RUNS: dict[str, dict[str, Any]] = {
     "1": {"message": "remove duplicate rows", "answer": "approve", "expect": "dedupe"},
     "2": {
@@ -162,7 +166,7 @@ def run_one(
 
     page.goto(base + "/")
     if name == "1":
-        page.screenshot(path=str(shots / "gate.png"))
+        page.screenshot(path=str(shots / "gate.png"), **SHOT)
     page.fill("#password", PASSWORD)
     page.click("#gate-form button[type=submit]")
     page.wait_for_selector("#workspace[data-session-id]")
@@ -198,7 +202,7 @@ def run_one(
             "title": page.title(),
         }
         if name == "2":
-            page.screenshot(path=str(shots / "plan-card.png"))
+            page.screenshot(path=str(shots / "plan-card.png"), **SHOT)
         page.click(f"#turn-t0001 .plan button[value={spec['answer']}]")
     entry["plan_shown"] = plan_text
     entry["answer_sent"] = spec["answer"]
@@ -206,7 +210,7 @@ def run_one(
     page.wait_for_selector("#turn-t0001 [data-slot=reply]", timeout=300_000)
     entry["wall_s"] = round(time.monotonic() - started, 1)
     page.wait_for_timeout(400)
-    page.screenshot(path=str(shots / f"run-{name}-finished.png"))
+    page.screenshot(path=str(shots / f"run-{name}-finished.png"), **SHOT)
     page_reply = page.eval_on_selector("#turn-t0001 [data-slot=reply]", "e => e.textContent")
 
     api = server.api(f"/api/v1/sessions/{sid}/turns/t0001")
