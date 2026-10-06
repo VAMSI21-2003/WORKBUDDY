@@ -243,7 +243,8 @@ def test_a_download_of_a_file_that_changed_or_is_gone_is_410_and_an_upload_is_40
     href = link.get("href") or ""
     assert ui.client.get(href).status_code == 200
 
-    path = next(app.state.settings.outputs_dir.rglob("*.xlsx"))
+    delivered_name = ui.api_turn(sid, "t0001")["delivered_files"][0]["name"]
+    path = next(app.state.settings.outputs_dir.rglob(delivered_name))  # not step 1's file
     path.chmod(0o644)
     path.write_bytes(b"changed")
 

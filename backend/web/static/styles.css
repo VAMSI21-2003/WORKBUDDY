@@ -218,6 +218,18 @@ input[type="file"] {
   font-size: 0.875rem;
 }
 
+input[type="file"]::file-selector-button {
+  margin-right: 0.6rem;
+  padding: 0.35rem 0.8rem;
+  color: var(--text);
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: 0.375rem;
+  font: inherit;
+  font-weight: 600;
+  cursor: pointer;
+}
+
 textarea {
   display: block;
   min-height: 5.5rem;
@@ -579,6 +591,20 @@ fieldset:disabled {
 /* -- Narrow screens: one column, the composer pinned to the bottom -------------------------------- */
 
 @media (max-width: 719px) {
+  /* The conversation comes first; the Files panel follows it. */
+  .conversation {
+    order: 1;
+  }
+
+  .files {
+    order: 2;
+  }
+
+  /* Keep a focused element clear of the pinned composer. */
+  html {
+    scroll-padding-bottom: 13rem;
+  }
+
   .composer {
     position: sticky;
     bottom: 0;
@@ -589,9 +615,27 @@ fieldset:disabled {
     border-bottom: 0;
   }
 
+  /* While the composer is closed (a turn is unfinished) it doesn't pin, so it can't cover the
+     plan card or the progress row. */
+  .composer:has(textarea:disabled) {
+    position: static;
+    margin: 0;
+    border-radius: var(--radius);
+    border-bottom: 1px solid var(--line);
+  }
+
   .files .hint,
   .composer .hint {
     font-size: 0.8125rem;
+  }
+
+  /* The key hint is for a physical keyboard, and the composer needs the room. */
+  #message-hint {
+    display: none;
+  }
+
+  textarea {
+    min-height: 3.75rem;
   }
 
   .btn,

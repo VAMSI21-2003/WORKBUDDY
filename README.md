@@ -172,6 +172,14 @@ a reverse proxy), sessions idle for `WORKBUDDY_SESSION_TTL_HOURS` (default
 24) are deleted with their files, and a session has quotas on uploads, upload
 bytes and turns. `/docs` and `/openapi.json` are not served.
 
+Open `http://127.0.0.1:8000/` for the web page (`docs/design/frontend-design.md`):
+the same server renders it, with no Node and no build step. With no
+`WORKBUDDY_PUBLIC_ORIGIN`, outside production, the page's origin is
+`http://127.0.0.1:<port>` for the `--port` the server starts on, and
+`http://localhost:<port>` works as well; set `WORKBUDDY_PUBLIC_ORIGIN` to use
+anything else. The browser tests (`tests/e2e`, Chromium through Playwright)
+run with the rest of the suite and are skipped if `playwright` isn't installed.
+
 `WORKBUDDY_DATA_DIR` sets the data root (default `workspace/`). Before a
 turn's first file-changing step, the turn shows its whole plan
 (`awaiting_confirmation`, with `pending_confirmation.steps`) and waits for
