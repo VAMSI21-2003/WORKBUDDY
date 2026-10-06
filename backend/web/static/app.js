@@ -185,6 +185,20 @@
       });
   }
 
+  // The plan changed under the user (answered in another tab, or timed out): fetch the turn as the
+  // server has it, whatever state the turn's poll is in. This runs once the answer's own request
+  // has ended, because until then that request holds the turn's hx-sync lock and a fetch started
+  // now would be dropped; and it doesn't depend on the poll element, which the answer's request
+  // may have cancelled mid-flight.
+  function refetchTurn(plan) {
+    const turn = plan.closest('.turn');
+    window.setTimeout(() => {
+      htmx.ajax('GET', plan.dataset.refetchUrl, { target: turn }).catch(() => {
+        showNotice(copyText('cant-reach'), 'request');
+      });
+    }, 0);
+  }
+
   function refetchConversation(form) {
     const box = form.querySelector('textarea');
     const draft = box.value;
@@ -248,8 +262,7 @@
     } else if (status === 409 && error.code === 'session_busy' && composer) {
       refetchConversation(composer);
     } else if (status === 409 && plan) {
-      const poll = plan.closest('.turn').querySelector('.poll');
-      if (poll) retryPoll(poll);
+      refetchTurn(plan);
     } else if (status >= 500 && composer) {
       ambiguousPost(composer);
     } else if (status >= 500 && plan) {

@@ -42,12 +42,22 @@ class LiveApp:
     settings: Settings
     factory: Any
     server: uvicorn.Server
+    thread: threading.Thread
 
     def api(self, path: str) -> httpx.Response:
         """A read of the JSON API, as a script would make it (Bearer, no cookie)."""
-        return httpx.get(
-            self.base + path, headers={"Authorization": f"Bearer {PASSWORD}"}, timeout=10
-        )
+        headers = {"Authorization": f"Bearer {PASSWORD}"} if self.settings.demo_password else {}
+        return httpx.get(self.base + path, headers=headers, timeout=10)
+
+    def restart(self, factory: Any) -> None:
+        """Stop the server and start a new process's worth of app on the same port and data root:
+        everything held in memory (turn versions, access tokens, pending plans) is gone, what is on
+        disk stays, as after a restart of the real server."""
+        self.server.should_exit = True
+        self.thread.join(15)
+        assert not self.thread.is_alive(), "the app didn't stop"
+        self.app, self.server, self.thread = _serve(self.settings, factory)
+        self.factory = factory
 
     def turn(self, session_id: str, turn_id: str = "t0001") -> dict[str, Any]:
         response = self.api(f"/api/v1/sessions/{session_id}/turns/{turn_id}")
@@ -56,6 +66,22 @@ class LiveApp:
 
     def uploads(self) -> list[Path]:
         return sorted(p for p in self.settings.uploads_dir.rglob("*.xlsx"))
+
+
+def _serve(
+    settings: Settings, factory: Any
+) -> tuple[Any, uvicorn.Server, threading.Thread]:
+    app = create_app(settings, factory)
+    server = uvicorn.Server(
+        uvicorn.Config(app, host="127.0.0.1", port=settings.port, log_level="warning")
+    )
+    thread = threading.Thread(target=server.run, daemon=True)
+    thread.start()
+    deadline = time.monotonic() + 15
+    while not server.started and time.monotonic() < deadline:
+        time.sleep(0.02)
+    assert server.started, "the app didn't start"
+    return app, server, thread
 
 
 def _free_port() -> int:
@@ -74,24 +100,17 @@ def live_app(tmp_path: Path) -> Iterator[Callable[..., LiveApp]]:
         replies: list[str] | None = None, *, factory: Any = None, **overrides: Any
     ) -> LiveApp:
         port = _free_port()
-        settings = Settings(
-            data_dir=tmp_path / f"data{len(started)}",
-            env="",
-            demo_password=PASSWORD,
-            port=port,  # the public origin is http://127.0.0.1:<port> (review L5)
-            **overrides,
-        )
+        values: dict[str, Any] = {
+            "data_dir": tmp_path / f"data{len(started)}",
+            "env": "",
+            "demo_password": PASSWORD,
+            "port": port,  # the public origin is http://127.0.0.1:<port> (review L5)
+        }
+        values.update(overrides)  # ``env="dev", demo_password=None`` is the no-password dev server
+        settings = Settings(**values)
         engine = factory if factory is not None else PipelineFactory(QueuedProvider(replies or []))
-        app = create_app(settings, engine)
-        server = uvicorn.Server(
-            uvicorn.Config(app, host="127.0.0.1", port=port, log_level="warning")
-        )
-        threading.Thread(target=server.run, daemon=True).start()
-        deadline = time.monotonic() + 15
-        while not server.started and time.monotonic() < deadline:
-            time.sleep(0.02)
-        assert server.started, "the app didn't start"
-        live = LiveApp(f"http://127.0.0.1:{port}", app, settings, engine, server)
+        app, server, thread = _serve(settings, engine)
+        live = LiveApp(f"http://127.0.0.1:{port}", app, settings, engine, server, thread)
         started.append(live)
         return live
 

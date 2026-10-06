@@ -38,6 +38,7 @@ def test_every_response_carries_nosniff_and_no_store(settings: Settings, path: s
 
     assert response.headers["X-Content-Type-Options"] == "nosniff"
     assert response.headers["Cache-Control"] == "no-store"
+    assert response.headers["Referrer-Policy"] == "no-referrer"  # review L9 of frontend-demo
 
 
 def test_an_unknown_route_gets_the_uniform_error_body(settings: Settings) -> None:

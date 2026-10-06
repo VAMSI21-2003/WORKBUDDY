@@ -140,6 +140,7 @@ def test_the_page_carries_the_security_headers(tmp_path: Path) -> None:
         assert "style-src 'self'" in response.headers["content-security-policy"]
         assert response.headers["cache-control"] == "no-store"
         assert response.headers["x-content-type-options"] == "nosniff"
+        assert response.headers["referrer-policy"] == "no-referrer"
         assert response.headers["strict-transport-security"]
 
 

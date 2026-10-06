@@ -7,6 +7,7 @@ from typing import Any
 
 import pytest
 
+from backend import routes as api_routes
 from backend.errors import XLS_MESSAGE
 from tests.backend.factories import BlockingFactory, PipelineFactory, QueuedProvider, single
 from tests.backend.helpers import two_sheets, zip_bytes
@@ -333,3 +334,83 @@ def test_the_transcript_route_gives_the_turns_after_a_seq(tmp_path: Path) -> Non
     assert everything.find("section", id="conversation") is not None
     assert after_one.find("ol", id="transcript-check") is not None
     assert everything.find("form", id="composer").find("input", name="last_seq").get("value") == "2"  # type: ignore[union-attr]
+
+
+# -- A server that restarted under a page (review M1 of frontend-demo) ---------------------------
+
+
+def test_a_poll_from_a_page_that_outlived_a_restart_is_an_empty_reload_instruction(
+    tmp_path: Path,
+) -> None:
+    factory = PipelineFactory(QueuedProvider(single("remove_duplicate_rows")))
+    _, client = make_app(tmp_path, factory)
+    ui = Ui(client)
+    sid = ui.new_session()
+    ui.upload(sid)
+    ui.start(sid, DEDUPE)
+    container = wait_for_container(
+        ui, sid, "t0001", lambda c: c.find("section", **{"class": "plan"}) is not None
+    )
+    held = int(container.get("data-version") or 0)
+    assert held > 0  # the plan card is on a version after the first
+    # The same data root under a new process: versions are memory-only, so they count from 0.
+    _, restarted_client = make_app(tmp_path, PipelineFactory(QueuedProvider([])))
+    restarted = Ui(restarted_client)
+    assert restarted.version(sid, "t0001") < held
+
+    answer = restarted.poll(sid, "t0001", v=held)
+
+    assert answer.status_code == 200
+    assert answer.headers["hx-refresh"] == "true"
+    assert answer.text == ""  # nothing to swap in: the page reloads
+    assert "hx-retarget" not in answer.headers
+    # A reload renders the session as this server has it, and its poll element holds that version.
+    for cookie in client.cookies.jar:  # the browser's cookies survive the server's restart
+        restarted_client.cookies.jar.set_cookie(cookie)
+    page = restarted_client.get("/")
+    assert page.status_code == 200 and 'data-turn-id="t0001"' in page.text
+    assert "hx-refresh" not in page.headers
+    assert restarted.version(sid, "t0001") < held
+    for v in (None, restarted.version(sid, "t0001")):  # a page that holds the server's own version
+        normal = restarted.poll(sid, "t0001", v=v)
+        assert "hx-refresh" not in normal.headers
+        assert 'data-turn-id="t0001"' in normal.text
+    # the page never asks to reload for a version the server has reached itself
+    assert "hx-refresh" not in ui.poll(sid, "t0001", v=held).headers
+    assert "hx-refresh" not in ui.poll(sid, "t0001", v=0).headers
+
+
+def test_the_files_panel_leaves_out_what_the_turn_being_rendered_as_running_has_delivered(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    factory = PipelineFactory(QueuedProvider(single("remove_duplicate_rows")))
+    app, client = make_app(tmp_path, factory, auto_approve=True)
+    ui = Ui(client)
+    sid = ui.new_session()
+    ui.upload(sid)
+    real = api_routes.start_turn
+
+    def finished_before_the_response(request: Any, session_id: str, body: Any) -> Any:
+        started = real(request, session_id, body)
+        wait_for_container(
+            ui, session_id, started.turn_id, lambda c: c.get("data-status") == "finished"
+        )
+        return started  # the turn as it started, though the server has now finished it
+
+    monkeypatch.setattr(api_routes, "start_turn", finished_before_the_response)
+
+    response = ui.start(sid, DEDUPE)
+
+    tree = parse(response.text)
+    turn = tree.find("li", **{"data-turn-id": "t0001"})
+    assert turn is not None and turn.get("data-status") == "running"
+    assert turn.find("div", **{"data-slot": "reply"}) is None
+    panel = tree.find("section", id="files")
+    assert panel is not None
+    assert panel.find("a") is None  # the running turn's file isn't offered yet
+    assert "Files from Buddy" not in panel.text()
+    # the poll then brings the page up to date: the reply, the download and the panel agree
+    done = ui.poll(sid, "t0001", v=0)
+    final = parse(done.text)
+    assert final.find("div", **{"data-slot": "reply"}) is not None
+    assert final.find("section", id="files").find("a") is not None  # type: ignore[union-attr]

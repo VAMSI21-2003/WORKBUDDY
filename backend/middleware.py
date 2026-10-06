@@ -24,7 +24,8 @@ _UPLOAD_PATH = re.compile(r"^/(?:api/v1/sessions|ui/s)/[^/]+/files/?$")
 
 
 class SecurityHeadersMiddleware:
-    """Adds ``nosniff`` and ``no-store`` to every response (design Section 6.1).
+    """Adds ``nosniff``, ``no-store`` and ``Referrer-Policy: no-referrer`` to every response
+    (backend design Section 6.1; frontend design 11.2).
 
     Also ``frame-ancestors 'none'`` (clickjacking: design "Decisions
     (2026-10-01)", item 2.4), set only if the response carries no
@@ -46,6 +47,7 @@ class SecurityHeadersMiddleware:
                 headers = MutableHeaders(scope=message)
                 headers["X-Content-Type-Options"] = "nosniff"
                 headers["Cache-Control"] = "no-store"
+                headers["Referrer-Policy"] = "no-referrer"
                 if "content-security-policy" not in headers:
                     headers["Content-Security-Policy"] = "frame-ancestors 'none'"
                 if self.hsts:
