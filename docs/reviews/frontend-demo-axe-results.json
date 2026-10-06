@@ -1,0 +1,50 @@
+[
+  {
+    "state": "gate (light)",
+    "violations": [],
+    "needs_review": [],
+    "passes": 28
+  },
+  {
+    "state": "empty workspace (light)",
+    "violations": [],
+    "needs_review": [],
+    "passes": 30
+  },
+  {
+    "state": "plan card (light)",
+    "violations": [],
+    "needs_review": [],
+    "passes": 31
+  },
+  {
+    "state": "finished turn (light)",
+    "violations": [],
+    "needs_review": [],
+    "passes": 32
+  },
+  {
+    "state": "gate (dark)",
+    "violations": [],
+    "needs_review": [],
+    "passes": 28
+  },
+  {
+    "state": "empty workspace (dark)",
+    "violations": [],
+    "needs_review": [],
+    "passes": 30
+  },
+  {
+    "state": "plan card (dark)",
+    "violations": [],
+    "needs_review": [],
+    "passes": 31
+  },
+  {
+    "state": "finished turn (dark)",
+    "violations": [],
+    "needs_review": [],
+    "passes": 32
+  }
+]

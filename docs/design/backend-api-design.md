@@ -1181,3 +1181,24 @@ How PR-4 (`feat/backend-retention`) carries out the access, CSRF, rate-limit, re
 ### 5. Still open
 
 The global byte cap's number, the uncompressed-size guard, and the frontend's handling of `429` on a poll (part 2's list) remain owner decisions. The demo password is a shared secret; real sign-in replaces `AccessControl` and nothing else.
+
+---
+
+## Implementation notes, recorded with FE-1 (not owner decisions)
+
+How FE-1 (`feat/frontend-demo`, `docs/design/frontend-design.md`) touches the backend. Nothing here changes an owner decision; where a note and a "Decisions" section disagree, the "Decisions" section wins.
+
+### 1. The dev public origin follows the port (PR-4 review L5)
+
+- "Decisions (2026-10-01)", item 2, says the dev default is `http://127.0.0.1:8000`. It is now `http://127.0.0.1:<port>`, for the port `python -m backend --port` starts on (`Settings.port`, passed by `Settings.from_env(port=…)`), because a fixed port made the access route answer `403` to a browser on any other port.
+- Outside production, with no `WORKBUDDY_PUBLIC_ORIGIN`, `http://localhost:<port>` is accepted too (`Settings.accepted_origins`): a browser on `localhost` is as local as one on `127.0.0.1`, and the server binds loopback either way. The `Origin` rule is otherwise as before: exact, lower-cased, one header.
+- An origin set explicitly is matched exactly, with no alias, in every environment; production never has one (it needs an `https://` origin). So the CSRF check is no weaker where it matters.
+
+### 2. The page's routes are charged as "Decisions (2026-10-01)", item 3, says
+
+`GET /` and `/static/*` take the `page` bucket; `POST /ui/sessions`, `GET …/transcript` and `POST …/confirmation` take `general`; `POST …/files` takes `general` and `uploads`; `POST …/turns` takes `general` and `turns`; `GET …/poll` is the poll route. FE-1's tests cover each row (`tests/web/test_errors_and_limits.py`), including the 300-second full turn at the page's cadence with no `429`.
+
+### 3. Two small additions the page needs
+
+- **`TurnRecord.version`**: a live counter of a turn's status changes (running, plan published, plan answered, finished). It is in no JSON response and not on disk, and the page's poll compares it with the version the page holds.
+- **The upload-size `413`** (`file_too_large`, with the cap in its message) is also given for `POST /ui/s/{sid}/files`, not only for the JSON upload route.
