@@ -340,10 +340,9 @@ def test_the_formula_counts_cover_every_sheet(tmp_path: Path) -> None:
 def test_an_empty_string_result_counts_as_no_saved_value(tmp_path: Path) -> None:
     unsaved = fixtures.formatted_formula_sheet(tmp_path / "u.xlsx", saved=False)
     path = fixtures.save_formula_values(unsaved, tmp_path / "r.xlsx", {"C2": 20})
-    with zipfile.ZipFile(path) as archive:
-        xml = archive.read("xl/worksheets/sheet1.xml").decode()
-    crafted = xml.replace('<c r="C3"><f>B3*2</f><v />', '<c r="C3" t="str"><f>B3*2</f><v></v>')
-    assert crafted != xml
-    edits = {"xl/worksheets/sheet1.xml": crafted.encode()}
-    out = fixtures.rewrite(path, tmp_path / "e.xlsx", edits)
+    out = fixtures.save_empty_string_result(path, tmp_path / "e.xlsx", "C3")
+    with zipfile.ZipFile(out) as archive:
+        assert '<c r="C3" t="str"><f>B3*2</f><v></v></c>' in archive.read(
+            "xl/worksheets/sheet1.xml"
+        ).decode()
     assert formula_cell_counts(str(out)) == FormulaCounts(formulas=4, without_value=3)
