@@ -1,0 +1,33 @@
+{% from "_poll.html" import poll %}
+{% if t.status == "awaiting" %}<title>Approval needed – WorkBuddy</title>{% else %}<title>WorkBuddy demo</title>{% endif %}
+<li id="turn-t0001" class="turn" data-session-id="S1" data-turn-id="t0001" data-version="{{ t.version }}">
+  <p data-slot="message">{{ t.message }}</p>
+  {% if t.status == "running" %}
+    <p class="progress">Buddy is working</p>
+    {{ poll(t, delay) }}
+  {% elif t.status == "awaiting" %}
+    <section class="plan" aria-labelledby="plan-h">
+      <h3 id="plan-h" tabindex="-1" autofocus>Plan for your approval</h3>
+      <ol>{% for s in t.steps %}<li>{{ s }}</li>{% endfor %}</ol>
+      <form id="plan-form" hx-post="/ui/confirm" hx-target="closest .turn" hx-swap="outerHTML"
+            hx-sync="closest .turn:replace" hx-disabled-elt="#plan-form button"
+            data-error-slot="plan-error">
+        <input type="hidden" name="confirmation_id" value="c_1">
+        <button type="submit" name="decision" value="approve">Approve plan
+          <span class="when-sending">Sending your answer…</span></button>
+        <button type="submit" name="decision" value="reject">Reject plan</button>
+      </form>
+      <p>about <span id="timeleft">{{ left }}</span> s left</p>
+      <p id="plan-error" role="alert"></p>
+    </section>
+    {{ poll(t, delay) }}
+    <div hx-swap-oob="innerHTML:#live">A plan needs your approval</div>
+  {% else %}
+    <div data-slot="reply" class="reply">{{ t.reply }}</div>
+    {% if show_downloads %}
+      <ul class="downloads">{% for f in t.delivered %}
+        <li><a href="/dl/{{ f.name }}" download>{{ f.name }} ({{ f.size }})</a></li>{% endfor %}</ul>
+    {% endif %}
+    <div hx-swap-oob="innerHTML:#live">{{ t.reply }}</div>
+  {% endif %}
+</li>

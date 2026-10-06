@@ -1,0 +1,23 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="htmx-config" content='{"allowEval":false,"allowScriptTags":false,"includeIndicatorStyles":false,"selfRequestsOnly":true,"historyEnabled":false,"historyCacheSize":0}'>
+<title>WorkBuddy demo</title>
+<link rel="stylesheet" href="/spike-static/spike.css">
+<script src="/static/htmx.min.js" defer></script>
+<script src="/spike-static/spike.js" defer></script>
+</head>
+<body>
+<main>
+<ol id="transcript">{% include "turn.html" %}</ol>
+<form id="generic" hx-post="/ui/err/422" data-error-slot="generic-error">
+  <textarea name="message">draft</textarea><button type="submit">Send</button>
+</form>
+<p id="generic-error" role="alert"></p>
+<button id="hx-on-probe" hx-on:click="window.__evaled = true">probe</button>
+<div id="live" aria-live="polite" class="visually-hidden"></div>
+</main>
+</body>
+</html>

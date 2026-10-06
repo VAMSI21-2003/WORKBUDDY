@@ -1,0 +1,224 @@
+{
+  "A_host_cookie_and_origin[127.0.0.1]": {
+    "ok": true,
+    "detail": {
+      "origin": "http://127.0.0.1:37905",
+      "cookie_arrived": true
+    }
+  },
+  "B1_retarget_replaces_whole_container": {
+    "ok": true,
+    "detail": "plan card present"
+  },
+  "B2_title_applied": {
+    "ok": true,
+    "detail": "Approval needed \u2013 WorkBuddy"
+  },
+  "B3_title_element_left_in_dom": {
+    "ok": true,
+    "detail": {
+      "title_elements_in_body": 1
+    }
+  },
+  "B4_autofocus_after_swap": {
+    "ok": true,
+    "detail": {
+      "active_element_id": "plan-h"
+    }
+  },
+  "B5_oob_innerHTML_into_live_region": {
+    "ok": true,
+    "detail": "A plan needs your approval"
+  },
+  "C1_no_change_poll_rearms": {
+    "ok": true,
+    "detail": {
+      "polls": 2
+    }
+  },
+  "C2_no_change_poll_keeps_focus": {
+    "ok": true,
+    "detail": {
+      "focused_button_value": "reject"
+    }
+  },
+  "C3_oob_by_id_updates_time_left": {
+    "ok": true,
+    "detail": {
+      "before": "119",
+      "after": "117"
+    }
+  },
+  "C4_plan_card_node_untouched_by_no_change_poll": {
+    "ok": true,
+    "detail": "heading node kept"
+  },
+  "D1_both_buttons_disabled_in_flight": {
+    "ok": true,
+    "detail": [
+      true,
+      true
+    ]
+  },
+  "D2_in_flight_label_shown_by_css_class": {
+    "ok": true,
+    "detail": {
+      "visible": true
+    }
+  },
+  "D3_disabled_button_value_still_sent": {
+    "ok": true,
+    "detail": [
+      {
+        "confirmation_id": "c_1",
+        "decision": "approve"
+      }
+    ]
+  },
+  "E1_replace_aborts_poll_in_flight": {
+    "ok": true,
+    "detail": {
+      "aborted": [
+        "http://127.0.0.1:37905/ui/poll?v=1"
+      ]
+    }
+  },
+  "F2_extra_triggers_while_in_flight_are_dropped": {
+    "ok": true,
+    "detail": {
+      "started_meanwhile": 0
+    }
+  },
+  "G_422_no_swap_and_error_event": {
+    "ok": true,
+    "detail": {
+      "events": [
+        {
+          "name": "htmx:responseError",
+          "status": 422,
+          "retryAfter": null,
+          "body": "{\"error\":{\"code\":\"stub\",\"message\":\"Stub error 422.\"}}",
+          "path": "/ui/err/422",
+          "elt": "generic"
+        }
+      ],
+      "afterSwap": 0,
+      "retry_after": null
+    }
+  },
+  "G_500_no_swap_and_error_event": {
+    "ok": true,
+    "detail": {
+      "events": [
+        {
+          "name": "htmx:responseError",
+          "status": 500,
+          "retryAfter": null,
+          "body": "{\"error\":{\"code\":\"stub\",\"message\":\"Stub error 500.\"}}",
+          "path": "/ui/err/500",
+          "elt": "generic"
+        }
+      ],
+      "afterSwap": 0,
+      "retry_after": null
+    }
+  },
+  "G_429_no_swap_and_error_event": {
+    "ok": true,
+    "detail": {
+      "events": [
+        {
+          "name": "htmx:responseError",
+          "status": 429,
+          "retryAfter": "7",
+          "body": "{\"error\":{\"code\":\"stub\",\"message\":\"Stub error 429.\"}}",
+          "path": "/ui/err/429",
+          "elt": "generic"
+        }
+      ],
+      "afterSwap": 0,
+      "retry_after": "7"
+    }
+  },
+  "G_network_error_event": {
+    "ok": true,
+    "detail": [
+      "htmx:afterRequest",
+      "htmx:sendError",
+      "htmx:beforeSwap",
+      "htmx:afterSwap",
+      "htmx:afterRequest"
+    ]
+  },
+  "G_draft_text_stays_after_error": {
+    "ok": true,
+    "detail": "textarea value unchanged"
+  },
+  "H1_config_meta_applied": {
+    "ok": true,
+    "detail": {
+      "allowEval": false,
+      "allowScriptTags": false,
+      "includeIndicatorStyles": false,
+      "selfRequestsOnly": true,
+      "historyEnabled": false
+    }
+  },
+  "H2_hx_on_not_run_with_allowEval_false": {
+    "ok": true,
+    "detail": "no eval"
+  },
+  "H3_no_csp_violation": {
+    "ok": true,
+    "detail": []
+  },
+  "H4_no_inline_style_injected": {
+    "ok": true,
+    "detail": "no <style> elements"
+  },
+  "H5_no_web_storage_written": {
+    "ok": true,
+    "detail": [
+      [],
+      []
+    ]
+  },
+  "H6_selfRequestsOnly_blocks_other_origin": {
+    "ok": true,
+    "detail": [
+      "htmx:invalidPath"
+    ]
+  },
+  "I1_htmx_api_surface": {
+    "ok": true,
+    "detail": {
+      "ajax": "function",
+      "swap": "function",
+      "trigger": "function",
+      "process": "function",
+      "version": "2.0.4"
+    }
+  },
+  "J1_ajax_with_retarget_header_and_explicit_target": {
+    "ok": true,
+    "detail": "one container"
+  },
+  "K1_finished_container_has_no_poll": {
+    "ok": true,
+    "detail": {
+      "polls_before": 1,
+      "polls_after": 1
+    }
+  },
+  "K2_title_reverts": {
+    "ok": true,
+    "detail": "WorkBuddy demo"
+  },
+  "A_host_cookie_and_origin[localhost]": {
+    "ok": true,
+    "detail": {
+      "origin": "http://localhost:37905",
+      "cookie_arrived": true
+    }
+  }
+}

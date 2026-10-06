@@ -1,0 +1,2 @@
+{% from "_poll.html" import poll %}{{ poll(t, delay) }}
+{% if t.status == "awaiting" %}<span id="timeleft" hx-swap-oob="true">{{ left }}</span>{% endif %}
