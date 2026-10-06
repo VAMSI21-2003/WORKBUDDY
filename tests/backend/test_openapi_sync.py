@@ -148,3 +148,89 @@ def test_the_session_response_declares_limits_and_a_nullable_retention() -> None
         "accepted_extensions",
         "max_message_chars",
     }
+
+
+# -- Access, rate limits and quotas (PR-4) ------------------------------------------------
+
+_PUBLIC = {("get", "/healthz"), ("post", "/api/v1/access")}
+
+
+def _operations() -> list[tuple[str, str, dict[str, Any]]]:
+    return [
+        (method, path, operation)
+        for path, operations in _committed()["paths"].items()
+        for method, operation in operations.items()
+    ]
+
+
+def test_the_bearer_and_cookie_schemes_are_documented() -> None:
+    schemes = _committed()["components"]["securitySchemes"]
+
+    assert schemes["bearer"] == {"type": "http", "scheme": "bearer"}
+    assert schemes["access_cookie"] == {
+        "type": "apiKey",
+        "in": "cookie",
+        "name": "__Host-wb_access",
+    }
+
+
+def test_every_route_but_healthz_and_the_access_route_requires_one_of_the_two_credentials() -> None:
+    for method, path, operation in _operations():
+        if (method, path) in _PUBLIC:
+            assert "security" not in operation, (method, path)
+        else:
+            assert operation["security"] == [{"bearer": []}, {"access_cookie": []}], (method, path)
+
+
+def test_every_credentialed_route_declares_401_with_the_realm_header() -> None:
+    for method, path, operation in _operations():
+        if (method, path) in _PUBLIC:
+            continue
+        response = operation["responses"]["401"]
+        assert "WWW-Authenticate" in response["headers"], (method, path)
+
+
+def test_every_state_changing_route_declares_403_and_every_route_429_with_retry_after() -> None:
+    for method, path, operation in _operations():
+        assert "Retry-After" in operation["responses"]["429"]["headers"], (method, path)
+        if method == "post":
+            assert "403" in operation["responses"], (method, path)
+
+
+def test_the_access_route_is_a_form_with_a_204_that_sets_a_cookie() -> None:
+    operation = _committed()["paths"]["/api/v1/access"]["post"]
+
+    assert list(operation["requestBody"]["content"]) == ["application/x-www-form-urlencoded"]
+    assert operation["requestBody"]["content"]["application/x-www-form-urlencoded"]["schema"][
+        "required"
+    ] == ["password"]
+    assert "Set-Cookie" in operation["responses"]["204"]["headers"]
+    assert {"401", "403", "422", "429"} <= set(operation["responses"])
+
+
+def test_the_new_error_codes_are_in_the_closed_enum() -> None:
+    codes = _committed()["components"]["schemas"]["ErrorCode"]["enum"]
+
+    assert {
+        "unauthorized",
+        "forbidden_origin",
+        "rate_limited",
+        "session_quota_exceeded",
+        "storage_full",
+    } <= set(codes)
+
+
+def test_the_routes_that_make_a_session_or_an_upload_can_be_storage_full() -> None:
+    paths = _committed()["paths"]
+
+    assert "503" in paths["/api/v1/sessions"]["post"]["responses"]
+    assert "503" in paths["/api/v1/sessions/{session_id}/files"]["post"]["responses"]
+
+
+def test_retention_hours_is_a_number_the_sweep_enforces() -> None:
+    created = _committed()["components"]["schemas"]["SessionCreated"]["properties"][
+        "retention_hours"
+    ]
+
+    assert {t["type"] for t in created["anyOf"] if "type" in t} == {"integer", "number", "null"}
+    assert "sweep" in created["description"]

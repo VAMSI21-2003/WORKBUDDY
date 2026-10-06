@@ -108,14 +108,14 @@ class SessionStore:
         }
         atomic_write_json(record.meta_dir(self._settings) / "session.json", data)
 
-    def touch(self, record: SessionRecord) -> None:
-        """Set ``session.json``'s modification time to now: the session was just used.
+    def touch(self, record: SessionRecord, now: float) -> None:
+        """Set ``session.json``'s modification time to ``now`` (epoch seconds): it was just used.
 
         Retention reads that time for a session that isn't in memory. Never
         raises: a session that can't be touched is just swept sooner.
         """
         try:
-            os.utime(record.meta_dir(self._settings) / "session.json")
+            os.utime(record.meta_dir(self._settings) / "session.json", (now, now))
         except OSError:
             logger.warning("Session %s couldn't be marked as used", record.key)
 

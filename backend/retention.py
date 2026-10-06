@@ -157,7 +157,10 @@ class RetentionSweeper:
         for key in self._registry.live_keys():
             if self._registry.claim_idle(key, cutoff):
                 self._remove(key, removed, failed)
+        tried = set(removed) | set(failed)
         for key in self._keys_on_disk():
+            if key in tried:
+                continue  # a removal that just failed is retried by the next sweep
             last = self._disk_activity(key)
             if last is None or last > cutoff:
                 continue

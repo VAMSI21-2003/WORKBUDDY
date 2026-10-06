@@ -272,7 +272,7 @@ class SessionRegistry:
         record.last_active = now
         if self._store is not None and now - record.last_persisted >= PERSIST_TOUCH_S:
             record.last_persisted = now
-            self._store.touch(record)
+            self._store.touch(record, now)
 
     # -- Retention (``backend.retention``) ----------------------------------------------
 
