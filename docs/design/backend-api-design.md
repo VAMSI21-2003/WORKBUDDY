@@ -1136,3 +1136,48 @@ How PR-3 (`feat/backend-api-confirmation`) carries out the confirmation sections
 ### 5. The decline reply
 
 Rejecting a plan is now an ordinary answer, so when the chain stopped because its first file-changing step wasn't confirmed, the pipeline's reply no longer opens with "I ran into a problem partway through." (`buddy/voice.py`). The step's reason ("wasn't confirmed, so it didn't run") and the stop sentence ("… no file was handed back; your original file is unchanged.") are unchanged. A step declined after an earlier one ran still gets the "problem" sentence.
+
+---
+
+## Implementation notes, recorded with PR-4 (not owner decisions)
+
+How PR-4 (`feat/backend-retention`) carries out the access, CSRF, rate-limit, retention and quota sections above. Nothing here changes an owner decision; where a note and a "Decisions" section disagree, the "Decisions" section wins. The HTML routes belong to the frontend PR; PR-4 provides what they attach to: `require_access` (the credential and Origin dependency), `limits(...)` (the bucket declaration), `check_credential`, and the `page` bucket.
+
+### 1. The request gate: limits, credential and Origin run before any body is read
+
+- [Certain, measured with FastAPI 0.142] FastAPI parses a route's body (a multipart upload is spooled to disk) **before** it resolves that route's dependencies. A `401` raised from a dependency would therefore come only after an unauthenticated upload had been parsed. So the rate limiter, the credential check and the Origin check also run in one ASGI middleware, `backend/gate.py`, ahead of the body guard and ahead of FastAPI. It decides the credential once with `AccessControl.check` and stores the answer on the request; `check_credential(request)` and the router-wide `require_access` dependency reuse it, so the limiter, the Origin check and the dependency can't disagree ("Decisions (2026-10-01)", item 1). The dependency stays on the whole router, so a route reached some other way still can't skip it.
+- The order is the one part 2 asks for: limiter, then credential, then Origin. A request refused with `429` takes nothing; a `401` has already paid its double charge; a `403 forbidden_origin` is charged as a state-changing request.
+- Because the gate runs before the body guard, a `413` for an oversized body has been charged like any other refused request (part 2, rule 2).
+
+### 2. Buckets are declared per route, and read from the route
+
+- A route declares `dependencies=[Depends(limits(<buckets>, mutating=…, credential=…, poll=…))]`. `check_route_declarations` runs at the end of `create_app` and again at startup, and refuses: no declaration (or two), an unknown bucket, a route that needs a credential but lacks `require_access`, a `GET` declared mutating, a non-`GET` not declared mutating, and a poll that isn't a read of one.
+- FastAPI 0.142 keeps an included router as one lazy entry in `app.routes`, so the gate and the check expand it with `fastapi.routing.iter_route_contexts`. `requirements.txt` pins FastAPI to a minor version, so a change there fails a test instead of opening a gap.
+- Charges (`backend/ratelimit.py`, `charges_for` and `after_response`): a missing or wrong credential takes 2 `general` tokens and nothing from the route's own buckets (on every route, the poll route included); a valid poll takes one `poll` token, and one `general` token afterwards if the response isn't `200`; every other request takes its declared buckets whatever the response. The access route takes `general` and `access`, and a wrong password (a `401` the limiter can't judge before the handler reads the form) takes one more `general` token afterwards, so a wrong password costs 2 there too.
+- A path that matches no route (or a method that isn't allowed) is charged to `general` under `/api/v1` and to `page` elsewhere, so every request is charged to exactly one bucket.
+- A refusal needs a token in **every** bucket the request is charged to; it then takes its cost, down to zero. `Retry-After` is the longest wait of any refusing bucket, in whole seconds, at least 1.
+- The numbers are the design's, as `DEFAULT_RATE_LIMITS`. Each is set by `WORKBUDDY_RATE_<BUCKET>_BURST` and `WORKBUDDY_RATE_<BUCKET>_PER_HOUR` (every refill is expressed per hour, so `turns` can be 10).
+- `WORKBUDDY_TRUSTED_PROXY_HOPS = N` takes the client from the `N`-th entry from the right of `X-Forwarded-For` (each trusted proxy appends the address it saw, so anything to its left is the caller's to forge). Fewer than `N` valid entries, or an invalid address, falls back to the socket's peer. `0` ignores the header.
+- Part 2's "a third poll stream at 1 s" assumed the old 1 s polling cadence. With the frontend's 2 s cadence the test runs two streams at 2 s and a third at 4 a second (5 a second in all, past the refill of 3).
+
+### 3. Settings and the startup checks
+
+- `Settings.env` is `"production"`, `"dev"` or unset. `Settings.from_env` defaults to unset, which needs a demo password like production does. The **dataclass** default is `"dev"`, so code that builds a `Settings` itself (the tests) gets an open server; `create_app()` with no arguments reads the environment and so refuses an open one. A test pins both.
+- Refused at startup: no password unless `dev`; an empty password; production with no `WORKBUDDY_PUBLIC_ORIGIN`, or one that isn't `https://`; an origin that isn't `scheme://host[:port]` (a path, credentials, `*`); a poll bucket whose refill per second is below `max_concurrent_turns`; a missing or extra bucket; and (R2-L5) a `WORKBUDDY_TURN_DEADLINE_S` above 3600.
+- The public origin is stored lower-cased without a default port and compared with the `Origin` header after lower-casing it, exactly: a trailing slash, another port, `null`, no header or two headers are all `403`.
+- `python -m backend` binds `0.0.0.0` in production and `127.0.0.1` otherwise. `--host` may name another address, but a non-loopback one is refused outside production. HSTS (`max-age=31536000`) is sent in production only.
+- `/docs`, `/redoc` and `/openapi.json` are never served, in any environment (stricter than "off in production or behind the password"). `Content-Security-Policy: frame-ancestors 'none'` is set on every response that carries no policy of its own, so the frontend's full policy replaces it.
+- CORS: `WORKBUDDY_CORS_ORIGINS` (comma-separated exact origins; `*` is refused). Empty, no CORS header is ever sent. Otherwise only `GET` and `POST`, the `Authorization` and `Content-Type` headers, no credentials, and `Retry-After` exposed.
+
+### 4. Retention, quotas and the storage cap
+
+- **Idle** means no request has used the session: every lookup counts, a poll included, and at most once a minute the use is written to disk (`session.json`'s modification time) so a restart doesn't forget it. A session that isn't in memory is judged by that time. Use that never reached the disk (under a minute old at a crash) is lost.
+- The sweep never takes a session with an unfinished turn (running or awaiting an answer). A claimed session is out of service (not found, not restorable) while its files go: uploads, outputs, then the records, so a sweep that stops halfway leaves a session that the next one finishes. Only key-shaped names directly under the three folders are deleted; symlinks are removed as links. Uploads are read-only, so each folder is made writable first (checked as an ordinary user).
+- `retention_hours` is `settings.session_ttl_hours`, as a whole number when it is one (24, not 24.0), so its schema is `integer | number | null`. It is never `null` now; the field stays nullable so the frontend's types don't change.
+- Quotas answer `403 session_quota_exceeded` with a message built from the setting. The default for uploads is 20 per session, upload bytes 100 MiB, turns 50. A refused upload or turn stores and creates nothing.
+- The cap is `WORKBUDDY_MAX_TOTAL_BYTES`, default **2 GiB**: a placeholder, because the design leaves the number to the host. At or over it a new session **and an upload** get `503 storage_full` (an upload adds bytes too; the design names only new sessions). The bytes are counted by walking the data root, cached for 2 s. The sweep never deletes a live session to make room.
+- The `access` token store, idle rate-limit buckets and the sweep run on one background thread started at app startup (`MaintenanceLoop`); a pass that raises is logged and the loop goes on.
+
+### 5. Still open
+
+The global byte cap's number, the uncompressed-size guard, and the frontend's handling of `429` on a poll (part 2's list) remain owner decisions. The demo password is a shared secret; real sign-in replaces `AccessControl` and nothing else.

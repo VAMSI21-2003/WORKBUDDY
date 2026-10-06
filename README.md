@@ -148,12 +148,29 @@ python -m venv .venv
 pip install -r requirements.txt
 ```
 
-Serve the HTTP API (see `docs/design/backend-api-design.md`) on
-127.0.0.1, with `GROQ_API_KEY` (or `ANTHROPIC_API_KEY`) in the environment:
+Serve the HTTP API (see `docs/design/backend-api-design.md`), with
+`GROQ_API_KEY` (or `ANTHROPIC_API_KEY`) in the environment:
 
 ```bash
-python -m backend --port 8000
+# Locally: no password, loopback only
+WORKBUDDY_ENV=dev python -m backend --port 8000
+
+# A public demo: a password and its https address are required
+WORKBUDDY_ENV=production WORKBUDDY_DEMO_PASSWORD=... \
+  WORKBUDDY_PUBLIC_ORIGIN=https://demo.example python -m backend --port 8000
 ```
+
+Without `WORKBUDDY_DEMO_PASSWORD` the server refuses to start unless
+`WORKBUDDY_ENV=dev`; in production it also needs an `https://`
+`WORKBUDDY_PUBLIC_ORIGIN` and binds `0.0.0.0` (otherwise `127.0.0.1`). The
+browser exchanges the password once (`POST /api/v1/access`, a form with a
+`password` field and the page's `Origin`) for the `__Host-wb_access` cookie;
+scripts send `Authorization: Bearer <password>`. Every `/api/v1` route needs
+one of the two except `/healthz` and the access route. Requests are limited
+per IP (`429` with `Retry-After`; set `WORKBUDDY_TRUSTED_PROXY_HOPS` behind
+a reverse proxy), sessions idle for `WORKBUDDY_SESSION_TTL_HOURS` (default
+24) are deleted with their files, and a session has quotas on uploads, upload
+bytes and turns. `/docs` and `/openapi.json` are not served.
 
 `WORKBUDDY_DATA_DIR` sets the data root (default `workspace/`). Before a
 turn's first file-changing step, the turn shows its whole plan
