@@ -46,4 +46,8 @@ See the design's implementation notes for the interpretations. The tests are in 
 
 ## Results
 
-(see below, filled in at the end of the writer's work)
+- `python -m pytest -q` (Python 3.11.15): **2440 passed**, 285 s. `origin/main` (`dede5b8`) gives 2241 passed per the PR-3 review, so this branch adds 199 tests.
+- `ruff check buddy tests`: 22 errors, the same count as `origin/main`. `ruff check backend tests/backend scripts/live_api_runs.py`: clean.
+- `python -m backend.export_openapi --check`: in sync (tested by `test_openapi_sync.py`).
+- The new R2-L1 test fails on `origin/main`'s `backend/confirmation.py` and passes on this branch's.
+- Not run by the writer: live runs (they follow a MERGE verdict), Python 3.13, Windows. The one non-root test (`test_a_process_that_is_not_root_can_delete_read_only_uploads`) runs only as root, by dropping to uid 65534.
