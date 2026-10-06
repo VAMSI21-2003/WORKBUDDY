@@ -320,12 +320,4 @@
     if (box.form && box.value.trim() !== '') box.form.requestSubmit();
   });
 
-  // After a swap that brings in an element with autofocus, make sure it has the focus: htmx
-  // honours autofocus for the swapped target but not always for an out-of-band element.
-  document.addEventListener('htmx:afterSettle', (evt) => {
-    const target = evt.detail.elt;
-    if (!target || !target.querySelector) return;
-    const wanted = target.matches('[autofocus]') ? target : target.querySelector('[autofocus]');
-    if (wanted && document.activeElement !== wanted) wanted.focus();
-  });
 })();

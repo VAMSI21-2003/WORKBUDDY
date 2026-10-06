@@ -66,7 +66,6 @@ app.js string: ?unconfirmed=
 app.js string: Enter
 app.js string: GET
 app.js string: Retry-After
-app.js string: [autofocus]
 app.js string: [data-composer]
 app.js string: [data-error-slot]
 app.js string: [data-gate]
@@ -87,7 +86,6 @@ app.js string: cant-reach
 app.js string: enter-password-again
 app.js string: file_not_found
 app.js string: htmx:afterRequest
-app.js string: htmx:afterSettle
 app.js string: htmx:beforeRequest
 app.js string: htmx:beforeSwap
 app.js string: htmx:responseError
