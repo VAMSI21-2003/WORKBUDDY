@@ -7,6 +7,8 @@ on:
   pull_request:
   push:
     branches: [main]
+  # Also runnable by hand (Actions tab, "Run workflow") on any branch, without opening a pull request.
+  workflow_dispatch:
 
 # Read-only: nothing here may write to the repository.
 permissions:
