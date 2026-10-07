@@ -57,11 +57,13 @@ app.js string: #page-notices
 app.js string: #password
 app.js string: #upload-form
 app.js string: #workspace
+app.js string: &held=
 app.js string: .poll
 app.js string: .turn
 app.js string: /
 app.js string: 0
 app.js string: ?after=
+app.js string: ?held=
 app.js string: ?unconfirmed=
 app.js string: Enter
 app.js string: GET

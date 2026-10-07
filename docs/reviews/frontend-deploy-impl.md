@@ -22,7 +22,6 @@ I checked each new test against the code it guards by mutating a copy of the tre
 `tests/e2e/conftest.py`: `live_app` can now pass `env="dev", demo_password=None`, and `LiveApp.restart(factory)` stops the server and starts a new app on the same port and data root (everything in memory is gone, what's on disk stays).
 
 **Not done, on purpose (for the reviewer to judge):**
-- The refetch after a lost answer (`lostAnswer`) and the new `409` refetch carry no `v`, so after a server restart they could still be dropped by the swap guard (version 0 against the version the page holds). That needs a restart during the very click, in password-less dev (with a password a restart ends every access token, and the poll's `401` stops the page). The next poll of the turn gets the `HX-Refresh`, if its poll element is still armed. I didn't add a parameter for it.
 - L1, L2, L5, L6, L7, L8: not in the request. They stay in `docs/backlog.md` section 4a.
 
 ## Part B: the test fixtures
@@ -64,11 +63,11 @@ Not run: pandas 3.0.6 (the reporter's version; this sandbox has 2.3.3, and the i
 2. The static version is in the query string, not the file name (no renaming, no build step); the immutable header applies only when the version in the URL is the file's current one.
 3. A separate `requirements-runtime.txt` (the design said `pip install -r requirements.txt`, which would put Playwright, mypy, black and the rest in the image).
 
-**Not done:** no host is chosen. Pinning or locking the runtime dependencies isn't done: the image resolves versions at build time (the build here got pandas 2.3.3, ydata-profiling 4.18.4, splink 4.0.17; the full list is in `docs/reviews/frontend-deploy-live-runs.md`). `huggingface.co` can't be reached from this sandbox, so the claim in design 11.3 about Docker Spaces needing a paid plan is the owner's, and unchecked.
+**Not done:** no host is chosen. Pinning or locking the runtime dependencies isn't done: the image resolves versions at build time (the build here got pandas 2.3.3, ydata-profiling 4.18.4, splink 4.0.17; the full list is in `docs/reviews/frontend-deploy-image-freeze.txt`). `huggingface.co` can't be reached from this sandbox, so the claim in design 11.3 about Docker Spaces needing a paid plan is the owner's, and unchecked.
 
 ## Measurements and runs
 
-How they were done, and every result, are in `docs/deploy.md` (Section 6) and `docs/reviews/frontend-deploy-live-runs.md`. Docker works in this sandbox: the daemon was started by hand (`dockerd`), the base image comes from a mirror (`mirror.gcr.io/library/python:3.11-slim`, the same digest as Docker Hub's; Docker Hub itself answered `429` to the anonymous pull) and was tagged `python:3.11-slim` locally, and containers run with `--network host`.
+How the memory and time measurements were done, and every result, are in `docs/deploy.md` (Section 6) and `docs/reviews/frontend-deploy-measurements.json`; the browser runs of design 10.4 against the image are in `docs/reviews/frontend-deploy-live-runs.md`. Docker works in this sandbox: the daemon was started by hand (`dockerd`), the base image comes from a mirror (`mirror.gcr.io/library/python:3.11-slim`, the same digest as Docker Hub's; Docker Hub itself answered `429` to the anonymous pull) and was tagged `python:3.11-slim` locally, and containers run with `--network host`.
 
 ## What to look at first
 

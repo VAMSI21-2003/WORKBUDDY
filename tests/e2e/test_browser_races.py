@@ -118,6 +118,55 @@ def test_a_server_restart_under_a_waiting_plan_card_reloads_into_what_the_server
     assert notices(page) == []
 
 
+def stranded_card_after_a_restart(
+    live_app: LiveFactory, new_page: NewPage
+) -> tuple[LiveApp, Page, str, Watch]:
+    """A password-less dev server restarted under a waiting plan card, with the card's poll
+    element gone from the page, so only the page's own refetches can bring it up to date."""
+    live = live_app(chain(*DEDUPE_THEN_EMPTY), env="dev", demo_password=None)
+    page = new_page()
+    watch = Watch(page)
+    page.goto(live.base + "/")
+    page.wait_for_selector("#workspace[data-session-id]")
+    sid = session_id(page)
+    upload(page)
+    send(page, CHAIN)
+    expect(page.locator("#turn-t0001 .plan")).to_be_visible()
+    assert int(page.get_attribute("#turn-t0001", "data-version") or 0) > 0
+    page.evaluate("document.querySelectorAll('.poll').forEach((poll) => poll.remove())")
+    live.restart(PipelineFactory(QueuedProvider([])))  # the plan is gone with the process
+    return live, page, sid, watch
+
+
+def test_a_409_after_a_restart_with_no_poll_armed_reloads_into_what_the_server_has(
+    live_app: LiveFactory, new_page: NewPage
+) -> None:
+    live, page, sid, watch = stranded_card_after_a_restart(live_app, new_page)
+
+    page.click("#turn-t0001 .plan button[value=approve]")  # the restarted server: 409
+
+    reply = reply_raw(page)
+    assert reply == live.turn(sid)["reply"]
+    assert page.locator("#turn-t0001 .plan").count() == 0
+    assert page.title() == "WorkBuddy demo"
+    assert any(status == 409 for status, _ in watch.statuses)
+    assert live.turn(sid)["delivered_files"] == []
+
+
+def test_a_lost_answer_after_a_restart_with_no_poll_armed_reloads_into_what_the_server_has(
+    live_app: LiveFactory, new_page: NewPage
+) -> None:
+    live, page, sid, _ = stranded_card_after_a_restart(live_app, new_page)
+    page.route("**/confirmation", lambda route: route.abort())  # the answer never arrives
+
+    page.click("#turn-t0001 .plan button[value=approve]")
+
+    reply = reply_raw(page)
+    assert reply == live.turn(sid)["reply"]
+    assert page.locator("#turn-t0001 .plan").count() == 0
+    assert page.title() == "WorkBuddy demo"
+
+
 # -- M2: a 409 on the plan card --------------------------------------------------------------------
 
 

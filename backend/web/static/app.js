@@ -136,7 +136,8 @@
     window.setTimeout(() => { buttonsIn(form).forEach((button) => { button.disabled = true; }); }, 0);
     const turn = form.closest('.turn');
     const id = form.querySelector('[name="confirmation_id"]').value;
-    const url = form.dataset.refetchUrl + '?unconfirmed=' + encodeURIComponent(id);
+    const held = Number(turn.dataset.version) || 0;
+    const url = form.dataset.refetchUrl + '?unconfirmed=' + encodeURIComponent(id) + '&held=' + held;
     htmx.ajax('GET', url, { target: turn }).catch(() => {
       showNotice(copyText('cant-reach'), 'request');
     });
@@ -186,14 +187,16 @@
   }
 
   // The plan changed under the user (answered in another tab, or timed out): fetch the turn as the
-  // server has it, whatever state the turn's poll is in. This runs once the answer's own request
-  // has ended, because until then that request holds the turn's hx-sync lock and a fetch started
-  // now would be dropped; and it doesn't depend on the poll element, which the answer's request
-  // may have cancelled mid-flight.
+  // server has it, whatever state the turn's poll is in. It doesn't go through the poll element,
+  // which the answer's request may have cancelled mid-flight. It starts once this error handler has
+  // returned, not inside it. The URL says which version the page holds, so a server that
+  // restarted (and counts versions from 0 again) answers with a reload instead of a turn the swap
+  // guard would drop.
   function refetchTurn(plan) {
     const turn = plan.closest('.turn');
+    const held = Number(turn.dataset.version) || 0;
     window.setTimeout(() => {
-      htmx.ajax('GET', plan.dataset.refetchUrl, { target: turn }).catch(() => {
+      htmx.ajax('GET', plan.dataset.refetchUrl + '?held=' + held, { target: turn }).catch(() => {
         showNotice(copyText('cant-reach'), 'request');
       });
     }, 0);

@@ -11,6 +11,7 @@ import pytest
 from backend.middleware import RequestGuardMiddleware, SecurityHeadersMiddleware
 
 CAP = 1000
+IMMUTABLE = b"public, max-age=31536000, immutable"
 
 
 class _ReadingApp:
@@ -121,3 +122,38 @@ def test_an_exception_escaping_the_app_becomes_a_fixed_500_with_headers() -> Non
         "error": {"code": "internal_error", "message": "Something went wrong on the server."}
     }
     assert headers[b"cache-control"] == b"no-store"
+
+
+class _CachingApp:
+    """An app whose response sets its own ``Cache-Control`` (or none), whatever the path."""
+
+    def __init__(self, cache_control: bytes | None) -> None:
+        self.cache_control = cache_control
+
+    async def __call__(self, scope: Any, receive: Any, send: Any) -> None:
+        headers = [] if self.cache_control is None else [(b"cache-control", self.cache_control)]
+        await send({"type": "http.response.start", "status": 200, "headers": headers})
+        await send({"type": "http.response.body", "body": b"ok"})
+
+
+@pytest.mark.parametrize(
+    ("path", "own", "expected"),
+    [
+        ("/static/app.js", IMMUTABLE, IMMUTABLE),
+        ("/static/app.js", None, b"no-store"),  # a static error has no mark of its own
+        ("/api/v1/sessions", IMMUTABLE, b"no-store"),
+        ("/ui/sessions", b"public", b"no-store"),
+        ("/staticfile", b"public", b"no-store"),  # only paths under /static/ are exempt
+        ("/", b"public", b"no-store"),
+    ],
+)
+def test_no_store_is_replaced_only_by_what_a_static_file_route_marks_itself(
+    path: str, own: bytes | None, expected: bytes
+) -> None:
+    app = SecurityHeadersMiddleware(_CachingApp(own))
+
+    _, _, headers = _run(app, [b""], [], path)
+
+    assert headers[b"cache-control"] == expected
+    assert headers[b"referrer-policy"] == b"no-referrer"
+    assert headers[b"x-content-type-options"] == b"nosniff"

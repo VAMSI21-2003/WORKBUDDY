@@ -3,9 +3,13 @@
 from __future__ import annotations
 
 import hashlib
+import os
 import re
 from pathlib import Path
 
+import pytest
+
+from backend.web import templating
 from backend.web.templating import STATIC_DIR, static_url, static_version
 from tests.backend.factories import PipelineFactory, QueuedProvider
 from tests.web.htmltools import parse
@@ -122,3 +126,21 @@ def test_everything_else_stays_no_store_including_a_missing_static_file(tmp_path
         client.get("/nope"),
     ):
         assert response.headers["cache-control"] == "no-store", response.request.url
+
+
+def test_an_edited_static_file_gets_a_new_version_under_a_running_server(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Review L5 of frontend-deploy: the version follows the file, so a dev server never serves
+    new content under the old ``?v=`` that a browser has cached for good."""
+    monkeypatch.setattr(templating, "STATIC_DIR", tmp_path)
+    (tmp_path / "x.js").write_text("one", encoding="utf-8")
+    first = templating.static_version("x.js")
+    assert first == hashlib.sha256(b"one").hexdigest()[:12]
+    assert templating.static_version("x.js") == first
+
+    (tmp_path / "x.js").write_text("two", encoding="utf-8")  # the same size, edited
+    os.utime(tmp_path / "x.js", ns=(1, 1_000_000_000))  # and a modification time that moved
+
+    assert templating.static_version("x.js") == hashlib.sha256(b"two").hexdigest()[:12]
+    assert templating.static_version("x.js") != first

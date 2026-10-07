@@ -55,7 +55,18 @@ def main() -> None:
         # The message names the setting, never a value.
         print(f"WorkBuddy can't start: {exc}", file=sys.stderr)
         raise SystemExit(2) from None
-    uvicorn.run(create_app(settings), host=host, port=args.port, workers=1, log_level="info")
+    try:
+        app = create_app(settings)
+    except PermissionError as exc:
+        # The data folder isn't writable by this user (a volume mounted with the wrong owner):
+        # say which folder, not a traceback.
+        print(
+            f"WorkBuddy can't start: this process can't write to its data folder "
+            f"{settings.data_dir} ({exc.strerror}). Give the user it runs as write access.",
+            file=sys.stderr,
+        )
+        raise SystemExit(2) from None
+    uvicorn.run(app, host=host, port=args.port, workers=1, log_level="info")
 
 
 if __name__ == "__main__":

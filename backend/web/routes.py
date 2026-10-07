@@ -284,13 +284,17 @@ def poll(
     turn_id: str,
     v: int | None = None,
     unconfirmed: str | None = None,
+    held: int | None = None,
 ) -> Response:
     """One poll of a turn: a new poll element if nothing changed, else the whole turn container.
 
-    ``v`` is the version the page holds; one higher than the server's means the server restarted
-    since the page rendered, and the answer is an empty ``HX-Refresh`` (a reload). ``unconfirmed``
-    names a confirmation whose answer may not have arrived: the turn is always returned whole then,
-    and if that plan is still waiting, its card says the answer may be lost.
+    ``v`` is the version the page holds, sent by the turn's own poll element; ``held`` is the same
+    number sent by the page's other requests for the turn (a refetch after a ``409``, the lookup
+    after a lost answer), which don't ask whether anything changed. Either one higher than the
+    server's means the server restarted since the page rendered, and the answer is an empty
+    ``HX-Refresh`` (a reload). ``unconfirmed`` names a confirmation whose answer may not have
+    arrived: the turn is always returned whole then, and if that plan is still waiting, its card
+    says the answer may be lost.
     """
     record = api.session_of(request, session_id)
     with record.lock:
@@ -299,7 +303,8 @@ def poll(
         assert stored is not None  # get_turn found it, under this same lock
         version = stored.version
         now = now_of(request)
-        if v is not None and v > version:
+        seen = v if v is not None else held
+        if seen is not None and seen > version:
             # The page holds a version this server never gave out: the server restarted, and
             # versions are memory-only, so it counts from 0 again. The page's swap guard would drop
             # every answer as older than what it holds, for good, so the page reloads instead and

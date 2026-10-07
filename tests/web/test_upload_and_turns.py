@@ -414,3 +414,34 @@ def test_the_files_panel_leaves_out_what_the_turn_being_rendered_as_running_has_
     final = parse(done.text)
     assert final.find("div", **{"data-slot": "reply"}) is not None
     assert final.find("section", id="files").find("a") is not None  # type: ignore[union-attr]
+
+
+def test_a_refetch_that_names_the_version_the_page_holds_gets_the_reload_after_a_restart(
+    tmp_path: Path,
+) -> None:
+    factory = PipelineFactory(QueuedProvider(single("remove_duplicate_rows")))
+    _, client = make_app(tmp_path, factory)
+    ui = Ui(client)
+    sid = ui.new_session()
+    ui.upload(sid)
+    ui.start(sid, DEDUPE)
+    container = wait_for_container(
+        ui, sid, "t0001", lambda c: c.find("section", **{"class": "plan"}) is not None
+    )
+    held = int(container.get("data-version") or 0)
+    _, restarted_client = make_app(tmp_path, PipelineFactory(QueuedProvider([])))
+    restarted = Ui(restarted_client)
+    server_version = restarted.version(sid, "t0001")
+    assert server_version < held
+
+    for params in ({"held": str(held)}, {"held": str(held), "unconfirmed": "c_x"}):
+        refetch = restarted.poll(sid, "t0001", **params)  # the page's 409 refetch, and its lookup
+        assert refetch.headers["hx-refresh"] == "true" and refetch.text == "", params
+    # a page that holds the server's own version, or none, gets the turn as it is
+    for params in ({"held": str(server_version)}, {"held": "0"}, {}):
+        whole = restarted.poll(sid, "t0001", **params)
+        assert "hx-refresh" not in whole.headers, params
+        assert 'data-turn-id="t0001"' in whole.text, params
+        assert whole.headers["hx-retarget"] == "#turn-t0001"  # the whole container, not a poll
+    # and ``v`` still takes precedence over ``held``, as before
+    assert restarted.poll(sid, "t0001", v=held, held="0").headers["hx-refresh"] == "true"

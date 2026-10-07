@@ -15,7 +15,7 @@ What the image is (`Dockerfile`, `.dockerignore`):
 - `python:3.11-slim`, with the runtime packages of `requirements-runtime.txt` only (`requirements.txt` adds the test and lint tools and isn't used).
 - Runs as user `app` (uid 10001), which can write only to `/data`. Mount a volume there; see Section 4 for what that changes.
 - One process, one worker: `python -m backend --port "$PORT"` (`PORT` defaults to 8000). Sessions, turns, pending plans and access tokens live in that process's memory, so a second worker or a second instance behind one address would split them. Don't scale it out.
-- `WORKBUDDY_ENV=production` is set in the image. Production binds `0.0.0.0` and refuses to start without `WORKBUDDY_DEMO_PASSWORD` and an https `WORKBUDDY_PUBLIC_ORIGIN`; it prints the name of the setting that's wrong, never its value, and exits with status 2.
+- `WORKBUDDY_ENV=production` is set in the image. Production binds `0.0.0.0` and refuses to start without `WORKBUDDY_DEMO_PASSWORD` and an https `WORKBUDDY_PUBLIC_ORIGIN`; it prints which setting is wrong, never its value, and exits with status 2. Some messages name the setting by its internal field (`max_upload_bytes` for `WORKBUDDY_MAX_UPLOAD_BYTES`, `public_origin` for `WORKBUDDY_PUBLIC_ORIGIN`), others by the variable.
 - `HEALTHCHECK` calls `GET /healthz` (liveness only; no credential needed). Hosts with their own health check can use the same path: `200` and `{"ok": true, "llm_configured": …}`.
 - Behind a build proxy that inspects TLS, build with `docker build --secret id=pip_ca,src=/path/to/ca-bundle.pem .`. Without the secret nothing changes, and the bundle isn't written into the image.
 
@@ -23,7 +23,7 @@ TLS is the host's job: the container speaks plain HTTP on `PORT`, and the host's
 
 ## 2. Environment variables
 
-Every variable the server reads. "Set" means the host must set it; the rest have the default shown. A value that can't be used stops the server at start with the variable's name in the message.
+Every variable the server reads. "Set" means the host must set it; the rest have the default shown. A value that can't be used stops the server at start with a message that names the setting (by the variable, or by its internal field name: `max_upload_bytes`, `public_origin`, `trusted_proxy_hops`, `turn_deadline_s` and so on, which are the variable's name in lower case without `WORKBUDDY_`) and never its value.
 
 ### The host must set
 
@@ -103,11 +103,11 @@ For example `WORKBUDDY_RATE_TURNS_BURST=20`. Loosening `ACCESS` weakens the guar
 
 Everything the process holds in memory is lost when it restarts: turn versions, pending plans and access tokens.
 - **Everyone sees the gate again** after a restart (the tokens are gone) and enters the password.
-- **With a volume on `/data`**, sessions, uploads and delivered files survive. A turn a restart interrupted is recorded as failed with the fallback reply, and a plan that was waiting counts as rejected (backend 7.5, run 8). A page open across the restart is reloaded by the server's `HX-Refresh` on its next poll (review M1 of the FE-1 page), and shows that account.
+- **With a volume on `/data`**, sessions, uploads and delivered files survive. A turn a restart interrupted is recorded as failed with the fallback reply, and a plan that was waiting counts as rejected (backend 7.5, run 8). A page open across the restart shows that account only in a server that has no password (`WORKBUDDY_ENV=dev`), where the server's `HX-Refresh` reloads the page on its next request. **In production, a restart ends every access token, so a page that was open gets `401` on its next request, stops polling and shows the notice "The demo password is missing or wrong" with a link to enter the password again;** the person enters it and sees the turn as the server has it.
 - **On an ephemeral disk** (no volume, or a host that wipes it) the sessions are gone too. The page shows the new-session notice, "That session no longer exists on the server, so this is a new one." That's correct, not a fault, and the route and browser tests cover it.
 - Idle hosts that stop or sleep a container are the same case.
 
-The `/data` folder must be writable by uid 10001 (`chown 10001:10001` on a bind mount; named volumes take the image's ownership).
+The `/data` folder must be writable by uid 10001 (`chown 10001:10001` on a bind mount; named volumes take the image's ownership). If it isn't, the server stops at start with "WorkBuddy can't start: this process can't write to its data folder /data (Permission denied)" and exit status 2.
 
 ## 5. The checklist for going public (design 13.2)
 
@@ -124,7 +124,7 @@ The link goes public only when **all** of these hold. Status as of this branch; 
 | 7 | `WORKBUDDY_TRUSTED_PROXY_HOPS` is tested for the chosen host: with it set, two clients behind the proxy get separate buckets, and a spoofed `X-Forwarded-For` doesn't change anyone's | **Open until a host is chosen** |
 
 Also before going public, not in the design's list but needed by this document:
-- the three secrets are set in the host's secret store, and `GET /healthz` shows `llm_configured: true`;
+- the three secrets are set in the host's secret store, and `GET /healthz` shows `llm_configured: true` (that only says a key is set, **not that it works**: an invalid key, or a host with no route to `api.groq.com`, also shows `true`, and a turn then ends with a reply that says no change was made and doesn't say the model failed. Send one real message after setting the key, and read its reply);
 - `WORKBUDDY_PUBLIC_ORIGIN` is the address in the browser's bar, character for character (the gate says `403 forbidden_origin` otherwise);
 - a person completes the flow once on the host: gate, upload, a message, approve, download, and the original file is untouched (`docs/reviews/frontend-deploy-live-runs.md` has the four runs of design 10.4 against the image in this repository).
 
@@ -136,7 +136,7 @@ What the image used on the real pipeline with real Groq, so the owner can choose
 
 - **Machine:** 4 vCPUs (Intel Xeon @ 2.1 GHz), 16 GB, Docker 29.8.2 with cgroup v1. The container ran on the host's network, because this sandbox reaches the LLM only through an egress proxy; a real host uses ordinary networking.
 - **Image:** 1.39 GB; `python:3.11.17`; pandas 2.3.3, ydata-profiling 4.18.4, splink 4.0.17 (resolved at build time; nothing is pinned or locked). Build time with a cold cache, 4 min 15 s.
-- **Fixtures:** *small*, 6 rows (5,018 bytes: 2 exact duplicates, 1 empty row); *2 MB*, 20,000 rows by 14 columns, 5% exact duplicates and 3 empty rows (2,055,232 bytes, just under the default 2 MiB cap).
+- **Fixtures:** *small*, 6 rows (5,018 bytes: 2 exact duplicates, 1 empty row); *2 MB*, 24,497 data rows by 14 columns, 1,223 exact duplicate rows and 3 empty rows (2,055,232 bytes, just under the default 2 MiB cap).
 - **Requests:** "remove duplicate rows" (*single*), and "remove duplicate rows, then remove empty rows" (*chain*, one plan for both steps). Each ran after the previous ones, in one container, so after the first the server is warm.
 - **Wall time** is from sending the message to the finished turn, with the plan approved the moment it appears; it includes the LLM calls (a few seconds in all).
 - Each cell is one run, not an average. The four runs below agree with each other to about 1 MB on memory and a few seconds on time, so I believe the differences between limits are noise.
