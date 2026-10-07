@@ -267,7 +267,7 @@ It should print a header line (`CONTAINER ID IMAGE ...`) and nothing else. "Perm
 nano deploy/.env
 ```
 
-Type the values after the `=` signs, on the same line, with no spaces and no quotes:
+Type the values after the `=` signs, on the same line. **No spaces at either end, no quotes, no `$`, no backtick, and no ` #` in a value**: Docker reads the file with its own rules (it would drop the part of a password after a `$`, for instance), and the scripts refuse such a value, by the setting's name, rather than run with a password that doesn't match:
 - `WORKBUDDY_DOMAIN=<name>`: your name ("What you need", above), without `https://` and without a trailing slash.
 - `WORKBUDDY_DEMO_PASSWORD=`: a long password. `openssl rand -base64 18` (run it in a second window) makes a good one.
 - `GROQ_API_KEY=`: your key.
@@ -313,7 +313,7 @@ crontab -e
 17 3 * * * /home/azureuser/WORKBUDDY/deploy/backup.sh >> /home/azureuser/backup.log 2>&1
 ```
 
-That makes a backup at 03:17 every night and keeps the last 7 in `deploy/backups/`. **These backups are on the same disk as the data**, so they protect against a bad release or a mistake, not against losing the VM. Copy one to your own computer now and then, from your own computer:
+That makes a backup at 03:17 every night and keeps the last 7 in `deploy/backups/` (each release also takes one, so a week with many releases holds fewer nightly ones). **These backups are on the same disk as the data**, so they protect against a bad release or a mistake, not against losing the VM. Copy one to your own computer now and then, from your own computer:
 
 ```
 scp -i ~/Downloads/<key-file>.pem azureuser@<name>:WORKBUDDY/deploy/backups/<file>.tar.gz .
@@ -342,14 +342,14 @@ All from `~/WORKBUDDY` on the VM.
 ### Release a new version
 
 ```
-git fetch origin
-./deploy/release.sh origin/main
+git pull --ff-only
+./deploy/release.sh HEAD
 ```
 
-(Or any commit id, branch or tag you've fetched.) It does five things in order, and stops at the first that fails:
+`git pull` brings this checkout to the version you want to release (the compose file, the Caddyfile and the scripts come from the checkout; the image comes from the commit), and `release.sh` refuses to run if the `deploy/` folder in the checkout differs from the one in the commit it's asked to release, telling you to check that commit out first. Any commit id you've fetched and checked out works in place of `HEAD`. It does five things in order, and stops at the first that fails:
 
-1. **Backs up `/data`.** If the backup fails, nothing else happens.
-2. **Builds the image** from exactly that commit, tagged with the commit id. If the build fails, nothing has changed: the live version keeps running.
+1. **Builds the image** from exactly that commit, tagged with the commit id. If the build fails, nothing has changed: the live version keeps running, and no backup was taken.
+2. **Backs up `/data`.** If the backup fails, nothing else happens.
 3. **Starts it** in place of the old one. The site is unavailable for a few seconds while the app container is replaced (one instance, so there's no overlap).
 4. **Waits until it reports healthy.**
 5. **Runs `smoke.sh`:** sign in, upload, a real message, approve, download, and a hash check, through the real HTTPS address.
@@ -366,7 +366,9 @@ To go back to an older version later (the image of the one before the last is go
 
 ```
 git log --oneline -10
-./deploy/release.sh <older commit id>
+git checkout <older commit id>
+./deploy/release.sh HEAD
+git checkout main      # afterwards, so the next git pull works
 ```
 
 ### Restore a backup
@@ -376,8 +378,8 @@ ls -lt deploy/backups
 ./deploy/restore.sh deploy/backups/<file>.tar.gz
 ```
 
-It asks you to type `yes`; then backs up what's there now (so a mistaken restore can itself be undone), stops the app, empties `/data`, unpacks the archive, starts the app and waits for it to be healthy. Then `./deploy/smoke.sh`. Notes:
-- Restoring replaces **everything** in `/data`, including sessions created since the backup.
+It asks you to type `yes`; then it copies the archive aside, backs up what's there now (so a mistaken restore can itself be undone; no older backup is deleted by this), stops the app, unpacks the archive next to the data, and only when that has worked replaces `/data` with it, starts the app and waits for it to be healthy. If the unpacking fails (a damaged archive, a full disk) `/data` is untouched and the app is started again; if anything fails after `/data` was changed it prints the file holding the old data and the exact command that puts it back. Then `./deploy/smoke.sh`. Notes:
+- Restoring replaces **everything** in `/data`, including sessions created since the backup. It needs room for a second copy of the archive's contents while it unpacks.
 - Restore into the VM's own `/data` volume, which is what `restore.sh` does. The saved session records hold absolute paths under `/data`, so a data folder copied to a different path isn't restorable (found while writing the saved-data test; recorded in `docs/backlog.md`).
 - Sessions are removed anyway after `WORKBUDDY_SESSION_TTL_HOURS` (24) without use. A backup older than that holds sessions that the server will sweep soon after a restore.
 
@@ -399,6 +401,7 @@ Things worth knowing:
 - **One instance only.** Sessions, turns, pending plans and access tokens are in the app's memory (Section 1). Don't run two `app` containers.
 - **A restart signs everyone out** (Section 4): everyone enters the password again. Sessions and files survive, because `/data` is a volume.
 - **Concurrent big turns.** Section 6 measured that two 2 MB chains at once both miss the 180 s deadline. If that matters, set `WORKBUDDY_MAX_CONCURRENT_TURNS=1` in `deploy/.env` (remove the `#` on that line) and `./deploy/compose.sh up -d app`. It's the owner's call; the default is unchanged.
+- **No access log from Caddy, on purpose.** Every request line holds a session's address (`/api/v1/sessions/s_...`), which the app treats as a secret and masks in its own logs. Don't add a `log` block to the Caddyfile without masking those.
 - **Docker and the firewall.** Docker publishes ports around `ufw`. That's why the app has no published port at all: only Caddy's 80 and 443 are open, which is what `install.sh` allows anyway.
 - **IPv6.** If you give the VM an IPv6 address, Docker may show every IPv6 visitor to Caddy as one address, so they'd share one rate-limit bucket. The deployment assumes IPv4 (Azure's default).
 

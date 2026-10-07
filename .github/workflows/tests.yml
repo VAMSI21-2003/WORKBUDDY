@@ -41,6 +41,9 @@ jobs:
       # The browser tests drive Chromium; without it they'd be skipped, and this isn't the full suite.
       - name: Install the browser
         run: python -m playwright install --with-deps chromium
+      # The backup and restore tests run against a real Docker volume and need this image.
+      - name: Pull the image the backup tests use
+        run: docker pull python:3.11-slim
       - name: Full suite
         run: python -m pytest -q
 

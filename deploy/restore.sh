@@ -14,7 +14,7 @@ set -euo pipefail
 # shellcheck source=lib.sh
 . "$(dirname "${BASH_SOURCE[0]}")/lib.sh"
 
-[ $# -eq 1 ] && [ -f "$1" ] || { sed -n '2,6p' "${BASH_SOURCE[0]}" | sed 's/^# \{0,1\}//'; exit 2; }
+[ $# -eq 1 ] && [ -f "$1" ] || { usage "${BASH_SOURCE[0]}"; exit 2; }
 need docker tar
 tar -tzf "$1" >/dev/null 2>&1 || die "$1 isn't a readable .tar.gz; nothing was changed"
 tag="$(env_value "$DEPLOY_DIR/current.env" WORKBUDDY_TAG)"
@@ -48,6 +48,7 @@ helper() {  # helper SCRIPT: run SCRIPT (sh) as root in a throwaway container wi
 }
 
 step "unpack the archive beside the data"
+# shellcheck disable=SC2016  # the script is for the container's shell, not this one
 if ! helper 'set -e
   rm -rf /data/.restore-staging && mkdir /data/.restore-staging
   tar -xzf /backup.tar.gz -C /data/.restore-staging
@@ -58,6 +59,7 @@ if ! helper 'set -e
 fi
 
 step "replace /data"
+# shellcheck disable=SC2016  # the script is for the container's shell, not this one
 if ! helper 'set -e
   cd /data
   for entry in $(ls -A); do [ "$entry" = ".restore-staging" ] || rm -rf -- "$entry"; done

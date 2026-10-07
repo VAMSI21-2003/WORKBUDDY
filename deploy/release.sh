@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # Put one commit live, and take it back by itself if it doesn't work.
-#     ./release.sh <commit>        # a commit id, a branch or a tag of this repository (git fetch first)
+#     ./release.sh <commit>        # a commit id, a branch or a tag of this repository (check it out first)
 #
 # 1. build the image from that commit, tagged with the commit id   (a failure here changes nothing)
 # 2. back up /data                       (a failure here stops everything; nothing has changed)
@@ -17,7 +17,7 @@ set -uo pipefail
 # shellcheck source=lib.sh
 . "$(dirname "${BASH_SOURCE[0]}")/lib.sh"
 
-[ $# -eq 1 ] || { sed -n '2,10p' "${BASH_SOURCE[0]}" | sed 's/^# \{0,1\}//'; exit 2; }
+[ $# -eq 1 ] || { usage "${BASH_SOURCE[0]}"; exit 2; }
 need docker git curl jq
 docker compose version >/dev/null 2>&1 || die "docker compose isn't available (install.sh installs it)"
 require_settings

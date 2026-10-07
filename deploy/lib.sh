@@ -14,6 +14,9 @@ die()  { printf 'ERROR: %s\n' "$*" >&2; exit 1; }
 
 compose() { "$DEPLOY_DIR/compose.sh" "$@"; }
 
+# Print the comment block at the top of a script (its usage text): usage "$0"
+usage() { awk 'NR > 1 && /^#/ { sub(/^# ?/, ""); print; next } NR > 1 { exit }' "$1"; }
+
 need() {
   local missing=()
   for tool in "$@"; do command -v "$tool" >/dev/null 2>&1 || missing+=("$tool"); done
