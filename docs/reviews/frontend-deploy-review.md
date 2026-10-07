@@ -92,3 +92,45 @@ L1–L9 above. M1 is not deferred: it blocks the merge.
 - `scripts/measure_container.py`: memory limits, the 2 MB fixture, and concurrent chains. I checked the numbers in `deploy.md` Section 6 against `frontend-deploy-measurements.json` (all match except L6), but I didn't re-measure.
 - The browser adversarial cases for friend and focus (template only). Their text paths are covered by the 3-speaker UI and browser probes.
 - pandas 3.x, a real host, `WORKBUDDY_TRUSTED_PROXY_HOPS` behind a real proxy, and `huggingface.co` (blocked).
+
+## Review round 2 (commit aa98844)
+
+**Verdict: MERGE.** No HIGH, no MEDIUM. Round 1's M1 and L1–L9 are closed on my own evidence (L4b by the softened comment, as round 1 allowed). Two new LOW findings, deferred.
+
+Scope: `0f0a09c..aa98844` (product: `backend/__main__.py`, `web/routes.py` `held`, `web/static/app.js`, `web/templating.py`; tests; docs; the live-runs file), round 1's open findings, and regression against base `a49f46a`. A different reviewer from round 1. The earlier cut-off attempt's `_r2` files were read, then every output rerun by me; nothing of theirs is relied on. Probes and outputs: `scripts/review_harness/feat-frontend-deploy/` (README, "Round 2").
+
+| Run | Result |
+|---|---|
+| `python -m pytest -q` (head) | 2599 passed, 0 failed (526 s); 11 more than round 1, all new tests |
+| `ruff check buddy tests` | 22 on head, 22 on base, identical by file and rule. `backend/` and the harness clean (`out/suite_and_lint_r2.txt`) |
+| New tests on `0f0a09c` code | 8 fail: L7, L5, the route `held` test, the copy snapshot, both new restart browser tests, both 409 tests (their helper now expects `held=`). The middleware test passes there, as a guard should (`out/new_tests_on_0f0a09c.txt`) |
+| Mutations of the fixes (14, throwaway copies) | 13 killed. r07 (drop `refetchTurn`'s `setTimeout`) survives, as disclosed; the comment no longer claims it's needed (`out/mutations_r2.txt`) |
+| UI probe, 25 scenarios × 3 speakers, head vs base, both rerun | 75 vs 75: same outcome, reply (catalog lines masked), plan, links, files; only polling-timing differences in 2 status sequences. Rule checks 150 rows, 0 problems. Original unchanged 75/75 |
+| FE-1 browser probe (b01–b06) × 3 speakers, head, against round 1's head output | Same behaviour; differences are random ids and opener lines only. Original unchanged everywhere |
+| Round 1 HTTP adversarial (a01–a07) × 3, rerun on head | Same as round 1 except app.js's size. Original unchanged 21/21 |
+| `held` HTTP probe (h01–h05) × 3 | Hostile values: never a 5xx (`abc`, `1.5`, `''`, `0x10`, `1e3` → 422); reload only above the server's version; `v` wins when both are sent (`v=1&held=8` → poll fragment). Restart + lookup / 409 refetch → `HX-Refresh`; reloaded page shows the failed turn's honest reply, no link. No restart + 409: the whole turn, file read 4 rows / 0 dup / 1 empty, matches the reply's 2 / 4 / 0. Others' session / unknown turn / no token: same 404/401 with or without `held` |
+| Browser, w01–w08 × 3 speakers | w02 (round 1's L3) now recovers in all three. w04 (restart + lost answer, no poll): recovers, 2 page loads, no loop. w05 (answer lost on the way back): lookup sends `held=1`, no reload, delivered turn shown, file matches the reply. w06: 409 with no poll recovers. w07 (refetch lost too): "This page can't reach the server.", card stays; true. w08 (password, restart): 401 notice, link, password, same session, page shows the server's reply. Original unchanged in all 24 |
+| L5 end to end (`r2_extra.py s01`) | Head: editing app.js under a running app changes the page's `?v=`; the old `?v=` is `no-cache`, the new one `immutable`. `0f0a09c`: same `?v=`, edited content served `immutable` |
+| Image built from head (`workbuddy:r2rev`; its 4 changed files byte-equal to head) | Root-owned `/data`: exit 2, the one-line message, no traceback (round 1's image: exit 1, traceback). `:ro` mount and root-owned subfolders: L10 |
+| Live runs, real Groq, against `workbuddy:r2rev` (design 10.4) | 4 of 4, no 429, password not in the log. Delivered files read with openpyxl: run 1 4 rows / 0 dup / 1 empty, run 2 3 / 0 / 0, matching every number in the replies; runs 3 and 4 deliver nothing and say so. No false claim. Original SHA-256 the same before and after in all 4 (`out/live_runs_container_r2*`) |
+| Committed live-runs file (round 1 M1) | Present, in the `CLAUDE.md` format, consistent with its JSON, and its outcomes and replies match my own runs on the same code (opener lines aside) |
+| Docs: L1, L2, L6, L8, L9 | L1's new production claim checked by w08. L2's wording matches the `SettingsError` messages. L6: regenerated, 24,497 rows / 1,223 duplicates / 3 empty. L8, L9 present |
+
+### Findings
+
+**L10 (LOW): `docs/deploy.md` Section 4 says a `/data` the app can't write always stops the server with the one-line message and status 2.** [Certain]
+- True only when `/data` itself refuses writes (k03).
+- A read-only mount (`-v …:/data:ro`, k06): exit 1 with `OSError: [Errno 30] Read-only file system: '/data/uploads'` and a traceback.
+- A writable `/data` holding root-owned `uploads/`, `outputs/` or `sessions/` (an earlier container run as root, k08): the server starts and is healthy, then every new session answers `500 internal_error` (log: `PermissionError … '/data/sessions/[REDACTED]'`).
+- Operator setup only; no reply and no user file is affected.
+- **Fix:** narrow the sentence and add "`chown -R 10001:10001`, and don't mount it read-only". Optionally catch `OSError` in `backend/__main__.py` too, and check each subfolder with `os.access(…, os.W_OK)` at start.
+
+**L11 (LOW): the design doesn't describe the poll's `held` parameter** (nor round 1's restart reload). [Certain] Design 1.7 and 10.1 list only `v` and `unconfirmed`. The route's docstring and `frontend-deploy-fixes1.md` describe it. **Fix:** one line in design 1.7.
+
+### Deferred (added to `docs/backlog.md` 4a)
+L10, L11.
+
+### Not run
+- The full suite with lxml uninstalled (not touched by this round's diff).
+- `scripts/measure_container.py` (no change to the image's contents beyond the four files above).
+- A real host, `WORKBUDDY_TRUSTED_PROXY_HOPS` behind a real proxy, browsers other than Chromium, pandas 3.x.

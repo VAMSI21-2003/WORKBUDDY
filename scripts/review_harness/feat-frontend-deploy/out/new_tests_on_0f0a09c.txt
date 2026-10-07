@@ -1,0 +1,11 @@
+ERROR    asyncio:base_events.py:1890 Task was destroyed but it is pending!
+WARNING  backend.store:store.py:338 Turn t0001 of session f42cf6b4a73707e57b3d346c1454ddb1 was interrupted by a restart; recording it as failed
+FAILED tests/backend/test_dev_origin.py::test_a_data_folder_this_user_cant_write_is_named_not_a_traceback
+FAILED tests/e2e/test_browser_races.py::test_a_409_after_a_restart_with_no_poll_armed_reloads_into_what_the_server_has[chromium]
+FAILED tests/e2e/test_browser_races.py::test_a_lost_answer_after_a_restart_with_no_poll_armed_reloads_into_what_the_server_has[chromium]
+FAILED tests/e2e/test_browser_races.py::test_a_409_on_the_plan_card_with_a_poll_in_flight_shows_the_turn_as_the_server_has_it[chromium]
+FAILED tests/e2e/test_browser_races.py::test_a_409_on_the_plan_card_with_no_poll_in_flight_shows_the_turn_as_the_server_has_it[chromium]
+FAILED tests/web/test_static.py::test_an_edited_static_file_gets_a_new_version_under_a_running_server
+FAILED tests/web/test_upload_and_turns.py::test_a_refetch_that_names_the_version_the_page_holds_gets_the_reload_after_a_restart
+FAILED tests/web/test_copy_snapshot.py::test_the_pages_copy_matches_the_committed_snapshot
+8 failed, 63 passed, 32 warnings in 177.45s (0:02:57)

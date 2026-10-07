@@ -28,3 +28,24 @@ Live runs with real Groq against the image (the implementer's script, container 
         --json scripts/review_harness/feat-frontend-deploy/out/live_runs_container.json
 
 Suite and lint summary: `out/suite_and_lint.txt`.
+
+## Round 2 (commit aa98844)
+
+Everything above was rerun on head where named; outputs carry `_r2`. Images: build your own from
+the head (`docker build ... -t workbuddy:r2rev .`), and pass it with `--image`.
+
+| Script | What | Output (`out/`) |
+|---|---|---|
+| `mutations_r2.py [--jobs 3]` | 14 mutations of the round-1 fixes (`held`, static version, startup message, middleware) | `mutations_r2.txt` |
+| `adversarial_r2.py [--speaker S]` | HTTP: hostile `held`; restart then the lookup / the 409 refetch with `held`; no-restart 409 refetch with the file read; `held` on others' sessions | `adversarial_r2_head.jsonl` |
+| `browser_adversarial_r2.py --speaker S` | Chromium: w04 restart + lost answer, no poll; w05 answer lost on the way back (no restart); w06 409 with no poll; w07 restart + refetch lost | `browser_adversarial_r2_{S}.jsonl` |
+| `browser_adversarial.py --speaker S` (round 1) rerun | w01-w03 on head (w02 was round 1's L3) | `browser_adversarial_r2run_{S}.jsonl` |
+| `docker_probe_r2.py --image IMG` | k03 root-owned `/data`, k06 `:ro` mount, k07 `/data` a file (Docker refuses the mount; not the app), k08 root-owned subfolders | `docker_probe_r2.json` |
+| `r2_extra.py s01 [--rev REV]` | L5 end to end: edit app.js under a running dev app; the page's `?v=` and both URLs' caching | `r2_extra_s01.jsonl` (HEAD and 0f0a09c) |
+| `r2_extra.py w08 --speaker S` | production-like restart under a plan; the 401 notice's link, the password, then what the page shows | `r2_extra_w08.jsonl` |
+| `r2_extra.py k03b --image IMG` | root-owned `/data`, waits for the exit | `r2_extra_k03b.jsonl` |
+| `read_live_r2.py out/live_runs_container_r2.json` | the live runs' delivered files read with openpyxl | `live_runs_container_r2_openpyxl.txt` |
+
+New tests on the round-1 code: the six changed test files copied over `git archive 0f0a09c`
+(`out/new_tests_on_0f0a09c.txt`). Live runs: as above, with `--container workbuddy:r2rev` and
+`_r2` output names. Suite and lint: `out/suite_and_lint_r2.txt`.

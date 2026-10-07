@@ -1,0 +1,10 @@
+RUN 1 'remove duplicate rows' | outcome delivered | sha before/after equal: True
+  reply: Here's where things landed. Done — removed 2 duplicate row(s). The copy has 4 row(s), 0 duplicate row(s) remaining. Your cleaned copy of manual_report.xlsx is ready. The copy has the values only; formatting, column widths and other sheet settings aren't carried over. I also noticed: name: 1 missing value(s) (25.0%); amount: 1 missing value(s) (25.0%). Want me to tackle any of these?
+  openpyxl: rows 4 duplicates 0 empty 1 | [('Alice', 10), ('Bob', 20), (None, None), ('Carol', 30)]
+RUN 2 'remove duplicate rows, then remove empty rows' | outcome delivered | sha before/after equal: True
+  reply: That sheet was seeing double. Done — removed 2 duplicate row(s). Removed 1 fully-empty row(s). The copy has 3 row(s), 0 duplicate row(s) and 0 fully-empty row(s) remaining. Your cleaned copy of manual_report.xlsx is ready. The copy has the values only; formatting, column widths and other sheet settings aren't carried over. None of the issues I check for were found.
+  openpyxl: rows 3 duplicates 0 empty 0 | [('Alice', 10), ('Bob', 20), ('Carol', 30)]
+RUN 3 'remove duplicate rows' | outcome not_delivered | sha before/after equal: True
+  reply: Before anything else, here's what I noticed: name: 1 missing value(s) (16.7%); amount: 1 missing value(s) (16.7%). Want me to tackle any of these? The deduplicate step: wasn't confirmed, so it didn't run. I stopped at the deduplicate step and no file was handed back; your original file is unchanged.
+RUN 4 'sort the rows by amount' | outcome not_delivered | sha before/after equal: True
+  reply: Before anything else, here's what I noticed: name: 1 missing value(s) (16.7%); amount: 1 missing value(s) (16.7%). Want me to tackle any of these? No changes were made to any file this turn.

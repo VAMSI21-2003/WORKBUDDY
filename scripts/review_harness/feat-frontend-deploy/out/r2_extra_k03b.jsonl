@@ -1,0 +1,1 @@
+{"case": "k03b", "speaker": null, "seconds": 3.8, "exit": 2, "log": ["WorkBuddy can't start: this process can't write to its data folder /data (Permission denied). Give the user it runs as write access."], "traceback": false, "leaks_password": false}
