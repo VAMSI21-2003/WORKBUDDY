@@ -177,6 +177,17 @@ Deferred by the FE-1 review, round 1 (`docs/reviews/frontend-demo-review.md`; pr
 - **L8 (backend download route):** with a long upload name the 100-character cap can cut the whole `_deduplicated_…` part, so the cleaned copy is saved under exactly the original's file name (with the download-name item above).
 - **L9:** design 11.2's `Referrer-Policy: no-referrer` isn't sent (backend or FE-2).
 
+Deferred by the FE-2 review, round 1 (`docs/reviews/frontend-deploy-review.md`, all LOW; that review's M1, the missing live-runs file, blocks the merge and isn't deferred):
+- **L1:** `docs/deploy.md` Section 4 says a page open across a restart is reloaded by `HX-Refresh`. In production the restart ends the access tokens, so the page gets `401` and the gate notice. Say the reload is dev-only.
+- **L2:** `docs/deploy.md` Section 2 says a bad value is reported by variable name. Range and format errors name the field (`max_upload_bytes`, `public_origin`). Reword the doc, or name the variable in those messages.
+- **L3 (dev without a password):** after a restart, the lost-answer lookup and the `409` refetch carry no `v`, so the swap guard drops their answer. The page recovers only through an armed poll. Add `v` to both URLs.
+- **L4:** guard-test gaps. Removing `refetchTurn`'s `setTimeout(…, 0)` passes both `409` browser tests, and the middleware's `static and` condition is untested.
+- **L5 (dev):** `static_version` is cached per process, so an edited static file is served under its old `?v=` as `immutable`. Don't cache the version, or answer `no-cache`, in dev.
+- **L6:** `docs/deploy.md` Section 6 says the 2 MB fixture had 20,000 rows. It had 24,497.
+- **L7:** a root-owned bind mount on `/data` exits with a traceback. Optionally, a one-line startup message.
+- **L8:** a configured but unreachable or invalid LLM key shows `llm_configured: true`, and turns end with "No changes were made…". Add a deploy-doc line: check one real turn after setting the key.
+- **L9:** this section still lists FE-1's M1, M2, L3, L4 and L9 as open, and FE-2 as open. Close them when `feat/frontend-deploy` merges.
+
 ## 5. Remaining deferred items from the reviews
 
 Each item has its own acceptance criterion: fixed with a test, or explicitly closed as won't-fix with a reason.

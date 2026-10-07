@@ -1,0 +1,117 @@
+{
+ "k01": {
+  "no password": {
+   "exit": 2,
+   "message": "WorkBuddy can't start: WORKBUDDY_DEMO_PASSWORD is not set; set it, or set WORKBUDDY_ENV=dev",
+   "leaks_password": false,
+   "leaks_value": false
+  },
+  "http origin": {
+   "exit": 2,
+   "message": "WorkBuddy can't start: public_origin must be an https:// origin in production",
+   "leaks_password": false,
+   "leaks_value": false
+  },
+  "bad number": {
+   "exit": 2,
+   "message": "WorkBuddy can't start: WORKBUDDY_MAX_UPLOAD_BYTES must be an integer",
+   "leaks_password": false,
+   "leaks_value": false
+  },
+  "zero number": {
+   "exit": 2,
+   "message": "WorkBuddy can't start: max_upload_bytes must be a positive integer",
+   "leaks_password": false,
+   "leaks_value": false
+  },
+  "origin with a path": {
+   "exit": 2,
+   "message": "WorkBuddy can't start: public_origin must be an origin such as https://demo.example",
+   "leaks_password": false,
+   "leaks_value": false
+  },
+  "port not a number": {
+   "exit": 2,
+   "message": "__main__.py: error: argument --port: invalid int value: 'eighty'",
+   "leaks_password": false,
+   "leaks_value": false
+  }
+ },
+ "k02": {
+  "inside": [
+   "10001",
+   "app",
+   "backend",
+   "buddy",
+   "core",
+   "requirements-runtime.txt",
+   "skills",
+   "R:/app",
+   "R:/app/backend",
+   "W:/data",
+   "W:/tmp",
+   "W:/home/app",
+   "ls: cannot access '/run/secrets': No such file or directory",
+   "ModuleNotFoundError: No module named 'pytest'",
+   "ModuleNotFoundError: No module named 'playwright'",
+   "ModuleNotFoundError: No module named 'lxml'"
+  ],
+  "history_mentions_ca_or_secret": [],
+  "image_size": "1390218248"
+ },
+ "k03": {
+  "state_after_8s": "false 1",
+  "log_tail": [
+   "  File \"/usr/local/lib/python3.11/pathlib.py\", line 1116, in mkdir",
+   "    os.mkdir(self, mode)",
+   "PermissionError: [Errno 13] Permission denied: '/data/uploads'"
+  ]
+ },
+ "k04": {
+  "page_headers": {
+   "cache-control": "no-store",
+   "referrer-policy": "no-referrer",
+   "strict-transport-security": "max-age=31536000",
+   "content-security-policy": "default-src 'self'; script-src 'self'; style-src 'self'; img-src 'self' data:; connect-src 'self'; form-action 'self'; frame-ancestors 'none'; base-uri 'none'",
+   "x-content-type-options": "nosniff"
+  },
+  "gate": {
+   "wrong": 401,
+   "right": 204,
+   "cookie_flags": [
+    " Path=/",
+    " Secure",
+    " HttpOnly",
+    " SameSite=Strict"
+   ]
+  },
+  "upload": 201,
+  "turn": {
+   "status": "finished",
+   "outcome": "not_delivered",
+   "reply": "Before anything else, here's what I noticed: name: 1 missing value(s) (16.7%); amount: 1 missing value(s) (16.7%). Want me to tackle any of these? No changes were made to any file this turn.",
+   "delivered_files": []
+  },
+  "original_sha_before": {
+   "report.xlsx": "4f31cbf49109669ab52e7d8256b801d87920f229c9c4a63ef968042ff4641f8f"
+  },
+  "original_sha_after": {
+   "report.xlsx": "4f31cbf49109669ab52e7d8256b801d87920f229c9c4a63ef968042ff4641f8f"
+  },
+  "outputs_on_volume": [],
+  "volume_owner": [
+   [
+    10001,
+    10001
+   ]
+  ],
+  "log_lines": 195,
+  "log_leaks": [],
+  "docker_stop_s": 0.9,
+  "exit_after_stop": "0"
+ },
+ "k05": {
+  "health": "healthy",
+  "seconds": 6.1
+ }
+}
