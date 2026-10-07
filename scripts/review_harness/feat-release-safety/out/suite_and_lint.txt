@@ -1,0 +1,24 @@
+== working tree /home/user/WORKBUDDY at 0ea40c4 (python 3.13)
+2613 passed, 1 skipped, 3501 warnings in 280.46s (0:04:40)
+== fresh clone from GitHub at 0ea40c4 (python 3.13), as CI checks it out
+FAILED tests/deploy/test_saved_data_survives.py::test_what_the_server_writes_today_has_the_shape_of_the_newest_fixture
+1 failed, 2612 passed, 1 skipped in 304.80s (0:05:04)
+== ruff check buddy tests (0.16.8): head and base identical per file and rule (22 errors)
+      1 buddy/brain.py E501
+      1 buddy/context.py UP017
+      1 buddy/hands.py E501
+      1 buddy/inspector.py B905
+      1 buddy/inspector.py E501
+      2 buddy/planner.py E501
+      1 buddy/state.py UP037
+      1 tests/buddy/test_context.py I001
+      1 tests/buddy/test_context.py UP017
+      5 tests/buddy/test_inspector.py E501
+      1 tests/buddy/test_llm.py E501
+      1 tests/buddy/test_planner.py E501
+      1 tests/buddy/test_think.py UP017
+      1 tests/buddy/test_voice.py E501
+      1 tests/skills/excel/test_analyze.py E501
+      1 tests/skills/excel/test_dedupe.py E501
+      1 tests/skills/test_base.py I001
+== check_ruff_baseline.py with the locked ruff 0.16.10 on the fresh clone: no errors beyond the baseline (22 known)

@@ -1,0 +1,3 @@
+ERROR: deploy/ in this checkout differs from deploy/ in 1d4b17b271c7, and a release runs the checkout's deploy files. Check that commit out first (git pull, or git checkout 1d4b17b271c7), then run this again. Nothing was changed.
+release exit=1
+current.env unchanged: yes; app container unchanged: yes

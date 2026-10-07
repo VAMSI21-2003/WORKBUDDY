@@ -1,0 +1,5 @@
+GET session: 200
+  files: [('f_3fC77VcPayNUZBpU', 'report.xlsx', '45f300dd1801ec0a')]
+  turns: [('t0001', 'finished', 'delivered')]
+download: 200 sha256 9dd4bddf7fd8434bec8fda4d24e48b2aaf2c000ac359b200b431798d7394ac84
+independent check (pandas): 4 rows; expected 4; contents equal: True

@@ -1,0 +1,42 @@
+Releasing d09b079b615a (live now: 0ea40c47c198)
+
+== 1/5 backup
+backup: /tmp/claude-0/-home-user-WORKBUDDY/77b2666a-7fe8-5473-bc78-ebc32e28db50/scratchpad/stack/deploy/backups/workbuddy-data-20261007-082732.tar.gz (28K, 66 files)
+
+== 2/5 build the image
+built workbuddy:d09b079b615a
+
+== 3/5 start it
+ Container workbuddy-fakegroq-1 Running 
+ Container workbuddy-caddy-1 Running 
+ Container workbuddy-app-1 Recreate 
+ Container workbuddy-app-1 Recreated 
+ Container workbuddy-app-1 Starting 
+ Container workbuddy-app-1 Started 
+ Container workbuddy-app-1 Waiting 
+ Container workbuddy-app-1 Error dependency app failed to start
+dependency failed to start: container workbuddy-app-1 is unhealthy
+
+!! RELEASE d09b079b615a FAILED at: starting the containers
+Rolling back to 0ea40c47c198 ...
+
+== 1. health
+ok: /healthz answers, an LLM key is set
+
+== 2. sign in
+ok: the password was exchanged for the access cookie
+
+== 3. upload
+ok: uploaded smoke.xlsx; the server's hash matches (45f300dd1801ec0aeb0a4b23e4e47e0cf649c8556dd0e6329681dfb8c9df2e82)
+
+== 4. a message, and the plan
+ok: the plan was shown: ["spreadsheet.deduplicate"]
+ok: the turn finished, outcome delivered
+
+== 5. download and hash
+ok: the download's hash matches what the server recorded (2c67096434efe19ef87388ce3acb1d988a169f30374b3052f81f4e1c2ca4cf44), and it's different from the original's
+
+SMOKE OK: https://localhost
+
+!! ROLLED BACK to 0ea40c47c198. Release d09b079b615a failed at: starting the containers. The site is serving the previous release.
+The backup taken before this release is in /tmp/claude-0/-home-user-WORKBUDDY/77b2666a-7fe8-5473-bc78-ebc32e28db50/scratchpad/stack/deploy/backups (restore it only if the data looks wrong).

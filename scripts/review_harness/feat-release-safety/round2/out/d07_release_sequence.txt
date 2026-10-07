@@ -1,0 +1,16 @@
+d07 BAD_BUILD exit=1
+   current.env: WORKBUDDY_TAG=7cda7729c71c
+   app: workbuddy:7cda7729c71c Up 6 seconds (healthy)
+   healthz: {"ok":true,"llm_configured":true}
+d07 BAD_START exit=1
+   current.env: WORKBUDDY_TAG=7cda7729c71c
+   app: workbuddy:7cda7729c71c Up 12 seconds (healthy)
+   healthz: {"ok":true,"llm_configured":true}
+d07 BAD_TURN exit=1
+   current.env: WORKBUDDY_TAG=7cda7729c71c
+   app: workbuddy:7cda7729c71c Up 12 seconds (healthy)
+   healthz: {"ok":true,"llm_configured":true}
+d07 GOOD2 exit=0
+   current.env: WORKBUDDY_TAG=b1b377bf49e8
+   app: workbuddy:b1b377bf49e8 Up 15 seconds (healthy)
+   healthz: {"ok":true,"llm_configured":true}

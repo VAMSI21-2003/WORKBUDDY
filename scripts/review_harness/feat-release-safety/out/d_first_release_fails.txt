@@ -1,0 +1,58 @@
+===== first release, LLM failing (FAKE_MODE=error500)
+Releasing 0ea40c47c198
+
+== 1/5 backup
+no live release or no data yet: nothing to back up
+
+== 2/5 build the image
+built workbuddy:0ea40c47c198
+
+== 3/5 start it
+ Network workbuddy_default Creating 
+ Network workbuddy_default Creating 
+ Network workbuddy_default Created 
+ Network workbuddy_default Created 
+ Container workbuddy-fakegroq-1 Creating 
+ Container workbuddy-app-1 Creating 
+ Container workbuddy-app-1 Created 
+ Container workbuddy-caddy-1 Creating 
+ Container workbuddy-fakegroq-1 Created 
+ Container workbuddy-caddy-1 Created 
+ Container workbuddy-app-1 Starting 
+ Container workbuddy-fakegroq-1 Starting 
+ Container workbuddy-app-1 Started 
+ Container workbuddy-app-1 Waiting 
+ Container workbuddy-fakegroq-1 Started 
+ Container workbuddy-app-1 Healthy 
+ Container workbuddy-caddy-1 Starting 
+ Container workbuddy-caddy-1 Started 
+
+== 4/5 wait until it's healthy
+healthy
+
+== 5/5 smoke test (a real turn)
+
+== 1. health
+ok: /healthz answers, an LLM key is set
+
+== 2. sign in
+ok: the password was exchanged for the access cookie
+
+== 3. upload
+ok: uploaded smoke.xlsx; the server's hash matches (45f300dd1801ec0aeb0a4b23e4e47e0cf649c8556dd0e6329681dfb8c9df2e82)
+
+== 4. a message, and the plan
+SMOKE FAILED at "plan": the turn finished without showing a plan
+
+!! RELEASE 0ea40c47c198 FAILED at: the smoke test
+There was no earlier release to go back to. Stopping the app so a broken one isn't left serving.
+exit=1
+current.env: WORKBUDDY_TAG=0ea40c47c198
+app: Exited (0) Less than a second ago
+
+===== the owner fixes the cause and runs the same command again (docs/deploy.md step 8)
+0ea40c47c198 is already the live release. Nothing to do. (./smoke.sh checks it again.)
+exit=0
+app: Exited (0) Less than a second ago
+https://localhost/healthz: 
+2026-10-07T08:29:09Z 0ea40c47c198 FAILED at the smoke test; no previous release; app stopped

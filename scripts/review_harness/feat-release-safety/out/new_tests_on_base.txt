@@ -1,0 +1,26 @@
+FAILED tests/deploy/test_dependency_locks.py::test_every_requirement_is_locked_at_a_version_that_satisfies_it[runtime]
+FAILED tests/deploy/test_dependency_locks.py::test_every_requirement_is_locked_at_a_version_that_satisfies_it[dev]
+FAILED tests/deploy/test_dependency_locks.py::test_every_pin_has_hashes[runtime_lock]
+FAILED tests/deploy/test_dependency_locks.py::test_every_pin_has_hashes[dev_lock]
+FAILED tests/deploy/test_dependency_locks.py::test_the_dockerfile_installs_from_the_lock_only
+FAILED tests/deploy/test_dependency_locks.py::test_the_build_context_lets_the_lock_in
+FAILED tests/deploy/test_dependency_locks.py::test_the_refresh_command_the_locks_name_exists
+FAILED tests/deploy/test_deploy_files.py::test_caddy_replaces_x_forwarded_for_with_the_address_it_saw
+FAILED tests/deploy/test_deploy_files.py::test_env_example_holds_names_and_no_values
+FAILED tests/deploy/test_deploy_files.py::test_secrets_and_release_state_are_not_committed
+FAILED tests/deploy/test_deploy_files.py::test_every_script_parses_and_is_executable_in_git[install.sh]
+FAILED tests/deploy/test_deploy_files.py::test_every_script_parses_and_is_executable_in_git[backup.sh]
+FAILED tests/deploy/test_deploy_files.py::test_every_script_parses_and_is_executable_in_git[restore.sh]
+FAILED tests/deploy/test_deploy_files.py::test_every_script_parses_and_is_executable_in_git[smoke.sh]
+FAILED tests/deploy/test_deploy_files.py::test_every_script_parses_and_is_executable_in_git[release.sh]
+FAILED tests/deploy/test_deploy_files.py::test_every_script_parses_and_is_executable_in_git[check-proxy.sh]
+FAILED tests/deploy/test_deploy_files.py::test_every_script_parses_and_is_executable_in_git[compose.sh]
+FAILED tests/deploy/test_deploy_files.py::test_release_script_rolls_back_and_says_so
+FAILED tests/deploy/test_deploy_files.py::test_the_smoke_fixture_is_a_workbook
+ERROR tests/deploy/test_dependency_locks.py::test_the_dev_lock_holds_the_runtime_lock_exactly
+ERROR tests/deploy/test_dependency_locks.py::test_the_dev_lock_adds_the_dev_tools
+ERROR tests/deploy/test_deploy_files.py::test_the_app_is_not_published_and_caddy_is
+ERROR tests/deploy/test_deploy_files.py::test_the_app_is_told_there_is_one_proxy
+ERROR tests/deploy/test_deploy_files.py::test_restart_memory_logs_and_data_volume
+ERROR tests/deploy/test_deploy_files.py::test_caddy_waits_for_a_healthy_app
+19 failed, 8 passed, 6 errors in 5.95s

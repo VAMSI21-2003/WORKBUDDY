@@ -1,0 +1,56 @@
+--- B1 backup while running
+backup: /tmp/claude-0/-home-user-WORKBUDDY/77b2666a-7fe8-5473-bc78-ebc32e28db50/scratchpad/stack/deploy/backups/workbuddy-data-20261007-082610.tar.gz (28K, 62 files)
+exit=0
+total 36
+drwx------ 2 root root  4096 Oct  7 08:26 .
+drwxr-xr-x 3 root root  4096 Oct  7 08:26 ..
+-rw------- 1 root root 27065 Oct  7 08:26 workbuddy-data-20261007-082610.tar.gz
+sessions in volume now: 19
+--- make 1 more session (smoke)
+smoke=0
+sessions now: 20
+--- B3 corrupt archive
+
+gzip: stdin: unexpected end of file
+tar: Child returned status 1
+tar: Error is not recoverable: exiting now
+ERROR: /tmp/claude-0/-home-user-WORKBUDDY/77b2666a-7fe8-5473-bc78-ebc32e28db50/scratchpad/corrupt.tar.gz isn't a readable .tar.gz
+exit=1
+sessions after corrupt restore attempt: 20
+--- B2 restore deploy/backups/workbuddy-data-20261007-082610.tar.gz
+This replaces everything in /data with the contents of /tmp/claude-0/-home-user-WORKBUDDY/77b2666a-7fe8-5473-bc78-ebc32e28db50/scratchpad/stack/deploy/backups/workbuddy-data-20261007-082610.tar.gz.
+
+== backup of what's there now
+backup: /tmp/claude-0/-home-user-WORKBUDDY/77b2666a-7fe8-5473-bc78-ebc32e28db50/scratchpad/stack/deploy/backups/workbuddy-data-20261007-082618.tar.gz (28K, 66 files)
+
+== stop the app
+ Container workbuddy-app-1 Stopping 
+ Container workbuddy-app-1 Stopped 
+
+== replace /data
+
+== start the app
+ Container workbuddy-caddy-1 Running 
+ Container workbuddy-fakegroq-1 Running 
+ Container workbuddy-app-1 Starting 
+ Container workbuddy-app-1 Started 
+ Container workbuddy-app-1 Waiting 
+ Container workbuddy-app-1 Healthy 
+Restored. Check it with ./smoke.sh, and open the page.
+exit=0
+sessions after restore: 19
+10001:10001 /data
+--- smoke after restore
+SMOKE OK: https://localhost
+--- B4 no such file
+Put a backup of /data back. This replaces everything now in /data (sessions, uploads, files).
+    ./restore.sh deploy/backups/workbuddy-data-20261007-031500.tar.gz
+It first takes a backup of what's there now, stops the app, empties the volume, unpacks the
+archive, and starts the app again. Restoring goes into the same /data the image uses, which the
+saved records need: they hold absolute paths under /data.
+set -euo pipefail
+shellcheck source=lib.sh
+exit=2
+--- B5 keep=2
+backup: /tmp/claude-0/-home-user-WORKBUDDY/77b2666a-7fe8-5473-bc78-ebc32e28db50/scratchpad/stack/deploy/backups/workbuddy-data-20261007-082633.tar.gz (28K, 66 files)
+2

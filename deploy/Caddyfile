@@ -1,0 +1,17 @@
+# Caddy: the only thing the internet talks to. It gets and renews the HTTPS certificate by itself
+# (Let's Encrypt) for the name in WORKBUDDY_DOMAIN, and passes requests to the app on the private
+# network. For "localhost" it makes a certificate from its own private authority instead, which is
+# how this stack is tried out on one machine without a real name.
+#
+# There is deliberately no access log: every request line holds the address of a session
+# (/api/v1/sessions/s_...), which the app treats as a secret and masks in its own logs.
+{$WORKBUDDY_DOMAIN} {
+	encode zstd gzip
+
+	reverse_proxy app:8000 {
+		# Exactly one entry: the address Caddy saw. Whatever the caller put in this header is
+		# thrown away, so a spoofed X-Forwarded-For can't reach the app. The app is told there is
+		# one proxy (WORKBUDDY_TRUSTED_PROXY_HOPS=1) and takes the last entry as the client.
+		header_up X-Forwarded-For {remote_host}
+	}
+}

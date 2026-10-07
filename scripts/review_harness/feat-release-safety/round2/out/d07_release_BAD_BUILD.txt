@@ -1,0 +1,13 @@
+Releasing c7975d8c4990 (live now: 7cda7729c71c)
+
+== 1/5 build the image
+Dockerfile:17
+--------------------
+  16 |     # (uploads, outputs, session records); mount a volume there to keep sessions across restarts.
+  17 | >>> RUN false && useradd --create-home --uid 10001 --shell /usr/sbin/nologin app \
+  18 | >>>     && mkdir /data \
+  19 | >>>     && chown app:app /data
+  20 |     
+--------------------
+ERROR: failed to build: failed to solve: process "/bin/sh -c false && useradd --create-home --uid 10001 --shell /usr/sbin/nologin app     && mkdir /data     && chown app:app /data" did not complete successfully: exit code: 1
+ERROR: the build failed. Nothing changed: the live release (7cda7729c71c) is still running, and no backup was taken.

@@ -1,0 +1,18 @@
+--- hops=0
+Caddy is at 10.218.135.2; clients: A=10.218.135.11 B=10.218.135.12 C=10.218.135.13; hops set to 0
+PASS  A sends 14 wrong sign-ins: the first 10 are answered, then A is limited  [401, 401, 401, 401, 401, 401, 
+FAIL  B (another address) is not limited by A's use  [429, 429, 429, 429]  (wanted: all(. == 401))
+FAIL  C claims to be A (X-Forwarded-For: A's address): A's bucket isn't charged to C  [429, 429, 429]  (wanted
+PASS  A claims to be somebody else: A still has its own, used-up bucket  [429, 429]
+PASS  A sends a made-up chain of addresses: the same  [429, 429]
+FAIL  B claims a fresh address: it neither gains nor loses anything  [429, 429]  (wanted: all(. == 401))
+CHECK-PROXY FAILED: 3 check(s). WORKBUDDY_TRUSTED_PROXY_HOPS is probably wrong for this layout.
+--- hops=2
+Caddy is at 10.249.93.2; clients: A=10.249.93.11 B=10.249.93.12 C=10.249.93.13; hops set to 2
+PASS  A sends 14 wrong sign-ins: the first 10 are answered, then A is limited  [401, 401, 401, 401, 401, 401, 
+FAIL  B (another address) is not limited by A's use  [429, 429, 429, 429]  (wanted: all(. == 401))
+FAIL  C claims to be A (X-Forwarded-For: A's address): A's bucket isn't charged to C  [429, 429, 429]  (wanted
+PASS  A claims to be somebody else: A still has its own, used-up bucket  [429, 429]
+PASS  A sends a made-up chain of addresses: the same  [429, 429]
+FAIL  B claims a fresh address: it neither gains nor loses anything  [429, 429]  (wanted: all(. == 401))
+CHECK-PROXY FAILED: 3 check(s). WORKBUDDY_TRUSTED_PROXY_HOPS is probably wrong for this layout.

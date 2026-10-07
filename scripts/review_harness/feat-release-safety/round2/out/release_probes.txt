@@ -1,0 +1,60 @@
+
+(P1 setup) older W=1f7d7d769113 images before: ['1f7d7d769113', 'bd0742005a15']
+
+### P1 live release is unhealthy, the owner reruns it: does the older rollback image survive?
+exit=0
+== 3/5 start it
+
+== 4/5 wait until it's healthy
+healthy
+
+== 5/5 smoke test (a real turn)
+
+RELEASED bd0742005a15. Roll back by hand with: ./release.sh <an older commit>
+--- images: ['bd0742005a15']; current.env: WORKBUDDY_TAG=bd0742005a15; previous.env: WORKBUDDY_TAG=bd0742005a15
+--- calls: ['build', 'compose up -d --remove-orphans', 'build', 'compose up -d --remove-orphans', 'build', 'compose up -d --remove-orphans']
+
+### P2 live release still 'starting' (e.g. just after a reboot), rerun of the same commit, smoke fails
+exit=1
+
+== 4/5 wait until it's healthy
+healthy
+
+== 5/5 smoke test (a real turn)
+
+!! RELEASE 55ab87ff7abb FAILED at: the smoke test
+There was no earlier release to go back to. Stopping the app so a broken one isn't left serving.
+--- images: ['55ab87ff7abb', 'c6e526a68d5d']; current.env: (none); previous.env: WORKBUDDY_TAG=55ab87ff7abb
+--- calls: ['compose up -d --remove-orphans', 'build', 'compose up -d --remove-orphans', 'build', 'compose up -d --remove-orphans', 'compose stop app']
+
+### P3 an uncommitted local edit under deploy/, release HEAD
+exit=1
+ERROR: deploy/ in this checkout differs from deploy/ in 20b8358effe2, and a release runs the checkout's deploy files. Check that commit out first (git pull, or git checkout 20b8358effe2), then run this again. Nothing was changed.
+--- images: []; current.env: (none); previous.env: (none)
+--- calls: []
+
+### P4 a git-ignored override file under deploy/
+exit=0
+== 3/5 start it
+
+== 4/5 wait until it's healthy
+healthy
+
+== 5/5 smoke test (a real turn)
+
+RELEASED 6731db8cdddb. Roll back by hand with: ./release.sh <an older commit>
+--- images: ['6731db8cdddb']; current.env: WORKBUDDY_TAG=6731db8cdddb; previous.env: (none)
+--- calls: ['build', 'compose up -d --remove-orphans']
+
+### P5 by-hand rollback to an older commit whose deploy/ is the same, no checkout
+exit=0
+== 3/5 start it
+
+== 4/5 wait until it's healthy
+healthy
+
+== 5/5 smoke test (a real turn)
+
+RELEASED e43bf0670e6b. Roll back by hand with: ./release.sh 0dd040af91b4
+--- images: ['0dd040af91b4', 'e43bf0670e6b']; current.env: WORKBUDDY_TAG=e43bf0670e6b; previous.env: WORKBUDDY_TAG=0dd040af91b4
+--- calls: ['build', 'compose up -d --remove-orphans', 'build', 'compose up -d --remove-orphans']

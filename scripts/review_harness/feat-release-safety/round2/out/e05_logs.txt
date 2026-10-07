@@ -1,0 +1,3 @@
+caddy log lines with a session id: 0
+caddy log lines in total: 25
+app log raw session ids: 0

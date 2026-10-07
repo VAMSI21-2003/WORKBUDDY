@@ -1,0 +1,34 @@
+workbuddy-data-20261007-082618.tar.gz
+workbuddy-data-20261007-082633.tar.gz
+restoring the oldest: deploy/backups/workbuddy-data-20261007-082618.tar.gz
+sessions before: 20
+This replaces everything in /data with the contents of /tmp/claude-0/-home-user-WORKBUDDY/77b2666a-7fe8-5473-bc78-ebc32e28db50/scratchpad/stack/deploy/backups/workbuddy-data-20261007-082618.tar.gz.
+
+== backup of what's there now
+backup: /tmp/claude-0/-home-user-WORKBUDDY/77b2666a-7fe8-5473-bc78-ebc32e28db50/scratchpad/stack/deploy/backups/workbuddy-data-20261007-082648.tar.gz (28K, 66 files)
+
+== stop the app
+ Container workbuddy-app-1 Stopping 
+ Container workbuddy-app-1 Stopped 
+
+== replace /data
+tar (child): /backup.tar.gz: Cannot read: Is a directory
+tar (child): At beginning of tape, quitting now
+tar (child): Error is not recoverable: exiting now
+
+gzip: stdin: unexpected end of file
+tar: Child returned status 2
+tar: Error is not recoverable: exiting now
+exit=2
+total 68
+drwx------ 3 root root  4096 Oct  7 08:26 .
+drwxr-xr-x 3 root root  4096 Oct  7 08:26 ..
+drwxr-xr-x 2 root root  4096 Oct  7 08:26 workbuddy-data-20261007-082618.tar.gz
+-rw------- 1 root root 28054 Oct  7 08:26 workbuddy-data-20261007-082633.tar.gz
+-rw------- 1 root root 28054 Oct  7 08:26 workbuddy-data-20261007-082648.tar.gz
+the archive asked for exists? yes
+(a directory)
+sessions after: 0
+0
+workbuddy-caddy-1 Up 6 minutes
+workbuddy-fakegroq-1 Up 7 minutes

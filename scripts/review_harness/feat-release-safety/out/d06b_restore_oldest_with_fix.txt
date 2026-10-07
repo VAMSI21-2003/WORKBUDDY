@@ -1,0 +1,23 @@
+backup: /tmp/claude-0/-home-user-WORKBUDDY/77b2666a-7fe8-5473-bc78-ebc32e28db50/scratchpad/stack/deploy/backups/workbuddy-data-20261007-083624.tar.gz (36K, 92 files)
+backup: /tmp/claude-0/-home-user-WORKBUDDY/77b2666a-7fe8-5473-bc78-ebc32e28db50/scratchpad/stack/deploy/backups/workbuddy-data-20261007-083626.tar.gz (36K, 92 files)
+workbuddy-data-20261007-083624.tar.gz
+workbuddy-data-20261007-083626.tar.gz
+restore oldest deploy/backups/workbuddy-data-20261007-083624.tar.gz with the fix
+This replaces everything in /data with the contents of /tmp/claude-0/-home-user-WORKBUDDY/77b2666a-7fe8-5473-bc78-ebc32e28db50/scratchpad/stack/deploy/backups/workbuddy-data-20261007-083624.tar.gz.
+
+== backup of what's there now
+backup: /tmp/claude-0/-home-user-WORKBUDDY/77b2666a-7fe8-5473-bc78-ebc32e28db50/scratchpad/stack/deploy/backups/workbuddy-data-20261007-083626-1.tar.gz (36K, 92 files)
+
+== stop the app
+
+== replace /data
+
+== start the app
+Restored. Check it with ./smoke.sh, and open the page.
+exit=0
+sessions: 27
+total 80
+drwx------ 2 root root  4096 Oct  7 08:36 .
+drwxr-xr-x 3 root root  4096 Oct  7 08:29 ..
+-rw------- 1 root root 36233 Oct  7 08:36 workbuddy-data-20261007-083626-1.tar.gz
+-rw------- 1 root root 36233 Oct  7 08:36 workbuddy-data-20261007-083626.tar.gz

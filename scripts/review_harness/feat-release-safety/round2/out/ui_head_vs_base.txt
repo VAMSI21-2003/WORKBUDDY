@@ -1,0 +1,10 @@
+DIFF ('03_dedupe_timeout', 'focus') statuses 
+  head: ["running", "awaiting_confirmation", "finished"] 
+  base: ["running", "awaiting_confirmation", "running", "finished"]
+DIFF ('03_dedupe_timeout', 'template') statuses 
+  head: ["running", "awaiting_confirmation", "finished"] 
+  base: ["running", "awaiting_confirmation", "running", "finished"]
+DIFF ('08_chain_timeout', 'friend') statuses 
+  head: ["running", "awaiting_confirmation", "finished"] 
+  base: ["running", "awaiting_confirmation", "running", "finished"]
+# 75 head rows, 75 base rows, 3 differing fields; original unchanged in 75/75 head rows

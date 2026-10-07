@@ -1,0 +1,43 @@
+##### failed release 1: an image whose app exits at start (tmp/broken-crash, not pushed)
+site before: {"ok":true,"llm_configured":true} HTTP 200
+live release before: 2051e554d16f
+backup: /home/user/WORKBUDDY/deploy/backups/workbuddy-data-20261007-092000.tar.gz (12K, 8 files)
+
+== 3/5 start it
+dependency failed to start: container workbuddy-app-1 is unhealthy
+
+!! RELEASE a4f990d9684c FAILED at: starting the containers
+Rolling back to 2051e554d16f ...
+
+== 1. health
+ok: /healthz answers, an LLM key is set
+
+== 2. sign in
+ok: the password was exchanged for the access cookie
+
+== 3. upload
+ok: uploaded smoke.xlsx; the server's hash matches (45f300dd1801ec0aeb0a4b23e4e47e0cf649c8556dd0e6329681dfb8c9df2e82)
+
+== 4. a message, and the plan
+ok: the plan was shown: ["spreadsheet.deduplicate"]
+ok: the turn finished, outcome delivered
+
+== 5. download and hash
+ok: the download's hash matches what the server recorded (6a8ac8d90d7cc07ddfdaf03fa1a1514e3719896409cad07f16bf8278026c357f), and it's different from the original's
+
+SMOKE OK: https://localhost
+
+!! ROLLED BACK to 2051e554d16f. Release a4f990d9684c failed at: starting the containers. The site is serving the previous release.
+The backup taken before this release is in /home/user/WORKBUDDY/deploy/backups (restore it only if the data looks wrong).
+
+real	0m25.896s
+user	0m0.957s
+sys	0m0.606s
+exit status of release.sh: 1
+
+site after: {"ok":true,"llm_configured":true} HTTP 200
+live release after: 2051e554d16f
+running image=workbuddy:2051e554d16f status=running
+
+2026-10-07T09:19:43Z 2051e554d16f OK (was 47ef56242629)
+2026-10-07T09:20:25Z a4f990d9684c FAILED at starting the containers; rolled back to 2051e554d16f; smoke ok

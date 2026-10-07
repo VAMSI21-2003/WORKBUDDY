@@ -1,6 +1,15 @@
-# Deploying the WorkBuddy demo
+# Deploying WorkBuddy
 
-How to run the image, every environment variable the server reads, what to check before the link goes public, and what the image measured. **This document doesn't choose a host.** The owner chooses one from the measurements in Section 6 (`docs/design/frontend-design.md`, Section 11.3).
+How to put WorkBuddy on a server, release a new version safely, take it back, and restore a backup; every environment variable the server reads; what to check before the link goes public; and what the image measured.
+
+**New to servers? Start at Section 7.** It goes from a fresh Ubuntu machine to the page loading over HTTPS, one command at a time. Sections 1 to 6 are the reference.
+
+## Decisions recorded
+
+Owner decisions, 2026-10-07:
+- **The code stays private** (checklist item 5, Section 5, is settled). The server gets the code from the private repository with a read-only deploy key (Section 7, step 4); nothing builds from a public repository.
+- **The host is a single Ubuntu VM, probably on Azure.** One machine, one app container, Caddy in front. Not scaled out: sessions live in the process's memory (Section 1). The Azure details are in Appendix A; nothing in the deployment depends on Azure.
+- **Sign-in with Google will replace the demo password, in a later change.** Until then the shared demo password (Section 2) is the only gate. The check that decides who may call the API is one function (`backend/access.py`), so that change doesn't touch the deployment files, except that `WORKBUDDY_DEMO_PASSWORD` goes away.
 
 ## 1. Build and run
 
@@ -9,10 +18,10 @@ docker build -t workbuddy .
 docker run --rm -p 8000:8000 --env-file prod.env -v workbuddy-data:/data workbuddy
 ```
 
-`prod.env` holds the variables of Section 2. The image never contains a password, a key or a user's file.
+`prod.env` holds the variables of Section 2. The image never contains a password, a key or a user's file. This is the bare image, for trying it or for a host that supplies its own proxy; for the Ubuntu VM use `deploy/` (Sections 7 to 9), which adds HTTPS, restarts, limits, backups and releases.
 
 What the image is (`Dockerfile`, `.dockerignore`):
-- `python:3.11-slim`, with the runtime packages of `requirements-runtime.txt` only (`requirements.txt` adds the test and lint tools and isn't used).
+- `python:3.11-slim`, with the packages of `requirements-runtime.lock` only: every package pinned to one exact version with its hashes, installed with `pip install --require-hashes --no-deps`, so a build today and a build next year install the same files, or fail (Section 9, "Dependencies"). The test and lint tools aren't in the image.
 - Runs as user `app` (uid 10001), which can write only to `/data`. Mount a volume there; see Section 4 for what that changes.
 - One process, one worker: `python -m backend --port "$PORT"` (`PORT` defaults to 8000). Sessions, turns, pending plans and access tokens live in that process's memory, so a second worker or a second instance behind one address would split them. Don't scale it out.
 - `WORKBUDDY_ENV=production` is set in the image. Production binds `0.0.0.0` and refuses to start without `WORKBUDDY_DEMO_PASSWORD` and an https `WORKBUDDY_PUBLIC_ORIGIN`; it prints which setting is wrong, never its value, and exits with status 2. Some messages name the setting by its internal field (`max_upload_bytes` for `WORKBUDDY_MAX_UPLOAD_BYTES`, `public_origin` for `WORKBUDDY_PUBLIC_ORIGIN`), others by the variable.
@@ -119,9 +128,9 @@ The link goes public only when **all** of these hold. Status as of this branch; 
 | 2 | Multi-sheet `.xlsx` is refused at upload (backlog 1a, or the stopgap with its tests passing) | Met: the upload refuses a multi-sheet workbook with `422 multiple_sheets` (backend Decisions 2026-10-01) |
 | 3 | `.xls`: out of `accepted_extensions` until it can be checked, or the owner accepts the risk in writing | Met, settled by the owner (recorded 2026-10-06): `.xlsx` only, an `.xls` upload gets `415` |
 | 4 | PR-B (H3b), an explicit owner go or no-go | Met: PR-B is merged |
-| 5 | **Code visibility (M7): the owner decides whether the code may be public** | **Open, the owner's decision.** It limits the choice of host (a host that builds from a public repository publishes the `Proprietary` code) |
-| 6 | Measured on the host: backend part 2's live run 9 repeated on the chosen host; a two-step chain on a 2 MB file must finish inside `WORKBUDDY_TURN_DEADLINE_S` | **Open until a host is chosen.** Section 6 is the same measurement in this repository's image on a sandbox machine, not on the host |
-| 7 | `WORKBUDDY_TRUSTED_PROXY_HOPS` is tested for the chosen host: with it set, two clients behind the proxy get separate buckets, and a spoofed `X-Forwarded-For` doesn't change anyone's | **Open until a host is chosen** |
+| 5 | Code visibility (M7): the owner decides whether the code may be public | **Met, settled by the owner (recorded 2026-10-07): the code stays private.** The VM builds from a private checkout (Section 7, step 4) |
+| 6 | Measured on the host: backend part 2's live run 9 repeated on the chosen host; a two-step chain on a 2 MB file must finish inside `WORKBUDDY_TURN_DEADLINE_S` | **Open until it's measured on the VM.** The host is chosen (a single Ubuntu VM) but not yet running. Section 6 is the same measurement in this repository's image on a sandbox machine, not on the VM. `deploy/smoke.sh` runs a small-file turn on the VM; the 2 MB two-step chain isn't automated |
+| 7 | `WORKBUDDY_TRUSTED_PROXY_HOPS` is tested for the chosen host: with it set, two clients behind the proxy get separate buckets, and a spoofed `X-Forwarded-For` doesn't change anyone's | **Met for the compose layout** (`WORKBUDDY_TRUSTED_PROXY_HOPS=1`, Caddy in front, which replaces `X-Forwarded-For` with the address it saw): `deploy/check-proxy.sh` passes 6 of 6, and fails with the setting at `0` or `2` (`docs/reviews/feat-release-safety-live-runs.md`). It was run on one machine, not yet on the Azure VM: run `./deploy/check-proxy.sh` there once (Section 7, step 9) |
 
 Also before going public, not in the design's list but needed by this document:
 - the three secrets are set in the host's secret store, and `GET /healthz` shows `llm_configured: true` (that only says a key is set, **not that it works**: an invalid key, or a host with no route to `api.groq.com`, also shows `true`, and a turn then ends with a reply that says no change was made and doesn't say the model failed. Send one real message after setting the key, and read its reply);
@@ -135,7 +144,7 @@ What the image used on the real pipeline with real Groq, so the owner can choose
 **How.** `scripts/measure_container.py` starts the image as a host would (`WORKBUDDY_ENV=production`, a demo password, an https public origin, one worker, a fresh data folder, the design's real limits except that the `turns` and `uploads` buckets are raised, because the matrix makes more than 10 turns an hour), under a memory limit with no swap, and drives the whole flow over HTTP with `scripts/live_api_runs.py`'s own driver: the password exchanged for the access cookie, upload, a message, the plan approved, the delivered file downloaded. For every turn it checks the file against the original with pandas, the download's SHA-256 against the recorded one, and the original's SHA-256 before and after (all matched in every turn that delivered a file, in every run; the turns that failed at the deadline delivered nothing and left the original unchanged). Memory is read from the container's cgroup (`memory.max_usage_in_bytes`, reset before each scenario, which includes page cache; the sampled peak of its anonymous memory, every 0.25 s) and the server process's peak resident set (`VmHWM`, which also counts shared library pages mapped from files). Raw numbers: `docs/reviews/frontend-deploy-measurements.json`. The image's packages: `docs/reviews/frontend-deploy-image-freeze.txt`.
 
 - **Machine:** 4 vCPUs (Intel Xeon @ 2.1 GHz), 16 GB, Docker 29.8.2 with cgroup v1. The container ran on the host's network, because this sandbox reaches the LLM only through an egress proxy; a real host uses ordinary networking.
-- **Image:** 1.39 GB; `python:3.11.17`; pandas 2.3.3, ydata-profiling 4.18.4, splink 4.0.17 (resolved at build time; nothing is pinned or locked). Build time with a cold cache, 4 min 15 s.
+- **Image:** 1.39 GB; `python:3.11.17`; pandas 2.3.3, ydata-profiling 4.18.4, splink 4.0.17 (resolved at build time when this was measured; since then every package is pinned in `requirements-runtime.lock` at exactly the versions of that freeze). Build time with a cold cache, 4 min 15 s.
 - **Fixtures:** *small*, 6 rows (5,018 bytes: 2 exact duplicates, 1 empty row); *2 MB*, 24,497 data rows by 14 columns, 1,223 exact duplicate rows and 3 empty rows (2,055,232 bytes, just under the default 2 MiB cap).
 - **Requests:** "remove duplicate rows" (*single*), and "remove duplicate rows, then remove empty rows" (*chain*, one plan for both steps). Each ran after the previous ones, in one container, so after the first the server is warm.
 - **Wall time** is from sending the message to the finished turn, with the plan approved the moment it appears; it includes the LLM calls (a few seconds in all).
@@ -178,3 +187,262 @@ Memory the server has taken for a large file isn't given back: it idled at about
 ### What wasn't measured
 
 Browsers and the page (the browser runs are in `docs/reviews/frontend-deploy-live-runs.md`); memory under many simultaneous users, or over hours; a second run of the same cell; a host's real CPU and network; swap; the `.xls` path (not accepted); inputs wider or longer than the 2 MB fixture; and any limit other than 512 MB, 1 GB, 2 GB and none.
+
+## 7. Step by step: from a fresh Ubuntu VM to the page over HTTPS
+
+For someone who has never used a server. Every line in a grey box is typed exactly as shown, then Enter. `<name>` means something you replace (without the `<` `>`). If a command prints an error, stop and read it; don't carry on to the next step.
+
+**What you need before you start**
+- An Ubuntu 24.04 virtual machine you can reach by SSH, with a public IP address. Appendix A creates one on Azure.
+- A name for it that people can type, such as `workbuddy-demo.westeurope.cloudapp.azure.com` (Appendix A gives you one for free). Call it `<name>` below.
+- **Ports 80 and 443 open to the internet** on the VM's cloud firewall (Appendix A, step 4). Without them HTTPS can't be set up.
+- A Groq API key (the LLM key), and a password you choose for the demo.
+- A GitHub account that can read the private repository `VAMSI21-2003/WORKBUDDY` (to add a deploy key, step 4).
+
+**1. Connect to the VM.** On your own computer (macOS and Linux: Terminal; Windows: PowerShell), using the SSH key you downloaded when you created the VM:
+
+```
+ssh -i ~/Downloads/<key-file>.pem azureuser@<name>
+```
+
+The first time it asks "Are you sure you want to continue connecting?": type `yes`. You're in when the prompt ends with `$` and shows the VM's name. (If it complains the key file is too open, run `chmod 600 ~/Downloads/<key-file>.pem` first.) Everything below is typed on the VM.
+
+**2. Bring the machine up to date.**
+
+```
+sudo apt-get update && sudo apt-get upgrade -y
+```
+
+If it says "A reboot is required", run `sudo reboot`, wait a minute, and connect again as in step 1.
+
+**3. Make a key that lets the VM read the private repository.**
+
+```
+ssh-keygen -t ed25519 -f ~/.ssh/workbuddy_deploy -N "" -C workbuddy-vm
+cat ~/.ssh/workbuddy_deploy.pub
+```
+
+The second command prints one line starting with `ssh-ed25519`. Copy it. In a browser, open the repository on GitHub, then **Settings → Deploy keys → Add deploy key**; any title; paste the line; leave **Allow write access unchecked**; **Add key**. (A deploy key can only read this one repository, and only the VM holds its private half.)
+
+**4. Download the code.**
+
+```
+printf 'Host github.com\n  IdentityFile ~/.ssh/workbuddy_deploy\n  IdentitiesOnly yes\n' >> ~/.ssh/config
+chmod 600 ~/.ssh/config
+git clone git@github.com:VAMSI21-2003/WORKBUDDY.git
+```
+
+The first time, git asks to trust github.com and shows a fingerprint. GitHub's current one for its ED25519 key is `SHA256:+DiY3wvvV6TuJJhbpZisF/zLDA0zPMSvHdkr4UvCOqU` (check it at <https://docs.github.com/en/authentication/keeping-your-account-and-data-secure/githubs-ssh-key-fingerprints>); if it matches, type `yes`. Then:
+
+```
+cd WORKBUDDY
+git log --oneline -1
+```
+
+You should see one line: a commit id and a message.
+
+**5. Install Docker, a swap file and the firewall.** This is the only step that changes the machine itself; it takes a few minutes.
+
+```
+sudo ./deploy/install.sh
+```
+
+It ends with "Done. Next:". It can be run again safely. Then **log out and back in** so Docker works without `sudo`:
+
+```
+exit
+```
+
+Connect again with the `ssh` command of step 1, then `cd WORKBUDDY`, and check:
+
+```
+docker ps
+```
+
+It should print a header line (`CONTAINER ID IMAGE ...`) and nothing else. "Permission denied" means you didn't log out and in.
+
+**6. Fill in the settings.** The settings file holds your password and key; it stays on this VM, is never committed, and no script prints it.
+
+```
+nano deploy/.env
+```
+
+Type the values after the `=` signs, on the same line. **No spaces at either end, no quotes, no `$`, no backtick, and no ` #` in a value**: Docker reads the file with its own rules (it would drop the part of a password after a `$`, for instance), and the scripts refuse such a value, by the setting's name, rather than run with a password that doesn't match:
+- `WORKBUDDY_DOMAIN=<name>`: your name ("What you need", above), without `https://` and without a trailing slash.
+- `WORKBUDDY_DEMO_PASSWORD=`: a long password. `openssl rand -base64 18` (run it in a second window) makes a good one.
+- `GROQ_API_KEY=`: your key.
+
+Save with **Ctrl+O**, **Enter**, and leave with **Ctrl+X**. (Lines starting with `#` are optional settings; leave them.)
+
+**7. Check the name points at this VM.**
+
+```
+getent hosts <name>
+curl -s https://api.ipify.org; echo
+```
+
+The first prints an address; the second prints the VM's public address. **They must be the same.** If the first prints nothing or another address, the name isn't set up yet (Appendix A, step 5); wait a few minutes after changing it, and try again. HTTPS can't be set up until they match.
+
+**8. Put WorkBuddy live.**
+
+```
+./deploy/release.sh HEAD
+```
+
+(`HEAD` is the commit you just downloaded.) The first time takes about 5 to 10 minutes: it downloads the base images, builds the image, starts it, waits for it to report healthy, and runs a real turn on a sample file through the real HTTPS address. It prints five numbered steps. It ends with one of:
+- `RELEASED <commit>`: it works. Go on.
+- `!! RELEASE <commit> FAILED at: <step>`: it did not work, and it says why in the lines above. The most common causes are in the table below. Fix the cause and run the same command again.
+
+**9. Open it.** In a browser, open `https://<name>`. You should see the page asking for the password. Enter the one from step 6, upload a spreadsheet, and ask for something ("remove duplicate rows"). Approve the plan when it asks; download the result. Then, once:
+
+```
+./deploy/check-proxy.sh
+```
+
+It must end with `CHECK-PROXY OK`. That is checklist item 7 (Section 5): two visitors get separate rate limits and a faked `X-Forwarded-For` changes nobody's.
+
+**10. Turn on a nightly backup.**
+
+```
+crontab -e
+```
+
+(If it asks which editor, choose `nano`.) Add this line at the end, replacing `azureuser` if your user has another name, then save and leave as in step 6:
+
+```
+17 3 * * * /home/azureuser/WORKBUDDY/deploy/backup.sh >> /home/azureuser/backup.log 2>&1
+```
+
+That makes a backup at 03:17 every night and keeps the last 7 in `deploy/backups/` (each release also takes one, so a week with many releases holds fewer nightly ones). **These backups are on the same disk as the data**, so they protect against a bad release or a mistake, not against losing the VM. Copy one to your own computer now and then, from your own computer:
+
+```
+scp -i ~/Downloads/<key-file>.pem azureuser@<name>:WORKBUDDY/deploy/backups/<file>.tar.gz .
+```
+
+### When something goes wrong
+
+| What you see | Likely cause | What to do |
+|---|---|---|
+| Step 7: the two addresses differ, or the first prints nothing | The name isn't set up, or is still spreading | Appendix A, step 5; wait 5 minutes |
+| `release.sh`: `deploy/.env has no value for: ...` | A setting is blank | Step 6; the message names the setting, not its value |
+| `release.sh` fails at "the smoke test", `tls` or no answer | Ports 80 and 443 aren't open to the internet, or the name points elsewhere, so Caddy can't get its certificate | Appendix A, step 4; step 7; then `./deploy/compose.sh logs caddy` shows what Let's Encrypt said |
+| Browser: "can't be reached" or times out | The cloud firewall blocks 443 | Appendix A, step 4 |
+| Browser: a certificate warning | Caddy hasn't got its certificate yet, or the name doesn't point at the VM | Wait a minute and reload; step 7 |
+| The page says `403 forbidden_origin` | The address in the browser isn't `WORKBUDDY_DOMAIN`, character for character | Open `https://<name>` exactly; fix `WORKBUDDY_DOMAIN` and release again |
+| The page says the demo password is "missing or wrong" | Wrong password, or the app restarted (everyone enters it again after a restart) | Enter the one in `deploy/.env` |
+| A turn ends with "I can't confirm that any change was made" | The LLM key is missing, wrong, or out of quota | `./deploy/smoke.sh` shows it; check `GROQ_API_KEY`; `./deploy/compose.sh logs --tail 50 app` |
+| `docker: permission denied` | You haven't logged out and in since step 5 | `exit`, connect again |
+
+Useful commands, from `~/WORKBUDDY`: `./deploy/compose.sh ps` (what's running), `./deploy/compose.sh logs --tail 100 app` (the app's log; it never holds passwords or file contents), `./deploy/smoke.sh` (does a real turn work?), `./deploy/compose.sh restart app` (restart; everyone enters the password again).
+
+## 8. Releasing, rolling back and restoring
+
+All from `~/WORKBUDDY` on the VM.
+
+### Release a new version
+
+```
+git pull --ff-only
+./deploy/release.sh HEAD
+```
+
+`git pull` brings this checkout to the version you want to release (the compose file, the Caddyfile and the scripts come from the checkout; the image comes from the commit), and `release.sh` refuses to run if the `deploy/` folder in the checkout differs from the one in the commit it's asked to release, telling you to check that commit out first. Any commit id you've fetched and checked out works in place of `HEAD`. It does five things in order, and stops at the first that fails:
+
+1. **Builds the image** from exactly that commit, tagged with the commit id. If the build fails, nothing has changed: the live version keeps running, and no backup was taken.
+2. **Backs up `/data`.** If the backup fails, nothing else happens.
+3. **Starts it** in place of the old one. The site is unavailable for a few seconds while the app container is replaced (one instance, so there's no overlap).
+4. **Waits until it reports healthy.**
+5. **Runs `smoke.sh`:** sign in, upload, a real message, approve, download, and a hash check, through the real HTTPS address.
+
+If step 3, 4 or 5 fails, **it rolls back by itself**: it puts the previous image back (kept on the VM, so no build or download), waits for it to be healthy, runs `smoke.sh` again, and prints `!! ROLLED BACK to <previous>. Release <new> failed at: <step>. The site is serving the previous release.` The exit status is non-zero, so a script that calls it sees the failure. On the very first release there is no previous image: it stops the app and says so.
+
+`deploy/releases.log` records every release, rollback and failure with the time.
+
+**Rolling back doesn't restore data.** It changes the program, not `/data`. A new version that ran for a minute may have saved sessions in the new format. Versions are required to read everything older versions saved (`CLAUDE.md`, "Working method"; `tests/deploy/test_saved_data_survives.py`), but an older version isn't required to read what a newer one saved. If after a rollback sessions are missing or the page says a session no longer exists, restore the backup that the release took first (below).
+
+### Roll back by hand
+
+To go back to an older version later (the image of the one before the last is gone; it's rebuilt from the commit):
+
+```
+git log --oneline -10
+git checkout <older commit id>
+./deploy/release.sh HEAD
+git checkout main      # afterwards, so the next git pull works
+```
+
+### Restore a backup
+
+```
+ls -lt deploy/backups
+./deploy/restore.sh deploy/backups/<file>.tar.gz
+```
+
+It asks you to type `yes`; then it copies the archive aside, backs up what's there now (so a mistaken restore can itself be undone; no older backup is deleted by this), stops the app, unpacks the archive next to the data, and only when that has worked replaces `/data` with it, starts the app and waits for it to be healthy. If the unpacking fails (a damaged archive, a full disk) `/data` is untouched and the app is started again; if anything fails after `/data` was changed it prints the file holding the old data and the exact command that puts it back. Then `./deploy/smoke.sh`. Notes:
+- Restoring replaces **everything** in `/data`, including sessions created since the backup. It needs room for a second copy of the archive's contents while it unpacks.
+- Restore into the VM's own `/data` volume, which is what `restore.sh` does. The saved session records hold absolute paths under `/data`, so a data folder copied to a different path isn't restorable (found while writing the saved-data test; recorded in `docs/backlog.md`).
+- Sessions are removed anyway after `WORKBUDDY_SESSION_TTL_HOURS` (24) without use. A backup older than that holds sessions that the server will sweep soon after a restore.
+
+## 9. What the deployment files do
+
+| File | What it is |
+|---|---|
+| `deploy/docker-compose.yml` | Two containers. `app`: the image, with no published port (only Caddy can reach it), `restart: unless-stopped`, a 1 GB memory limit (Section 6: one big turn at a time fits in 512 MB, two at once need more than that and fit in 1 GB), rotated logs (5 files of 10 MB), `/data` on the named volume `workbuddy-data`, `WORKBUDDY_TRUSTED_PROXY_HOPS=1`. `caddy`: ports 80 and 443, automatic HTTPS, starts after the app is healthy, its certificate kept in a volume |
+| `deploy/Caddyfile` | Passes requests to the app, and sets `X-Forwarded-For` to the one address Caddy saw, discarding whatever the caller sent. That is what makes `WORKBUDDY_TRUSTED_PROXY_HOPS=1` correct: the app trusts the last entry, and Caddy wrote it |
+| `deploy/.env.example` | The names of the settings, never values. `install.sh` copies it to `deploy/.env`, which is git-ignored |
+| `deploy/install.sh` | First-time setup (Section 7, step 5): Docker from Docker's own repository, a 2 GB swap file, the firewall (22, 80, 443 in; everything out) |
+| `deploy/release.sh <commit>` | Section 8 |
+| `deploy/smoke.sh` | The health check, then a real turn through the API, with a hash check. Run it any time |
+| `deploy/backup.sh`, `deploy/restore.sh` | Section 8 |
+| `deploy/check-proxy.sh` | Checklist item 7: starts three throwaway clients with their own addresses, and checks buckets and spoofing through Caddy. Changes nothing |
+| `deploy/compose.sh` | `docker compose` with the settings files added: `./deploy/compose.sh ps` |
+
+Things worth knowing:
+- **One instance only.** Sessions, turns, pending plans and access tokens are in the app's memory (Section 1). Don't run two `app` containers.
+- **A restart signs everyone out** (Section 4): everyone enters the password again. Sessions and files survive, because `/data` is a volume.
+- **Concurrent big turns.** Section 6 measured that two 2 MB chains at once both miss the 180 s deadline. If that matters, set `WORKBUDDY_MAX_CONCURRENT_TURNS=1` in `deploy/.env` (remove the `#` on that line) and `./deploy/compose.sh up -d app`. It's the owner's call; the default is unchanged.
+- **No access log from Caddy, on purpose.** Every request line holds a session's address (`/api/v1/sessions/s_...`), which the app treats as a secret and masks in its own logs. Don't add a `log` block to the Caddyfile without masking those.
+- **Docker and the firewall.** Docker publishes ports around `ufw`. That's why the app has no published port at all: only Caddy's 80 and 443 are open, which is what `install.sh` allows anyway.
+- **IPv6.** If you give the VM an IPv6 address, Docker may show every IPv6 visitor to Caddy as one address, so they'd share one rate-limit bucket. The deployment assumes IPv4 (Azure's default).
+
+### Dependencies
+
+`requirements-runtime.txt` and `requirements.txt` say what the project needs, in ranges. **Two lock files say exactly what is installed:**
+- `requirements-runtime.lock`: what the image holds. Every package at one exact version, with hashes. The `Dockerfile` installs from it and nothing else (`pip install --require-hashes --no-deps`), so a build can't pick up a new version by itself. Its first version pinned exactly what `docs/reviews/frontend-deploy-image-freeze.txt` recorded, and an image built from it has an identical `pip freeze`.
+- `requirements-dev.lock`: the same packages, plus the test and lint tools. GitHub's checks and development install from it.
+
+**The one command that changes them, on purpose:**
+
+```
+pip install uv
+python scripts/refresh_locks.py          # both locks, everything to the newest versions allowed
+python scripts/refresh_locks.py dev      # only the dev lock; the image's packages stay as they are
+```
+
+Then read the diff, run the full suite, build the image, and commit the locks in a change of their own. `tests/deploy/test_dependency_locks.py` fails if the requirements files and the locks disagree.
+
+### Tests on GitHub
+
+`.github/workflows/tests.yml` runs on every pull request and on every push to `main`: the full suite on Python 3.11 installed from the dev lock (browser tests included), `ruff` against `ruff-baseline.txt` (the 22 known errors, counted per file and rule; a new error fails, a fixed one is noted, and `python scripts/check_ruff_baseline.py --update` records the improvement), and the Docker build, followed by starting the image and asking it `/healthz`.
+
+## Appendix A. Azure
+
+Menu names change from time to time; if one differs, look for the same words. You need an Azure account with a subscription.
+
+**1. Create the VM.** Portal → **Create a resource → Virtual machine**.
+- **Image:** Ubuntu Server 24.04 LTS (x64).
+- **Size:** at least 2 GB of memory. `Standard_B2s` (2 vCPU, 4 GB) is a sensible start; with `Standard_B1ms` (2 GB) set `WORKBUDDY_MAX_CONCURRENT_TURNS=1` (Section 9). The app's limit is 1 GB (Section 6), and the machine needs memory of its own.
+- **Authentication:** SSH public key; username `azureuser`; let Azure generate the key pair and **download the `.pem` file when asked** (it can't be downloaded again).
+- **Disk:** 30 GB standard SSD is enough (the image is 1.4 GB; the build needs about 3 GB more while it runs).
+
+**2. Ports.** On the **Networking** tab choose **Select inbound ports** and tick **SSH (22)**, **HTTP (80)** and **HTTPS (443)**. (Or do step 4 afterwards.) Then **Review + create → Create**. When it finishes, **Go to resource**.
+
+**3. Keep the address.** On the VM's page click its **Public IP address**. Under **Configuration** set **Assignment** to **Static** (so a stop and start can't change it), **Save**.
+
+**4. Open 80 and 443, if you didn't in step 2.** VM → **Networking → Network settings → Create port rule → Inbound port rule**: Destination port ranges `80`, Protocol **TCP**, Action **Allow**, a free Priority (such as 310), Name `allow-http`; **Add**. Again with `443` and Protocol **Any** (TCP and UDP, for HTTP/3), Priority 320, Name `allow-https`. Port 80 matters even though people use HTTPS: Let's Encrypt proves you own the name through it, and Caddy redirects visitors to HTTPS from it.
+
+**5. A free name, no domain to buy.** On the **Public IP address** page, under **Configuration**, fill in **DNS name label**, such as `workbuddy-demo` (lower case letters, digits and hyphens; must be unique in the region), **Save**. The name is then `<label>.<region>.cloudapp.azure.com`, for example `workbuddy-demo.westeurope.cloudapp.azure.com`; the **Overview** page shows it as **DNS name**. That is the `<name>` of Section 7 and the value of `WORKBUDDY_DOMAIN`. Caddy gets a real Let's Encrypt certificate for it.
+
+**6. Costs.** The VM and its disk cost money while they exist; **Stop (deallocate)** stops the compute charge but not the disk. With a static public IP, the address is kept. A backup that leaves the VM is a snapshot of the disk (VM → Disks → the disk → **Create snapshot**) or the `scp` of Section 7, step 10.
+
+Go on with Section 7, step 1.

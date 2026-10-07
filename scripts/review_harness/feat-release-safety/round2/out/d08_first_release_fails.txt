@@ -1,0 +1,98 @@
+Releasing 7cda7729c71c
+
+== 1/5 build the image
+built workbuddy:7cda7729c71c
+
+== 2/5 backup
+backup: $SCRATCH/r2/stack/deploy/backups/workbuddy-data-20261007-090818.tar.gz (24K, 53 files)
+
+== 3/5 start it
+ Network workbuddy_default Creating 
+ Network workbuddy_default Creating 
+ Network workbuddy_default Created 
+ Network workbuddy_default Created 
+ Container workbuddy-fakegroq-1 Creating 
+ Container workbuddy-app-1 Creating 
+ Container workbuddy-app-1 Created 
+ Container workbuddy-caddy-1 Creating 
+ Container workbuddy-fakegroq-1 Created 
+ Container workbuddy-caddy-1 Created 
+ Container workbuddy-fakegroq-1 Starting 
+ Container workbuddy-app-1 Starting 
+ Container workbuddy-fakegroq-1 Started 
+ Container workbuddy-app-1 Started 
+ Container workbuddy-app-1 Waiting 
+ Container workbuddy-app-1 Healthy 
+ Container workbuddy-caddy-1 Starting 
+ Container workbuddy-caddy-1 Started 
+
+== 4/5 wait until it's healthy
+healthy
+
+== 5/5 smoke test (a real turn)
+
+== 1. health
+ok: /healthz answers, an LLM key is set
+
+== 2. sign in
+ok: the password was exchanged for the access cookie
+
+== 3. upload
+ok: uploaded smoke.xlsx; the server's hash matches (45f300dd1801ec0aeb0a4b23e4e47e0cf649c8556dd0e6329681dfb8c9df2e82)
+
+== 4. a message, and the plan
+SMOKE FAILED at "plan": the turn finished without showing a plan
+
+!! RELEASE 7cda7729c71c FAILED at: the smoke test
+There was no earlier release to go back to. Stopping the app so a broken one isn't left serving.
+exit=1
+   current.env: 
+   app: 
+   healthz: 
+Releasing 7cda7729c71c
+
+== 1/5 build the image
+built workbuddy:7cda7729c71c
+
+== 2/5 backup
+backup: $SCRATCH/r2/stack/deploy/backups/workbuddy-data-20261007-090833.tar.gz (24K, 56 files)
+
+== 3/5 start it
+ Container workbuddy-caddy-1 Running 
+ Container workbuddy-fakegroq-1 Recreate 
+ Container workbuddy-fakegroq-1 Recreated 
+ Container workbuddy-fakegroq-1 Starting 
+ Container workbuddy-app-1 Starting 
+ Container workbuddy-fakegroq-1 Started 
+ Container workbuddy-app-1 Started 
+ Container workbuddy-app-1 Waiting 
+ Container workbuddy-app-1 Healthy 
+
+== 4/5 wait until it's healthy
+healthy
+
+== 5/5 smoke test (a real turn)
+
+== 1. health
+ok: /healthz answers, an LLM key is set
+
+== 2. sign in
+ok: the password was exchanged for the access cookie
+
+== 3. upload
+ok: uploaded smoke.xlsx; the server's hash matches (45f300dd1801ec0aeb0a4b23e4e47e0cf649c8556dd0e6329681dfb8c9df2e82)
+
+== 4. a message, and the plan
+ok: the plan was shown: ["spreadsheet.deduplicate"]
+ok: the turn finished, outcome delivered
+
+== 5. download and hash
+ok: the download's hash matches what the server recorded (13068511d810d4ee60e257322286b0a7fd2d262690dc608913f100f1443421b3), and it's different from the original's
+
+SMOKE OK: https://localhost
+
+RELEASED 7cda7729c71c. Roll back by hand with: ./release.sh <an older commit>
+exit=0
+   current.env: WORKBUDDY_TAG=7cda7729c71c
+   app: sha256:9c5827d9f4ddf0e1f2f2779853db57df3ee612613ee3c9bf1ba8573166007e12 Up 12 seconds (healthy)
+   healthz: {"ok":true,"llm_configured":true}

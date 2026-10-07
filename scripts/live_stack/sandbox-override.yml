@@ -1,0 +1,16 @@
+# Sandbox only: lets the app container in deploy/docker-compose.yml reach the LLM through the cloud
+# sandbox's egress proxy (see egress_relay.py), and trust that proxy's certificate. Copy it to
+# deploy/docker-compose.override.yml (compose loads that file by itself; it's git-ignored).
+# Nothing in the committed deployment depends on it.
+services:
+  app:
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    environment:
+      HTTPS_PROXY: http://host.docker.internal:44720
+      https_proxy: http://host.docker.internal:44720
+      NO_PROXY: "127.0.0.1,localhost,app,caddy"
+      SSL_CERT_FILE: /ca-bundle.pem
+      REQUESTS_CA_BUNDLE: /ca-bundle.pem
+    volumes:
+      - /root/.ccr/ca-bundle.crt:/ca-bundle.pem:ro

@@ -1,0 +1,86 @@
+# The checks every change must pass before it can merge: the full test suite, ruff against the
+# committed baseline of known errors, and a Docker build that boots. Everything installs from the
+# lock files, so a green run means "these exact versions", the ones the image ships.
+name: tests
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+  # Also runnable by hand (Actions tab, "Run workflow") on any branch, without opening a pull request.
+  workflow_dispatch:
+
+# Read-only: nothing here may write to the repository.
+permissions:
+  contents: read
+
+# A newer push to the same pull request replaces the run in progress.
+concurrency:
+  group: tests-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+env:
+  PYTHON_VERSION: "3.11"
+
+jobs:
+  tests:
+    name: tests (full suite, Python 3.11)
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+          cache: pip
+          cache-dependency-path: requirements-dev.lock
+      - name: Install from the lock
+        run: |
+          python -m pip install --require-hashes --no-deps -r requirements-dev.lock
+          python -m pip check
+      # The browser tests drive Chromium; without it they'd be skipped, and this isn't the full suite.
+      - name: Install the browser
+        run: python -m playwright install --with-deps chromium
+      # The backup and restore tests run against a real Docker volume and need this image.
+      - name: Pull the image the backup tests use
+        run: docker pull python:3.11-slim
+      - name: Full suite
+        run: python -m pytest -q
+
+  lint:
+    name: ruff (no errors beyond the baseline)
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+          cache: pip
+          cache-dependency-path: requirements-dev.lock
+      - name: Install from the lock
+        run: python -m pip install --require-hashes --no-deps -r requirements-dev.lock
+      - name: Ruff against ruff-baseline.txt
+        run: python scripts/check_ruff_baseline.py
+
+  image:
+    name: docker build
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+      - name: Build the image
+        run: docker build --tag workbuddy:ci .
+      # An image that builds but can't start (a missing package, a bad import) is caught here.
+      - name: The image starts and answers /healthz
+        run: |
+          docker run --detach --name workbuddy-ci --publish 8000:8000 \
+            --env WORKBUDDY_DEMO_PASSWORD=ci-placeholder-password \
+            --env WORKBUDDY_PUBLIC_ORIGIN=https://ci.example \
+            workbuddy:ci
+          for attempt in $(seq 1 30); do
+            if curl --fail --silent http://127.0.0.1:8000/healthz; then echo; exit 0; fi
+            sleep 2
+          done
+          docker logs workbuddy-ci
+          exit 1

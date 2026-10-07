@@ -1,0 +1,57 @@
+##### failed release 2: an image that starts and is healthy but can't create a session (tmp/broken-smoke, not pushed)
+site before: {"ok":true,"llm_configured":true} HTTP 200
+live release before: 2051e554d16f
+exit status of release.sh: 1
+
+== 3/5 start it
+
+== 4/5 wait until it's healthy
+healthy
+
+== 5/5 smoke test (a real turn)
+
+== 1. health
+ok: /healthz answers, an LLM key is set
+
+== 2. sign in
+ok: the password was exchanged for the access cookie
+
+== 3. upload
+SMOKE FAILED at "POST /api/v1/sessions": HTTP 500 {"error":{"code":"internal_error","message":"Something went wrong on the server."}}
+
+!! RELEASE 4f94b5e70f22 FAILED at: the smoke test
+Rolling back to 2051e554d16f ...
+
+== 1. health
+ok: /healthz answers, an LLM key is set
+
+== 2. sign in
+ok: the password was exchanged for the access cookie
+
+== 3. upload
+ok: uploaded smoke.xlsx; the server's hash matches (45f300dd1801ec0aeb0a4b23e4e47e0cf649c8556dd0e6329681dfb8c9df2e82)
+
+== 4. a message, and the plan
+ok: the plan was shown: ["spreadsheet.deduplicate"]
+ok: the turn finished, outcome delivered
+
+== 5. download and hash
+ok: the download's hash matches what the server recorded (00393ed2ea5a6d3e192c79e2bd05921f064037dfd2072f55110322b5e527bcf6), and it's different from the original's
+
+SMOKE OK: https://localhost
+
+!! ROLLED BACK to 2051e554d16f. Release 4f94b5e70f22 failed at: the smoke test. The site is serving the previous release.
+The backup taken before this release is in /home/user/WORKBUDDY/deploy/backups (restore it only if the data looks wrong).
+
+site after: {"ok":true,"llm_configured":true} HTTP 200
+live release after: 2051e554d16f
+running image=workbuddy:2051e554d16f status=running
+workbuddy:4f94b5e70f22
+workbuddy:a4f990d9684c
+workbuddy:47ef56242629
+workbuddy:2051e554d16f
+workbuddy:locktest
+
+2026-10-07T09:19:43Z 2051e554d16f OK (was 47ef56242629)
+2026-10-07T09:20:25Z a4f990d9684c FAILED at starting the containers; rolled back to 2051e554d16f; smoke ok
+2026-10-07T09:20:54Z 4f94b5e70f22 FAILED at the smoke test; rolled back to 2051e554d16f; smoke ok

@@ -1,0 +1,3 @@
+28:#8 [stage-0 5/9] RUN --mount=type=secret,id=pip_ca,required=false     if [ -f /run/secrets/pip_ca ]; then export PIP_CERT=/run/secrets/pip_ca; fi     && pip install --require-hashes --no-deps -r requirements-runtime.lock     && pip check
+269:#8 72.91 No broken requirements found.
+295:build exit=0
