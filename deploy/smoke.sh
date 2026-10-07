@@ -59,7 +59,9 @@ health="$(api GET /healthz)"
 say "ok: /healthz answers, an LLM key is set"
 
 step "2. sign in"
-api POST /api/v1/access --data-urlencode "password=$password" >/dev/null
+# The password goes in through a file, not the command line, where other users could see it.
+( umask 077; printf '%s' "$password" > "$work/password" )
+api POST /api/v1/access --data-urlencode "password@$work/password" >/dev/null
 grep -q "__Host-wb_access" "$jar" || fail "sign in" "no access cookie came back"
 say "ok: the password was exchanged for the access cookie"
 
