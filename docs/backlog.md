@@ -298,6 +298,15 @@ Each item has its own acceptance criterion: fixed with a test, or explicitly clo
 - **pipeline-failure-and-output-dir review L3 (Low, pre-existing):** the writing skills put `task_id` (and so `session_id`) into the output name unchecked. A `../` session id made the dedupe skill overwrite an upload. Not reachable with server-generated `token_urlsafe` ids. Add a `resolve()` / `is_relative_to(output_dir)` check in `_build_output_path`.
 - **pipeline-failure-and-output-dir review D-R1 (pre-existing, with item 2):** when Brain and Think fail (for example on a provider timeout), the reply is "None of the issues I check for were found. No changes were made to any file this turn." That's true, but it doesn't say the request wasn't understood or carried out, so a user who asked to remove duplicates may read it as "no duplicates found". Reproduced on `main`.
 - **verified-outcome-a L3 (Low):** `_delivered_file_name` (`buddy/voice.py`) falls back to the *output's* name when no step has an `input_reference`, giving "Your cleaned copy of out.xlsx is ready." with the output presented as the original. Not reachable through `build_engine` (Hands always records steps), but `test_personality_voice_is_unaffected_by_a_failing_provider` enshrines it. Fix the fallback and the test together.
+- **feat-release-safety review round 1, deferred LOWs** (`docs/reviews/feat-release-safety-review.md`, "Deferred"):
+  - L1: `deploy/smoke.sh` says the download differs from the original one line before it checks.
+  - L2: `smoke.sh`'s original-file check compares the local fixture, which the server never touches. Hash the server's copy of the upload in the volume after the turn.
+  - L3: `release.sh` skips the backup when the live release's image is missing, and says "no live release or no data yet" although data exists. Back up after the build, with the new image.
+  - L4: every release attempt, even one whose build fails, takes a backup and prunes the oldest. A few failed attempts push the nightly backups out of the 7 kept.
+  - L5: `restore.sh`'s usage text prints two lines of code (`sed -n '2,8p'` should be `2,6p`).
+  - L6: `docs/deploy.md` Section 8 says the absolute-path limit of a data folder is recorded here, but it wasn't. The saved session records hold absolute paths under `/data`, so a data folder restores only at that path. Item 6 below still says "there is no CI yet".
+  - L7: `scripts/check_ruff_baseline.py` prints every finding in a file with a new error, including the known ones.
+  - L8: the saved-data shape guard sees only the keys written by its one scenario (a delivered and a rejected turn). Add failed, chained and clarification turns when the next fixture is made.
 
 ## 6. Decide the supported Python version
 

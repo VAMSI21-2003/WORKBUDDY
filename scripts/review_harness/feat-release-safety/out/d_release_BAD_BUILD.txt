@@ -1,0 +1,16 @@
+Releasing 7e0f59d7c4f4 (live now: 0ea40c47c198)
+
+== 1/5 backup
+backup: /tmp/claude-0/-home-user-WORKBUDDY/77b2666a-7fe8-5473-bc78-ebc32e28db50/scratchpad/stack/deploy/backups/workbuddy-data-20261007-082731.tar.gz (28K, 66 files)
+
+== 2/5 build the image
+Dockerfile:17
+--------------------
+  16 |     # (uploads, outputs, session records); mount a volume there to keep sessions across restarts.
+  17 | >>> RUN false && useradd --create-home --uid 10001 --shell /usr/sbin/nologin app \
+  18 | >>>     && mkdir /data \
+  19 | >>>     && chown app:app /data
+  20 |     
+--------------------
+ERROR: failed to build: failed to solve: process "/bin/sh -c false && useradd --create-home --uid 10001 --shell /usr/sbin/nologin app     && mkdir /data     && chown app:app /data" did not complete successfully: exit code: 1
+ERROR: the build failed. Nothing changed: the live release (0ea40c47c198) is still running.

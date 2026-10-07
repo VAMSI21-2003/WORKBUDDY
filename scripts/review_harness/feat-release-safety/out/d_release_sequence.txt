@@ -1,0 +1,39 @@
+===== release BAD_BUILD (7e0f59d7c4f46b612ebd31fab9fae65b7c9fb60c)
+   exit=1
+   Releasing 7e0f59d7c4f4 (live now: 0ea40c47c198)
+   ERROR: failed to build: failed to solve: process "/bin/sh -c false && useradd --create-home --uid 10001 --shell /usr/sbin/nologin app     && mkdir /data     && chown app:app /data" did not complete successfully: exit code: 1
+   ERROR: the build failed. Nothing changed: the live release (0ea40c47c198) is still running.
+   current.env: WORKBUDDY_TAG=0ea40c47c198
+   app: workbuddy:0ea40c47c198 Up 29 seconds (healthy)
+   https://localhost/healthz: {"ok":true,"llm_configured":true}
+   images: 0ea40c47c198 locktest 
+===== release BAD_START (d09b079b615a8ac94d5b475abf2f97deacb26b8a)
+   exit=1
+   Releasing d09b079b615a (live now: 0ea40c47c198)
+   !! RELEASE d09b079b615a FAILED at: starting the containers
+   SMOKE OK: https://localhost
+   !! ROLLED BACK to 0ea40c47c198. Release d09b079b615a failed at: starting the containers. The site is serving the previous release.
+   current.env: WORKBUDDY_TAG=0ea40c47c198
+   app: workbuddy:0ea40c47c198 Up 12 seconds (healthy)
+   https://localhost/healthz: {"ok":true,"llm_configured":true}
+   images: 0ea40c47c198 d09b079b615a locktest 
+===== release BAD_TURN (239c3da17925d0de20dea0fbdf9c42b4599ca1b2)
+   exit=1
+   Releasing 239c3da17925 (live now: 0ea40c47c198)
+   SMOKE FAILED at "turn": outcome is failed, not delivered. Reply: Something went wrong while running the steps, so I can't confirm that any change was made. I haven't handed back any file from this turn.
+   !! RELEASE 239c3da17925 FAILED at: the smoke test
+   SMOKE OK: https://localhost
+   !! ROLLED BACK to 0ea40c47c198. Release 239c3da17925 failed at: the smoke test. The site is serving the previous release.
+   current.env: WORKBUDDY_TAG=0ea40c47c198
+   app: workbuddy:0ea40c47c198 Up 12 seconds (healthy)
+   https://localhost/healthz: {"ok":true,"llm_configured":true}
+   images: 0ea40c47c198 239c3da17925 d09b079b615a locktest 
+===== release GOOD2 (1e5ed28164c8e7e5c4d3d3453b3d38938bc5cdc4)
+   exit=0
+   Releasing 1e5ed28164c8 (live now: 0ea40c47c198)
+   SMOKE OK: https://localhost
+   RELEASED 1e5ed28164c8. Roll back by hand with: ./release.sh 0ea40c47c198
+   current.env: WORKBUDDY_TAG=1e5ed28164c8
+   app: workbuddy:1e5ed28164c8 Up 12 seconds (healthy)
+   https://localhost/healthz: {"ok":true,"llm_configured":true}
+   images: 0ea40c47c198 1e5ed28164c8 locktest 

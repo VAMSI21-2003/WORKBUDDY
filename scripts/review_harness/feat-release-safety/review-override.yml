@@ -1,0 +1,17 @@
+# Reviewer probes only. Copied to deploy/docker-compose.override.yml in a scratch worktree of the
+# branch (compose loads it by itself; it's git-ignored). Points the app at fake_groq.py instead of
+# api.groq.com, so release.sh and smoke.sh run a real turn with no key and no network.
+services:
+  app:
+    environment:
+      GROQ_BASE_URL: http://fakegroq:8080
+  fakegroq:
+    image: python:3.11-slim
+    command: ["python", "/fake_groq.py", "8080"]
+    environment:
+      FAKE_INTENT: ${FAKE_INTENT:-remove_duplicate_rows}
+      FAKE_MODE: ${FAKE_MODE:-ok}
+    volumes:
+      - ./fake_groq.py:/fake_groq.py:ro
+    expose:
+      - "8080"

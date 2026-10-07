@@ -1,0 +1,19 @@
+## as git stores it (a fresh clone, as CI checks it out)
+M00 CAUGHT   exit=1  no mutation (the copy itself must pass)  | 1 failed, 41 passed, 6 warnings in 6.26s
+## with the fixtures' empty folders recreated (the implementer's checkout)
+M00 SURVIVED exit=0  no mutation (the copy itself must pass)  | 42 passed, 6 warnings in 6.18s
+M01 CAUGHT   exit=1  session.json gains a key (format change, no new fixture)  | 1 failed, 6 warnings in 5.17s
+M02 CAUGHT   exit=1  turn record gains a key  | 1 failed, 6 warnings in 5.35s
+M03 CAUGHT   exit=1  a turn field changes type (size int -> str)  | 1 failed, 6 warnings in 4.85s
+M04 CAUGHT   exit=1  FORMAT_VERSION bumped with no migration and no fixture  | 5 failed, 2 passed, 6 warnings in 5.07s
+M05 CAUGHT   exit=1  reader requires a new session key (old data stops opening)  | 4 failed, 2 passed, 1 deselected, 1 warning in 2.24s
+M06 CAUGHT   exit=1  context (buddy) gains a saved key  | 1 failed, 6 warnings in 4.81s
+M07 CAUGHT   exit=1  Dockerfile installs without --require-hashes  | 1 failed, 9 passed in 0.08s
+M08 CAUGHT   exit=1  Dockerfile installs the ranges, not the lock  | 1 failed, 9 passed in 0.07s
+M09 CAUGHT   exit=1  a new runtime requirement with no pin  | 2 failed, 8 passed in 0.09s
+M10 CAUGHT   exit=1  a range tightened past the locked version  | 2 failed, 8 passed in 0.11s
+M11 CAUGHT   exit=1  a runtime-lock hash changed (dev lock left alone)  | 1 failed, 9 passed in 0.10s
+M12 CAUGHT   exit=1  the build context stops letting the lock in  | 1 failed, 9 passed in 0.08s
+M13 CAUGHT   exit=1  a new ruff error in buddy/ (CI lint job)  | NEW: buddy/brain.py: 1 new F401 (now 1, the baseline allows 0)
+M14 CAUGHT   exit=1  baseline compare stops seeing new files  | 2 failed, 7 passed in 0.06s
+M15 SURVIVED exit=0  the fixture's files are rewritten by relocate (not just session.json)  | 7 passed, 6 warnings in 5.09s

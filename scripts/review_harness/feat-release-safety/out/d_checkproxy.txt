@@ -1,0 +1,9 @@
+Caddy is at 10.219.173.2; clients: A=10.219.173.11 B=10.219.173.12 C=10.219.173.13; hops set to 1
+PASS  A sends 14 wrong sign-ins: the first 10 are answered, then A is limited  [401, 401, 401, 401, 401, 401, 401, 401, 401, 401, 429, 429, 429, 429]
+PASS  B (another address) is not limited by A's use  [401, 401, 401, 401]
+PASS  C claims to be A (X-Forwarded-For: A's address): A's bucket isn't charged to C  [401, 401, 401]
+PASS  A claims to be somebody else: A still has its own, used-up bucket  [429, 429]
+PASS  A sends a made-up chain of addresses: the same  [429, 429]
+PASS  B claims a fresh address: it neither gains nor loses anything  [401, 401]
+
+CHECK-PROXY OK: separate buckets, and a spoofed X-Forwarded-For changed nobody's.
