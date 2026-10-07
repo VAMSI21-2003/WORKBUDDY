@@ -100,8 +100,9 @@ def test_release_script_rolls_back_and_says_so() -> None:
     text = (DEPLOY / "release.sh").read_text(encoding="utf-8")
     for needed in ("rollback", "ROLLED BACK", "backup.sh", "smoke.sh", "wait_healthy"):
         assert needed in text
-    # The backup comes before anything changes: step 1 of 5, ahead of the build and the switch.
-    assert text.index("1/5 backup") < text.index("2/5 build") < text.index("3/5 start")
+    # The build comes first (a failed build changes nothing and takes no backup), then the backup,
+    # both ahead of the switch.
+    assert text.index("1/5 build") < text.index("2/5 backup") < text.index("3/5 start")
 
 
 def test_the_smoke_fixture_is_a_workbook() -> None:

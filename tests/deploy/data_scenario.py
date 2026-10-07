@@ -127,10 +127,16 @@ def shape(value: Any) -> Any:
 
 
 def layout(folder: Path) -> list[str]:
-    """Every path under ``folder`` with the ids replaced, so two runs can be compared."""
+    """Every file under ``folder`` with the ids replaced, so two runs can be compared.
+
+    Files only: git doesn't keep an empty folder, so a fixture checked out from git lacks the empty
+    ones (the rejected turn's output folder) that a fresh run leaves.
+    """
     session_ids = [p.name for p in (folder / "sessions").iterdir()]
     names: list[str] = []
     for path in sorted(folder.rglob("*")):
+        if not path.is_file():
+            continue
         text = path.relative_to(folder).as_posix()
         for session_id in session_ids:
             text = text.replace(session_id, "<session>")

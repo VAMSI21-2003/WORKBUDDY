@@ -15,6 +15,7 @@ set -euo pipefail
 . "$(dirname "${BASH_SOURCE[0]}")/lib.sh"
 
 need curl jq sha256sum docker
+check_env_syntax
 ENV_FILE="$DEPLOY_DIR/.env"
 domain="$(env_value "$ENV_FILE" WORKBUDDY_DOMAIN)"
 password="$(env_value "$ENV_FILE" WORKBUDDY_DEMO_PASSWORD)"
@@ -107,7 +108,7 @@ got="$(sha256sum "$work/delivered.xlsx" | cut -d' ' -f1)"
 [ "$got" = "$want" ] || fail "download" "the downloaded file's hash ($got) isn't the one the server recorded ($want)"
 [ "$(head -c 2 "$work/delivered.xlsx")" = "PK" ] || fail "download" "the file isn't a workbook (no zip header)"
 [ "$(sha256sum "$fixture" | cut -d' ' -f1)" = "$before" ] || fail "original" "the local original changed"
-say "ok: the download's hash matches what the server recorded ($got), and it's different from the original's"
 [ "$got" != "$before" ] || fail "download" "the delivered file is byte for byte the original"
+say "ok: the download's hash matches what the server recorded ($got), and it's different from the original's"
 
 printf '\nSMOKE OK: %s\n' "$base"

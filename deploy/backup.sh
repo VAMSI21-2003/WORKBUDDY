@@ -1,7 +1,9 @@
 #!/usr/bin/env bash
 # A dated archive of /data (the sessions, uploads and delivered files), keeping the last few.
 #     ./backup.sh            -> deploy/backups/workbuddy-data-YYYYmmdd-HHMMSS.tar.gz
-# WORKBUDDY_BACKUP_DIR picks another folder; WORKBUDDY_BACKUP_KEEP (default 7) how many to keep.
+# WORKBUDDY_BACKUP_DIR picks another folder; WORKBUDDY_BACKUP_KEEP (default 7) how many to keep;
+# WORKBUDDY_BACKUP_PRUNE=0 keeps them all (restore.sh uses it so it can't delete the archive it is
+# about to restore); WORKBUDDY_BACKUP_IMAGE names the image that reads the volume.
 # Safe while the app runs: the app writes every file whole (a temp file, then a rename), so the
 # archive holds each file as it was at one moment. It reads the volume through a throwaway
 # container of the image that's live, so nothing but Docker is needed on the VM.
@@ -34,9 +36,11 @@ mv "$partial" "$archive"
 chmod 600 "$archive"
 
 # Keep the newest BACKUP_KEEP archives.
-# shellcheck disable=SC2012
-ls -1t "$BACKUP_DIR"/workbuddy-data-*.tar.gz | tail -n +"$((BACKUP_KEEP + 1))" | while read -r old; do
-  rm -f -- "$old"
-done
+if [ "${WORKBUDDY_BACKUP_PRUNE:-1}" != "0" ]; then
+  # shellcheck disable=SC2012
+  ls -1t "$BACKUP_DIR"/workbuddy-data-*.tar.gz | tail -n +"$((BACKUP_KEEP + 1))" | while read -r old; do
+    rm -f -- "$old"
+  done
+fi
 
 say "backup: $archive ($(du -h "$archive" | cut -f1), $(tar -tzf "$archive" | grep -c '[^/]$') files)"

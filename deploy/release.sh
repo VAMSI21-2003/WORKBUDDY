@@ -2,19 +2,22 @@
 # Put one commit live, and take it back by itself if it doesn't work.
 #     ./release.sh <commit>        # a commit id, a branch or a tag of this repository (git fetch first)
 #
-# 1. back up /data                       (a failure here stops everything; nothing has changed)
-# 2. build the image from that commit, tagged with the commit id   (a failure here changes nothing)
+# 1. build the image from that commit, tagged with the commit id   (a failure here changes nothing)
+# 2. back up /data                       (a failure here stops everything; nothing has changed)
 # 3. start it                            \
 # 4. wait until it reports healthy        > any failure: roll back to the previous image
 # 5. run smoke.sh (a real turn)          /
 # The previous image is kept until the next release, so rolling back needs no download or build.
+# It refuses to run if deploy/ in this checkout differs from deploy/ in that commit (the compose
+# file, the Caddyfile and these scripts come from the checkout, the image from the commit): check
+# the commit out first (git pull, or git checkout <commit>).
 # A release replaces the app container: the site is down for a few seconds while it starts.
 # Rolling back puts the old image back; it doesn't restore /data (see docs/deploy.md, "Roll back").
 set -uo pipefail
 # shellcheck source=lib.sh
 . "$(dirname "${BASH_SOURCE[0]}")/lib.sh"
 
-[ $# -eq 1 ] || { sed -n '2,12p' "${BASH_SOURCE[0]}" | sed 's/^# \{0,1\}//'; exit 2; }
+[ $# -eq 1 ] || { sed -n '2,10p' "${BASH_SOURCE[0]}" | sed 's/^# \{0,1\}//'; exit 2; }
 need docker git curl jq
 docker compose version >/dev/null 2>&1 || die "docker compose isn't available (install.sh installs it)"
 require_settings
@@ -24,9 +27,16 @@ tag="${full:0:12}"
 previous="$(env_value "$DEPLOY_DIR/current.env" WORKBUDDY_TAG)"
 log() { printf '%s %s %s\n' "$(date -u +%FT%TZ)" "$tag" "$*" >> "$DEPLOY_DIR/releases.log"; }
 
+if ! git -C "$REPO_DIR" diff --quiet "$full" -- deploy/; then
+  die "deploy/ in this checkout differs from deploy/ in $tag, and a release runs the checkout's deploy files. Check that commit out first (git pull, or git checkout $tag), then run this again. Nothing was changed."
+fi
 if [ "$previous" = "$tag" ]; then
-  say "$tag is already the live release. Nothing to do. (./smoke.sh checks it again.)"
-  exit 0
+  if app_is_healthy; then
+    say "$tag is already the live release, and it's running and healthy. Nothing to do. (./smoke.sh checks it again.)"
+    exit 0
+  fi
+  say "$tag is recorded as the live release but the app isn't running healthy; releasing it again."
+  previous=""  # there is no other release to go back to
 fi
 if [ -n "$previous" ] && ! docker image inspect "workbuddy:$previous" >/dev/null 2>&1; then
   say "WARNING: the live release ($previous) has no image on this machine, so a failed release can't be rolled back."
@@ -34,21 +44,25 @@ if [ -n "$previous" ] && ! docker image inspect "workbuddy:$previous" >/dev/null
 fi
 say "Releasing $tag${previous:+ (live now: $previous)}"
 
-step "1/5 backup"
-if [ -n "$previous" ] && docker volume inspect "$DATA_VOLUME" >/dev/null 2>&1; then
-  "$DEPLOY_DIR/backup.sh" || { log "aborted: backup failed"; die "the backup failed, so the release didn't start. The live release is untouched."; }
-else
-  say "no live release or no data yet: nothing to back up"
-fi
-
-step "2/5 build the image"
+step "1/5 build the image"
 build=(docker build --quiet --tag "workbuddy:$tag" --label "workbuddy.commit=$full")
 [ -z "${WORKBUDDY_PIP_CA:-}" ] || build+=(--secret "id=pip_ca,src=$WORKBUDDY_PIP_CA")
 if ! git -C "$REPO_DIR" archive --format=tar "$full" | "${build[@]}" - >/dev/null; then
   log "aborted: build failed"
-  die "the build failed. Nothing changed: the live release${previous:+ ($previous)} is still running."
+  die "the build failed. Nothing changed: the live release${previous:+ ($previous)} is still running, and no backup was taken."
 fi
 say "built workbuddy:$tag"
+
+step "2/5 backup"
+if docker volume inspect "$DATA_VOLUME" >/dev/null 2>&1; then
+  # Read the volume with the live release's image if it's still here, else with the new one.
+  reader="workbuddy:$tag"
+  [ -z "$previous" ] || reader="workbuddy:$previous"
+  WORKBUDDY_BACKUP_IMAGE="$reader" "$DEPLOY_DIR/backup.sh" \
+    || { log "aborted: backup failed"; die "the backup failed, so the release didn't start. The live release is untouched."; }
+else
+  say "no data yet: nothing to back up"
+fi
 
 rollback() {  # rollback "what failed"
   local failed="$1"
@@ -56,6 +70,7 @@ rollback() {  # rollback "what failed"
   if [ -z "$previous" ]; then
     say "There was no earlier release to go back to. Stopping the app so a broken one isn't left serving."
     compose stop app >/dev/null 2>&1 || true
+    rm -f "$DEPLOY_DIR/current.env"  # nothing is live: a rerun must do the whole release
     log "FAILED at $failed; no previous release; app stopped"
     exit 1
   fi

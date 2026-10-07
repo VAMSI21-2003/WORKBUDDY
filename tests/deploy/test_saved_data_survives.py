@@ -184,3 +184,20 @@ def test_what_the_server_writes_today_has_the_shape_of_the_newest_fixture(
     assert FORMAT_VERSION == _manifest(newest)["format_version"], hint
     assert records(fresh) == records(newest / "data"), hint
     assert scenario.layout(fresh) == scenario.layout(newest / "data"), hint
+
+
+def test_the_layout_ignores_empty_folders(tmp_path: Path) -> None:
+    """Review round 1, M1: git keeps no empty folder, so a fixture from a clone lacks the empty
+    output folder that a fresh run leaves for the rejected turn; the guard compared them."""
+    with_empty = tmp_path / "a"
+    without = tmp_path / "b"
+    for folder in (with_empty, without):
+        (folder / "sessions" / "k").mkdir(parents=True)
+        (folder / "sessions" / "k" / "session.json").write_text("{}")
+    (with_empty / "outputs" / "k" / "t0002").mkdir(parents=True)
+
+    assert scenario.layout(with_empty) == scenario.layout(without)
+
+    (without / "outputs" / "k" / "t0002").mkdir(parents=True)
+    (without / "outputs" / "k" / "t0002" / "stray.xlsx").write_text("x")
+    assert scenario.layout(with_empty) != scenario.layout(without)  # a real extra file still shows
