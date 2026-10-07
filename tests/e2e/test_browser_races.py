@@ -70,11 +70,12 @@ def settle_stale_card(live: LiveApp, sid: str, tab_b: Page, watch: Watch) -> Non
     assert tab_b.locator("#composer button[type=submit]").is_enabled()
     answers = [i for i, (status, url) in enumerate(watch.statuses) if status == 409]
     assert len(answers) == 1 and watch.statuses[answers[0]][1].endswith("/confirmation")
-    # the refetch is the one poll request that carries no ``?v=`` (the page's own polls all do)
+    # the refetch is the one poll request that names ``held`` and no ``v`` (the page's own polls
+    # carry ``?v=``)
     refetched = [
         status
         for status, url in watch.statuses[answers[0] + 1 :]
-        if url.endswith("/turns/t0001/poll")
+        if "/turns/t0001/poll?held=" in url and "v=" not in url.replace("held=", "")
     ]
     assert refetched and refetched[0] == 200
     # tab A answered it: the server ran the plan, and B's click changed nothing

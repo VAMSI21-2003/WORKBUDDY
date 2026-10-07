@@ -1,0 +1,210 @@
+[
+  {
+    "run": "1",
+    "message": "remove duplicate rows",
+    "browser_host": "https://localhost:35641",
+    "original_sha256_local_fixture": "a5c0bace32b6f0d6d31ab73ae8394647f82311a5d4a908cfaf05a7e5df7c1379",
+    "original_sha256_stored_before": "a5c0bace32b6f0d6d31ab73ae8394647f82311a5d4a908cfaf05a7e5df7c1379",
+    "plan_shown": {
+      "steps": [
+        "Remove duplicate rows from manual_report.xlsx."
+      ],
+      "plan_note": null,
+      "title": "Approval needed \u2013 WorkBuddy"
+    },
+    "answer_sent": "approve",
+    "wall_s": 8.8,
+    "outcome": "delivered",
+    "reply_source": "pipeline",
+    "intent": "remove_duplicate_rows",
+    "clarification_required": false,
+    "steps": [
+      "spreadsheet.analyze [success, verified=True] manual_report.xlsx -> -",
+      "spreadsheet.deduplicate [success, verified=True] manual_report.xlsx -> manual_report_deduplicated_c3e26c3b15e8d81c4b45d8449b846171-task-1.xlsx",
+      "spreadsheet.analyze (re-check) [success, verified=True] manual_report_deduplicated_c3e26c3b15e8d81c4b45d8449b846171-task-1.xlsx -> -"
+    ],
+    "stopped_at": null,
+    "confirmation": {
+      "decision": "approve",
+      "decision_source": "user"
+    },
+    "api_delivered": [
+      "manual_report_deduplicated_c3e26c3b15e8d81c4b45d8449b846171-task-1.xlsx"
+    ],
+    "api_reply": "That sheet was seeing double. Done \u2014 removed 2 duplicate row(s). The copy has 4 row(s), 0 duplicate row(s) remaining. Your cleaned copy of manual_report.xlsx is ready. The copy has the values only; formatting, column widths and other sheet settings aren't carried over. I also noticed: name: 1 missing value(s) (25.0%); amount: 1 missing value(s) (25.0%). Want me to tackle any of these?",
+    "page_reply": "That sheet was seeing double. Done \u2014 removed 2 duplicate row(s). The copy has 4 row(s), 0 duplicate row(s) remaining. Your cleaned copy of manual_report.xlsx is ready. The copy has the values only; formatting, column widths and other sheet settings aren't carried over. I also noticed: name: 1 missing value(s) (25.0%); amount: 1 missing value(s) (25.0%). Want me to tackle any of these?",
+    "page_reply_equals_api_reply": true,
+    "page_links": 1,
+    "sidebar_links": 1,
+    "page_notices": [],
+    "bad_http_statuses": [],
+    "console_errors": [],
+    "web_storage": {
+      "local": [],
+      "session": []
+    },
+    "original_measured": {
+      "rows": 6,
+      "duplicate_rows": 2,
+      "empty_rows": 1
+    },
+    "download_sha256_matches_record": true,
+    "delivered_measured": {
+      "rows": 4,
+      "duplicate_rows": 0,
+      "empty_rows": 1
+    },
+    "equals_expected_dedupe": true,
+    "original_sha256_stored_after": "a5c0bace32b6f0d6d31ab73ae8394647f82311a5d4a908cfaf05a7e5df7c1379",
+    "original_unchanged": true
+  },
+  {
+    "run": "2",
+    "message": "remove duplicate rows, then remove empty rows",
+    "browser_host": "https://localhost:35641",
+    "original_sha256_local_fixture": "a5c0bace32b6f0d6d31ab73ae8394647f82311a5d4a908cfaf05a7e5df7c1379",
+    "original_sha256_stored_before": "a5c0bace32b6f0d6d31ab73ae8394647f82311a5d4a908cfaf05a7e5df7c1379",
+    "plan_shown": {
+      "steps": [
+        "Remove duplicate rows from manual_report.xlsx.",
+        "Then remove empty rows from the result of step 1."
+      ],
+      "plan_note": "The steps run in this order, each on the previous step's result. Only the final file is handed back.",
+      "title": "Approval needed \u2013 WorkBuddy"
+    },
+    "answer_sent": "approve",
+    "wall_s": 6.8,
+    "outcome": "delivered",
+    "reply_source": "pipeline",
+    "intent": "multi_step_request",
+    "clarification_required": false,
+    "steps": [
+      "spreadsheet.analyze [success, verified=True] manual_report.xlsx -> -",
+      "spreadsheet.deduplicate [success, verified=True] manual_report.xlsx -> manual_report_deduplicated_84804f26840681cc19bb7a78af5878ee-task-1.xlsx",
+      "spreadsheet.remove_empty_rows [success, verified=True] manual_report_deduplicated_84804f26840681cc19bb7a78af5878ee-task-1.xlsx -> manual_report_deduplicated_84804f26840681cc19bb7a78af5878ee-task-1_no_empty_rows_84804f26840681cc19bb7a78af5878ee-task-2.xlsx",
+      "spreadsheet.analyze (re-check) [success, verified=True] manual_report_deduplicated_84804f26840681cc19bb7a78af5878ee-task-1_no_empty_rows_84804f26840681cc19bb7a78af5878ee-task-2.xlsx -> -"
+    ],
+    "stopped_at": null,
+    "confirmation": {
+      "decision": "approve",
+      "decision_source": "user"
+    },
+    "api_delivered": [
+      "manual_report_deduplicated_84804f26840681cc19bb7a78af5878ee-task-1_no_empty_rows_84804f26840681cc19bb7a78af5878ee-task-2.xlsx"
+    ],
+    "api_reply": "Those blank rows were just taking up space. Done \u2014 removed 2 duplicate row(s). Removed 1 fully-empty row(s). The copy has 3 row(s), 0 duplicate row(s) and 0 fully-empty row(s) remaining. Your cleaned copy of manual_report.xlsx is ready. The copy has the values only; formatting, column widths and other sheet settings aren't carried over. None of the issues I check for were found.",
+    "page_reply": "Those blank rows were just taking up space. Done \u2014 removed 2 duplicate row(s). Removed 1 fully-empty row(s). The copy has 3 row(s), 0 duplicate row(s) and 0 fully-empty row(s) remaining. Your cleaned copy of manual_report.xlsx is ready. The copy has the values only; formatting, column widths and other sheet settings aren't carried over. None of the issues I check for were found.",
+    "page_reply_equals_api_reply": true,
+    "page_links": 1,
+    "sidebar_links": 1,
+    "page_notices": [],
+    "bad_http_statuses": [],
+    "console_errors": [],
+    "web_storage": {
+      "local": [],
+      "session": []
+    },
+    "original_measured": {
+      "rows": 6,
+      "duplicate_rows": 2,
+      "empty_rows": 1
+    },
+    "download_sha256_matches_record": true,
+    "delivered_measured": {
+      "rows": 3,
+      "duplicate_rows": 0,
+      "empty_rows": 0
+    },
+    "equals_expected_chain": true,
+    "original_sha256_stored_after": "a5c0bace32b6f0d6d31ab73ae8394647f82311a5d4a908cfaf05a7e5df7c1379",
+    "original_unchanged": true
+  },
+  {
+    "run": "3",
+    "message": "remove duplicate rows",
+    "browser_host": "https://localhost:35641",
+    "original_sha256_local_fixture": "a5c0bace32b6f0d6d31ab73ae8394647f82311a5d4a908cfaf05a7e5df7c1379",
+    "original_sha256_stored_before": "a5c0bace32b6f0d6d31ab73ae8394647f82311a5d4a908cfaf05a7e5df7c1379",
+    "plan_shown": {
+      "steps": [
+        "Remove duplicate rows from manual_report.xlsx."
+      ],
+      "plan_note": null,
+      "title": "Approval needed \u2013 WorkBuddy"
+    },
+    "answer_sent": "reject",
+    "wall_s": 6.7,
+    "outcome": "not_delivered",
+    "reply_source": "pipeline",
+    "intent": "remove_duplicate_rows",
+    "clarification_required": false,
+    "steps": [
+      "spreadsheet.analyze [success, verified=True] manual_report.xlsx -> -",
+      "spreadsheet.deduplicate [declined, verified=False] manual_report.xlsx -> -"
+    ],
+    "stopped_at": "spreadsheet.deduplicate",
+    "confirmation": {
+      "decision": "reject",
+      "decision_source": "user"
+    },
+    "api_delivered": [],
+    "api_reply": "Before anything else, here's what I noticed: name: 1 missing value(s) (16.7%); amount: 1 missing value(s) (16.7%). Want me to tackle any of these? The deduplicate step: wasn't confirmed, so it didn't run. I stopped at the deduplicate step and no file was handed back; your original file is unchanged.",
+    "page_reply": "Before anything else, here's what I noticed: name: 1 missing value(s) (16.7%); amount: 1 missing value(s) (16.7%). Want me to tackle any of these? The deduplicate step: wasn't confirmed, so it didn't run. I stopped at the deduplicate step and no file was handed back; your original file is unchanged.",
+    "page_reply_equals_api_reply": true,
+    "page_links": 0,
+    "sidebar_links": 0,
+    "page_notices": [],
+    "bad_http_statuses": [],
+    "console_errors": [],
+    "web_storage": {
+      "local": [],
+      "session": []
+    },
+    "original_measured": {
+      "rows": 6,
+      "duplicate_rows": 2,
+      "empty_rows": 1
+    },
+    "original_sha256_stored_after": "a5c0bace32b6f0d6d31ab73ae8394647f82311a5d4a908cfaf05a7e5df7c1379",
+    "original_unchanged": true
+  },
+  {
+    "run": "4",
+    "message": "sort the rows by amount",
+    "browser_host": "https://localhost:35641",
+    "original_sha256_local_fixture": "a5c0bace32b6f0d6d31ab73ae8394647f82311a5d4a908cfaf05a7e5df7c1379",
+    "original_sha256_stored_before": "a5c0bace32b6f0d6d31ab73ae8394647f82311a5d4a908cfaf05a7e5df7c1379",
+    "plan_shown": null,
+    "answer_sent": null,
+    "wall_s": 4.4,
+    "outcome": "not_delivered",
+    "reply_source": "pipeline",
+    "intent": "unclear",
+    "clarification_required": false,
+    "steps": [
+      "spreadsheet.analyze [success, verified=True] manual_report.xlsx -> -"
+    ],
+    "stopped_at": null,
+    "confirmation": null,
+    "api_delivered": [],
+    "api_reply": "Before anything else, here's what I noticed: name: 1 missing value(s) (16.7%); amount: 1 missing value(s) (16.7%). Want me to tackle any of these? No changes were made to any file this turn.",
+    "page_reply": "Before anything else, here's what I noticed: name: 1 missing value(s) (16.7%); amount: 1 missing value(s) (16.7%). Want me to tackle any of these? No changes were made to any file this turn.",
+    "page_reply_equals_api_reply": true,
+    "page_links": 0,
+    "sidebar_links": 0,
+    "page_notices": [],
+    "bad_http_statuses": [],
+    "console_errors": [],
+    "web_storage": {
+      "local": [],
+      "session": []
+    },
+    "original_measured": {
+      "rows": 6,
+      "duplicate_rows": 2,
+      "empty_rows": 1
+    },
+    "original_sha256_stored_after": "a5c0bace32b6f0d6d31ab73ae8394647f82311a5d4a908cfaf05a7e5df7c1379",
+    "original_unchanged": true
+  }
+]
