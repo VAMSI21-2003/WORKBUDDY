@@ -153,11 +153,11 @@ Open work, in priority order. Each item follows the working method in `CLAUDE.md
 
 ## 4a. The web page (FE-1 and FE-2)
 
-**Status (2026-10-06):** FE-1 (`feat/frontend-demo`, not merged, under independent review) implements the page of `docs/design/frontend-design.md` Section 13.1: the gate with the access cookie, upload, the composer with the mode choice, polling with `429` handling, the plan card, the reply shown verbatim, download links only when delivered, error messages verbatim, page notices kept out of the reply slot, and session-scoped state with the reset on `404`. It also fixes the PR-4 review's L5 (the dev origin follows `--port` and accepts `localhost`). How it was built, and where it differs from the design: `docs/reviews/frontend-demo-impl.md`. FE-2 (Dockerfile, deployment, the rest of the security headers, static-file caching) is open. For the owner: the spike (design 3.4) found that htmx 2.0.5 and later write one `sessionStorage` key at load that no setting turns off, so FE-1 pins 2.0.4 (impl notes, Section 1).
+**Status (2026-10-07):** FE-1 (`feat/frontend-demo`) is merged. FE-2 (`feat/frontend-deploy`, not merged, under independent review: `docs/reviews/frontend-deploy-impl.md`, `docs/deploy.md`) carries the Dockerfile, the static caching, `Referrer-Policy`, the deploy notes and the FE-1 review's M1, M2, L3, L4 and L9 (marked below). FE-1 implements the page of `docs/design/frontend-design.md` Section 13.1: the gate with the access cookie, upload, the composer with the mode choice, polling with `429` handling, the plan card, the reply shown verbatim, download links only when delivered, error messages verbatim, page notices kept out of the reply slot, and session-scoped state with the reset on `404`. It also fixes the PR-4 review's L5 (the dev origin follows `--port` and accepts `localhost`). How it was built, and where it differs from the design: `docs/reviews/frontend-demo-impl.md`. For the owner: the spike (design 3.4) found that htmx 2.0.5 and later write one `sessionStorage` key at load that no setting turns off, so FE-1 pins 2.0.4 (impl notes, Section 1).
 
 Deferred from FE-1 (`frontend-demo-impl.md`, Section 7; the design's own Section 16 list stands as well):
 - A "New session" control. A quota message says "Start a new session.", and today the only ways are the `404` reset and clearing the cookie.
-- Versioned static file names and long caching (FE-2); static files are `no-store` for now.
+- ~~Versioned static file names and long caching (FE-2); static files are `no-store` for now.~~ Done on `feat/frontend-deploy`: `?v=<hash>` URLs, cached for a year under the current version.
 - A collapsible Files panel on a phone (design 8 asks for a `<details>`); on a narrow screen the conversation comes first and the Files panel follows it.
 - The download link's label is the API's `name`, but the download route saves it under the upload rules (at most 100 characters), so a long delivered name is saved shortened. Show the saved name, or lift the cap.
 - The newer htmx release, if the owner accepts its one `sessionStorage` key (the path of the page).
@@ -165,17 +165,32 @@ Deferred from FE-1 (`frontend-demo-impl.md`, Section 7; the design's own Section
 - Accessibility checks beyond one axe-core run: axe in CI, the 390×844 and 768 px viewports, and a manual screen-reader pass.
 
 Deferred by the FE-1 review, round 1 (`docs/reviews/frontend-demo-review.md`; prototypes in `scripts/review_harness/feat-frontend-demo/out/proto_fix.diff`). Fix M1 and M2 before the public link:
-- **M1 (Medium, dev without a password only):** `TurnRecord.version` is memory-only, so after a server restart a page holding version 1 or 2 drops every poll answer (version 0) as older and shows a stale plan card for good. Fix: `poll` answers `HX-Refresh: true` when `v > version`; add a browser test that restarts the server under a waiting card.
-- **M2 (Medium, a race):** after a `409` on the plan card, `app.js` fires `wb:retry` while the confirmation request still holds the turn's `hx-sync` lock, so no refetch is sent; if a poll was in flight at the click, the card (live buttons, "Approval needed") stays for good. Fix: refetch with `htmx.ajax('GET', refetchUrl, {target: turn})` in a `setTimeout(…, 0)`; add browser tests for a poll in flight and idle.
+- **(Fixed on `feat/frontend-deploy`, not merged.) M1 (Medium, dev without a password only):** `TurnRecord.version` is memory-only, so after a server restart a page holding version 1 or 2 drops every poll answer (version 0) as older and shows a stale plan card for good. Fix: `poll` answers `HX-Refresh: true` when `v > version`; add a browser test that restarts the server under a waiting card.
+- **(Fixed on `feat/frontend-deploy`, not merged.) M2 (Medium, a race):** after a `409` on the plan card, `app.js` fires `wb:retry` while the confirmation request still holds the turn's `hx-sync` lock, so no refetch is sent; if a poll was in flight at the click, the card (live buttons, "Approval needed") stays for good. Fix: refetch with `htmx.ajax('GET', refetchUrl, {target: turn})` in a `setTimeout(…, 0)`; add browser tests for a poll in flight and idle.
 - **L1:** the lost-contact notice says "before the turn finished", which the page can't know. Reword it (design 7 too).
 - **L2:** the "so this is a new one" notice shows before the new session exists; if `POST /ui/sessions` is refused, it's false. Render it with the new workspace instead.
-- **L3:** a plan step with a long unbroken file name overflows at 360 px. `overflow-wrap: anywhere` on `.plan-steps li` and the message.
-- **L4:** guard-test gaps (surviving mutations m08, m22, m23, m24): the Files panel's exclusion of a turn shown running, the lost answer keeping its buttons off, a 5xx on the message POST running the ambiguous-POST check (never a resend), and the `409` refetch.
+- **(Fixed on `feat/frontend-deploy`, not merged.) L3:** a plan step with a long unbroken file name overflows at 360 px. `overflow-wrap: anywhere` on `.plan-steps li` and the message.
+- **(Fixed on `feat/frontend-deploy`, not merged.) L4:** guard-test gaps (surviving mutations m08, m22, m23, m24): the Files panel's exclusion of a turn shown running, the lost answer keeping its buttons off, a 5xx on the message POST running the ambiguous-POST check (never a resend), and the `409` refetch.
 - **L5:** `scripts/frontend_spike/run_spike.py` has 8 E501 (outside `buddy tests`).
 - **L6:** a quota refusal says "Start a new session." and the page has no such control (with the "New session" item above).
 - **L7:** the copy snapshot doesn't cover the strings `backend/web/views.py` builds ("… up to 2 MB", size units).
 - **L8 (backend download route):** with a long upload name the 100-character cap can cut the whole `_deduplicated_…` part, so the cleaned copy is saved under exactly the original's file name (with the download-name item above).
-- **L9:** design 11.2's `Referrer-Policy: no-referrer` isn't sent (backend or FE-2).
+- **(Fixed on `feat/frontend-deploy`, not merged.) L9:** design 11.2's `Referrer-Policy: no-referrer` isn't sent (backend or FE-2).
+
+Deferred by the FE-2 review, round 1 (`docs/reviews/frontend-deploy-review.md`, all LOW; that review's M1, the missing live-runs file, blocks the merge and isn't deferred):
+- **(Fixed in `frontend-deploy-fixes1.md`.) L1:** `docs/deploy.md` Section 4 says a page open across a restart is reloaded by `HX-Refresh`. In production the restart ends the access tokens, so the page gets `401` and the gate notice. Say the reload is dev-only.
+- **(Fixed in `frontend-deploy-fixes1.md`.) L2:** `docs/deploy.md` Section 2 says a bad value is reported by variable name. Range and format errors name the field (`max_upload_bytes`, `public_origin`). Reword the doc, or name the variable in those messages.
+- **(Fixed in `frontend-deploy-fixes1.md`.) L3 (dev without a password):** after a restart, the lost-answer lookup and the `409` refetch carry no `v`, so the swap guard drops their answer. The page recovers only through an armed poll. Add `v` to both URLs.
+- **(Fixed in `frontend-deploy-fixes1.md`.) L4:** guard-test gaps. Removing `refetchTurn`'s `setTimeout(…, 0)` passes both `409` browser tests, and the middleware's `static and` condition is untested.
+- **(Fixed in `frontend-deploy-fixes1.md`.) L5 (dev):** `static_version` is cached per process, so an edited static file is served under its old `?v=` as `immutable`. Don't cache the version, or answer `no-cache`, in dev.
+- **(Fixed in `frontend-deploy-fixes1.md`.) L6:** `docs/deploy.md` Section 6 says the 2 MB fixture had 20,000 rows. It had 24,497.
+- **(Fixed in `frontend-deploy-fixes1.md`.) L7:** a root-owned bind mount on `/data` exits with a traceback. Optionally, a one-line startup message.
+- **(Fixed in `frontend-deploy-fixes1.md`.) L8:** a configured but unreachable or invalid LLM key shows `llm_configured: true`, and turns end with "No changes were made…". Add a deploy-doc line: check one real turn after setting the key.
+- **(Fixed in `frontend-deploy-fixes1.md`.) L9:** this section listed FE-1's M1, M2, L3, L4 and L9 as open, and FE-2 as open. They're marked above as fixed on the branch; change "not merged" when it merges.
+
+Deferred by the FE-2 review, round 2 (`docs/reviews/frontend-deploy-review.md`, "Review round 2"; both LOW):
+- **(Fixed after round 2, documents only: the sentence now says what each case does.) L10:** `docs/deploy.md` Section 4 says a `/data` the app can't write always stops the server with the one-line message and status 2. A `:ro` mount exits 1 with a traceback, and root-owned `uploads/`, `outputs/` or `sessions/` under a writable `/data` start fine and then answer every new session `500`. Narrow the sentence (`chown -R`, no `:ro`); optionally catch `OSError` and check each subfolder's writability at start.
+- **(Fixed after round 2, documents only: a bullet in design 1.7.) L11:** the design (1.7, 10.1) doesn't describe the poll's `held` parameter or the restart reload. One line in design 1.7.
 
 ## 5. Remaining deferred items from the reviews
 

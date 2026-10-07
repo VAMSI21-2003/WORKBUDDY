@@ -18,12 +18,14 @@ from __future__ import annotations
 from collections.abc import Callable
 from datetime import datetime
 from typing import Annotated, Any
+from urllib.parse import parse_qs
 
 from fastapi import APIRouter, Depends, FastAPI, File, Form, Request, UploadFile
 from fastapi.responses import HTMLResponse, Response
 from fastapi.staticfiles import StaticFiles
 from pydantic import ValidationError
 from starlette.concurrency import run_in_threadpool
+from starlette.types import Scope
 
 from backend import routes as api
 from backend.access import AccessDependency, check_credential
@@ -33,7 +35,7 @@ from backend.schemas import ConfirmationRequest, CreateTurnRequest, SessionState
 from backend.sessions import SessionRecord, utc_now
 from backend.settings import Settings
 from backend.web import views
-from backend.web.templating import STATIC_DIR, render
+from backend.web.templating import STATIC_DIR, render, static_version
 
 SESSION_COOKIE = "__Host-wb_session"
 
@@ -43,6 +45,25 @@ CONTENT_SECURITY_POLICY = (
     "default-src 'self'; script-src 'self'; style-src 'self'; img-src 'self' data:; "
     "connect-src 'self'; form-action 'self'; frame-ancestors 'none'; base-uri 'none'"
 )
+
+# The static files' caching (frontend design 11.2). A page links them as ``?v=<version>`` of the
+# file (``static_url``), so a URL whose version is the file's current one never changes meaning
+# and is cached for a year. Any other URL for the file (no version, or an old one) is
+# revalidated on every use: StaticFiles answers with an ETag and Last-Modified, so that costs a
+# ``304``.
+IMMUTABLE = "public, max-age=31536000, immutable"
+REVALIDATE = "no-cache"
+
+
+class StaticAssets(StaticFiles):
+    async def get_response(self, path: str, scope: Scope) -> Response:
+        response = await super().get_response(path, scope)
+        if response.status_code in (200, 304):
+            query = parse_qs(scope.get("query_string", b"").decode("latin-1"))
+            current = query.get("v") == [static_version(path)]  # a 200 or 304: the file exists
+            response.headers["Cache-Control"] = IMMUTABLE if current else REVALIDATE
+        return response
+
 
 page_router = APIRouter()
 ui_router = APIRouter(prefix="/ui", dependencies=[AccessDependency])
@@ -263,12 +284,17 @@ def poll(
     turn_id: str,
     v: int | None = None,
     unconfirmed: str | None = None,
+    held: int | None = None,
 ) -> Response:
     """One poll of a turn: a new poll element if nothing changed, else the whole turn container.
 
-    ``v`` is the version the page holds. ``unconfirmed`` names a confirmation whose answer may
-    not have arrived: the turn is always returned whole then, and if that plan is still waiting,
-    its card says the answer may be lost.
+    ``v`` is the version the page holds, sent by the turn's own poll element; ``held`` is the same
+    number sent by the page's other requests for the turn (a refetch after a ``409``, the lookup
+    after a lost answer), which don't ask whether anything changed. Either one higher than the
+    server's means the server restarted since the page rendered, and the answer is an empty
+    ``HX-Refresh`` (a reload). ``unconfirmed`` names a confirmation whose answer may not have
+    arrived: the turn is always returned whole then, and if that plan is still waiting, its card
+    says the answer may be lost.
     """
     record = api.session_of(request, session_id)
     with record.lock:
@@ -277,6 +303,13 @@ def poll(
         assert stored is not None  # get_turn found it, under this same lock
         version = stored.version
         now = now_of(request)
+        seen = v if v is not None else held
+        if seen is not None and seen > version:
+            # The page holds a version this server never gave out: the server restarted, and
+            # versions are memory-only, so it counts from 0 again. The page's swap guard would drop
+            # every answer as older than what it holds, for good, so the page reloads instead and
+            # renders the session as this server has it.
+            return html("", headers={"HX-Refresh": "true"})
         if unconfirmed is None and v == version and turn.status != views.FINISHED:
             view = views.turn_view(session_id, turn, version, now)
             return html(render("poll_fragment.html", turn=view))
@@ -329,4 +362,4 @@ def mount_web(app: FastAPI) -> None:
     app.state.web_clock = utc_now
     app.include_router(page_router)
     app.include_router(ui_router)
-    app.mount("/static", StaticFiles(directory=STATIC_DIR), name="static")
+    app.mount("/static", StaticAssets(directory=STATIC_DIR), name="static")

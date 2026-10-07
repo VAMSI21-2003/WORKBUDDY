@@ -481,12 +481,17 @@ fieldset:disabled {
   padding-left: 1.4rem;
 }
 
+.plan-steps li {
+  overflow-wrap: anywhere;
+}
+
 .plan-steps li + li {
   margin-top: 0.25rem;
 }
 
 .plan-note,
 .plan-warning {
+  overflow-wrap: anywhere;
   padding: 0.5rem 0.75rem;
   background: var(--surface-2);
   border-radius: 0.375rem;

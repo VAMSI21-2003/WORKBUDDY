@@ -1,0 +1,12 @@
+ERROR tests/web/test_static.py
+WARNING  backend.store:store.py:338 Turn t0001 of session cfe5341eeb74598b086e4eec4d962cfc was interrupted by a restart; recording it as failed
+FAILED tests/web/test_upload_and_turns.py::test_a_poll_from_a_page_that_outlived_a_restart_is_an_empty_reload_instruction
+FAILED tests/web/test_gate_and_session.py::test_the_page_carries_the_security_headers
+FAILED tests/backend/test_app_basics.py::test_every_response_carries_nosniff_and_no_store[/healthz]
+FAILED tests/backend/test_app_basics.py::test_every_response_carries_nosniff_and_no_store[/nope]
+FAILED tests/backend/test_app_basics.py::test_every_response_carries_nosniff_and_no_store[/api/v1/nothing-here]
+FAILED tests/e2e/test_browser_races.py::test_a_server_restart_under_a_waiting_plan_card_reloads_into_what_the_server_has[chromium]
+FAILED tests/e2e/test_browser_races.py::test_a_409_on_the_plan_card_with_a_poll_in_flight_shows_the_turn_as_the_server_has_it[chromium]
+FAILED tests/e2e/test_browser_races.py::test_a_409_on_the_plan_card_with_no_poll_in_flight_shows_the_turn_as_the_server_has_it[chromium]
+FAILED tests/e2e/test_browser_races.py::test_a_long_unbroken_file_name_overflows_nothing_at_360_px[chromium]
+9 failed, 73 passed, 26 warnings in 188.91s (0:03:08)

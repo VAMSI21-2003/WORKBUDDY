@@ -24,7 +24,9 @@ _UPLOAD_PATH = re.compile(r"^/(?:api/v1/sessions|ui/s)/[^/]+/files/?$")
 
 
 class SecurityHeadersMiddleware:
-    """Adds ``nosniff`` and ``no-store`` to every response (design Section 6.1).
+    """Adds ``nosniff``, ``no-store`` and ``Referrer-Policy: no-referrer`` to every response
+    (backend design Section 6.1; frontend design 11.2). The one exception to ``no-store`` is a
+    ``/static/`` file whose route set its own ``Cache-Control``.
 
     Also ``frame-ancestors 'none'`` (clickjacking: design "Decisions
     (2026-10-01)", item 2.4), set only if the response carries no
@@ -41,11 +43,17 @@ class SecurityHeadersMiddleware:
             await self.app(scope, receive, send)
             return
 
+        static = scope.get("path", "").startswith("/static/")
+
         async def send_with_headers(message: Message) -> None:
             if message["type"] == "http.response.start":
                 headers = MutableHeaders(scope=message)
                 headers["X-Content-Type-Options"] = "nosniff"
-                headers["Cache-Control"] = "no-store"
+                # Everything is ``no-store`` except what the static-file route marks for caching
+                # (``backend.web.routes.StaticAssets``); an error from that route has no such mark.
+                if not (static and "cache-control" in headers):
+                    headers["Cache-Control"] = "no-store"
+                headers["Referrer-Policy"] = "no-referrer"
                 if "content-security-policy" not in headers:
                     headers["Content-Security-Policy"] = "frame-ancestors 'none'"
                 if self.hsts:

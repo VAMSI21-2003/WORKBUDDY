@@ -1,0 +1,604 @@
+[
+  {
+    "limit": "none",
+    "scenarios": [
+      {
+        "scenario": "small single",
+        "survived": true,
+        "turns": [
+          {
+            "outcome": "delivered",
+            "wall_s": 5.7,
+            "delivered": [
+              "small_deduplicated_c65ac501993ed505b44cbfa6c240c739-task-1.xlsx"
+            ],
+            "original_unchanged": true,
+            "download_matches_record": true,
+            "file_equals_expected": true,
+            "stopped_at": null,
+            "reply": "That sheet was seeing double. Done \u2014 removed 2 duplicate row(s). The copy has 4 row(s), 0 duplicate row(s) remaining. Your cleaned copy of small.xlsx is ready. The copy has the values only; formatting, column widths and other sheet settings aren't carried over. I also noticed: name: 1 missing value(s) (25.0%); amount: 1 missing value(s) (25.0%). Want me to tackle any of these?"
+          }
+        ],
+        "wall_s_max": 5.7,
+        "wall_total_s": 13.8,
+        "peak_cgroup_usage_mb": 240.1,
+        "peak_cgroup_anon_mb_sampled": 227.4,
+        "peak_process_rss_mb": 340.9,
+        "oom_killed": false,
+        "container_running": true,
+        "exit_code": 0
+      },
+      {
+        "scenario": "small chain",
+        "survived": true,
+        "turns": [
+          {
+            "outcome": "delivered",
+            "wall_s": 4.6,
+            "delivered": [
+              "small_deduplicated_1151b5da299430c995be404cd9ef931e-task-1_no_empty_rows_1151b5da299430c995be404cd9ef931e-task-2.xlsx"
+            ],
+            "original_unchanged": true,
+            "download_matches_record": true,
+            "file_equals_expected": true,
+            "stopped_at": null,
+            "reply": "Here's where things landed. Done \u2014 removed 2 duplicate row(s). Removed 1 fully-empty row(s). The copy has 3 row(s), 0 duplicate row(s) and 0 fully-empty row(s) remaining. Your cleaned copy of small.xlsx is ready. The copy has the values only; formatting, column widths and other sheet settings aren't carried over. None of the issues I check for were found. Anything else you want me to look at?"
+          }
+        ],
+        "wall_s_max": 4.6,
+        "wall_total_s": 12.7,
+        "peak_cgroup_usage_mb": 240.4,
+        "peak_cgroup_anon_mb_sampled": 227.9,
+        "peak_process_rss_mb": 341.7,
+        "oom_killed": false,
+        "container_running": true,
+        "exit_code": 0
+      },
+      {
+        "scenario": "2 MB single",
+        "survived": true,
+        "turns": [
+          {
+            "outcome": "delivered",
+            "wall_s": 120.0,
+            "delivered": [
+              "big_deduplicated_6026a14746fa882dd0b6538d1a16b295-task-1.xlsx"
+            ],
+            "original_unchanged": true,
+            "download_matches_record": true,
+            "file_equals_expected": true,
+            "stopped_at": null,
+            "reply": "That sheet was seeing double. Done \u2014 removed 1225 duplicate row(s), including 2 repeated blank rows. The copy has 23272 row(s), 0 duplicate row(s) remaining. Your cleaned copy of big.xlsx is ready. The copy has the values only; formatting, column widths and other sheet settings aren't carried over. I also noticed: f0: 1 missing value(s) (0.0%); f1: 1 missing value(s) (0.0%); f2: 1 missing value(s) (0.0%); f3: 1 missing value(s) (0.0%); f4: 1 missing value(s) (0.0%); f5: 1 missing value(s) (0.0%); i0: 1 missing value(s) (0.0%); i1: 1 missing value(s) (0.0%); i2: 1 missing value(s) (0.0%); s0: 1 missing value(s) (0.0%); s1: 1 missing value(s) (0.0%); s2: 1 missing value(s) (0.0%); s3: 1 missing value(s) (0.0%); d: 1 missing value(s) (0.0%); f0: 170 unusually high/low value(s) (e.g. -2.6801, -2.6841, -2.9291); f1: 167 unusually high/low value(s) (e.g. -3.1871, -2.9342, 2.7692); f2: 186 unusually high/low value(s) (e.g. 2.8105, 3.0257, 2.9479); f3: 165 unusually high/low value(s) (e.g. -3.1801, -2.9166, -2.7943); f4: 176 unusually high/low value(s) (e.g. 2.9401, -2.8362, -3.0113); f5: 169 unusually high/low value(s) (e.g. 3.2245, 3.0934, -3.3342). Want me to tackle any of these?"
+          }
+        ],
+        "wall_s_max": 120.0,
+        "wall_total_s": 134.6,
+        "peak_cgroup_usage_mb": 396.2,
+        "peak_cgroup_anon_mb_sampled": 373.5,
+        "peak_process_rss_mb": 487.5,
+        "oom_killed": false,
+        "container_running": true,
+        "exit_code": 0
+      },
+      {
+        "scenario": "2 MB chain",
+        "survived": true,
+        "turns": [
+          {
+            "outcome": "delivered",
+            "wall_s": 150.2,
+            "delivered": [
+              "big_deduplicated_1d62b9d72077efae28b190289fac40d0-task-1_no_empty_rows_1d62b9d72077efae28b190289fac40d0-task-2.xlsx"
+            ],
+            "original_unchanged": true,
+            "download_matches_record": true,
+            "file_equals_expected": true,
+            "stopped_at": null,
+            "reply": "That sheet was seeing double. Done \u2014 removed 1225 duplicate row(s), including 2 repeated blank rows. Removed 1 fully-empty row(s). The copy has 23271 row(s), 0 duplicate row(s) and 0 fully-empty row(s) remaining. Your cleaned copy of big.xlsx is ready. The copy has the values only; formatting, column widths and other sheet settings aren't carried over. I also noticed: f0: 170 unusually high/low value(s) (e.g. -2.6801, -2.6841, -2.9291); f1: 167 unusually high/low value(s) (e.g. -3.1871, -2.9342, 2.7692); f2: 186 unusually high/low value(s) (e.g. 2.8105, 3.0257, 2.9479); f3: 165 unusually high/low value(s) (e.g. -3.1801, -2.9166, -2.7943); f4: 176 unusually high/low value(s) (e.g. 2.9401, -2.8362, -3.0113); f5: 169 unusually high/low value(s) (e.g. 3.2245, 3.0934, -3.3342). Want me to tackle any of these?"
+          }
+        ],
+        "wall_s_max": 150.2,
+        "wall_total_s": 164.0,
+        "peak_cgroup_usage_mb": 428.6,
+        "peak_cgroup_anon_mb_sampled": 397.3,
+        "peak_process_rss_mb": 512.1,
+        "oom_killed": false,
+        "container_running": true,
+        "exit_code": 0
+      },
+      {
+        "scenario": "2 MB chain x2 at once",
+        "survived": true,
+        "turns": [
+          {
+            "outcome": "failed",
+            "wall_s": 181.1,
+            "delivered": [],
+            "original_unchanged": true,
+            "download_matches_record": null,
+            "file_equals_expected": null,
+            "stopped_at": null,
+            "reply": "Something went wrong while I was working on this, so I can't confirm that any change was made. I haven't handed back any file from this turn."
+          },
+          {
+            "outcome": "failed",
+            "wall_s": 180.8,
+            "delivered": [],
+            "original_unchanged": true,
+            "download_matches_record": null,
+            "file_equals_expected": null,
+            "stopped_at": null,
+            "reply": "Something went wrong while I was working on this, so I can't confirm that any change was made. I haven't handed back any file from this turn."
+          }
+        ],
+        "wall_s_max": 181.1,
+        "wall_total_s": 194.9,
+        "peak_cgroup_usage_mb": 590.6,
+        "peak_cgroup_anon_mb_sampled": 530.6,
+        "peak_process_rss_mb": 639.8,
+        "oom_killed": false,
+        "container_running": true,
+        "exit_code": 0
+      }
+    ],
+    "restarts": 0,
+    "idle_at_start": {
+      "cgroup_usage_mb": 117.0,
+      "cgroup_anon_mb": 109.3,
+      "process_rss_mb": 145.7
+    },
+    "idle_after_runs": {
+      "cgroup_usage_mb": 456.4,
+      "cgroup_anon_mb": 423.7,
+      "process_rss_mb": 530.1
+    },
+    "log_mentions_provider_429": false,
+    "log_leaks": []
+  },
+  {
+    "limit": "2g",
+    "scenarios": [
+      {
+        "scenario": "small single",
+        "survived": true,
+        "turns": [
+          {
+            "outcome": "delivered",
+            "wall_s": 5.7,
+            "delivered": [
+              "small_deduplicated_419fb0334ba488d1a174200610cb5f6b-task-1.xlsx"
+            ],
+            "original_unchanged": true,
+            "download_matches_record": true,
+            "file_equals_expected": true,
+            "stopped_at": null,
+            "reply": "Okay, here's the rundown. Done \u2014 removed 2 duplicate row(s). The copy has 4 row(s), 0 duplicate row(s) remaining. Your cleaned copy of small.xlsx is ready. The copy has the values only; formatting, column widths and other sheet settings aren't carried over. I also noticed: name: 1 missing value(s) (25.0%); amount: 1 missing value(s) (25.0%). Want me to tackle any of these?"
+          }
+        ],
+        "wall_s_max": 5.7,
+        "wall_total_s": 13.8,
+        "peak_cgroup_usage_mb": 240.1,
+        "peak_cgroup_anon_mb_sampled": 227.3,
+        "peak_process_rss_mb": 341.0,
+        "oom_killed": false,
+        "container_running": true,
+        "exit_code": 0
+      },
+      {
+        "scenario": "small chain",
+        "survived": true,
+        "turns": [
+          {
+            "outcome": "delivered",
+            "wall_s": 6.1,
+            "delivered": [
+              "small_deduplicated_a19a1fae7554d738c47f47b5ac231dff-task-1_no_empty_rows_a19a1fae7554d738c47f47b5ac231dff-task-2.xlsx"
+            ],
+            "original_unchanged": true,
+            "download_matches_record": true,
+            "file_equals_expected": true,
+            "stopped_at": null,
+            "reply": "Okay, here's the rundown. Done \u2014 removed 2 duplicate row(s). Removed 1 fully-empty row(s). The copy has 3 row(s), 0 duplicate row(s) and 0 fully-empty row(s) remaining. Your cleaned copy of small.xlsx is ready. The copy has the values only; formatting, column widths and other sheet settings aren't carried over. None of the issues I check for were found. What's next on the list?"
+          }
+        ],
+        "wall_s_max": 6.1,
+        "wall_total_s": 14.2,
+        "peak_cgroup_usage_mb": 240.7,
+        "peak_cgroup_anon_mb_sampled": 227.9,
+        "peak_process_rss_mb": 341.7,
+        "oom_killed": false,
+        "container_running": true,
+        "exit_code": 0
+      },
+      {
+        "scenario": "2 MB single",
+        "survived": true,
+        "turns": [
+          {
+            "outcome": "delivered",
+            "wall_s": 117.9,
+            "delivered": [
+              "big_deduplicated_3a541d8209c5e39dcb5985f1ab311043-task-1.xlsx"
+            ],
+            "original_unchanged": true,
+            "download_matches_record": true,
+            "file_equals_expected": true,
+            "stopped_at": null,
+            "reply": "Here's where things landed. Done \u2014 removed 1225 duplicate row(s), including 2 repeated blank rows. The copy has 23272 row(s), 0 duplicate row(s) remaining. Your cleaned copy of big.xlsx is ready. The copy has the values only; formatting, column widths and other sheet settings aren't carried over. I also noticed: f0: 1 missing value(s) (0.0%); f1: 1 missing value(s) (0.0%); f2: 1 missing value(s) (0.0%); f3: 1 missing value(s) (0.0%); f4: 1 missing value(s) (0.0%); f5: 1 missing value(s) (0.0%); i0: 1 missing value(s) (0.0%); i1: 1 missing value(s) (0.0%); i2: 1 missing value(s) (0.0%); s0: 1 missing value(s) (0.0%); s1: 1 missing value(s) (0.0%); s2: 1 missing value(s) (0.0%); s3: 1 missing value(s) (0.0%); d: 1 missing value(s) (0.0%); f0: 170 unusually high/low value(s) (e.g. -2.6801, -2.6841, -2.9291); f1: 167 unusually high/low value(s) (e.g. -3.1871, -2.9342, 2.7692); f2: 186 unusually high/low value(s) (e.g. 2.8105, 3.0257, 2.9479); f3: 165 unusually high/low value(s) (e.g. -3.1801, -2.9166, -2.7943); f4: 176 unusually high/low value(s) (e.g. 2.9401, -2.8362, -3.0113); f5: 169 unusually high/low value(s) (e.g. 3.2245, 3.0934, -3.3342). Want me to tackle any of these?"
+          }
+        ],
+        "wall_s_max": 117.9,
+        "wall_total_s": 131.9,
+        "peak_cgroup_usage_mb": 396.4,
+        "peak_cgroup_anon_mb_sampled": 367.2,
+        "peak_process_rss_mb": 487.2,
+        "oom_killed": false,
+        "container_running": true,
+        "exit_code": 0
+      },
+      {
+        "scenario": "2 MB chain",
+        "survived": true,
+        "turns": [
+          {
+            "outcome": "delivered",
+            "wall_s": 152.3,
+            "delivered": [
+              "big_deduplicated_40af353cfc01258489bb755bd6b4c425-task-1_no_empty_rows_40af353cfc01258489bb755bd6b4c425-task-2.xlsx"
+            ],
+            "original_unchanged": true,
+            "download_matches_record": true,
+            "file_equals_expected": true,
+            "stopped_at": null,
+            "reply": "That sheet was seeing double. Done \u2014 removed 1225 duplicate row(s), including 2 repeated blank rows. Removed 1 fully-empty row(s). The copy has 23271 row(s), 0 duplicate row(s) and 0 fully-empty row(s) remaining. Your cleaned copy of big.xlsx is ready. The copy has the values only; formatting, column widths and other sheet settings aren't carried over. I also noticed: f0: 170 unusually high/low value(s) (e.g. -2.6801, -2.6841, -2.9291); f1: 167 unusually high/low value(s) (e.g. -3.1871, -2.9342, 2.7692); f2: 186 unusually high/low value(s) (e.g. 2.8105, 3.0257, 2.9479); f3: 165 unusually high/low value(s) (e.g. -3.1801, -2.9166, -2.7943); f4: 176 unusually high/low value(s) (e.g. 2.9401, -2.8362, -3.0113); f5: 169 unusually high/low value(s) (e.g. 3.2245, 3.0934, -3.3342). Want me to tackle any of these?"
+          }
+        ],
+        "wall_s_max": 152.3,
+        "wall_total_s": 166.0,
+        "peak_cgroup_usage_mb": 434.0,
+        "peak_cgroup_anon_mb_sampled": 403.9,
+        "peak_process_rss_mb": 518.0,
+        "oom_killed": false,
+        "container_running": true,
+        "exit_code": 0
+      },
+      {
+        "scenario": "2 MB chain x2 at once",
+        "survived": true,
+        "turns": [
+          {
+            "outcome": "failed",
+            "wall_s": 180.8,
+            "delivered": [],
+            "original_unchanged": true,
+            "download_matches_record": null,
+            "file_equals_expected": null,
+            "stopped_at": null,
+            "reply": "Something went wrong while I was working on this, so I can't confirm that any change was made. I haven't handed back any file from this turn."
+          },
+          {
+            "outcome": "failed",
+            "wall_s": 180.8,
+            "delivered": [],
+            "original_unchanged": true,
+            "download_matches_record": null,
+            "file_equals_expected": null,
+            "stopped_at": null,
+            "reply": "Something went wrong while I was working on this, so I can't confirm that any change was made. I haven't handed back any file from this turn."
+          }
+        ],
+        "wall_s_max": 180.8,
+        "wall_total_s": 194.6,
+        "peak_cgroup_usage_mb": 586.4,
+        "peak_cgroup_anon_mb_sampled": 533.7,
+        "peak_process_rss_mb": 647.7,
+        "oom_killed": false,
+        "container_running": true,
+        "exit_code": 0
+      }
+    ],
+    "restarts": 0,
+    "idle_at_start": {
+      "cgroup_usage_mb": 117.0,
+      "cgroup_anon_mb": 109.3,
+      "process_rss_mb": 145.7
+    },
+    "idle_after_runs": {
+      "cgroup_usage_mb": 470.1,
+      "cgroup_anon_mb": 435.2,
+      "process_rss_mb": 549.6
+    },
+    "log_mentions_provider_429": false,
+    "log_leaks": []
+  },
+  {
+    "limit": "1g",
+    "scenarios": [
+      {
+        "scenario": "small single",
+        "survived": true,
+        "turns": [
+          {
+            "outcome": "delivered",
+            "wall_s": 5.6,
+            "delivered": [
+              "small_deduplicated_daa1bbbb37c84f8982e0812290b0f091-task-1.xlsx"
+            ],
+            "original_unchanged": true,
+            "download_matches_record": true,
+            "file_equals_expected": true,
+            "stopped_at": null,
+            "reply": "Okay, here's the rundown. Done \u2014 removed 2 duplicate row(s). The copy has 4 row(s), 0 duplicate row(s) remaining. Your cleaned copy of small.xlsx is ready. The copy has the values only; formatting, column widths and other sheet settings aren't carried over. I also noticed: name: 1 missing value(s) (25.0%); amount: 1 missing value(s) (25.0%). Want me to tackle any of these?"
+          }
+        ],
+        "wall_s_max": 5.6,
+        "wall_total_s": 13.7,
+        "peak_cgroup_usage_mb": 240.3,
+        "peak_cgroup_anon_mb_sampled": 227.4,
+        "peak_process_rss_mb": 341.0,
+        "oom_killed": false,
+        "container_running": true,
+        "exit_code": 0
+      },
+      {
+        "scenario": "small chain",
+        "survived": true,
+        "turns": [
+          {
+            "outcome": "delivered",
+            "wall_s": 5.1,
+            "delivered": [
+              "small_deduplicated_e20c5789f5f2acb2d91f79140cf4f11a-task-1_no_empty_rows_e20c5789f5f2acb2d91f79140cf4f11a-task-2.xlsx"
+            ],
+            "original_unchanged": true,
+            "download_matches_record": true,
+            "file_equals_expected": true,
+            "stopped_at": null,
+            "reply": "That sheet was seeing double. Done \u2014 removed 2 duplicate row(s). Removed 1 fully-empty row(s). The copy has 3 row(s), 0 duplicate row(s) and 0 fully-empty row(s) remaining. Your cleaned copy of small.xlsx is ready. The copy has the values only; formatting, column widths and other sheet settings aren't carried over. None of the issues I check for were found. Anything else you want me to look at?"
+          }
+        ],
+        "wall_s_max": 5.1,
+        "wall_total_s": 13.2,
+        "peak_cgroup_usage_mb": 240.6,
+        "peak_cgroup_anon_mb_sampled": 227.9,
+        "peak_process_rss_mb": 341.6,
+        "oom_killed": false,
+        "container_running": true,
+        "exit_code": 0
+      },
+      {
+        "scenario": "2 MB single",
+        "survived": true,
+        "turns": [
+          {
+            "outcome": "delivered",
+            "wall_s": 120.5,
+            "delivered": [
+              "big_deduplicated_6d3000a76fc20b09924294112f3136f4-task-1.xlsx"
+            ],
+            "original_unchanged": true,
+            "download_matches_record": true,
+            "file_equals_expected": true,
+            "stopped_at": null,
+            "reply": "That sheet was seeing double. Done \u2014 removed 1225 duplicate row(s), including 2 repeated blank rows. The copy has 23272 row(s), 0 duplicate row(s) remaining. Your cleaned copy of big.xlsx is ready. The copy has the values only; formatting, column widths and other sheet settings aren't carried over. I also noticed: f0: 1 missing value(s) (0.0%); f1: 1 missing value(s) (0.0%); f2: 1 missing value(s) (0.0%); f3: 1 missing value(s) (0.0%); f4: 1 missing value(s) (0.0%); f5: 1 missing value(s) (0.0%); i0: 1 missing value(s) (0.0%); i1: 1 missing value(s) (0.0%); i2: 1 missing value(s) (0.0%); s0: 1 missing value(s) (0.0%); s1: 1 missing value(s) (0.0%); s2: 1 missing value(s) (0.0%); s3: 1 missing value(s) (0.0%); d: 1 missing value(s) (0.0%); f0: 170 unusually high/low value(s) (e.g. -2.6801, -2.6841, -2.9291); f1: 167 unusually high/low value(s) (e.g. -3.1871, -2.9342, 2.7692); f2: 186 unusually high/low value(s) (e.g. 2.8105, 3.0257, 2.9479); f3: 165 unusually high/low value(s) (e.g. -3.1801, -2.9166, -2.7943); f4: 176 unusually high/low value(s) (e.g. 2.9401, -2.8362, -3.0113); f5: 169 unusually high/low value(s) (e.g. 3.2245, 3.0934, -3.3342). Want me to tackle any of these?"
+          }
+        ],
+        "wall_s_max": 120.5,
+        "wall_total_s": 134.4,
+        "peak_cgroup_usage_mb": 397.3,
+        "peak_cgroup_anon_mb_sampled": 370.7,
+        "peak_process_rss_mb": 487.3,
+        "oom_killed": false,
+        "container_running": true,
+        "exit_code": 0
+      },
+      {
+        "scenario": "2 MB chain",
+        "survived": true,
+        "turns": [
+          {
+            "outcome": "delivered",
+            "wall_s": 150.4,
+            "delivered": [
+              "big_deduplicated_01754f3e191f1c5b8c66753019e37b49-task-1_no_empty_rows_01754f3e191f1c5b8c66753019e37b49-task-2.xlsx"
+            ],
+            "original_unchanged": true,
+            "download_matches_record": true,
+            "file_equals_expected": true,
+            "stopped_at": null,
+            "reply": "Here's where things landed. Done \u2014 removed 1225 duplicate row(s), including 2 repeated blank rows. Removed 1 fully-empty row(s). The copy has 23271 row(s), 0 duplicate row(s) and 0 fully-empty row(s) remaining. I couldn't tell for sure from your message what order you wanted, so the steps ran in this order: deduplicate, then remove empty rows. Your cleaned copy of big.xlsx is ready. The copy has the values only; formatting, column widths and other sheet settings aren't carried over. I also noticed: f0: 170 unusually high/low value(s) (e.g. -2.6801, -2.6841, -2.9291); f1: 167 unusually high/low value(s) (e.g. -3.1871, -2.9342, 2.7692); f2: 186 unusually high/low value(s) (e.g. 2.8105, 3.0257, 2.9479); f3: 165 unusually high/low value(s) (e.g. -3.1801, -2.9166, -2.7943); f4: 176 unusually high/low value(s) (e.g. 2.9401, -2.8362, -3.0113); f5: 169 unusually high/low value(s) (e.g. 3.2245, 3.0934, -3.3342). Want me to tackle any of these?"
+          }
+        ],
+        "wall_s_max": 150.4,
+        "wall_total_s": 164.0,
+        "peak_cgroup_usage_mb": 428.1,
+        "peak_cgroup_anon_mb_sampled": 393.6,
+        "peak_process_rss_mb": 512.3,
+        "oom_killed": false,
+        "container_running": true,
+        "exit_code": 0
+      },
+      {
+        "scenario": "2 MB chain x2 at once",
+        "survived": true,
+        "turns": [
+          {
+            "outcome": "failed",
+            "wall_s": 181.2,
+            "delivered": [],
+            "original_unchanged": true,
+            "download_matches_record": null,
+            "file_equals_expected": null,
+            "stopped_at": null,
+            "reply": "Something went wrong while I was working on this, so I can't confirm that any change was made. I haven't handed back any file from this turn."
+          },
+          {
+            "outcome": "failed",
+            "wall_s": 180.6,
+            "delivered": [],
+            "original_unchanged": true,
+            "download_matches_record": null,
+            "file_equals_expected": null,
+            "stopped_at": null,
+            "reply": "Something went wrong while I was working on this, so I can't confirm that any change was made. I haven't handed back any file from this turn."
+          }
+        ],
+        "wall_s_max": 181.2,
+        "wall_total_s": 194.6,
+        "peak_cgroup_usage_mb": 573.0,
+        "peak_cgroup_anon_mb_sampled": 517.5,
+        "peak_process_rss_mb": 636.1,
+        "oom_killed": false,
+        "container_running": true,
+        "exit_code": 0
+      }
+    ],
+    "restarts": 0,
+    "idle_at_start": {
+      "cgroup_usage_mb": 117.0,
+      "cgroup_anon_mb": 109.3,
+      "process_rss_mb": 146.2
+    },
+    "idle_after_runs": {
+      "cgroup_usage_mb": 453.4,
+      "cgroup_anon_mb": 418.5,
+      "process_rss_mb": 532.8
+    },
+    "log_mentions_provider_429": false,
+    "log_leaks": []
+  },
+  {
+    "limit": "512m",
+    "scenarios": [
+      {
+        "scenario": "small single",
+        "survived": true,
+        "turns": [
+          {
+            "outcome": "delivered",
+            "wall_s": 5.7,
+            "delivered": [
+              "small_deduplicated_fd4c88c95c84867a210e065411fdb081-task-1.xlsx"
+            ],
+            "original_unchanged": true,
+            "download_matches_record": true,
+            "file_equals_expected": true,
+            "stopped_at": null,
+            "reply": "Here's where things landed. Done \u2014 removed 2 duplicate row(s). The copy has 4 row(s), 0 duplicate row(s) remaining. Your cleaned copy of small.xlsx is ready. The copy has the values only; formatting, column widths and other sheet settings aren't carried over. I also noticed: name: 1 missing value(s) (25.0%); amount: 1 missing value(s) (25.0%). Want me to tackle any of these?"
+          }
+        ],
+        "wall_s_max": 5.7,
+        "wall_total_s": 13.8,
+        "peak_cgroup_usage_mb": 240.9,
+        "peak_cgroup_anon_mb_sampled": 228.0,
+        "peak_process_rss_mb": 341.2,
+        "oom_killed": false,
+        "container_running": true,
+        "exit_code": 0
+      },
+      {
+        "scenario": "small chain",
+        "survived": true,
+        "turns": [
+          {
+            "outcome": "delivered",
+            "wall_s": 4.6,
+            "delivered": [
+              "small_deduplicated_acd85b5e37eba9497ba7ac06bec1f835-task-1_no_empty_rows_acd85b5e37eba9497ba7ac06bec1f835-task-2.xlsx"
+            ],
+            "original_unchanged": true,
+            "download_matches_record": true,
+            "file_equals_expected": true,
+            "stopped_at": null,
+            "reply": "Here's where things landed. Done \u2014 removed 2 duplicate row(s). Removed 1 fully-empty row(s). The copy has 3 row(s), 0 duplicate row(s) and 0 fully-empty row(s) remaining. Your cleaned copy of small.xlsx is ready. The copy has the values only; formatting, column widths and other sheet settings aren't carried over. None of the issues I check for were found."
+          }
+        ],
+        "wall_s_max": 4.6,
+        "wall_total_s": 12.7,
+        "peak_cgroup_usage_mb": 241.2,
+        "peak_cgroup_anon_mb_sampled": 228.6,
+        "peak_process_rss_mb": 341.9,
+        "oom_killed": false,
+        "container_running": true,
+        "exit_code": 0
+      },
+      {
+        "scenario": "2 MB single",
+        "survived": true,
+        "turns": [
+          {
+            "outcome": "delivered",
+            "wall_s": 118.6,
+            "delivered": [
+              "big_deduplicated_0fde002c2bed37d4409d6619966cb7e0-task-1.xlsx"
+            ],
+            "original_unchanged": true,
+            "download_matches_record": true,
+            "file_equals_expected": true,
+            "stopped_at": null,
+            "reply": "Here's where things landed. Done \u2014 removed 1225 duplicate row(s), including 2 repeated blank rows. The copy has 23272 row(s), 0 duplicate row(s) remaining. Your cleaned copy of big.xlsx is ready. The copy has the values only; formatting, column widths and other sheet settings aren't carried over. I also noticed: f0: 1 missing value(s) (0.0%); f1: 1 missing value(s) (0.0%); f2: 1 missing value(s) (0.0%); f3: 1 missing value(s) (0.0%); f4: 1 missing value(s) (0.0%); f5: 1 missing value(s) (0.0%); i0: 1 missing value(s) (0.0%); i1: 1 missing value(s) (0.0%); i2: 1 missing value(s) (0.0%); s0: 1 missing value(s) (0.0%); s1: 1 missing value(s) (0.0%); s2: 1 missing value(s) (0.0%); s3: 1 missing value(s) (0.0%); d: 1 missing value(s) (0.0%); f0: 170 unusually high/low value(s) (e.g. -2.6801, -2.6841, -2.9291); f1: 167 unusually high/low value(s) (e.g. -3.1871, -2.9342, 2.7692); f2: 186 unusually high/low value(s) (e.g. 2.8105, 3.0257, 2.9479); f3: 165 unusually high/low value(s) (e.g. -3.1801, -2.9166, -2.7943); f4: 176 unusually high/low value(s) (e.g. 2.9401, -2.8362, -3.0113); f5: 169 unusually high/low value(s) (e.g. 3.2245, 3.0934, -3.3342). Want me to tackle any of these?"
+          }
+        ],
+        "wall_s_max": 118.6,
+        "wall_total_s": 132.8,
+        "peak_cgroup_usage_mb": 392.3,
+        "peak_cgroup_anon_mb_sampled": 363.4,
+        "peak_process_rss_mb": 481.6,
+        "oom_killed": false,
+        "container_running": true,
+        "exit_code": 0
+      },
+      {
+        "scenario": "2 MB chain",
+        "survived": true,
+        "turns": [
+          {
+            "outcome": "delivered",
+            "wall_s": 152.6,
+            "delivered": [
+              "big_deduplicated_90f34e717a87eb9a725d08ff5086f924-task-1_no_empty_rows_90f34e717a87eb9a725d08ff5086f924-task-2.xlsx"
+            ],
+            "original_unchanged": true,
+            "download_matches_record": true,
+            "file_equals_expected": true,
+            "stopped_at": null,
+            "reply": "Those blank rows were just taking up space. Done \u2014 removed 1225 duplicate row(s), including 2 repeated blank rows. Removed 1 fully-empty row(s). The copy has 23271 row(s), 0 duplicate row(s) and 0 fully-empty row(s) remaining. Your cleaned copy of big.xlsx is ready. The copy has the values only; formatting, column widths and other sheet settings aren't carried over. I also noticed: f0: 170 unusually high/low value(s) (e.g. -2.6801, -2.6841, -2.9291); f1: 167 unusually high/low value(s) (e.g. -3.1871, -2.9342, 2.7692); f2: 186 unusually high/low value(s) (e.g. 2.8105, 3.0257, 2.9479); f3: 165 unusually high/low value(s) (e.g. -3.1801, -2.9166, -2.7943); f4: 176 unusually high/low value(s) (e.g. 2.9401, -2.8362, -3.0113); f5: 169 unusually high/low value(s) (e.g. 3.2245, 3.0934, -3.3342). Want me to tackle any of these?"
+          }
+        ],
+        "wall_s_max": 152.6,
+        "wall_total_s": 166.5,
+        "peak_cgroup_usage_mb": 426.8,
+        "peak_cgroup_anon_mb_sampled": 394.2,
+        "peak_process_rss_mb": 511.5,
+        "oom_killed": false,
+        "container_running": true,
+        "exit_code": 0
+      },
+      {
+        "scenario": "2 MB chain x2 at once",
+        "survived": false,
+        "error": "ConnectError: [Errno 111] Connection refused",
+        "wall_total_s": 192.9,
+        "peak_cgroup_usage_mb": null,
+        "peak_cgroup_anon_mb_sampled": 508.8,
+        "peak_process_rss_mb": 622.8,
+        "oom_killed": true,
+        "container_running": false,
+        "exit_code": 137
+      }
+    ],
+    "restarts": 1,
+    "idle_at_start": {
+      "cgroup_usage_mb": 116.8,
+      "cgroup_anon_mb": 109.3,
+      "process_rss_mb": 145.2
+    },
+    "idle_after_runs": {
+      "cgroup_usage_mb": 116.5,
+      "cgroup_anon_mb": 109.3,
+      "process_rss_mb": 145.6
+    },
+    "log_mentions_provider_429": false,
+    "log_leaks": []
+  }
+]

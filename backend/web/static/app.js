@@ -136,7 +136,8 @@
     window.setTimeout(() => { buttonsIn(form).forEach((button) => { button.disabled = true; }); }, 0);
     const turn = form.closest('.turn');
     const id = form.querySelector('[name="confirmation_id"]').value;
-    const url = form.dataset.refetchUrl + '?unconfirmed=' + encodeURIComponent(id);
+    const held = Number(turn.dataset.version) || 0;
+    const url = form.dataset.refetchUrl + '?unconfirmed=' + encodeURIComponent(id) + '&held=' + held;
     htmx.ajax('GET', url, { target: turn }).catch(() => {
       showNotice(copyText('cant-reach'), 'request');
     });
@@ -183,6 +184,22 @@
         // Send stays off until the session has been fetched (a reload does that).
         showNotice(copyText('cant-reach'), 'request');
       });
+  }
+
+  // The plan changed under the user (answered in another tab, or timed out): fetch the turn as the
+  // server has it, whatever state the turn's poll is in. It doesn't go through the poll element,
+  // which the answer's request may have cancelled mid-flight. It starts once this error handler has
+  // returned, not inside it. The URL says which version the page holds, so a server that
+  // restarted (and counts versions from 0 again) answers with a reload instead of a turn the swap
+  // guard would drop.
+  function refetchTurn(plan) {
+    const turn = plan.closest('.turn');
+    const held = Number(turn.dataset.version) || 0;
+    window.setTimeout(() => {
+      htmx.ajax('GET', plan.dataset.refetchUrl + '?held=' + held, { target: turn }).catch(() => {
+        showNotice(copyText('cant-reach'), 'request');
+      });
+    }, 0);
   }
 
   function refetchConversation(form) {
@@ -248,8 +265,7 @@
     } else if (status === 409 && error.code === 'session_busy' && composer) {
       refetchConversation(composer);
     } else if (status === 409 && plan) {
-      const poll = plan.closest('.turn').querySelector('.poll');
-      if (poll) retryPoll(poll);
+      refetchTurn(plan);
     } else if (status >= 500 && composer) {
       ambiguousPost(composer);
     } else if (status >= 500 && plan) {

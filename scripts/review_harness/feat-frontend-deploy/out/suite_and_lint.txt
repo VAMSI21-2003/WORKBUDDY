@@ -1,0 +1,8 @@
+== python -m pytest -q (head 0f0a09c, lxml 6.1.3 installed, openpyxl.LXML=True)
+2588 passed, 3539 warnings in 427.22s (0:07:07)
+== lxml-sensitive files on base a49f46a (lxml installed)
+34 failed, 162 passed
+== same files on head: 196 passed; with OPENPYXL_LXML=False: 196 passed
+== ruff check buddy tests: head 22 errors, base 22 errors; by file and rule:
+identical (17 file/rule pairs)
+== ruff check backend + the new scripts: all checks passed

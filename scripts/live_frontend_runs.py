@@ -23,9 +23,16 @@ It stops at the first sign of a rate limit from the LLM provider (any HTTP 429 i
 even one the SDK retried) and reports how many runs were completed. The key is read by the server
 from the environment and never printed.
 
+With ``--container IMAGE`` the app under test is that Docker image instead of a subprocess: the
+container runs in production mode (a password, an https public origin of
+``https://localhost:<port>``, the design's real rate limits, a bind-mounted data folder), a TLS
+relay (``scripts/tls_relay.py``, a throw-away certificate) stands in front of it as a host's proxy
+would, and the browser ignores the certificate error. Run 1's ``localhost`` / ``127.0.0.1`` split
+doesn't apply there.
+
 Usage (``GROQ_API_KEY`` or ``ANTHROPIC_API_KEY`` set):
     python scripts/live_frontend_runs.py [--runs 1,2,3,4] [--port 8766] [--pause 8] \
-        [--shots docs/reviews/frontend-demo-screens] [--json out.json]
+        [--shots docs/reviews/frontend-demo-screens] [--json out.json] [--container IMAGE]
 """
 
 from __future__ import annotations
@@ -34,6 +41,7 @@ import argparse
 import io
 import json
 import os
+import shutil
 import signal
 import socket
 import subprocess
@@ -144,6 +152,86 @@ class Server:
         return dict(response.json())
 
 
+class ContainerServer:
+    """The Docker image in production mode behind a TLS relay; shaped like :class:`Server`."""
+
+    def __init__(self, image: str, port: int) -> None:
+        self.image = image
+        self.port = port  # the container's own port, on the host's network
+        self.tls_port = free_port()
+        self.name = f"wb-live-{port}"
+        self.data = SCRATCH / f"data-{port}"
+        self.page_base = f"https://localhost:{self.tls_port}"
+        self.relay: subprocess.Popen[bytes] | None = None
+
+    @property
+    def base(self) -> str:
+        return f"http://127.0.0.1:{self.port}"
+
+    def _docker(self, *args: str) -> str:
+        done = subprocess.run(["docker", *args], capture_output=True, text=True, check=False)
+        return (done.stdout + done.stderr).strip()
+
+    def start(self) -> None:
+        SCRATCH.mkdir(parents=True, exist_ok=True)
+        self._docker("rm", "-f", self.name)
+        shutil.rmtree(self.data, ignore_errors=True)
+        self.data.mkdir(parents=True)
+        os.chown(self.data, 10001, 10001)
+        proxy = os.environ.get("HTTPS_PROXY", "")
+        ca = os.environ.get("SSL_CERT_FILE") or "/root/.ccr/ca-bundle.crt"
+        env = {
+            "PORT": str(self.port),
+            "WORKBUDDY_DEMO_PASSWORD": PASSWORD,
+            "WORKBUDDY_PUBLIC_ORIGIN": self.page_base,
+            "HTTPS_PROXY": proxy,
+            "https_proxy": proxy,
+            "NO_PROXY": "127.0.0.1,localhost",
+            "SSL_CERT_FILE": "/ca-bundle.pem",
+            "REQUESTS_CA_BUNDLE": "/ca-bundle.pem",
+        }
+        args = ["run", "-d", "--name", self.name, "--network", "host"]
+        for key, value in env.items():
+            args += ["-e", f"{key}={value}"]
+        args += ["-e", "GROQ_API_KEY"]  # passed through from this environment, never read here
+        args += ["-v", f"{self.data}:/data", "-v", f"{ca}:/ca-bundle.pem:ro", self.image]
+        out = self._docker(*args)
+        if self._docker("inspect", "-f", "{{.State.Running}}", self.name) != "true":
+            raise SystemExit("the container didn't start: " + out[-300:])
+        self.relay = subprocess.Popen(
+            [sys.executable, str(REPO_ROOT / "scripts" / "tls_relay.py"),
+             str(self.tls_port), str(self.port)],
+        )
+        deadline = time.monotonic() + 90
+        while time.monotonic() < deadline:
+            try:
+                health = httpx.get(self.base + "/healthz", timeout=2, trust_env=False).json()
+                httpx.get(self.page_base + "/healthz", timeout=2, trust_env=False, verify=False)
+            except httpx.HTTPError:
+                time.sleep(0.5)
+                continue
+            if not health["llm_configured"]:
+                raise SystemExit("the server has no LLM configured")
+            return
+        raise SystemExit("the container didn't answer in 90 s:\n" + self.log_text()[-1000:])
+
+    def stop(self) -> None:
+        if self.relay is not None and self.relay.poll() is None:
+            self.relay.terminate()
+        self._log = self.log_text()
+        self._docker("rm", "-f", self.name)
+
+    def log_text(self) -> str:
+        if getattr(self, "_log", None) is not None and not self._docker(
+            "ps", "-q", "-f", f"name={self.name}"
+        ):
+            return str(self._log)
+        return self._docker("logs", self.name)
+
+    def api(self, path: str) -> dict[str, Any]:
+        return Server.api(self, path)  # type: ignore[arg-type]
+
+
 def run_one(
     name: str,
     spec: dict[str, Any],
@@ -153,8 +241,11 @@ def run_one(
     shots: Path,
     host: str,
 ) -> dict[str, Any]:
-    base = f"http://{host}:{server.port}"
-    context = browser.new_context(viewport=VIEWPORT, accept_downloads=True)
+    page_base = getattr(server, "page_base", None)
+    base = page_base or f"http://{host}:{server.port}"
+    context = browser.new_context(
+        viewport=VIEWPORT, accept_downloads=True, ignore_https_errors=bool(page_base)
+    )
     page: Page = context.new_page()
     page.set_default_timeout(30_000)
     page.add_init_script(WATCH_NOTICES)
@@ -162,7 +253,11 @@ def run_one(
     page.on("console", lambda m: console.append(m.text) if m.type == "error" else None)
     statuses: list[tuple[int, str]] = []
     page.on("response", lambda r: statuses.append((r.status, r.url)))
-    entry: dict[str, Any] = {"run": name, "message": spec["message"], "browser_host": host}
+    entry: dict[str, Any] = {
+        "run": name,
+        "message": spec["message"],
+        "browser_host": host if not page_base else page_base,
+    }
 
     page.goto(base + "/")
     if name == "1":
@@ -281,12 +376,17 @@ def main() -> None:
     parser.add_argument("--pause", type=float, default=8.0)
     parser.add_argument("--shots", default=str(REPO_ROOT / "docs/reviews/frontend-demo-screens"))
     parser.add_argument("--json", default=None)
+    parser.add_argument("--container", default=None, help="run this Docker image instead")
     args = parser.parse_args()
     if not (os.environ.get("GROQ_API_KEY") or os.environ.get("ANTHROPIC_API_KEY")):
         raise SystemExit("set GROQ_API_KEY or ANTHROPIC_API_KEY")
     shots = Path(args.shots)
     shots.mkdir(parents=True, exist_ok=True)
-    server = Server(args.port or free_port())
+    server: Server | ContainerServer
+    if args.container:
+        server = ContainerServer(args.container, args.port or free_port())
+    else:
+        server = Server(args.port or free_port())
     server.start()
     original = default_fixture()
     results: list[dict[str, Any]] = []

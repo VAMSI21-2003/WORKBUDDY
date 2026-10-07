@@ -1,0 +1,32 @@
+{
+ "k03": {
+  "state_after_8s": "false 2",
+  "log_tail": [
+   "WorkBuddy can't start: this process can't write to its data folder /data (Permission denied). Give the user it runs as write access."
+  ]
+ },
+ "k06": {
+  "exit": 1,
+  "last_line": "OSError: [Errno 30] Read-only file system: '/data/uploads'",
+  "traceback": true,
+  "leaks_password": false
+ },
+ "k07": {
+  "exit": 127,
+  "last_line": "",
+  "traceback": false,
+  "leaks_password": false
+ },
+ "k08": {
+  "state_after_8s": "true 0",
+  "new_session": [
+   500,
+   "{\"error\":{\"code\":\"internal_error\",\"message\":\"Something went wrong on the server.\"}}"
+  ],
+  "log_tail": [
+   "PermissionError: [Errno 13] Permission denied: '/data/sessions/[REDACTED]'",
+   "INFO:     127.0.0.1:48404 - \"GET /healthz HTTP/1.1\" 200 OK",
+   "INFO:     127.0.0.1:48414 - \"POST /api/v1/sessions HTTP/1.1\" 500 Internal Server Error"
+  ]
+ }
+}

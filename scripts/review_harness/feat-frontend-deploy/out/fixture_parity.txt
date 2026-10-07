@@ -1,0 +1,15 @@
+== head (lxml) vs base helpers (OPENPYXL_LXML=False)
+same      empty_string_result.xlsx: parts differing (strict) []; product reads equal=True
+same      error_results.xlsx: parts differing (strict) []; product reads equal=True
+same      formulas_saved.xlsx: parts differing (strict) []; product reads equal=True
+same      formulas_unsaved.xlsx: parts differing (strict) []; product reads equal=True
+same      partly_saved.xlsx: parts differing (strict) []; product reads equal=True
+0 different
+== head (OPENPYXL_LXML=False) vs base helpers (OPENPYXL_LXML=False)
+same      empty_string_result.xlsx: parts differing (strict) []; product reads equal=True
+same      error_results.xlsx: parts differing (strict) []; product reads equal=True
+same      formulas_saved.xlsx: parts differing (strict) []; product reads equal=True
+same      formulas_unsaved.xlsx: parts differing (strict) []; product reads equal=True
+same      partly_saved.xlsx: parts differing (strict) []; product reads equal=True
+0 different
+== base helpers with lxml: build fails (AssertionError: C2), as reported

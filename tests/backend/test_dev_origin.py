@@ -118,3 +118,27 @@ def test_the_server_passes_its_port_to_the_settings(
 
     assert served["port"] == 8123
     assert served["settings"].accepted_origins == ("http://127.0.0.1:8123", "http://localhost:8123")
+
+
+def test_a_data_folder_this_user_cant_write_is_named_not_a_traceback(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    """Review L7 of frontend-deploy: a volume mounted with the wrong owner."""
+    import backend.__main__ as entry
+
+    def refused(settings: Settings) -> None:
+        raise PermissionError(13, "Permission denied", str(settings.data_dir / "uploads"))
+
+    monkeypatch.setattr(entry, "create_app", refused)
+    monkeypatch.setattr(entry.uvicorn, "run", lambda *a, **k: pytest.fail("it must not serve"))
+    monkeypatch.setattr(sys, "argv", ["backend"])
+    monkeypatch.setenv("WORKBUDDY_ENV", "dev")
+    monkeypatch.setenv("WORKBUDDY_DATA_DIR", str(tmp_path / "d"))
+
+    with pytest.raises(SystemExit) as stopped:
+        entry.main()
+
+    assert stopped.value.code == 2
+    message = capsys.readouterr().err
+    assert str(tmp_path / "d") in message and "Permission denied" in message
+    assert "Traceback" not in message
