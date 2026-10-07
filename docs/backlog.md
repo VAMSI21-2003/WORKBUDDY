@@ -189,8 +189,8 @@ Deferred by the FE-2 review, round 1 (`docs/reviews/frontend-deploy-review.md`, 
 - **(Fixed in `frontend-deploy-fixes1.md`.) L9:** this section listed FE-1's M1, M2, L3, L4 and L9 as open, and FE-2 as open. They're marked above as fixed on the branch; change "not merged" when it merges.
 
 Deferred by the FE-2 review, round 2 (`docs/reviews/frontend-deploy-review.md`, "Review round 2"; both LOW):
-- **L10:** `docs/deploy.md` Section 4 says a `/data` the app can't write always stops the server with the one-line message and status 2. A `:ro` mount exits 1 with a traceback, and root-owned `uploads/`, `outputs/` or `sessions/` under a writable `/data` start fine and then answer every new session `500`. Narrow the sentence (`chown -R`, no `:ro`); optionally catch `OSError` and check each subfolder's writability at start.
-- **L11:** the design (1.7, 10.1) doesn't describe the poll's `held` parameter or the restart reload. One line in design 1.7.
+- **(Fixed after round 2, documents only: the sentence now says what each case does.) L10:** `docs/deploy.md` Section 4 says a `/data` the app can't write always stops the server with the one-line message and status 2. A `:ro` mount exits 1 with a traceback, and root-owned `uploads/`, `outputs/` or `sessions/` under a writable `/data` start fine and then answer every new session `500`. Narrow the sentence (`chown -R`, no `:ro`); optionally catch `OSError` and check each subfolder's writability at start.
+- **(Fixed after round 2, documents only: a bullet in design 1.7.) L11:** the design (1.7, 10.1) doesn't describe the poll's `held` parameter or the restart reload. One line in design 1.7.
 
 ## 5. Remaining deferred items from the reviews
 

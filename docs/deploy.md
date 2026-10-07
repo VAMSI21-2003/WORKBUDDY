@@ -107,7 +107,7 @@ Everything the process holds in memory is lost when it restarts: turn versions, 
 - **On an ephemeral disk** (no volume, or a host that wipes it) the sessions are gone too. The page shows the new-session notice, "That session no longer exists on the server, so this is a new one." That's correct, not a fault, and the route and browser tests cover it.
 - Idle hosts that stop or sleep a container are the same case.
 
-The `/data` folder must be writable by uid 10001 (`chown 10001:10001` on a bind mount; named volumes take the image's ownership). If it isn't, the server stops at start with "WorkBuddy can't start: this process can't write to its data folder /data (Permission denied)" and exit status 2.
+The `/data` folder must be writable by uid 10001 (`chown 10001:10001` on a bind mount; named volumes take the image's ownership). If `/data` itself refuses writes for that user, the server stops at start with "WorkBuddy can't start: this process can't write to its data folder /data (Permission denied)" and exit status 2. That's the only case with that message: a volume mounted read-only (`:ro`) ends with exit status 1 and a Python traceback (`OSError: Read-only file system`), and if `/data` is writable but its `uploads/`, `outputs/` or `sessions/` folder is owned by someone else (a volume left from a root-run container), the server starts and answers every new session with `500 internal_error`. So: `chown -R 10001:10001` the whole folder, never mount it read-only, and after setting it up open the page once and start a session.
 
 ## 5. The checklist for going public (design 13.2)
 
