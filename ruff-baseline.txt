@@ -1,0 +1,21 @@
+# The known ruff errors (ruff check buddy tests), counted per file and rule: file, rule, count.
+# CI fails on any error beyond these. Regenerate with:
+#     python scripts/check_ruff_baseline.py --update
+# Do that only to record errors that were fixed; never to accept new ones.
+buddy/brain.py E501 1
+buddy/context.py UP017 1
+buddy/hands.py E501 1
+buddy/inspector.py B905 1
+buddy/inspector.py E501 1
+buddy/planner.py E501 2
+buddy/state.py UP037 1
+tests/buddy/test_context.py I001 1
+tests/buddy/test_context.py UP017 1
+tests/buddy/test_inspector.py E501 5
+tests/buddy/test_llm.py E501 1
+tests/buddy/test_planner.py E501 1
+tests/buddy/test_think.py UP017 1
+tests/buddy/test_voice.py E501 1
+tests/skills/excel/test_analyze.py E501 1
+tests/skills/excel/test_dedupe.py E501 1
+tests/skills/test_base.py I001 1
