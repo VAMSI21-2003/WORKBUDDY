@@ -1,0 +1,35 @@
+{
+ "confirmation": {
+  "decision": "reject",
+  "decision_source": "user"
+ },
+ "delivered_files": [],
+ "detail": {
+  "clarification_required": false,
+  "intent": "remove_empty_rows",
+  "steps": [
+   {
+    "capability": "spreadsheet.remove_empty_rows",
+    "input_name": "report.xlsx",
+    "output_names": [],
+    "permission_tier": "write",
+    "recheck": false,
+    "status": "declined",
+    "verified": false
+   }
+  ],
+  "stopped_at": "spreadsheet.remove_empty_rows"
+ },
+ "finished_at": "2026-10-07T07:53:07.079227+00:00",
+ "message": "remove empty rows",
+ "mode": "friend",
+ "outcome": "not_delivered",
+ "reply": "The remove empty rows step: wasn't confirmed, so it didn't run. I stopped at the remove empty rows step and no file was handed back; your original file is unchanged.",
+ "reply_source": "pipeline",
+ "seq": 2,
+ "started_at": "2026-10-07T07:53:07.068986+00:00",
+ "status": "finished",
+ "target_file_id": "f_7rPCZOyqgi1i7olq",
+ "turn_id": "t0002",
+ "version": 1
+}
