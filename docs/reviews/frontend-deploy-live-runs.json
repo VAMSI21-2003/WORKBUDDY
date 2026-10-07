@@ -2,9 +2,9 @@
   {
     "run": "1",
     "message": "remove duplicate rows",
-    "browser_host": "https://localhost:35641",
-    "original_sha256_local_fixture": "a5c0bace32b6f0d6d31ab73ae8394647f82311a5d4a908cfaf05a7e5df7c1379",
-    "original_sha256_stored_before": "a5c0bace32b6f0d6d31ab73ae8394647f82311a5d4a908cfaf05a7e5df7c1379",
+    "browser_host": "https://localhost:35629",
+    "original_sha256_local_fixture": "bd3cfd6c6d7e1034efa43f1a7f73d408e09b79300e8648dae15bf856dc2c0b6a",
+    "original_sha256_stored_before": "bd3cfd6c6d7e1034efa43f1a7f73d408e09b79300e8648dae15bf856dc2c0b6a",
     "plan_shown": {
       "steps": [
         "Remove duplicate rows from manual_report.xlsx."
@@ -13,15 +13,15 @@
       "title": "Approval needed \u2013 WorkBuddy"
     },
     "answer_sent": "approve",
-    "wall_s": 8.8,
+    "wall_s": 29.2,
     "outcome": "delivered",
     "reply_source": "pipeline",
     "intent": "remove_duplicate_rows",
     "clarification_required": false,
     "steps": [
       "spreadsheet.analyze [success, verified=True] manual_report.xlsx -> -",
-      "spreadsheet.deduplicate [success, verified=True] manual_report.xlsx -> manual_report_deduplicated_c3e26c3b15e8d81c4b45d8449b846171-task-1.xlsx",
-      "spreadsheet.analyze (re-check) [success, verified=True] manual_report_deduplicated_c3e26c3b15e8d81c4b45d8449b846171-task-1.xlsx -> -"
+      "spreadsheet.deduplicate [success, verified=True] manual_report.xlsx -> manual_report_deduplicated_599695b55d55664b38557996083f6fc9-task-1.xlsx",
+      "spreadsheet.analyze (re-check) [success, verified=True] manual_report_deduplicated_599695b55d55664b38557996083f6fc9-task-1.xlsx -> -"
     ],
     "stopped_at": null,
     "confirmation": {
@@ -29,7 +29,7 @@
       "decision_source": "user"
     },
     "api_delivered": [
-      "manual_report_deduplicated_c3e26c3b15e8d81c4b45d8449b846171-task-1.xlsx"
+      "manual_report_deduplicated_599695b55d55664b38557996083f6fc9-task-1.xlsx"
     ],
     "api_reply": "That sheet was seeing double. Done \u2014 removed 2 duplicate row(s). The copy has 4 row(s), 0 duplicate row(s) remaining. Your cleaned copy of manual_report.xlsx is ready. The copy has the values only; formatting, column widths and other sheet settings aren't carried over. I also noticed: name: 1 missing value(s) (25.0%); amount: 1 missing value(s) (25.0%). Want me to tackle any of these?",
     "page_reply": "That sheet was seeing double. Done \u2014 removed 2 duplicate row(s). The copy has 4 row(s), 0 duplicate row(s) remaining. Your cleaned copy of manual_report.xlsx is ready. The copy has the values only; formatting, column widths and other sheet settings aren't carried over. I also noticed: name: 1 missing value(s) (25.0%); amount: 1 missing value(s) (25.0%). Want me to tackle any of these?",
@@ -55,15 +55,15 @@
       "empty_rows": 1
     },
     "equals_expected_dedupe": true,
-    "original_sha256_stored_after": "a5c0bace32b6f0d6d31ab73ae8394647f82311a5d4a908cfaf05a7e5df7c1379",
+    "original_sha256_stored_after": "bd3cfd6c6d7e1034efa43f1a7f73d408e09b79300e8648dae15bf856dc2c0b6a",
     "original_unchanged": true
   },
   {
     "run": "2",
     "message": "remove duplicate rows, then remove empty rows",
-    "browser_host": "https://localhost:35641",
-    "original_sha256_local_fixture": "a5c0bace32b6f0d6d31ab73ae8394647f82311a5d4a908cfaf05a7e5df7c1379",
-    "original_sha256_stored_before": "a5c0bace32b6f0d6d31ab73ae8394647f82311a5d4a908cfaf05a7e5df7c1379",
+    "browser_host": "https://localhost:35629",
+    "original_sha256_local_fixture": "bd3cfd6c6d7e1034efa43f1a7f73d408e09b79300e8648dae15bf856dc2c0b6a",
+    "original_sha256_stored_before": "bd3cfd6c6d7e1034efa43f1a7f73d408e09b79300e8648dae15bf856dc2c0b6a",
     "plan_shown": {
       "steps": [
         "Remove duplicate rows from manual_report.xlsx.",
@@ -73,16 +73,16 @@
       "title": "Approval needed \u2013 WorkBuddy"
     },
     "answer_sent": "approve",
-    "wall_s": 6.8,
+    "wall_s": 8.8,
     "outcome": "delivered",
     "reply_source": "pipeline",
     "intent": "multi_step_request",
     "clarification_required": false,
     "steps": [
       "spreadsheet.analyze [success, verified=True] manual_report.xlsx -> -",
-      "spreadsheet.deduplicate [success, verified=True] manual_report.xlsx -> manual_report_deduplicated_84804f26840681cc19bb7a78af5878ee-task-1.xlsx",
-      "spreadsheet.remove_empty_rows [success, verified=True] manual_report_deduplicated_84804f26840681cc19bb7a78af5878ee-task-1.xlsx -> manual_report_deduplicated_84804f26840681cc19bb7a78af5878ee-task-1_no_empty_rows_84804f26840681cc19bb7a78af5878ee-task-2.xlsx",
-      "spreadsheet.analyze (re-check) [success, verified=True] manual_report_deduplicated_84804f26840681cc19bb7a78af5878ee-task-1_no_empty_rows_84804f26840681cc19bb7a78af5878ee-task-2.xlsx -> -"
+      "spreadsheet.deduplicate [success, verified=True] manual_report.xlsx -> manual_report_deduplicated_2cec2499e311dfe8c23b9b935b550366-task-1.xlsx",
+      "spreadsheet.remove_empty_rows [success, verified=True] manual_report_deduplicated_2cec2499e311dfe8c23b9b935b550366-task-1.xlsx -> manual_report_deduplicated_2cec2499e311dfe8c23b9b935b550366-task-1_no_empty_rows_2cec2499e311dfe8c23b9b935b550366-task-2.xlsx",
+      "spreadsheet.analyze (re-check) [success, verified=True] manual_report_deduplicated_2cec2499e311dfe8c23b9b935b550366-task-1_no_empty_rows_2cec2499e311dfe8c23b9b935b550366-task-2.xlsx -> -"
     ],
     "stopped_at": null,
     "confirmation": {
@@ -90,10 +90,10 @@
       "decision_source": "user"
     },
     "api_delivered": [
-      "manual_report_deduplicated_84804f26840681cc19bb7a78af5878ee-task-1_no_empty_rows_84804f26840681cc19bb7a78af5878ee-task-2.xlsx"
+      "manual_report_deduplicated_2cec2499e311dfe8c23b9b935b550366-task-1_no_empty_rows_2cec2499e311dfe8c23b9b935b550366-task-2.xlsx"
     ],
-    "api_reply": "Those blank rows were just taking up space. Done \u2014 removed 2 duplicate row(s). Removed 1 fully-empty row(s). The copy has 3 row(s), 0 duplicate row(s) and 0 fully-empty row(s) remaining. Your cleaned copy of manual_report.xlsx is ready. The copy has the values only; formatting, column widths and other sheet settings aren't carried over. None of the issues I check for were found.",
-    "page_reply": "Those blank rows were just taking up space. Done \u2014 removed 2 duplicate row(s). Removed 1 fully-empty row(s). The copy has 3 row(s), 0 duplicate row(s) and 0 fully-empty row(s) remaining. Your cleaned copy of manual_report.xlsx is ready. The copy has the values only; formatting, column widths and other sheet settings aren't carried over. None of the issues I check for were found.",
+    "api_reply": "Here's where things landed. Done \u2014 removed 2 duplicate row(s). Removed 1 fully-empty row(s). The copy has 3 row(s), 0 duplicate row(s) and 0 fully-empty row(s) remaining. Your cleaned copy of manual_report.xlsx is ready. The copy has the values only; formatting, column widths and other sheet settings aren't carried over. None of the issues I check for were found. What's next on the list?",
+    "page_reply": "Here's where things landed. Done \u2014 removed 2 duplicate row(s). Removed 1 fully-empty row(s). The copy has 3 row(s), 0 duplicate row(s) and 0 fully-empty row(s) remaining. Your cleaned copy of manual_report.xlsx is ready. The copy has the values only; formatting, column widths and other sheet settings aren't carried over. None of the issues I check for were found. What's next on the list?",
     "page_reply_equals_api_reply": true,
     "page_links": 1,
     "sidebar_links": 1,
@@ -116,15 +116,15 @@
       "empty_rows": 0
     },
     "equals_expected_chain": true,
-    "original_sha256_stored_after": "a5c0bace32b6f0d6d31ab73ae8394647f82311a5d4a908cfaf05a7e5df7c1379",
+    "original_sha256_stored_after": "bd3cfd6c6d7e1034efa43f1a7f73d408e09b79300e8648dae15bf856dc2c0b6a",
     "original_unchanged": true
   },
   {
     "run": "3",
     "message": "remove duplicate rows",
-    "browser_host": "https://localhost:35641",
-    "original_sha256_local_fixture": "a5c0bace32b6f0d6d31ab73ae8394647f82311a5d4a908cfaf05a7e5df7c1379",
-    "original_sha256_stored_before": "a5c0bace32b6f0d6d31ab73ae8394647f82311a5d4a908cfaf05a7e5df7c1379",
+    "browser_host": "https://localhost:35629",
+    "original_sha256_local_fixture": "bd3cfd6c6d7e1034efa43f1a7f73d408e09b79300e8648dae15bf856dc2c0b6a",
+    "original_sha256_stored_before": "bd3cfd6c6d7e1034efa43f1a7f73d408e09b79300e8648dae15bf856dc2c0b6a",
     "plan_shown": {
       "steps": [
         "Remove duplicate rows from manual_report.xlsx."
@@ -165,15 +165,15 @@
       "duplicate_rows": 2,
       "empty_rows": 1
     },
-    "original_sha256_stored_after": "a5c0bace32b6f0d6d31ab73ae8394647f82311a5d4a908cfaf05a7e5df7c1379",
+    "original_sha256_stored_after": "bd3cfd6c6d7e1034efa43f1a7f73d408e09b79300e8648dae15bf856dc2c0b6a",
     "original_unchanged": true
   },
   {
     "run": "4",
     "message": "sort the rows by amount",
-    "browser_host": "https://localhost:35641",
-    "original_sha256_local_fixture": "a5c0bace32b6f0d6d31ab73ae8394647f82311a5d4a908cfaf05a7e5df7c1379",
-    "original_sha256_stored_before": "a5c0bace32b6f0d6d31ab73ae8394647f82311a5d4a908cfaf05a7e5df7c1379",
+    "browser_host": "https://localhost:35629",
+    "original_sha256_local_fixture": "bd3cfd6c6d7e1034efa43f1a7f73d408e09b79300e8648dae15bf856dc2c0b6a",
+    "original_sha256_stored_before": "bd3cfd6c6d7e1034efa43f1a7f73d408e09b79300e8648dae15bf856dc2c0b6a",
     "plan_shown": null,
     "answer_sent": null,
     "wall_s": 4.4,
@@ -204,7 +204,7 @@
       "duplicate_rows": 2,
       "empty_rows": 1
     },
-    "original_sha256_stored_after": "a5c0bace32b6f0d6d31ab73ae8394647f82311a5d4a908cfaf05a7e5df7c1379",
+    "original_sha256_stored_after": "bd3cfd6c6d7e1034efa43f1a7f73d408e09b79300e8648dae15bf856dc2c0b6a",
     "original_unchanged": true
   }
 ]
