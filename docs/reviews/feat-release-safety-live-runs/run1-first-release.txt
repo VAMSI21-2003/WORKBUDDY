@@ -1,0 +1,64 @@
+Releasing 6b452b595beb
+
+== 1/5 build the image
+built workbuddy:6b452b595beb
+
+== 2/5 backup
+no data yet: nothing to back up
+
+== 3/5 start it
+ Volume workbuddy-data Creating 
+ Volume workbuddy-caddy-config Creating 
+ Volume workbuddy-caddy-config Creating 
+ Network workbuddy_default Creating 
+ Network workbuddy_default Creating 
+ Volume workbuddy-data Creating 
+ Volume workbuddy-caddy-data Creating 
+ Volume workbuddy-caddy-data Creating 
+ Volume workbuddy-caddy-config Created 
+ Volume workbuddy-caddy-config Created 
+ Volume workbuddy-data Created 
+ Volume workbuddy-data Created 
+ Volume workbuddy-caddy-data Created 
+ Volume workbuddy-caddy-data Created 
+ Network workbuddy_default Created 
+ Network workbuddy_default Created 
+ Container workbuddy-app-1 Creating 
+ Container workbuddy-app-1 Created 
+ Container workbuddy-caddy-1 Creating 
+ Container workbuddy-caddy-1 Created 
+ Container workbuddy-app-1 Starting 
+ Container workbuddy-app-1 Started 
+ Container workbuddy-app-1 Waiting 
+ Container workbuddy-app-1 Healthy 
+ Container workbuddy-caddy-1 Starting 
+ Container workbuddy-caddy-1 Started 
+
+== 4/5 wait until it's healthy
+healthy
+
+== 5/5 smoke test (a real turn)
+
+== 1. health
+ok: /healthz answers, an LLM key is set
+
+== 2. sign in
+ok: the password was exchanged for the access cookie
+
+== 3. upload
+ok: uploaded smoke.xlsx; the server's hash matches (45f300dd1801ec0aeb0a4b23e4e47e0cf649c8556dd0e6329681dfb8c9df2e82)
+
+== 4. a message, and the plan
+ok: the plan was shown: ["spreadsheet.deduplicate"]
+ok: the turn finished, outcome delivered
+
+== 5. download and hash
+ok: the download's hash matches what the server recorded (6dee6b59780bcc9ab1db6f7f5c25a3e8a20fc8a9ec0ba8d29c2f8b31c29af416), and it's different from the original's
+
+SMOKE OK: https://localhost
+
+RELEASED 6b452b595beb. Roll back by hand with: ./release.sh <an older commit>
+
+real	0m15.466s
+user	0m0.791s
+sys	0m0.438s

@@ -1,0 +1,37 @@
+##### hops=1 (as shipped)
+Caddy is at 10.209.54.2; clients: A=10.209.54.11 B=10.209.54.12 C=10.209.54.13; hops set to 1
+PASS  A sends 14 wrong sign-ins: the first 10 are answered, then A is limited  [401, 401, 401, 401, 401, 401, 401, 401, 401, 401, 429, 429, 429, 429]
+PASS  B (another address) is not limited by A's use  [401, 401, 401, 401]
+PASS  C claims to be A (X-Forwarded-For: A's address): A's bucket isn't charged to C  [401, 401, 401]
+PASS  A claims to be somebody else: A still has its own, used-up bucket  [429, 429]
+PASS  A sends a made-up chain of addresses: the same  [429, 429]
+PASS  B claims a fresh address: it neither gains nor loses anything  [401, 401]
+
+CHECK-PROXY OK: separate buckets, and a spoofed X-Forwarded-For changed nobody's.
+
+##### control: hops=0 (wrong on purpose; the check must FAIL)
+Caddy is at 10.222.223.2; clients: A=10.222.223.11 B=10.222.223.12 C=10.222.223.13; hops set to 0
+PASS  A sends 14 wrong sign-ins: the first 10 are answered, then A is limited  [401, 401, 401, 401, 401, 401, 401, 401, 401, 401, 429, 429, 429, 429]
+FAIL  B (another address) is not limited by A's use  [429, 429, 429, 429]  (wanted: all(. == 401))
+FAIL  C claims to be A (X-Forwarded-For: A's address): A's bucket isn't charged to C  [429, 429, 429]  (wanted: all(. == 401))
+PASS  A claims to be somebody else: A still has its own, used-up bucket  [429, 429]
+PASS  A sends a made-up chain of addresses: the same  [429, 429]
+FAIL  B claims a fresh address: it neither gains nor loses anything  [429, 429]  (wanted: all(. == 401))
+
+CHECK-PROXY FAILED: 3 check(s). WORKBUDDY_TRUSTED_PROXY_HOPS is probably wrong for this layout.
+
+##### control: hops=2 (wrong on purpose; the check must FAIL)
+Caddy is at 10.240.175.2; clients: A=10.240.175.11 B=10.240.175.12 C=10.240.175.13; hops set to 2
+PASS  A sends 14 wrong sign-ins: the first 10 are answered, then A is limited  [401, 401, 401, 401, 401, 401, 401, 401, 401, 401, 429, 429, 429, 429]
+FAIL  B (another address) is not limited by A's use  [429, 429, 429, 429]  (wanted: all(. == 401))
+FAIL  C claims to be A (X-Forwarded-For: A's address): A's bucket isn't charged to C  [429, 429, 429]  (wanted: all(. == 401))
+PASS  A claims to be somebody else: A still has its own, used-up bucket  [429, 429]
+PASS  A sends a made-up chain of addresses: the same  [429, 429]
+FAIL  B claims a fresh address: it neither gains nor loses anything  [429, 429]  (wanted: all(. == 401))
+
+CHECK-PROXY FAILED: 3 check(s). WORKBUDDY_TRUSTED_PROXY_HOPS is probably wrong for this layout.
+
+##### back to hops=1
+PASS  B claims a fresh address: it neither gains nor loses anything  [401, 401]
+
+CHECK-PROXY OK: separate buckets, and a spoofed X-Forwarded-For changed nobody's.

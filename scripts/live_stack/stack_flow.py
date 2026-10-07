@@ -102,6 +102,17 @@ def expected_frame(original: pd.DataFrame, actions: list[str]) -> pd.DataFrame:
     return frame.reset_index(drop=True)
 
 
+def same_values(delivered: pd.DataFrame, want: pd.DataFrame) -> bool:
+    """Equal shape and cell values; empty cells equal each other, dtypes don't matter (the
+    original's empty row makes its numbers floats; a delivered file may hold integers)."""
+
+    def cells(frame: pd.DataFrame) -> list[list[Any]]:
+        return [list(row) for row in frame.reset_index(drop=True).astype(object)
+                .where(frame.reset_index(drop=True).notna(), None).values.tolist()]
+
+    return delivered.shape == want.shape and cells(delivered) == cells(want)
+
+
 def flow(args: argparse.Namespace) -> int:
     http = client()
     original_bytes = FIXTURE.read_bytes()
@@ -132,7 +143,7 @@ def flow(args: argparse.Namespace) -> int:
         delivered = pd.read_excel(io.BytesIO(got.content))
         original = pd.read_excel(io.BytesIO(original_bytes))
         want = expected_frame(original, args.expect.split(",") if args.expect else [])
-        same = delivered.reset_index(drop=True).equals(want)
+        same = same_values(delivered, want)
         print(f"  independent check (pandas): original {len(original)} rows -> delivered "
               f"{len(delivered)} rows; expected {len(want)}; contents equal: {same}; "
               f"duplicates left: {int(delivered.duplicated().sum())}")
@@ -166,6 +177,11 @@ def show(args: argparse.Namespace) -> int:
     got = http.get(f"/api/v1/sessions/{args.session}/files/{args.file}/download")
     digest = sha(got.content) if got.status_code == 200 else "-"
     print("download:", got.status_code, "sha256", digest)
+    if got.status_code == 200 and args.expect is not None:
+        want = expected_frame(pd.read_excel(FIXTURE), args.expect.split(",") if args.expect else [])
+        delivered = pd.read_excel(io.BytesIO(got.content))
+        print(f"independent check (pandas): {len(delivered)} rows; expected {len(want)}; "
+              f"contents equal: {same_values(delivered, want)}")
     return 0 if got.status_code == 200 else 1
 
 
@@ -179,6 +195,7 @@ def main() -> int:
     two = sub.add_parser("show")
     two.add_argument("session")
     two.add_argument("file")
+    two.add_argument("--expect", default=None)
     args = parser.parse_args()
     return flow(args) if args.command == "flow" else show(args)
 

@@ -1,0 +1,16 @@
+##### before the upgrade: the running image is workbuddy:47ef56242629 (main at 47ef562)
+image=workbuddy:47ef56242629
+session s_MOj30FA3r8Apedlbi1nGHg (mode focus), uploaded report.xlsx 45f300dd1801ec0aeb0a4b23e4e47e0cf649c8556dd0e6329681dfb8c9df2e82
+  plan shown: [('spreadsheet.deduplicate', 'Remove duplicate rows from report.xlsx.')]
+  message: 'remove duplicate rows'
+  intent: remove_duplicate_rows   clarification_required: False   stopped_at: None
+  step: {'capability': 'spreadsheet.analyze', 'permission_tier': 'read', 'status': 'success', 'verified': True, 'recheck': False, 'input_name': 'report.xlsx', 'output_names': []}
+  step: {'capability': 'spreadsheet.deduplicate', 'permission_tier': 'write', 'status': 'success', 'verified': True, 'recheck': False, 'input_name': 'report.xlsx', 'output_names': ['report_deduplicated_f45ff78bebe66ced3ff8eab74e01a890-task-1.xlsx']}
+  step: {'capability': 'spreadsheet.analyze', 'permission_tier': 'read', 'status': 'success', 'verified': True, 'recheck': True, 'input_name': 'report_deduplicated_f45ff78bebe66ced3ff8eab74e01a890-task-1.xlsx', 'output_names': []}
+  outcome: delivered   files delivered: 1
+  independent check (pandas): original 6 rows -> delivered 4 rows; expected 4; contents equal: False; duplicates left: 0
+  download hash 9dd4bddf7fd8434bec8fda4d24e48b2aaf2c000ac359b200b431798d7394ac84 == recorded 9dd4bddf7fd8434bec8fda4d24e48b2aaf2c000ac359b200b431798d7394ac84: True
+  delivered file id (for 'show'): d_t0001_1
+  reply: Done — removed 2 duplicate row(s). The copy has 4 row(s), 0 duplicate row(s) remaining. Your cleaned copy of report.xlsx is ready. The copy has the values only; formatting, column widths and other sheet settings aren't carried over. I also noticed: name: 1 missing value(s) (25.0%); amount: 1 missing value(s) (25.0%). Want me to tackle any of these?
+  original SHA-256: local before 45f300dd1801ec0a…, local after 45f300dd1801ec0a…, server recorded 45f300dd1801ec0a…, server's stored copy after 45f300dd1801ec0a…
+  RESULT: delivered file differs from the independently computed result

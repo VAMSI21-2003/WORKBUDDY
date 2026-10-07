@@ -1,0 +1,12 @@
+##### the app is not published
+docker port app: []
+listening on the host:
+/bin/bash: line 1: ss: command not found
+curl http://127.0.0.1:8000/healthz (the app's own port, from the host):
+000
+connection refused
+port 80 redirects to https:
+308 -> https://localhost/healthz
+restart policies / memory / log options:
+/workbuddy-app-1 restart=unless-stopped mem=1073741824 log=json-file map[max-file:5 max-size:10m]
+/workbuddy-caddy-1 restart=unless-stopped mem=268435456 log=json-file map[max-file:5 max-size:10m]
