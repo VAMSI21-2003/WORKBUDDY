@@ -1,0 +1,25 @@
+# python -m pytest -q (this checkout, 7cda772, Python 3.13)
+2635 passed, 1 skipped, 3503 warnings in 311.96s (0:05:11)
+# python -m pytest -q tests/deploy -rs: 64 passed, no skips (Docker and python:3.11-slim present)
+# ruff check buddy tests: 22 errors; per file and rule identical to origin/main (diff empty)
+('buddy/brain.py', 'E501') 1
+('buddy/context.py', 'UP017') 1
+('buddy/hands.py', 'E501') 1
+('buddy/inspector.py', 'B905') 1
+('buddy/inspector.py', 'E501') 1
+('buddy/planner.py', 'E501') 2
+('buddy/state.py', 'UP037') 1
+('tests/buddy/test_context.py', 'I001') 1
+('tests/buddy/test_context.py', 'UP017') 1
+('tests/buddy/test_inspector.py', 'E501') 5
+('tests/buddy/test_llm.py', 'E501') 1
+('tests/buddy/test_planner.py', 'E501') 1
+('tests/buddy/test_think.py', 'UP017') 1
+('tests/buddy/test_voice.py', 'E501') 1
+('tests/skills/excel/test_analyze.py', 'E501') 1
+('tests/skills/excel/test_dedupe.py', 'E501') 1
+('tests/skills/test_base.py', 'I001') 1
+# scripts/check_ruff_baseline.py
+ruff: no errors beyond the baseline (22 known).
+# ruff check tests/deploy scripts/*.py
+All checks passed!

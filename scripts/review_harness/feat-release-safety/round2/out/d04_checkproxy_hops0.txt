@@ -1,0 +1,9 @@
+Caddy is at 10.240.71.2; clients: A=10.240.71.11 B=10.240.71.12 C=10.240.71.13; hops set to 0
+PASS  A sends 14 wrong sign-ins: the first 10 are answered, then A is limited  [401, 401, 401, 401, 401, 401, 401, 401, 401, 401, 429, 429, 429, 429]
+FAIL  B (another address) is not limited by A's use  [429, 429, 429, 429]  (wanted: all(. == 401))
+FAIL  C claims to be A (X-Forwarded-For: A's address): A's bucket isn't charged to C  [429, 429, 429]  (wanted: all(. == 401))
+PASS  A claims to be somebody else: A still has its own, used-up bucket  [429, 429]
+PASS  A sends a made-up chain of addresses: the same  [429, 429]
+FAIL  B claims a fresh address: it neither gains nor loses anything  [429, 429]  (wanted: all(. == 401))
+
+CHECK-PROXY FAILED: 3 check(s). WORKBUDDY_TRUSTED_PROXY_HOPS is probably wrong for this layout.

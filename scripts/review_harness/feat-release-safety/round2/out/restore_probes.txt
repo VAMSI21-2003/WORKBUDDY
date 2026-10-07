@@ -1,0 +1,130 @@
+
+### R1 oldest archive, relative path, folder name with a space and a quote, KEEP=2
+exit=0
+--- output (last 12 lines)
+
+== backup of what's there now (no older backup is deleted)
+
+== stop the app
+
+== unpack the archive beside the data
+
+== replace /data
+
+== start the app
+Restored. Check it with ./smoke.sh, and open the page. The data from before is in /tmp/tmp_nhkkc35/backups/workbuddy-data-20261007-085933.tar.gz
+backup: /tmp/tmp_nhkkc35/backups/workbuddy-data-20261007-085933.tar.gz (4.0K, 1 files)
+--- /data now: ./sessions ./sessions/marker  one 
+--- compose calls: ['stop app', 'up -d', '']
+--- asked-for archive still exists: True; backups now: ['workbuddy-data-20261007-085931.tar.gz', 'workbuddy-data-20261007-085932.tar.gz', 'workbuddy-data-20261007-085933.tar.gz']; ['Restored. Check it with ./smoke.sh, and open the page. The data from before is in /tmp/tmp_nhkkc35/backups/workbuddy-data-20261007-085933.tar.gz']
+
+### R2 hostile archive with a ../ member
+exit=1
+--- output (last 12 lines)
+
+== backup of what's there now (no older backup is deleted)
+
+== stop the app
+
+== unpack the archive beside the data
+tar: Removing leading `../../' from member names
+backup: /tmp/tmpla5jgurs/backups/workbuddy-data-20261007-085935.tar.gz (4.0K, 1 files)
+tar: Removing leading `../../' from member names
+tar: ../../escape: Member name contains '..'
+tar: Exiting with failure status due to previous errors
+ERROR: unpacking the archive failed (not enough disk space, or a damaged archive). /data is as it was, and the app was started again.
+--- /data now: ./sessions ./sessions/marker  keep 
+--- compose calls: ['stop app', 'up -d', '']
+--- escape: no-escape-in-volume-root
+
+### R3 archive with a top-level name holding a space (replace step fails?)
+exit=2
+--- output (last 12 lines)
+
+== unpack the archive beside the data
+
+== replace /data
+backup: /tmp/tmpaock_fmm/backups/workbuddy-data-20261007-085937.tar.gz (4.0K, 1 files)
+mv: cannot stat 'my': No such file or directory
+
+ERROR: replacing /data failed halfway. The app is stopped.
+The data as it was before this restore is in:
+  /tmp/tmpaock_fmm/backups/workbuddy-data-20261007-085937.tar.gz
+Put it back with:
+  ./deploy/restore.sh '/tmp/tmpaock_fmm/backups/workbuddy-data-20261007-085937.tar.gz'
+--- /data now: ./.restore-staging ./.restore-staging/my dir ./.restore-staging/my dir/file ./.restore-staging/sessions ./.restore-staging/sessions/marker  
+--- compose calls: ['stop app', '']
+
+### R3b the printed undo command, run from the repository root
+exit=0
+--- output (last 12 lines)
+
+== backup of what's there now (no older backup is deleted)
+
+== stop the app
+
+== unpack the archive beside the data
+
+== replace /data
+
+== start the app
+Restored. Check it with ./smoke.sh, and open the page. The data from before is in /tmp/tmpaock_fmm/backups/workbuddy-data-20261007-085938.tar.gz
+backup: /tmp/tmpaock_fmm/backups/workbuddy-data-20261007-085938.tar.gz (4.0K, 2 files)
+--- /data now: ./sessions ./sessions/marker  before-restore 
+--- compose calls: ['stop app', 'stop app', 'up -d', '']
+
+### R4 the volume can't hold a second copy (4 MB tmpfs, 2.5 MB now, 2.5 MB archive)
+exit=1
+--- output (last 12 lines)
+
+== keep a private copy of the archive
+
+== backup of what's there now (no older backup is deleted)
+
+== stop the app
+
+== unpack the archive beside the data
+backup: /tmp/tmpaxx8ftjn/backups/workbuddy-data-20261007-085941.tar.gz (2.4M, 2 files)
+tar: ./sessions/big2: Wrote only 5632 of 10240 bytes
+tar: Exiting with failure status due to previous errors
+ERROR: unpacking the archive failed (not enough disk space, or a damaged archive). /data is as it was, and the app was started again.
+--- /data now: ./sessions ./sessions/big ./sessions/marker  keep 
+--- compose calls: ['stop app', 'up -d', '']
+
+### R5 a .restore-staging left over from a crashed restore
+exit=0
+--- output (last 12 lines)
+
+== backup of what's there now (no older backup is deleted)
+
+== stop the app
+
+== unpack the archive beside the data
+
+== replace /data
+
+== start the app
+Restored. Check it with ./smoke.sh, and open the page. The data from before is in /tmp/tmp8oenlsqs/backups/workbuddy-data-20261007-085944.tar.gz
+backup: /tmp/tmp8oenlsqs/backups/workbuddy-data-20261007-085944.tar.gz (4.0K, 2 files)
+--- /data now: ./sessions ./sessions/marker  one 
+--- compose calls: ['stop app', 'up -d', '']
+
+### R6 KEEP=1, restore the only archive
+exit=0
+--- output (last 12 lines)
+
+== backup of what's there now (no older backup is deleted)
+
+== stop the app
+
+== unpack the archive beside the data
+
+== replace /data
+
+== start the app
+Restored. Check it with ./smoke.sh, and open the page. The data from before is in /tmp/tmpj21kspm6/backups/workbuddy-data-20261007-085948.tar.gz
+backup: /tmp/tmpj21kspm6/backups/workbuddy-data-20261007-085948.tar.gz (4.0K, 1 files)
+--- /data now: ./sessions ./sessions/marker  one 
+--- compose calls: ['stop app', 'up -d', '']
+--- asked-for archive still exists: True; backups: ['workbuddy-data-20261007-085946.tar.gz', 'workbuddy-data-20261007-085948.tar.gz']
+--- after the next nightly backup (KEEP=1): ['workbuddy-data-20261007-085949.tar.gz']

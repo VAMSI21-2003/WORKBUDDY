@@ -1,0 +1,59 @@
+Releasing ea1caaa54025 (live now: 7cda7729c71c)
+
+== 1/5 build the image
+built workbuddy:ea1caaa54025
+
+== 2/5 backup
+backup: $SCRATCH/r2/stack/deploy/backups/workbuddy-data-20261007-090722.tar.gz (24K, 42 files)
+
+== 3/5 start it
+ Container workbuddy-caddy-1 Running 
+ Container workbuddy-fakegroq-1 Running 
+ Container workbuddy-app-1 Recreate 
+ Container workbuddy-app-1 Recreated 
+ Container workbuddy-app-1 Starting 
+ Container workbuddy-app-1 Started 
+ Container workbuddy-app-1 Waiting 
+ Container workbuddy-app-1 Healthy 
+
+== 4/5 wait until it's healthy
+healthy
+
+== 5/5 smoke test (a real turn)
+
+== 1. health
+ok: /healthz answers, an LLM key is set
+
+== 2. sign in
+ok: the password was exchanged for the access cookie
+
+== 3. upload
+ok: uploaded smoke.xlsx; the server's hash matches (45f300dd1801ec0aeb0a4b23e4e47e0cf649c8556dd0e6329681dfb8c9df2e82)
+
+== 4. a message, and the plan
+ok: the plan was shown: ["spreadsheet.deduplicate"]
+SMOKE FAILED at "turn": outcome is failed, not delivered. Reply: Something went wrong while running the steps, so I can't confirm that any change was made. I haven't handed back any file from this turn.
+
+!! RELEASE ea1caaa54025 FAILED at: the smoke test
+Rolling back to 7cda7729c71c ...
+
+== 1. health
+ok: /healthz answers, an LLM key is set
+
+== 2. sign in
+ok: the password was exchanged for the access cookie
+
+== 3. upload
+ok: uploaded smoke.xlsx; the server's hash matches (45f300dd1801ec0aeb0a4b23e4e47e0cf649c8556dd0e6329681dfb8c9df2e82)
+
+== 4. a message, and the plan
+ok: the plan was shown: ["spreadsheet.deduplicate"]
+ok: the turn finished, outcome delivered
+
+== 5. download and hash
+ok: the download's hash matches what the server recorded (47aba4f39e2019e658f52a0318d21dacb74a52b349d56673fcbd400735b670ed), and it's different from the original's
+
+SMOKE OK: https://localhost
+
+!! ROLLED BACK to 7cda7729c71c. Release ea1caaa54025 failed at: the smoke test. The site is serving the previous release.
+The backup taken before this release is in $SCRATCH/r2/stack/deploy/backups (restore it only if the data looks wrong).

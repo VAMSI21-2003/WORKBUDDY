@@ -1,0 +1,42 @@
+Releasing b1b377bf49e8 (live now: 7cda7729c71c)
+
+== 1/5 build the image
+built workbuddy:b1b377bf49e8
+
+== 2/5 backup
+backup: $SCRATCH/r2/stack/deploy/backups/workbuddy-data-20261007-090750.tar.gz (24K, 49 files)
+
+== 3/5 start it
+ Container workbuddy-caddy-1 Running 
+ Container workbuddy-fakegroq-1 Running 
+ Container workbuddy-app-1 Recreate 
+ Container workbuddy-app-1 Recreated 
+ Container workbuddy-app-1 Starting 
+ Container workbuddy-app-1 Started 
+ Container workbuddy-app-1 Waiting 
+ Container workbuddy-app-1 Healthy 
+
+== 4/5 wait until it's healthy
+healthy
+
+== 5/5 smoke test (a real turn)
+
+== 1. health
+ok: /healthz answers, an LLM key is set
+
+== 2. sign in
+ok: the password was exchanged for the access cookie
+
+== 3. upload
+ok: uploaded smoke.xlsx; the server's hash matches (45f300dd1801ec0aeb0a4b23e4e47e0cf649c8556dd0e6329681dfb8c9df2e82)
+
+== 4. a message, and the plan
+ok: the plan was shown: ["spreadsheet.deduplicate"]
+ok: the turn finished, outcome delivered
+
+== 5. download and hash
+ok: the download's hash matches what the server recorded (e14bca078643cd63536ad47f86b696820f3651fd5562e50f67d62cfcf5668e79), and it's different from the original's
+
+SMOKE OK: https://localhost
+
+RELEASED b1b377bf49e8. Roll back by hand with: ./release.sh 7cda7729c71c

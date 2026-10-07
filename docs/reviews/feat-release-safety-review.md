@@ -84,3 +84,78 @@ Base `origin/main` (47ef562). No design document. Nothing under `buddy/`, `core/
 - The Azure appendix.
 - Real Groq. Every turn here used the faked LLM, and the live runs with Groq are due after a MERGE verdict.
 - Note: the probes' successful release pruned `workbuddy:4ac1fddcb676` (`release.sh` keeps two releases). The implementer's `workbuddy-data` volume was saved before the probes and restored after them.
+
+---
+
+# Review round 2 (commit 7cda772)
+
+**Verdict: MERGE.** All six round-1 findings (H1, M1 to M5) are fixed, each confirmed with my own runs; no new HIGH or MEDIUM. Six new LOWs are deferred.
+
+Scope: `0ea40c4..7cda772` (only `deploy/`, `.github/workflows/tests.yml`, `tests/deploy/`, docs). Nothing under `buddy/`, `core/`, `skills/` or `backend/` differs from `origin/main` (47ef562, unchanged since round 1). Probes, how to rerun them, and outputs: `scripts/review_harness/feat-release-safety/round2/` (README, `out/`).
+
+## What I ran
+
+| Check | Result |
+|---|---|
+| `python -m pytest -q` (this checkout) | 2635 passed, 1 skipped. `tests/deploy`: 64 passed, none skipped (the real-Docker backup and restore tests ran) |
+| `tests/deploy` in a `git archive` copy of 7cda772 (no empty folders, like a clone) | 64 passed (M1 fixed; `mutations2.txt` N00) |
+| `ruff check buddy tests` vs base, by file and rule | Identical, 22 errors. `check_ruff_baseline.py`: nothing new. `ruff check tests/deploy scripts/*.py`: clean |
+| This head's `tests/deploy` on the round-1 code (0ea40c4) | 21 failed, 43 passed: every new test of a fix fails on the old code (`new_tests_on_0ea40c4.txt`) |
+| Mutations undoing each fix (`mutations2.py`, 18) | 16 caught. 2 survived (R2-L5): the "data from before is in" message, and an uncommitted `deploy/` edit (the code refuses it, P3, but no test makes one) |
+| In-process pipeline, 25 scenarios x template/friend/focus vs round 1's base output | Only poll timing differs (`03_dedupe_timeout`, `08_chain_timeout`, as in round 1). `rule_checks`: 75 rows, 0 problems; the original unchanged in 75 of 75 |
+| Real stack (compose + Caddy + image, LLM faked): round 1's d01 to d10, then `stack_round2.sh` e00 to e05 | d01/d02 OK. d07: build failure changes nothing and takes no backup; start and smoke failures roll back with smoke OK; good release OK. **H1:** d06 and e01 restore the oldest archive with the folder at its limit: exit 0, the archive kept, 21 of 21 sessions back, owner 10001, no staging folder, smoke OK, a turn afterwards OK. **M2:** d08 rerun after a failed first release does the whole release, `SMOKE OK`; e03 same commit with the app stopped is released again, then skipped while healthy. **M3:** d09/e04 `$` in the password: `compose.sh`, `release.sh` and `smoke.sh` refuse by name; "horse" printed 0 times. **M4:** d10/e05: 0 session ids in Caddy's log (25 lines) or the app's. **M5:** e02 a commit whose `deploy/` differs is refused, `current.env` and the app container unchanged |
+| Turns through Caddy, friend and focus (smoke, hostile, no-duplicates, two sheets, not a workbook, a rejected plan): 15 rows | Rule 1: every count in every reply matches my openpyxl read (`check_stack_turns.py`); a rejected plan delivered nothing and claimed nothing; no file text reached a reply. Rule 2: 9 of 9 accepted uploads unchanged in the volume; the 4 bad-file uploads got 422. (Two of d03's 15 rows met the sign-in limit's 429, by design; e00 reran them) |
+| `restore.sh` adversarial, real Docker (`restore_probes.py`) | Relative path in a folder named with a space and a quote, KEEP=2: OK. `../` member: unpack refused, `/data` untouched, app started. Full disk during unpack (4 MB tmpfs): refused, `/data` untouched. Left-over staging folder: OK. Top-level name with a space: R2-L2; the printed undo command put the data back |
+| `release.sh` edge cases, stand-in docker (`release_probes.py`) | Local edit under `deploy/`: refused. Git-ignored override: allowed. Older commit with the same `deploy/`: allowed. Live commit unhealthy: R2-L1 |
+| `.env` reading, compose vs scripts (`env_parse_probe.py`, 23 values, 6 line forms) | Every value compose reads differently is refused, by name. R2-L3, R2-L4 for malformed lines |
+
+## Round-1 findings
+
+| Finding | Status | My evidence |
+|---|---|---|
+| H1 | Fixed [Certain] | d06, e01, `test_restoring_the_oldest...` on real Docker; N02 to N06 caught; R1, R4, R6 |
+| M1 | Fixed [Certain] | `git archive` copy passes `tests/deploy`; N08 caught |
+| M2 | Fixed [Certain] | d08, e03; N09, N10 caught |
+| M3 | Fixed [Certain] | d09, e04, env probe; N11 to N15 caught |
+| M4 | Fixed [Certain] | d10, e05; N16 caught |
+| M5 | Fixed for a release [Certain]; the rollback half is R2-L6 | e02, P3; N17 caught |
+
+## New findings
+
+All LOW. None is reachable by a WorkBuddy user request; they're about the operator's scripts.
+
+- **R2-L1 [Certain]: rerunning the live commit while it isn't healthy loses the rollback target.** `deploy/release.sh` lines 33 to 39 set `previous=""`.
+  - **Scenario** (`release_probes.txt` P1, P2): the live commit is "starting" or unhealthy and the owner runs `release.sh` on it again.
+  - **Result:** if it then fails, it prints "There was no earlier release to go back to", stops the app and deletes `current.env`, although an older release's image is on the machine. If it succeeds, it prunes that older image.
+  - **Fix:** take `previous` from `previous.env` when that image exists and differs from the tag. Otherwise say "no other release image to go back to".
+- **R2-L2 [Certain]: `restore.sh`'s replace step splits names on spaces.** `for entry in $(ls -A)`.
+  - **Scenario** (R3): an archive with a top-level name that holds a space fails halfway, after `/data` was emptied. It says so and prints an undo command, which worked (R3b). Archives from `backup.sh` hold only `sessions`, `uploads` and `outputs`.
+  - **Fix:** `find /data -mindepth 1 -maxdepth 1 ! -name .restore-staging -exec rm -rf -- {} +`, then `find /data/.restore-staging -mindepth 1 -maxdepth 1 -exec mv -t /data -- {} +`.
+- **R2-L3 [Certain]: `check_env_syntax` can print a line's content.** In `deploy/lib.sh`, a line without `=` becomes the "name".
+  - **Scenario:** a password wrapped onto its own line, with a `$` in it (`secret$tail`), gives "the value of secret$tail has a $...". The same happens for an indented comment.
+  - **Exposure:** compose's own error prints that line too, so this adds no exposure over the base. It does contradict "its content is never printed".
+  - **Fix:** skip `^[[:space:]]*#` lines. For a line without `=`, or with a name not matching `^[A-Za-z_][A-Za-z0-9_]*$`, say "line N" only.
+- **R2-L4 [Certain]: some line forms get a misleading "has no value for".** Compose reads `export NAME=v`, `NAME: v` and `  NAME=v`, but `env_value` doesn't, so `require_settings` says "deploy/.env has no value for: NAME". It still refuses, so nothing breaks.
+  - **Fix:** refuse those forms in `check_env_syntax`, by line number.
+- **R2-L5 [Certain]: two guards aren't tested.**
+  - `test_the_pre_restore_backup_holds_what_was_there` still passes when the final message no longer names the safety backup, because `backup.sh`'s own line carries the path (N07).
+  - No test makes an uncommitted edit under `deploy/`, so a `git diff HEAD <commit>` mutant passes (N19). The code does refuse such an edit (P3).
+  - **Fix:** assert on "The data from before is in <path>", and add the uncommitted-edit test.
+- **R2-L6 [Certain by reading; not run]: what remains of M5 after the fix.**
+  - `rollback()` runs the previous image under this checkout's `deploy/`, which is the failed commit's.
+  - `docs/deploy.md` Section 8's by-hand rollback ends with `git checkout main`, so a later `./deploy/compose.sh up -d app` (Section 9) applies main's compose file to the older image.
+  - **Reachable** only when a release changes `deploy/`.
+  - **Fix:** after a by-hand rollback, stay on the older commit until the next `git pull`. When the failed release changed `deploy/`, `rollback()` says to `git checkout <previous commit>` and run `./deploy/compose.sh up -d`.
+
+## Deferred (LOW; added to `docs/backlog.md`)
+
+R2-L1 to R2-L6 above. Round 1's L2, L7 and L8 stay open in the backlog; L1, L3, L4, L5 and L6 are fixed (checked: `smoke.sh` order, d07 BAD_BUILD "no backup was taken", the usage text, the backlog entries).
+
+## Not run
+
+- The suite on a fresh clone from GitHub: the sandbox refused it (code from an external source). The `git archive` copy stands in for it: it has no empty folders, like a clone.
+- The GitHub workflow, including its new `docker pull python:3.11-slim` step.
+- Python 3.11, and the browser tests with Chromium.
+- shellcheck, which isn't installed. `install.sh`, the Azure appendix and `refresh_locks.py`.
+- Real Groq. Every turn here used the faked LLM; the live runs come after a MERGE verdict.
+- Note: the probes ran on the fixed volume and image names. The implementer's `workbuddy-data` volume was saved before the probes and put back after them (12 files, owner 10001), and the `workbuddy:5967924664c7` and `workbuddy:locktest` images were kept.

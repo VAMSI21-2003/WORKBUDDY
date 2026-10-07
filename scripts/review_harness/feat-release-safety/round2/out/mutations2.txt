@@ -1,0 +1,20 @@
+N00 OK       exit=0  no mutation (the copy itself must pass)  | 64 passed, 6 warnings in 21.76s
+N01 INVALID  (dropped from the script: inside helper(), $1 is the shell script, so the mutant broke the mount, not the guard)
+N02 CAUGHT   exit=1  H1: the safety backup prunes again  | 1 failed in 3.72s
+N03 CAUGHT   exit=1  H1: backup.sh ignores WORKBUDDY_BACKUP_PRUNE  | 2 failed in 5.64s
+N04 CAUGHT   exit=1  H1: empty /data before unpacking (the old order)  | 1 failed in 2.46s
+N05 CAUGHT   exit=1  H1: a failed unpack doesn't start the app again  | 1 failed in 2.66s
+N06 CAUGHT   exit=1  H1: staging folder left behind after success  | 1 failed in 4.19s
+N07 SURVIVED exit=0  H1: the restore doesn't name the safety backup  | 1 passed in 2.68s
+N08 CAUGHT   exit=1  M1: layout lists folders again  | 1 failed, 1 warning in 2.54s
+N09 CAUGHT   exit=1  M2: failed first release keeps current.env  | 1 failed in 0.47s
+N10 CAUGHT   exit=1  M2: same-commit shortcut without the health check  | 1 failed in 0.53s
+N11 CAUGHT   exit=1  M3: '$' allowed  | 1 failed, 7 passed, 13 deselected in 1.45s
+N12 CAUGHT   exit=1  M3: ' #' allowed  | 1 failed, 7 passed, 13 deselected in 1.29s
+N13 CAUGHT   exit=1  M3: compose.sh skips the check  | 8 failed, 13 deselected in 1.41s
+N14 CAUGHT   exit=1  M3: the message prints the value  | 8 failed, 13 deselected in 1.27s
+N15 CAUGHT   exit=1  M3: \r allowed  | 1 failed in 0.34s
+N16 CAUGHT   exit=1  M4: Caddy access log back  | 1 failed in 0.14s
+N17 CAUGHT   exit=1  M5: no deploy/ check  | 1 failed in 0.64s
+N18 CAUGHT   exit=1  L3/L4: backup before the build again  | 1 failed in 0.48s
+N19 SURVIVED exit=0  M5 (uncommitted edit): diff only HEAD..commit, not the working tree  | 1 passed in 0.56s

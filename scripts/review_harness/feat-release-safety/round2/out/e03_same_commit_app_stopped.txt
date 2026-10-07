@@ -1,0 +1,50 @@
+   current.env: WORKBUDDY_TAG=7cda7729c71c
+   app: sha256:9c5827d9f4ddf0e1f2f2779853db57df3ee612613ee3c9bf1ba8573166007e12 Exited (0) Less than a second ago id=
+   healthz: 
+7cda7729c71c is recorded as the live release but the app isn't running healthy; releasing it again.
+Releasing 7cda7729c71c
+
+== 1/5 build the image
+built workbuddy:7cda7729c71c
+
+== 2/5 backup
+backup: $SCRATCH/r2/stack/deploy/backups/workbuddy-data-20261007-091141.tar.gz (28K, 76 files)
+
+== 3/5 start it
+ Container workbuddy-fakegroq-1 Running 
+ Container workbuddy-caddy-1 Running 
+ Container workbuddy-app-1 Starting 
+ Container workbuddy-app-1 Started 
+ Container workbuddy-app-1 Waiting 
+ Container workbuddy-app-1 Healthy 
+
+== 4/5 wait until it's healthy
+healthy
+
+== 5/5 smoke test (a real turn)
+
+== 1. health
+ok: /healthz answers, an LLM key is set
+
+== 2. sign in
+ok: the password was exchanged for the access cookie
+
+== 3. upload
+ok: uploaded smoke.xlsx; the server's hash matches (45f300dd1801ec0aeb0a4b23e4e47e0cf649c8556dd0e6329681dfb8c9df2e82)
+
+== 4. a message, and the plan
+ok: the plan was shown: ["spreadsheet.deduplicate"]
+ok: the turn finished, outcome delivered
+
+== 5. download and hash
+ok: the download's hash matches what the server recorded (7b8d36716a9af0ad0de67c9ad87834c259dfff0a4eb7d4ab017c1a37b83461a4), and it's different from the original's
+
+SMOKE OK: https://localhost
+
+RELEASED 7cda7729c71c. Roll back by hand with: ./release.sh <an older commit>
+release exit=0
+   current.env: WORKBUDDY_TAG=7cda7729c71c
+   app: sha256:9c5827d9f4ddf0e1f2f2779853db57df3ee612613ee3c9bf1ba8573166007e12 Up 12 seconds (healthy) id=4d451005db21
+   healthz: {"ok":true,"llm_configured":true}
+7cda7729c71c is already the live release, and it's running and healthy. Nothing to do. (./smoke.sh checks it again.)
+again exit=0

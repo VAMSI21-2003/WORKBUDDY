@@ -1,0 +1,15 @@
+d01 exit=0
+d02 exit=0
+d04 exit=0
+d04 hops=0 exit=1
+d04 hops=2 exit=1
+d06 exit=0 asked-for archive is now: regular file
+sessions in /data: 11
+done: $SCRATCH/r2/out
+e01 done
+e02 done
+e03 done
+e04 'horse' printed: 0 times
+caddy log lines with a session id: 0
+caddy log lines in total: 25
+app log raw session ids: 0
