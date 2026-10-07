@@ -1,10 +1,11 @@
 """Forward a TCP port to the sandbox's egress proxy, so a container on a bridge network can use it.
 
 Only for the cloud sandbox the live runs are made in, where the container's way to the LLM is an
-HTTP proxy on the machine's own loopback (``HTTPS_PROXY``), which a bridge-network container can't
-reach. Not part of the deployment: on a real VM the container talks to ``api.groq.com`` directly.
+HTTP proxy on the machine's own loopback (``HTTPS_PROXY``), which a bridge-network container
+can't reach. Not part of the deployment: on a real VM the container talks to
+``api.groq.com`` directly.
 
-    python scripts/live_stack/egress_relay.py LISTEN_PORT        # forwards to the HTTPS_PROXY's port
+    python scripts/live_stack/egress_relay.py LISTEN_PORT   # forwards to the HTTPS_PROXY's port
 """
 
 from __future__ import annotations
