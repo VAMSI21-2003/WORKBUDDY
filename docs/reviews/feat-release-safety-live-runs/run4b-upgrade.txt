@@ -1,0 +1,53 @@
+##### release.sh HEAD over the running main image
+Releasing 2051e554d16f (live now: 47ef56242629)
+
+== 1/5 build the image
+built workbuddy:2051e554d16f
+
+== 2/5 backup
+backup: /home/user/WORKBUDDY/deploy/backups/workbuddy-data-20261007-091927.tar.gz (12K, 4 files)
+
+== 3/5 start it
+
+== 4/5 wait until it's healthy
+healthy
+
+== 5/5 smoke test (a real turn)
+
+== 1. health
+ok: /healthz answers, an LLM key is set
+
+== 2. sign in
+ok: the password was exchanged for the access cookie
+
+== 3. upload
+ok: uploaded smoke.xlsx; the server's hash matches (45f300dd1801ec0aeb0a4b23e4e47e0cf649c8556dd0e6329681dfb8c9df2e82)
+
+== 4. a message, and the plan
+ok: the plan was shown: ["spreadsheet.deduplicate"]
+ok: the turn finished, outcome delivered
+
+== 5. download and hash
+ok: the download's hash matches what the server recorded (2d1ea9cd7f5b458094e89a1ca28a7bb18d248e58548effb8b1ff2214f183ac56), and it's different from the original's
+
+SMOKE OK: https://localhost
+
+RELEASED 2051e554d16f. Roll back by hand with: ./release.sh 47ef56242629
+
+##### after the upgrade: running image
+image=workbuddy:2051e554d16f
+workbuddy:47ef56242629
+workbuddy:2051e554d16f
+workbuddy:locktest
+2026-10-07T09:19:43Z 2051e554d16f OK (was 47ef56242629)
+
+##### the session and its file, created on the old image, read by the new one
+GET session: 200
+  files: [('f_3fC77VcPayNUZBpU', 'report.xlsx', '45f300dd1801ec0a')]
+  turns: [('t0001', 'finished', 'delivered')]
+download: 200 sha256 9dd4bddf7fd8434bec8fda4d24e48b2aaf2c000ac359b200b431798d7394ac84
+independent check (pandas): 4 rows; expected 4; contents equal: True
+
+##### the backup the release took
+total 12
+-rw------- 1 root root 8806 Oct  7 09:19 workbuddy-data-20261007-091927.tar.gz

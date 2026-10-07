@@ -34,4 +34,4 @@ Branch `feat/release-safety`, from `origin/main` (47ef562). The goal, from the o
 - `check-proxy.sh` and the whole stack were run on one machine, not on Azure; the Azure appendix is written from knowledge of the portal and was not exercised.
 - Lint scope is what `CLAUDE.md` names (`buddy tests`); `backend/`, `core/`, `skills/` and `scripts/` aren't in the baseline.
 - `release.sh` replaces the single app container: a few seconds of downtime per release.
-- Live runs (compose + Caddy + real Groq, an upgrade, a failed release) are done after a MERGE verdict, in `docs/reviews/feat-release-safety-live-runs.md`.
+- Live runs (compose + Caddy + real Groq, an upgrade, a failed release) were done after the MERGE verdict: `docs/reviews/feat-release-safety-live-runs.md`.
