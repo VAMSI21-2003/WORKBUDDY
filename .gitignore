@@ -73,3 +73,11 @@ frontend/build/
 
 # Backend (reserved for a future sprint)
 backend/__pycache__/
+
+# Deployment: which release is live on this VM, and the backups (deploy/)
+deploy/current.env
+deploy/previous.env
+deploy/.env
+deploy/backups/
+deploy/releases.log
+deploy/docker-compose.override.yml

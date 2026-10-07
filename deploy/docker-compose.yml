@@ -1,0 +1,57 @@
+# WorkBuddy on one Ubuntu VM: the app, and Caddy in front for automatic HTTPS.
+# Run it through ./compose.sh (it adds the settings files); release it with ./release.sh <commit>.
+# Nothing here is a secret: the password and the key come from .env, which only the VM holds.
+name: workbuddy
+
+services:
+  app:
+    image: "workbuddy:${WORKBUDDY_TAG:?no release yet, run ./release.sh with a commit}"
+    restart: unless-stopped
+    env_file: .env
+    environment:
+      # The one proxy in front of the app is Caddy (see the Caddyfile). 0 would put every visitor
+      # in one rate-limit bucket (Caddy's address); 2 or more would let a caller pick their own.
+      WORKBUDDY_TRUSTED_PROXY_HOPS: "1"
+      WORKBUDDY_PUBLIC_ORIGIN: "https://${WORKBUDDY_DOMAIN:?set WORKBUDDY_DOMAIN in .env}"
+    # No "ports": the app can't be reached from outside this machine, only through Caddy.
+    expose:
+      - "8000"
+    volumes:
+      # Sessions, uploads and delivered files. A named volume keeps them across releases and
+      # carries the image's ownership (user 10001) with it.
+      - workbuddy-data:/data
+    mem_limit: 1g
+    logging: &log-rotation
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "5"
+    # The image's own HEALTHCHECK (/healthz) tells Docker whether it's up; Caddy waits for it.
+
+  caddy:
+    image: caddy:2
+    restart: unless-stopped
+    depends_on:
+      app:
+        condition: service_healthy
+    environment:
+      WORKBUDDY_DOMAIN: "${WORKBUDDY_DOMAIN:?set WORKBUDDY_DOMAIN in .env}"
+    ports:
+      - "80:80"
+      - "443:443"
+      - "443:443/udp"
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      # The certificate and its account: keep them, or every restart asks Let's Encrypt again.
+      - caddy-data:/data
+      - caddy-config:/config
+    mem_limit: 256m
+    logging: *log-rotation
+
+volumes:
+  workbuddy-data:
+    name: workbuddy-data
+  caddy-data:
+    name: workbuddy-caddy-data
+  caddy-config:
+    name: workbuddy-caddy-config
