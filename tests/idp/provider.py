@@ -94,8 +94,9 @@ class FakeIdp:
     token_lifetime_s: int = 3600
 
     def __post_init__(self) -> None:
-        for email, subject in (("alice@example.test", "sub-alice"), ("bob@example.test", "sub-bob")):
-            self.accounts.setdefault(email, Account(email, subject))
+        for name in ("alice", "bob"):
+            email = f"{name}@example.test"
+            self.accounts.setdefault(email, Account(email, f"sub-{name}"))
 
     # -- The user's side: what a browser does at the provider ----------------------------------
 

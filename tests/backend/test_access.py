@@ -34,7 +34,10 @@ from tests.backend.helpers import (
 )
 
 UNAUTHORIZED_BODY = {
-    "error": {"code": "unauthorized", "message": "You aren't signed in, or your sign-in has ended."}
+    "error": {
+        "code": "unauthorized",
+        "message": "You aren't signed in, or your sign-in has ended.",
+    }
 }
 REALM = 'Bearer realm="workbuddy-demo"'
 FORM = "application/x-www-form-urlencoded"
@@ -703,7 +706,8 @@ def test_the_access_class_is_the_only_place_that_knows_the_password(tmp_path: Pa
         for path in Path("backend").glob("*.py")
         # (sessions.py and oidc.py compare an owner, an id, a nonce and a binder in constant
         # time; none of them reads a credential from a request.)
-        if path.name not in ("access.py", "settings.py", "logging_filter.py", "sessions.py", "oidc.py")
+        if path.name
+        not in ("access.py", "settings.py", "logging_filter.py", "sessions.py", "oidc.py")
     ]
     assert not any("demo_password" in source for source in sources)
     assert not any("compare_digest" in source for source in sources)

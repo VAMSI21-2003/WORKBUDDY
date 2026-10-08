@@ -70,7 +70,10 @@ def test_a_wrong_password_gets_the_apis_own_401_and_sets_no_cookie(tmp_path: Pat
 
     assert response.status_code == 401
     assert response.json() == {
-        "error": {"code": "unauthorized", "message": "You aren't signed in, or your sign-in has ended."}
+        "error": {
+            "code": "unauthorized",
+            "message": "You aren't signed in, or your sign-in has ended.",
+        }
     }
     assert "set-cookie" not in response.headers
     assert parse(client.get("/").text).find("form", id="gate-form") is not None

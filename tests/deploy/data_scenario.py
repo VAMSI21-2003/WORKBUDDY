@@ -1,7 +1,8 @@
 """The scenario that wrote the saved-data fixtures, and the helpers that read them back.
 
-``write_scenario`` runs the real app (real pipeline, real skills; only the LLM is faked) on a data
-folder: one session, one upload, one delivered turn and one rejected turn.
+``write_scenario`` runs the real app (real pipeline, real skills; only the LLM and the identity
+provider are faked) on a data folder: a person signs in, then one session, one upload, one
+delivered turn and one rejected turn.
 ``scripts/make_data_fixture.py`` uses it to write a fixture, and
 ``tests/deploy/test_saved_data_survives.py`` uses it to check that what today's code writes still
 has the shape of the newest fixture.
@@ -17,25 +18,27 @@ import hashlib
 from pathlib import Path
 from typing import Any
 
-from fastapi.testclient import TestClient
-
 from backend.main import create_app
-from backend.settings import Settings
 from tests.backend.factories import PipelineFactory, QueuedProvider, single
 from tests.backend.helpers import (
     RELAXED_LIMITS,
     new_session,
+    production_settings,
     start_turn,
     upload,
     wait_finished,
     xlsx_bytes,
 )
+from tests.backend.signin_helpers import ALICE, browser, make_idp, signed_in, token_of
 
 FIXTURES = Path(__file__).parent / "fixtures"
 UPLOAD_NAME = "report.xlsx"
 # The folder the image keeps its data in. The saved session records hold absolute paths, so a
 # fixture is written for this one, and ``relocate`` points a copy at wherever a test runs.
 IMAGE_DATA_DIR = "/data"
+# The wall clock the scenario runs on, so the sign-in it writes has fixed times. A test that opens
+# the fixture runs one hour later, inside the sign-in's life.
+SCENARIO_NOW = 1_800_000_000.0
 
 
 def sha256_of(path: Path) -> str:
@@ -44,12 +47,16 @@ def sha256_of(path: Path) -> str:
 
 def write_scenario(data_dir: Path) -> dict[str, Any]:
     """Run the scenario on ``data_dir``; return what the API said, for a manifest."""
-    settings = Settings(data_dir=data_dir, rate_limits=RELAXED_LIMITS)
+    settings = production_settings(data_dir, data_dir=data_dir, rate_limits=RELAXED_LIMITS)
     factory = PipelineFactory(
         QueuedProvider(single("remove_duplicate_rows") + single("remove_empty_rows")),
         speaker="friend",
     )
-    client = TestClient(create_app(settings, factory))
+    idp = make_idp()
+    app = create_app(
+        settings, factory, oidc_http=idp.client(), wall_clock=lambda: SCENARIO_NOW
+    )
+    client = signed_in(browser(app), idp, ALICE)
     session_id = new_session(client, "friend")
     uploaded = upload(client, session_id, xlsx_bytes(), UPLOAD_NAME)
     assert uploaded.status_code == 201, uploaded.text
@@ -65,6 +72,10 @@ def write_scenario(data_dir: Path) -> dict[str, Any]:
     (original,) = [p for p in settings.uploads_dir.rglob(UPLOAD_NAME)]
     return {
         "session_id": session_id,
+        "owner": "google:sub-alice",
+        "email": ALICE,
+        "cookie_token": token_of(client),
+        "signed_in_at": SCENARIO_NOW,
         "mode": "friend",
         "upload": {
             "file_id": file_id,
@@ -143,5 +154,7 @@ def layout(folder: Path) -> list[str]:
         parts = text.split("/")
         if parts[0] == "uploads" and len(parts) > 2:
             parts[2] = "<file>"
+        if parts[:2] == ["auth", "signins"] and len(parts) == 3:
+            parts[2] = "<token>.json"
         names.append("/".join(parts))
     return names

@@ -1,0 +1,48 @@
+{
+  "cookie_token": "3mrmLI3o4Vkiq1cFPij5Myd_v2VFg9kbjmareA2SDR8",
+  "data_dir_when_written": "/data",
+  "email": "alice@example.test",
+  "format_version": 1,
+  "mode": "friend",
+  "owner": "google:sub-alice",
+  "session_id": "s_rJKWM0IqlmMZges_YZ1aow",
+  "signed_in_at": 1800000000.0,
+  "turns": [
+    {
+      "confirmation": {
+        "decision": "approve",
+        "decision_source": "user"
+      },
+      "delivered_files": [
+        {
+          "file_id": "d_t0001_1",
+          "name": "report_deduplicated_4954588d0c7f9cfd4e4e8ff26a2ee834-task-1.xlsx",
+          "sha256": "ce3b924ae80dd9f08aebb9cd257ed0d60000b12c430fb236565e45ed1ff8a5bb",
+          "size": 4992
+        }
+      ],
+      "message": "remove duplicate rows",
+      "outcome": "delivered",
+      "reply": "That sheet was seeing double. Done \u2014 removed 2 duplicate row(s). The copy has 4 row(s), 0 duplicate row(s) remaining. Your cleaned copy of report.xlsx is ready. The copy has the values only; formatting, column widths and other sheet settings aren't carried over. I also noticed: name: 1 missing value(s) (25.0%); amount: 1 missing value(s) (25.0%). Want me to tackle any of these?",
+      "turn_id": "t0001"
+    },
+    {
+      "confirmation": {
+        "decision": "reject",
+        "decision_source": "user"
+      },
+      "delivered_files": [],
+      "message": "remove empty rows",
+      "outcome": "not_delivered",
+      "reply": "The remove empty rows step: wasn't confirmed, so it didn't run. I stopped at the remove empty rows step and no file was handed back; your original file is unchanged.",
+      "turn_id": "t0002"
+    }
+  ],
+  "upload": {
+    "file_id": "f_1puIdsxXxm4GQYvh",
+    "name": "report.xlsx",
+    "sha256": "520a871c2f32b51250df8b7e133179cc563eb30bfc6e7e413fdd316da23e8a09",
+    "size": 5018
+  },
+  "written_by_commit": "127647cc8ae96dd1e55ea39dc8605726223f001e"
+}
