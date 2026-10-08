@@ -14,14 +14,18 @@ demo        ``demo``                    the shared demo password (never in produ
 dev         ``dev``                     no credential at all (``WORKBUDDY_ENV=dev`` only)
 ==========  ==========================  ==============================================
 
-The shared kinds (``demo``, ``dev``) are one principal each: everyone who holds the password, or
-everyone on a dev server, is the same owner. That is what those modes always were.
+The shared kinds (``demo``, ``dev``, ``operator``) are one principal each: everyone who holds the
+password, everyone on a dev server and every script holding the operator token is the same owner.
+What kept their sessions apart was only that a session id is a secret, so a shared owner is never
+handed an id: ``SessionRegistry.latest_for`` and the page's landing apply to a person only.
 """
 
 from __future__ import annotations
 
 from dataclasses import dataclass
 from typing import Literal
+
+GOOGLE_OWNER_PREFIX = "google:"
 
 PrincipalKind = Literal["google", "operator", "demo", "dev"]
 
@@ -34,7 +38,7 @@ class Principal:
 
     @classmethod
     def google(cls, subject: str, email: str) -> Principal:
-        return cls(owner=f"google:{subject}", kind="google", email=email)
+        return cls(owner=f"{GOOGLE_OWNER_PREFIX}{subject}", kind="google", email=email)
 
 
 OPERATOR = Principal(owner="operator", kind="operator")

@@ -146,7 +146,10 @@ def index(request: Request) -> Response:
     registry = api.registry_of(request)
     pointer = request.cookies.get(SESSION_COOKIE)
     session_id = pointer
-    if session_id is None and principal is not None:
+    # Only a person (a Google sign-in) has sessions of their own to be taken back to. The shared
+    # principals (the demo password, a dev server, the operator) are one owner for many people or
+    # scripts, so "their latest session" would be somebody else's.
+    if session_id is None and principal is not None and principal.kind == "google":
         session_id = registry.latest_for(principal.owner)
     conversation: views.ConversationView | None = None
     if session_id is not None:

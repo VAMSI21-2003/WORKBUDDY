@@ -1,4 +1,4 @@
-"""What the page's routes share: the HTML response with its policy, and the session pointer cookie."""
+"""What the page's routes share: the HTML response with its policy, and the pointer cookie."""
 
 from __future__ import annotations
 

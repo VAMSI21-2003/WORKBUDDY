@@ -36,7 +36,7 @@ Every session has one owner. Where it is kept: `sessions/<key>/owner.json` = `{"
 
 Because the gate sees the matched route's path parameters, `RequestGate` calls `authorize` for every route with a `{session_id}` in its path, API (`/api/v1/sessions/...`) and page (`/ui/s/...`), after the credential and before the body is read, so a route cannot forget it. `session_of` checks again. The guard test builds its cases from the app's route table and fails for any `{session_id}` route that answers person B differently from a session that does not exist, including a route added only inside the test that never calls `session_of`. `GET /` treats another person's pointer cookie as a missing session.
 
-The session id is now written to `owner.json` (it was never on disk). That is a deliberate change: the id used to be the only credential, now a request also needs its owner, so the file is a way back to "your most recent session". `GET /` without a usable pointer asks `registry.latest_for(owner)` (an in-memory index built from the `owner.json` files, then kept up to date) and lands the person in the session used last, else makes a new one.
+The session id is now written to `owner.json` (it was never on disk). That is a deliberate change: the id used to be the only credential, now a request also needs its owner, so the file is a way back to "your most recent session". `GET /` without a usable pointer asks `registry.latest_for(owner)` (an in-memory index built from the `owner.json` files, then kept up to date) and lands the person in the session used last, else makes a new one. Only a person (`google:`): the shared owners (`demo`, `dev`, `operator`) are never handed a session id, because many people or scripts are one owner there.
 
 ## Limits per person
 
@@ -44,7 +44,7 @@ New buckets `signin` (per address: starting and finishing a sign-in, each calls 
 
 ## Settings
 
-`WORKBUDDY_GOOGLE_CLIENT_ID`, `WORKBUDDY_GOOGLE_CLIENT_SECRET` (never in `repr`, logs or errors), `WORKBUDDY_ALLOWED_EMAILS` (comma-separated, case-insensitive; empty = any verified email), `WORKBUDDY_OPERATOR_TOKEN`, `WORKBUDDY_OIDC_ISSUER` (default `https://accounts.google.com`; for the fake provider in tests and live runs only).
+`WORKBUDDY_GOOGLE_CLIENT_ID`, `WORKBUDDY_GOOGLE_CLIENT_SECRET` (never in `repr`, logs or errors), `WORKBUDDY_ALLOWED_EMAILS` (comma-separated, case-insensitive; empty = any verified email), `WORKBUDDY_OPERATOR_TOKEN`, `WORKBUDDY_OIDC_ISSUER` (default `https://accounts.google.com`; the fake provider in tests and live runs uses it. Production accepts any `https://` origin here, since the live runs use the production image, so it is the operator's to leave alone; the server logs a warning at start when it isn't Google's).
 
 ## Saved data and the migration
 
@@ -52,7 +52,7 @@ Sessions written before this change have no `owner.json`. **Decision: they belon
 
 ## The page
 
-The gate is a "Continue with Google" link (a link, not a form: `form-action 'self'` would block the redirect to Google); outside production a password form is shown too when a demo password is set. The header shows "Signed in as <email>" and a "Sign out" button (a plain form `POST`), and a "New session" button (`POST /ui/sessions`; the swap guard lets this one request replace the session). These are labels only; frontend design Section 4 holds and `ui_copy_snapshot.txt` is updated. A `401` notice says "Sign in again". After sign-in the person lands in their most recent session, or a new one.
+The gate is a "Continue with Google" link (a link, not a form: `form-action 'self'` would block the redirect to Google); outside production a password form is shown too when a demo password is set. The header shows "Signed in as <email>" and a "Sign out" button (a plain form `POST`), and a "New session" button (`POST /ui/sessions`; the swap guard lets this one request replace the session). Sign out is an htmx request, not a plain form POST (see Routes). These are labels only; frontend design Section 4 holds and `ui_copy_snapshot.txt` is updated. A `401` notice says "Sign in again". After sign-in the person lands in their most recent session, or a new one.
 
 ## Out of scope
 

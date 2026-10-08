@@ -33,7 +33,7 @@ from backend.retention import MaintenanceLoop, RetentionSweeper, StorageMeter
 from backend.routes import access_router, health_router, router
 from backend.schemas import ErrorBody
 from backend.sessions import SessionRegistry
-from backend.settings import ENV_PRODUCTION, Settings
+from backend.settings import ENV_PRODUCTION, GOOGLE_ISSUER, Settings
 from backend.store import SessionStore
 from backend.turns import EngineFactory, TurnRunner
 from backend.web import mount_web
@@ -131,6 +131,12 @@ def create_app(
         configured = llm_configured
 
     install_log_redaction()
+    if settings.oidc_issuer != GOOGLE_ISSUER:
+        logger.warning(
+            "WORKBUDDY_OIDC_ISSUER is not Google's: people are signed in by %s. That is for "
+            "tests and trial runs only",
+            settings.oidc_issuer,
+        )
     if settings.auto_approve:
         logger.warning(
             "auto_approve (a test setting) is on: every file-changing step is approved "

@@ -313,6 +313,17 @@ Each item has its own acceptance criterion: fixed with a test, or explicitly clo
   - R2-L4: `export NAME=`, `NAME: value` and indented `  NAME=` lines are read by compose but not by `env_value`, so the scripts say "has no value for: NAME". Refuse those forms in `check_env_syntax`, by line number.
   - R2-L5: two guards are untested: `test_the_pre_restore_backup_holds_what_was_there` passes without the "The data from before is in" message (backup.sh's own line, tee'd to stderr, carries the path), and no test makes an uncommitted edit under `deploy/` (a `git diff HEAD <commit>` mutant passes). Assert on the message; add the uncommitted-edit test.
   - R2-L6: the rest of round-1 M5: an automatic rollback, and the documented by-hand rollback that ends with `git checkout main`, run the older image under the newer checkout's `deploy/` files. Have the by-hand rollback stay on the older commit until the next `git pull`, and have `rollback()` say which `deploy/` it used when the release changed `deploy/`.
+- **feat-google-sign-in review round 1, deferred LOWs** (`docs/reviews/feat-google-sign-in-review.md`, "Deferred"):
+  - L1 (fixed in `docs/reviews/feat-google-sign-in-fixes1.md`): new ruff errors: 2 in `tests/deploy` (the CI baseline job fails) and 5 E501 in `backend/`.
+  - L2 (fixed in fixes1): guard-test gaps, where mutations survived `tests/backend` + `tests/web`:
+    - The pending login isn't single use: assert that a replayed callback makes no `POST /token`.
+    - The callback doesn't clear the pointer: assert that the callback deletes `__Host-wb_session`.
+    - `latest_for` ignores the owner: add a two-person landing test.
+    - The discovery document's issuer isn't checked: add a test that refuses one with another issuer.
+    - The email isn't lower-cased: add a test with an upper-case email from the provider.
+  - L3 (fixed in fixes1): `backend/web/auth.py` `_refused` clears `__Host-wb_login` on `no_pending_login` too. Two "Continue with Google" starts in one browser, or a stray callback link, make both sign-ins fail. Keep the cookie on `no_pending_login`.
+  - L4 (`stack_flow.py` fixed in fixes1; the other three still open): `scripts/live_api_runs.py`, `live_frontend_runs.py`, `measure_container.py` and `scripts/live_stack/stack_flow.py` sign in with the demo password, which production no longer accepts. Switch them to the operator token.
+  - L5 (fixed in fixes1: the note is corrected, and the server warns at start when the issuer isn't Google's): the design note says sign-out is a plain form POST (it's htmx) and that `WORKBUDDY_OIDC_ISSUER` is for tests only (production accepts any https issuer). Correct the note, or refuse a non-Google issuer in production.
 
 ## 6. Decide the supported Python version
 

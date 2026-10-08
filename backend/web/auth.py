@@ -55,12 +55,20 @@ def _clear_login_cookie(response: Response) -> None:
     response.delete_cookie(LOGIN_COOKIE, path="/", secure=True, httponly=True, samesite="lax")
 
 
-def _refused(request: Request, reason: str, notice: str = "problem", status: int = 400) -> Response:
+def _refused(
+    request: Request,
+    reason: str,
+    notice: str = "problem",
+    status: int = 400,
+    *,
+    clear_login: bool = True,
+) -> Response:
     logger.info("Sign-in refused: %s", reason)  # a short code; nothing from the token or the code
     response = html(
         render("gate.html", **gate_context(request.app.state.settings, notice)), status=status
     )
-    _clear_login_cookie(response)
+    if clear_login:
+        _clear_login_cookie(response)
     return response
 
 
@@ -110,7 +118,9 @@ def callback(
     access = access_of(request)
     pending = oidc.pending.take(state, request.cookies.get(LOGIN_COOKIE))
     if pending is None:
-        return _refused(request, "no_pending_login")
+        # (the browser's binder is left alone: it may belong to a newer sign-in that is still
+        # going on in another tab, and this callback is a stale or stray one)
+        return _refused(request, "no_pending_login", clear_login=False)
     if error is not None or not code or len(code) > _MAX_PARAM_CHARS:
         return _refused(request, "provider_error" if error is not None else "no_code")
     try:

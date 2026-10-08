@@ -38,7 +38,7 @@ from pathlib import Path
 from typing import Any
 
 from backend.confirmation import ConfirmationOutcome, PendingPlan
-from backend.identity import Principal
+from backend.identity import GOOGLE_OWNER_PREFIX, Principal
 from backend.settings import Settings
 from buddy.state import BuddyState
 
@@ -268,7 +268,7 @@ class SessionRegistry:
             self._store.save_session(record)
 
     def authorize(self, session_id: str, principal: Principal | None) -> str | None:
-        """THE ownership check: the session's key if ``principal`` owns ``session_id``, else ``None``.
+        """THE ownership check: the session's key if ``principal`` owns it, else ``None``.
 
         ``None`` for someone else's session, for one that doesn't exist, for one being deleted,
         for an id that isn't shaped like one the server generates, for a session nobody owns
@@ -289,7 +289,7 @@ class SessionRegistry:
             owner, stored_id = record.owner, record.session_id
         else:
             found = self._store.read_owner(key) if self._store is not None else None
-            owner, stored_id = (found.owner, found.session_id) if found is not None else (None, None)
+            owner, stored_id = (None, None) if found is None else (found.owner, found.session_id)
         if owner is None or stored_id is None:
             return None
         # Constant-time on both, so neither the owner nor the id is learned by timing.
@@ -321,7 +321,14 @@ class SessionRegistry:
         return record
 
     def latest_for(self, owner: str) -> str | None:
-        """The id of the owner's most recently used session that still exists, or ``None``."""
+        """The id of a person's most recently used session that still exists, or ``None``.
+
+        Only for a person (``google:<subject>``). The shared owners (``demo``, ``dev``,
+        ``operator``) stand for many people or scripts, so there is no "their" session to go
+        back to: ``None``, whatever sessions they own.
+        """
+        if not owner.startswith(GOOGLE_OWNER_PREFIX):
+            return None
         with self._lock:
             candidates = dict(self._by_owner.get(owner, {}))
             best: tuple[float, str] | None = None

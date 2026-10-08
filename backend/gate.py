@@ -171,7 +171,7 @@ class RequestGate:
         return declared.mutating and scope.get("method") not in ("GET", "HEAD", "OPTIONS")
 
     def _match(self, scope: Scope) -> object | None:
-        """The route the request matches. Its path parameters are put on ``scope`` for ``_owned``."""
+        """The route the request matches; its path parameters go on ``scope`` for ``_owned``."""
         for route in iter_routes(self._routes_of()):
             match, child = route.matches(scope)
             if match == Match.FULL:

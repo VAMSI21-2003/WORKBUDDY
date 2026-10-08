@@ -126,6 +126,62 @@ def test_the_access_cookie_is_the_existing_one_with_the_same_attributes(tmp_path
     assert PUBLIC_ORIGIN not in response.headers.get("location", "")
 
 
+def test_the_callback_clears_the_last_persons_session_pointer(tmp_path: Path) -> None:
+    rig = Rig(tmp_path)
+    client = rig.person()
+    client.cookies.set("__Host-wb_session", "s_left_by_the_last_person")
+
+    response = sign_in(client, rig.idp, ALICE)
+
+    cookies = [v for k, v in response.headers.multi_items() if k == "set-cookie"]
+    (pointer,) = [c for c in cookies if c.startswith("__Host-wb_session=")]
+    assert "Max-Age=0" in pointer
+
+
+def test_a_discovery_document_for_another_issuer_is_refused(tmp_path: Path) -> None:
+    rig = Rig(tmp_path)
+    honest = rig.idp.discovery
+    rig.idp.discovery = lambda: {**honest(), "issuer": "https://evil.example"}  # type: ignore[method-assign]
+    client = rig.person()
+
+    started = client.get("/auth/google/start", follow_redirects=False)
+
+    assert started.status_code == 502 and PROBLEM in started.text
+
+
+def test_an_email_is_stored_and_shown_in_lower_case(tmp_path: Path) -> None:
+    from tests.idp.provider import Account
+
+    rig = Rig(tmp_path)
+    rig.idp.accounts["Mixed.Case@Example.Test"] = Account("Mixed.Case@Example.Test", "sub-mixed")
+    client = rig.person()
+
+    sign_in(client, rig.idp, "Mixed.Case@Example.Test")
+
+    (record,) = rig.app.state.access.signins.files()
+    assert json.loads(record.read_text())["email"] == "mixed.case@example.test"
+    assert "Signed in as mixed.case@example.test" in client.get("/").text
+
+
+def test_a_stale_callback_does_not_break_a_sign_in_still_going_on(tmp_path: Path) -> None:
+    """Two tabs, or a stray link to the callback: the newer sign-in must still be finishable."""
+    rig = Rig(tmp_path)
+    client = rig.person()
+    older = client.get("/auth/google/start", follow_redirects=False)
+    older_back = rig.idp.authorize(older.headers["location"], ALICE)
+    newer = client.get("/auth/google/start", follow_redirects=False)  # replaces the binder cookie
+    newer_back = rig.idp.authorize(newer.headers["location"], ALICE)
+
+    stale = client.get(older_back)  # the older tab: its binder was replaced
+    _refused(client, stale)
+    assert LOGIN_COOKIE not in stale.headers.get("set-cookie", "")  # the binder is left alone
+    stray = client.get("/auth/google/callback?code=x&state=nothing")
+    _refused(client, stray)
+    assert LOGIN_COOKIE not in stray.headers.get("set-cookie", "")
+
+    assert client.get(newer_back).status_code == 200  # and the newer one finishes
+
+
 def test_the_redirect_address_comes_from_the_setting_not_from_the_request(tmp_path: Path) -> None:
     rig = Rig(tmp_path)
     client = rig.person()
@@ -252,6 +308,7 @@ def test_a_code_used_twice_signs_in_once(tmp_path: Path) -> None:
     # The same callback again, in the same browser: the pending login is gone.
     again = client.get(back)
     assert again.status_code == 400 and PROBLEM in again.text
+    assert rig.idp.log.count("POST /token") == 1  # refused before the provider was asked at all
     assert token_of(client) == first_token  # (the existing sign-in is untouched)
 
     # The same code under a fresh login (a different state): the provider refuses the code.
@@ -261,6 +318,23 @@ def test_a_code_used_twice_signs_in_once(tmp_path: Path) -> None:
     code = parse_qs(urlsplit(back).query)["code"][0]
     _refused(other, other.get(f"/auth/google/callback?code={code}&state={state}"))
     assert rig.idp.log.count("POST /token") == 2  # the replayed code did reach the provider
+
+
+def test_a_pending_login_can_be_taken_once_even_with_the_right_binder() -> None:
+    """The callback clears the binder cookie, so the app-level replay can't show single use;
+    this is the pending store's own rule."""
+    from backend.oidc import PendingLogins
+
+    clock = FakeClock()
+    pending = PendingLogins(clock)
+    state, nonce, verifier, binder = pending.start()
+
+    first = pending.take(state, binder)
+    second = pending.take(state, binder)
+
+    assert first is not None and (first.nonce, first.verifier) == (nonce, verifier)
+    assert second is None
+    assert len(pending) == 0
 
 
 def test_a_callback_without_the_browsers_own_binder_is_refused(tmp_path: Path) -> None:

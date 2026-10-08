@@ -62,7 +62,8 @@ class Fake:
                 length = int(self.headers.get("Content-Length") or 0)
                 body = self.rfile.read(length).decode()
                 if self.path == "/api/v1/access" and PASSWORD in body:
-                    self._send(204, "", {"Set-Cookie": "__Host-wb_access=abc; Path=/; Secure; HttpOnly"})
+                    cookie = "__Host-wb_access=abc; Path=/; Secure; HttpOnly"
+                    self._send(204, "", {"Set-Cookie": cookie})
                 else:
                     self._send(500, '{"error": "the fake stops here"}')
 

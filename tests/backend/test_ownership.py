@@ -372,13 +372,14 @@ def test_a_person_lands_in_their_most_recent_session(tmp_path: Path) -> None:
     second = new_session(alice)
     wall[0] += 10
     alice.get(f"/api/v1/sessions/{first}")  # using the first one makes it the latest
+    wall[0] += 10
     bob = rig.person(BOB)
-    new_session(bob)
+    bobs = new_session(bob)  # newer than any of Alice's: the latest of all, but not hers
 
     fresh = rig.person(ALICE)  # Alice on another computer
     home = fresh.get("/")
 
-    assert first in home.text and second not in home.text
+    assert first in home.text and second not in home.text and bobs not in home.text
     assert "__Host-wb_session" in home.headers["set-cookie"]
     # Bob never lands in Alice's.
     assert first not in bob.get("/").text and second not in bob.get("/").text

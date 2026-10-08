@@ -49,7 +49,7 @@ def test_the_app_is_given_the_sign_in_settings_and_none_may_be_missing(
         "WORKBUDDY_GOOGLE_CLIENT_SECRET",
         "WORKBUDDY_OPERATOR_TOKEN",
     ):
-        assert environment[name] == "${%s:?set %s in .env}" % (name, name), name  # type: ignore[index]
+        assert environment[name] == f"${{{name}:?set {name} in .env}}", name  # type: ignore[index]
     assert environment["WORKBUDDY_ALLOWED_EMAILS"] == "${WORKBUDDY_ALLOWED_EMAILS:-}"  # type: ignore[index]
     assert "WORKBUDDY_DEMO_PASSWORD" not in environment  # type: ignore[operator]
 

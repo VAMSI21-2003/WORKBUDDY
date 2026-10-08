@@ -25,7 +25,7 @@ Written by the writer, before review round 1. Design: `docs/design/google-sign-i
 - **`test_the_access_class_is_the_only_place_that_knows_the_password`** allows `sessions.py` and `oidc.py` to use `compare_digest` (owner, id, nonce, binder).
 - **`locked_settings` (tests) is no longer production**: the password isn't a credential there. `production_settings` is the new production helper.
 - A probe of someone's session spends the prober's `user_turns` token, not the owner's (the limiter charges every request whatever the answer).
-- Not changed: `scripts/live_api_runs.py`, `scripts/live_frontend_runs.py` and `scripts/measure_container.py` authenticate with the demo password against a production-mode server, so they no longer log in. Recorded in the backlog; the live driver for this change is new (`scripts/live_stack/`).
+- Not changed: `scripts/live_api_runs.py`, `scripts/live_frontend_runs.py` and `scripts/measure_container.py` authenticate with the demo password against a production-mode server, so they no longer log in. Recorded in the backlog (it was not, until round 1's L4). `scripts/live_stack/` is not new: it is on `main`, and `stack_flow.py` was changed in round 1 to use the operator token.
 
 ## Saved data
 
@@ -39,7 +39,7 @@ Mutations tried by the writer, each caught: gate never checks ownership; `author
 
 ## Numbers at the time of writing
 
-Baseline on `origin/main` (clean worktree): 2657 passed, 5 skipped, 1 failed (`test_a_process_that_is_not_root_can_delete_read_only_uploads`, which cannot pass as root). This branch before round 1: 2814 passed, 5 skipped, 1 failed (the same root-only test). Ruff: no error beyond `ruff-baseline.txt` (22 known).
+Baseline on `origin/main` (clean worktree): 2657 passed, 5 skipped, 1 failed (`test_a_process_that_is_not_root_can_delete_read_only_uploads`, which cannot pass as root). This branch before round 1: 2814 passed, 5 skipped, 1 failed (the same root-only test). Ruff: no error beyond `ruff-baseline.txt` (22 known) *as of the full run*; two errors were added afterwards in `tests/deploy` (round 1, L1).
 
 ## Not done / not verifiable here
 
