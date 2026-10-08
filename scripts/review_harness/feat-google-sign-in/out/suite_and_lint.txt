@@ -1,0 +1,28 @@
+# python -m pytest -q (head 948ec6c)
+FAILED tests/backend/test_retention.py::test_a_process_that_is_not_root_can_delete_read_only_uploads
+1 failed, 2814 passed, 5 skipped, 25 warnings in 511.67s (0:08:31)
+
+# ruff check buddy tests, per file and rule: base (origin/main 4b7dec2) vs head
+1c1
+<       1 Found 22
+---
+>       1 Found 24
+16a17,18
+>       1 tests/deploy/test_deploy_files.py: UP031
+>       1 tests/deploy/test_smoke_auth.py: E501
+
+# python scripts/check_ruff_baseline.py (the CI lint job) on head
+New ruff errors beyond the baseline:
+  tests/deploy/test_deploy_files.py:52: UP031 Use format specifiers instead of percent format
+  tests/deploy/test_smoke_auth.py:65: E501 Line too long (105 > 100)
+NEW: tests/deploy/test_deploy_files.py: 1 new UP031 (now 1, the baseline allows 0)
+NEW: tests/deploy/test_smoke_auth.py: 1 new E501 (now 1, the baseline allows 0)
+exit 1
+
+# ruff check backend: head (base: All checks passed)
+backend/gate.py:174:101: E501 Line too long (101 > 100)
+backend/retention.py:236:101: E501 Line too long (105 > 100)
+backend/sessions.py:271:101: E501 Line too long (102 > 100)
+backend/sessions.py:292:101: E501 Line too long (101 > 100)
+backend/web/common.py:1:101: E501 Line too long (102 > 100)
+Found 5 errors.
