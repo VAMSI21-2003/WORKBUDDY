@@ -152,25 +152,30 @@ Serve the HTTP API (see `docs/design/backend-api-design.md`), with
 `GROQ_API_KEY` (or `ANTHROPIC_API_KEY`) in the environment:
 
 ```bash
-# Locally: no password, loopback only
+# Locally: nothing configured, so open; loopback only
 WORKBUDDY_ENV=dev python -m backend --port 8000
 
-# A public demo: a password and its https address are required
-WORKBUDDY_ENV=production WORKBUDDY_DEMO_PASSWORD=... \
-  WORKBUDDY_PUBLIC_ORIGIN=https://demo.example python -m backend --port 8000
+# A public demo: people sign in with Google (docs/deploy.md, Section 7, step 6 creates the client)
+WORKBUDDY_ENV=production WORKBUDDY_GOOGLE_CLIENT_ID=... WORKBUDDY_GOOGLE_CLIENT_SECRET=... \
+  WORKBUDDY_OPERATOR_TOKEN=... WORKBUDDY_PUBLIC_ORIGIN=https://demo.example \
+  python -m backend --port 8000
 ```
 
-Without `WORKBUDDY_DEMO_PASSWORD` the server refuses to start unless
-`WORKBUDDY_ENV=dev`; in production it also needs an `https://`
-`WORKBUDDY_PUBLIC_ORIGIN` and binds `0.0.0.0` (otherwise `127.0.0.1`). The
-browser exchanges the password once (`POST /api/v1/access`, a form with a
-`password` field and the page's `Origin`) for the `__Host-wb_access` cookie;
-scripts send `Authorization: Bearer <password>`. Every `/api/v1` route needs
-one of the two except `/healthz` and the access route. Requests are limited
-per IP (`429` with `Retry-After`; set `WORKBUDDY_TRUSTED_PROXY_HOPS` behind
-a reverse proxy), sessions idle for `WORKBUDDY_SESSION_TTL_HOURS` (default
-24) are deleted with their files, and a session has quotas on uploads, upload
-bytes and turns. `/docs` and `/openapi.json` are not served.
+Production refuses to start without the Google client id and secret and an
+`https://` `WORKBUDDY_PUBLIC_ORIGIN` (the address Google sends people back to is
+that plus `/auth/google/callback`), and binds `0.0.0.0` (otherwise `127.0.0.1`).
+Each person signs in with Google and reaches only their own sessions and files;
+another person's session is a `404`, the same as one that doesn't exist. Scripts
+and `deploy/smoke.sh` send `Authorization: Bearer <WORKBUDDY_OPERATOR_TOKEN>` and
+reach only the sessions they create. `WORKBUDDY_DEMO_PASSWORD` is not a
+credential in production; outside production (`WORKBUDDY_ENV` empty or `dev`) it
+still works, and `WORKBUDDY_ENV=dev` with nothing set is open. Every `/api/v1`
+route needs a credential except `/healthz` and the access route. Requests are limited
+per IP and, for turns and uploads, per person (`429` with `Retry-After`; set
+`WORKBUDDY_TRUSTED_PROXY_HOPS` behind a reverse proxy), sessions idle for
+`WORKBUDDY_SESSION_TTL_HOURS` (default 24) are deleted with their files, and a
+session has quotas on uploads, upload bytes and turns. `/docs` and `/openapi.json`
+are not served.
 
 Open `http://127.0.0.1:8000/` for the web page (`docs/design/frontend-design.md`):
 the same server renders it, with no Node and no build step. With no

@@ -14,7 +14,7 @@ Owner decisions (not reopened): Google only (OpenID Connect, authorization-code 
 |---|---|
 | `GET /auth/google/start` | Makes `state`, `nonce` and a PKCE verifier; keeps them in memory for 10 minutes (bounded, single use); sets `__Host-wb_login` (Secure, HttpOnly, SameSite=Lax, a random binder whose hash is kept with the pending login); `302` to Google (`scope=openid email`, `prompt=select_account`, `code_challenge_method=S256`). |
 | `GET /auth/google/callback` | Takes the pending login (so a second use of the same `state` fails first), checks `state` and the binder cookie, exchanges the code (with the verifier and the client secret), then validates the ID token: RS256 only, signature against Google's JWKS (cached 1 h; one refetch per 60 s for an unknown `kid`), `iss`, `aud` (and `azp` if several), `exp`/`iat`, `nonce`, `sub`, `email`, `email_verified is true`, and the allowed list. Every failure is the same page ("Sign-in didn't work"), except an email not on the list. Success sets the access cookie, clears the login cookie, and answers `200` with a page that moves to `/` (a redirect would be a cross-site chain and the SameSite=Strict cookie would not be sent on it). |
-| `POST /auth/signout` | Ends the server-side sign-in, clears the access and session-pointer cookies, `303` to `/`. Cookie-authenticated, so the Origin check applies; works with an already-dead cookie. |
+| `POST /auth/signout` | Ends the server-side sign-in, clears the access and session-pointer cookies. The page sends it with htmx (`204` and `HX-Redirect: /`): a plain form POST would send `Origin: null` under the page's `Referrer-Policy: no-referrer` and fail the Origin check, so a request without `HX-Request` gets `303` to `/`. The Origin check applies to every request; it works with an already-dead cookie. |
 
 The redirect address is `WORKBUDDY_PUBLIC_ORIGIN` + `/auth/google/callback`, built from the setting only, never from `Host` or any header. No route takes a "return to" value: after sign-in the browser always goes to `/`. There is no open redirect to build.
 
@@ -40,7 +40,7 @@ The session id is now written to `owner.json` (it was never on disk). That is a 
 
 ## Limits per person
 
-New buckets `user_turns` and `user_uploads`, same shape as the per-IP ones (10/h and 20/h by default, `WORKBUDDY_RATE_USER_TURNS_*`, `WORKBUDDY_RATE_USER_UPLOADS_*`), keyed by the owner id and charged next to the per-IP buckets in the same all-or-nothing step. A refusal costs nothing, as before.
+New buckets `signin` (per address: starting and finishing a sign-in, each calls Google; 10 burst, 60/h), and `user_turns` and `user_uploads`, same shape as the per-IP ones (10/h and 20/h by default, `WORKBUDDY_RATE_USER_TURNS_*`, `WORKBUDDY_RATE_USER_UPLOADS_*`), keyed by the owner id and charged next to the per-IP buckets in the same all-or-nothing step. A refusal costs nothing, as before.
 
 ## Settings
 
