@@ -6,6 +6,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <meta name="color-scheme" content="light dark">
 <meta name="htmx-config" content='{"allowEval":false,"allowScriptTags":false,"includeIndicatorStyles":false,"selfRequestsOnly":true,"historyEnabled":false,"historyCacheSize":0}'>
+{% block head_extra %}{% endblock %}
 <title>{% block title %}{{ copy.site_title() }}{% endblock %}</title>
 <link rel="stylesheet" href="{{ static_url('styles.css') }}">
 <script src="{{ static_url('htmx.min.js') }}" defer></script>

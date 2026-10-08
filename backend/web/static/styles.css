@@ -121,6 +121,26 @@ a {
   gap: 0.25rem;
 }
 
+.account {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.5rem 0.75rem;
+  margin-top: 0.25rem;
+}
+
+.account-email {
+  min-width: 0;
+  color: var(--muted);
+  font-size: 0.875rem;
+  overflow-wrap: anywhere;
+}
+
+.signout {
+  display: inline-flex;
+  margin: 0;
+}
+
 .demo-notice,
 .hint {
   color: var(--muted);
@@ -178,6 +198,15 @@ a {
   max-width: 26rem;
   margin: 12vh auto 0;
   padding: 1.5rem var(--gap);
+}
+
+.gate-google {
+  display: flex;
+  flex-direction: column;
+}
+
+.gate-google .btn {
+  text-decoration: none;
 }
 
 .gate-form {

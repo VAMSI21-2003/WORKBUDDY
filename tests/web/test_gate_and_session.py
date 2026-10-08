@@ -70,7 +70,7 @@ def test_a_wrong_password_gets_the_apis_own_401_and_sets_no_cookie(tmp_path: Pat
 
     assert response.status_code == 401
     assert response.json() == {
-        "error": {"code": "unauthorized", "message": "The demo password is missing or wrong."}
+        "error": {"code": "unauthorized", "message": "You aren't signed in, or your sign-in has ended."}
     }
     assert "set-cookie" not in response.headers
     assert parse(client.get("/").text).find("form", id="gate-form") is not None
@@ -141,7 +141,7 @@ def test_the_page_carries_the_security_headers(tmp_path: Path) -> None:
         assert response.headers["cache-control"] == "no-store"
         assert response.headers["x-content-type-options"] == "nosniff"
         assert response.headers["referrer-policy"] == "no-referrer"
-        assert response.headers["strict-transport-security"]
+        # (HSTS is production's alone: test_hsts_is_sent_in_production_only_...)
 
 
 # -- The session lifecycle -----------------------------------------------------------------------

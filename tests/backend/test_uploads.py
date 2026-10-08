@@ -19,6 +19,7 @@ import pytest
 from fastapi.testclient import TestClient
 
 from backend.errors import MESSAGES, XLS_MESSAGE, ErrorCode, file_too_large_message
+from backend.identity import DEV
 from backend.main import create_app
 from backend.settings import Settings
 from backend.uploads import MAX_NAME_CHARS, check_workbook, sanitize_name
@@ -471,7 +472,7 @@ def test_an_upload_that_finishes_while_a_turn_started_is_409_and_kept_nowhere(
 
     def store_then_a_turn_starts(*args, **kwargs):  # type: ignore[no-untyped-def]
         stored = real_store(*args, **kwargs)
-        record = app.state.registry.get(session_id)  # type: ignore[attr-defined]
+        record = app.state.registry.get(session_id, DEV)  # type: ignore[attr-defined]
         app.state.runner.start(record, "remove duplicate rows", None, None)  # type: ignore[attr-defined]
         return stored
 

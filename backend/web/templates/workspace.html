@@ -7,6 +7,15 @@
   <header class="app-header">
     <h1>{{ copy.site_title() }}</h1>
     <p class="demo-notice">{{ copy.demo_notice() }}{% if retention_hours is not none %} {{ copy.retention_notice(retention_hours) }}{% endif %}</p>
+    <div class="account" role="group" aria-label="{{ copy.account_label() }}">
+      {% if account_email is not none %}
+      <span class="account-email" id="account-email">{{ copy.signed_in_as(account_email) }}</span>
+      {% endif %}
+      <button type="button" id="new-session" class="btn" hx-post="/ui/sessions" hx-target="#workspace" hx-swap="outerHTML" data-new-session data-error-slot="page-notices">{{ copy.new_session_button() }}</button>
+      {% if account_email is not none %}
+      <form class="signout" method="post" action="/auth/signout"><button type="submit" id="signout" class="btn">{{ copy.signout_button() }}</button></form>
+      {% endif %}
+    </div>
   </header>
   <div id="page-notices" class="notices" role="region" aria-label="{{ copy.notices_label() }}">{% if notice_gone %}<p class="notice" role="status">{{ copy.session_gone() }}</p>{% endif %}</div>
   {% if conversation is not none %}

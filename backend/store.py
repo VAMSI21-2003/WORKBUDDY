@@ -3,8 +3,15 @@
 Design Sections 3.1, 3.2 and 7.5 (run 8), and item 7 of "What a PR-2 author
 must do" (review M2). Layout under the data root::
 
+    sessions/{key}/owner.json          who the session belongs to (docs/design/google-sign-in.md)
     sessions/{key}/session.json        Context, file registry, turn ids, next turn number
     sessions/{key}/turns/{turn_id}.json   one turn record
+
+``owner.json`` is ``{"version": 1, "owner": <owner id> | null, "session_id": <id> | null}``, written
+before ``session.json`` when a session is created and never rewritten. ``null`` is a session
+saved before sign-in existed (``migrate_ownership``): it belongs to nobody. A session without the
+file, or with one that doesn't read back, belongs to nobody either. ``session.json`` is as it was
+(version 1), so an older server still opens these sessions and ignores the file.
 
 Every write goes to a temporary file that is then ``os.replace``d over the
 target, so a crash leaves the old file or the new one, never half of one.
@@ -25,7 +32,8 @@ import logging
 import os
 import re
 import secrets
-from collections.abc import Callable
+from collections.abc import Callable, Iterator
+from dataclasses import dataclass
 from datetime import datetime
 from pathlib import Path
 from typing import Any
@@ -52,8 +60,11 @@ from buddy.voice_catalog import FALLBACK_PIPELINE_ERROR
 logger = logging.getLogger(__name__)
 
 FORMAT_VERSION = 1
+OWNER_FORMAT_VERSION = 1
+OWNER_FILE = "owner.json"
 MAX_RECORD_BYTES = 16 * 1024 * 1024
 
+_KEY = re.compile(r"^[0-9a-f]{32}$")
 _TURN_ID = re.compile(r"^t(\d{4,9})$")
 _SHA256 = re.compile(r"^[0-9a-f]{64}$")
 _MODES = ("friend", "focus")
@@ -65,6 +76,14 @@ _TURN_KEYS = {
     "status", "outcome", "finished_at", "reply", "reply_source", "delivered_files",
     "detail",
 }
+
+
+@dataclass(frozen=True)
+class OwnerFile:
+    """What ``owner.json`` says: ``owner`` is ``None`` for a session nobody owns."""
+
+    owner: str | None
+    session_id: str | None
 
 
 class CorruptRecord(ValueError):
@@ -84,7 +103,80 @@ class SessionStore:
         folder = record.meta_dir(self._settings)
         folder.mkdir(parents=True, mode=0o700, exist_ok=False)
         (folder / "turns").mkdir(mode=0o700)
+        # The owner first: a session.json with no owner file belongs to nobody.
+        self.write_owner(record.key, record.owner, record.session_id)
         self.save_session(record)
+
+    def write_owner(self, key: str, owner: str | None, session_id: str | None) -> None:
+        atomic_write_json(
+            self._settings.sessions_dir / key / OWNER_FILE,
+            {"version": OWNER_FORMAT_VERSION, "owner": owner, "session_id": session_id},
+        )
+
+    def read_owner(self, key: str) -> OwnerFile | None:
+        """What ``owner.json`` of session ``key`` says, or ``None`` if it's missing or unreadable.
+
+        ``None`` means the same as an owner of ``None`` to every caller: nobody owns the session.
+        """
+        path = self._settings.sessions_dir / key / OWNER_FILE
+        try:
+            if path.is_symlink() or not path.is_file() or path.stat().st_size > 4096:
+                return None
+            data = json.loads(path.read_text(encoding="utf-8"))
+            _expect_keys(data, "owner", {"version", "owner", "session_id"})
+            _check(data["version"] == OWNER_FORMAT_VERSION and _is_int(data["version"]), "version")
+            owner, session_id = data["owner"], data["session_id"]
+            _check(owner is None or (isinstance(owner, str) and 0 < len(owner) <= 300), "owner")
+            _check(
+                session_id is None or (isinstance(session_id, str) and valid_id(session_id)),
+                "session_id",
+            )
+            _check((owner is None) == (session_id is None), "owner: owner and session_id")
+        except (OSError, ValueError):  # CorruptRecord is a ValueError
+            logger.error("The owner file of session %s doesn't read back; it has no owner", key)
+            return None
+        return OwnerFile(owner=owner, session_id=session_id)
+
+    def owners(self) -> Iterator[tuple[str, OwnerFile]]:
+        """``(key, owner file)`` for every session that has an owner."""
+        try:
+            keys = sorted(p.name for p in self._settings.sessions_dir.iterdir() if p.is_dir())
+        except OSError:
+            return
+        for key in keys:
+            if not _KEY.fullmatch(key):
+                continue
+            found = self.read_owner(key)
+            if found is not None and found.owner is not None:
+                yield key, found
+
+    def migrate_ownership(self) -> int:
+        """Give every session saved before sign-in existed an explicit "nobody" owner.
+
+        A session folder with a ``session.json`` and no ``owner.json`` is from a server that had
+        no owners (or from a creation that stopped half way). It is marked ``owner: null`` and
+        nothing else about it is touched, so it stays on disk, unreachable, until the retention
+        sweep deletes it for being idle. Returns how many were marked.
+        """
+        marked = 0
+        try:
+            folders = sorted(p for p in self._settings.sessions_dir.iterdir() if p.is_dir())
+        except OSError:
+            return 0
+        for folder in folders:
+            if not _KEY.fullmatch(folder.name) or (folder / OWNER_FILE).exists():
+                continue
+            if not (folder / "session.json").is_file():
+                continue
+            self.write_owner(folder.name, None, None)
+            marked += 1
+        if marked:
+            logger.warning(
+                "Marked %d session(s) saved before sign-in as owned by nobody; they can't be "
+                "opened and will be deleted by the retention sweep",
+                marked,
+            )
+        return marked
 
     def save_session(self, record: SessionRecord) -> None:
         """Rewrite ``session.json``. The caller holds the record's lock."""
@@ -230,8 +322,11 @@ class SessionStore:
         next_seq = max([next_seq, *(seq + 1 for seq in used)])
 
         state = BuddyState(context=context)
+        owned = self.read_owner(key)
         return SessionRecord(
             key=key,
+            owner=owned.owner if owned is not None else None,
+            session_id=owned.session_id if owned is not None else None,
             created_at=created_at,
             state=state,
             files=files,

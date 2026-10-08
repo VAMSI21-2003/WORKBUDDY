@@ -58,6 +58,11 @@ LOOPBACK_HOST = "127.0.0.1"
 LOCALHOST_NAME = "localhost"
 ALL_INTERFACES_HOST = "0.0.0.0"  # only ever bound in production
 
+# Sign in with Google (docs/design/google-sign-in.md). The issuer is Google's; the setting that
+# overrides it exists for the fake identity provider in the tests and the live runs only.
+GOOGLE_ISSUER = "https://accounts.google.com"
+MIN_OPERATOR_TOKEN_CHARS = 32
+
 # Read by PR-2 only. Since PR-3 every file-changing step asks the user, and
 # approving without asking is a test setting that no variable turns on.
 RETIRED_AUTO_APPROVE_VARIABLE = "WORKBUDDY_AUTO_APPROVE"
@@ -92,6 +97,12 @@ DEFAULT_RATE_LIMITS: dict[str, BucketSpec] = {
     "access": BucketSpec(burst=10, per_hour=20),
     "healthz": BucketSpec(burst=10, per_hour=3600),
     "page": BucketSpec(burst=30, per_hour=3600),
+    # Per IP: starting and finishing a sign-in (each makes calls to Google).
+    "signin": BucketSpec(burst=10, per_hour=60),
+    # Per person (keyed by the owner id, not the address): the model quota and the disk one
+    # account can use, however many addresses it comes from.
+    "user_turns": BucketSpec(burst=10, per_hour=10),
+    "user_uploads": BucketSpec(burst=5, per_hour=20),
 }
 
 
@@ -144,6 +155,16 @@ class Settings:
         trusted_proxy_hops: How many reverse proxies stand in front of the
             app (``WORKBUDDY_TRUSTED_PROXY_HOPS``). ``0``: the client IP is
             the socket's, and ``X-Forwarded-For`` is ignored.
+        google_client_id: The Google sign-in client's id (``WORKBUDDY_GOOGLE_CLIENT_ID``).
+            Required, with the secret, in production.
+        google_client_secret: Its secret. Never shown in ``repr``, logged or returned.
+        allowed_emails: Lower-case emails that may sign in (``WORKBUDDY_ALLOWED_EMAILS``).
+            Empty: any verified Google email may.
+        operator_token: A Bearer token for scripts and ``deploy/smoke.sh``
+            (``WORKBUDDY_OPERATOR_TOKEN``, at least 32 characters). It reaches only the
+            sessions it created. Never shown in ``repr``.
+        oidc_issuer: The identity provider (``WORKBUDDY_OIDC_ISSUER``). Google's, except in the
+            tests and the live runs, which use a fake one.
         cors_origins: Exact origins allowed to call the API cross-origin.
             Empty (the same-origin deployment) sends no CORS headers.
         rate_limits: Every per-IP token bucket's burst and refill.
@@ -176,6 +197,11 @@ class Settings:
     access_ttl_hours: float = 12.0
     access_max_tokens: int = 10_000
     trusted_proxy_hops: int = 0
+    google_client_id: str | None = None
+    google_client_secret: str | None = field(default=None, repr=False)
+    allowed_emails: tuple[str, ...] = ()
+    operator_token: str | None = field(default=None, repr=False)
+    oidc_issuer: str = GOOGLE_ISSUER
     cors_origins: tuple[str, ...] = ()
     rate_limits: dict[str, BucketSpec] = field(default_factory=default_rate_limits, compare=False)
     session_ttl_hours: float = 24.0
@@ -231,7 +257,23 @@ class Settings:
             raise SettingsError('env must be "production", "dev" or unset')
         if self.demo_password is not None and not self.demo_password:
             raise SettingsError("demo_password must not be empty")
-        if self.demo_password is None and self.env != ENV_DEV:
+        self._check_sign_in()
+        if self.env == ENV_PRODUCTION:
+            if not self.google_enabled:
+                raise SettingsError(
+                    "WORKBUDDY_GOOGLE_CLIENT_ID and WORKBUDDY_GOOGLE_CLIENT_SECRET are "
+                    "required in production"
+                )
+            if self.demo_password is not None:
+                # Not an error: an upgrade with an old .env must start, not roll back. The
+                # password is simply not a credential here (backend.access).
+                logger.warning(
+                    "WORKBUDDY_DEMO_PASSWORD is set but ignored in production: people sign in "
+                    "with Google"
+                )
+        elif not (self.demo_password or self.operator_token or self.google_enabled) and (
+            self.env != ENV_DEV
+        ):
             # A deployment can't silently be open.
             raise SettingsError(
                 "WORKBUDDY_DEMO_PASSWORD is not set; set it, or set WORKBUDDY_ENV=dev"
@@ -258,6 +300,41 @@ class Settings:
         origins = tuple(normalize_origin(o, "cors_origins") for o in self.cors_origins)
         object.__setattr__(self, "cors_origins", origins)
 
+    def _check_sign_in(self) -> None:
+        for name in ("google_client_id", "google_client_secret"):
+            value = getattr(self, name)
+            if value is not None and (not isinstance(value, str) or not value.strip()):
+                raise SettingsError(f"{name} must not be empty")
+        if (self.google_client_id is None) != (self.google_client_secret is None):
+            raise SettingsError(
+                "WORKBUDDY_GOOGLE_CLIENT_ID and WORKBUDDY_GOOGLE_CLIENT_SECRET go together"
+            )
+        emails = tuple(e.strip().lower() for e in self.allowed_emails)
+        for email in emails:
+            local, at, domain = email.partition("@")
+            if not (local and at and "." in domain and "@" not in domain and " " not in email):
+                raise SettingsError("WORKBUDDY_ALLOWED_EMAILS must be a list of email addresses")
+        object.__setattr__(self, "allowed_emails", emails)
+        token = self.operator_token
+        if token is not None:
+            if (
+                not isinstance(token, str)
+                or len(token) < MIN_OPERATOR_TOKEN_CHARS
+                or token != token.strip()
+                or any(c.isspace() or ord(c) > 126 or ord(c) < 33 for c in token)
+            ):
+                raise SettingsError(
+                    f"WORKBUDDY_OPERATOR_TOKEN must be at least {MIN_OPERATOR_TOKEN_CHARS} "
+                    "plain characters with no spaces"
+                )
+            if token == self.demo_password:
+                raise SettingsError("WORKBUDDY_OPERATOR_TOKEN must differ from the demo password")
+        object.__setattr__(
+            self, "oidc_issuer", normalize_origin(self.oidc_issuer, "WORKBUDDY_OIDC_ISSUER")
+        )
+        if self.env == ENV_PRODUCTION and not self.oidc_issuer.startswith("https://"):
+            raise SettingsError("WORKBUDDY_OIDC_ISSUER must be an https:// origin in production")
+
     def _check_rate_limits(self) -> None:
         if set(self.rate_limits) != set(DEFAULT_RATE_LIMITS):
             raise SettingsError("rate_limits must define exactly the buckets " + ", ".join(
@@ -278,6 +355,16 @@ class Settings:
                 "the poll bucket must refill at least as fast (per second) as "
                 "max_concurrent_turns"
             )
+
+    @property
+    def google_enabled(self) -> bool:
+        """Whether people can sign in with Google (a client id and secret are set)."""
+        return self.google_client_id is not None and self.google_client_secret is not None
+
+    @property
+    def password_login(self) -> bool:
+        """Whether the demo password is a credential: set, and not in production."""
+        return self.demo_password is not None and self.env != ENV_PRODUCTION
 
     @property
     def bind_host(self) -> str:
@@ -359,6 +446,13 @@ class Settings:
             busy_retry_after_s=_int(env, "WORKBUDDY_BUSY_RETRY_AFTER_S", 10),
             env=env.get("WORKBUDDY_ENV", ENV_UNSET),
             demo_password=env.get("WORKBUDDY_DEMO_PASSWORD") or None,
+            google_client_id=env.get("WORKBUDDY_GOOGLE_CLIENT_ID") or None,
+            google_client_secret=env.get("WORKBUDDY_GOOGLE_CLIENT_SECRET") or None,
+            allowed_emails=tuple(
+                e.strip() for e in env.get("WORKBUDDY_ALLOWED_EMAILS", "").split(",") if e.strip()
+            ),
+            operator_token=env.get("WORKBUDDY_OPERATOR_TOKEN") or None,
+            oidc_issuer=env.get("WORKBUDDY_OIDC_ISSUER") or GOOGLE_ISSUER,
             public_origin=env.get("WORKBUDDY_PUBLIC_ORIGIN", ""),
             port=port,
             access_ttl_hours=_number(

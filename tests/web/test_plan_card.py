@@ -7,6 +7,7 @@ from pathlib import Path
 from typing import Any
 
 from backend.confirmation import PLAN_NOTE_CHAIN
+from backend.identity import DEV
 from tests.backend.factories import (
     DEDUPE_THEN_EMPTY,
     PipelineFactory,
@@ -109,7 +110,7 @@ def test_the_time_left_is_the_servers_and_a_poll_with_no_change_updates_only_tha
     app.state.web_clock = clock
     _, container = ui.run_to_plan(sid)
     version = int(container.get("data-version") or 0)
-    record = app.state.registry.get(sid)
+    record = app.state.registry.get(sid, DEV)
     expires = record.turn("t0001").pending_confirmation.expires_at
     assert isinstance(expires, datetime)
 

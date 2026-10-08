@@ -18,7 +18,13 @@ from fastapi.responses import Response
 from starlette.concurrency import run_in_threadpool
 
 from backend import views
-from backend.access import AccessDependency, exchange_password, forbidden_origin, origin_allowed
+from backend.access import (
+    AccessDependency,
+    check_credential,
+    exchange_password,
+    forbidden_origin,
+    origin_allowed,
+)
 from backend.delivery import check_turn_file
 from backend.errors import (
     ApiError,
@@ -69,7 +75,7 @@ access_router = APIRouter(prefix="/api/v1")
 XLSX_MEDIA_TYPE = "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
 
 _DESCRIPTIONS = {
-    401: "The demo password is missing or wrong",
+    401: "There is no valid sign-in or token on the request",
     403: "The request didn't come from the demo page, or the session is at one of its limits",
     404: "Not found",
     409: "Conflict",
@@ -156,7 +162,13 @@ def meter_of(request: Request) -> StorageMeter:
 
 
 def session_of(request: Request, session_id: str) -> SessionRecord:
-    record = registry_of(request).get(session_id)
+    """The session ``session_id`` if the request's principal owns it, else the one ``404``.
+
+    Someone else's session, a missing one and a badly shaped id are the same answer. The gate
+    (``backend.gate``) has already made the same check for every route with a ``{session_id}``;
+    this is the registry's own check, which no code path can skip.
+    """
+    record = registry_of(request).get(session_id, check_credential(request).principal)
     if record is None:
         raise ApiError(ErrorCode.SESSION_NOT_FOUND)
     return record
@@ -187,7 +199,9 @@ def create_session(request: Request, body: CreateSessionRequest | None = None) -
     if meter_of(request).full():
         raise ApiError(ErrorCode.STORAGE_FULL)
     mode = body.mode if body is not None else "friend"
-    session_id, record = registry_of(request).create(mode)
+    principal = check_credential(request).principal
+    assert principal is not None  # the router requires a valid credential
+    session_id, record = registry_of(request).create(mode, principal.owner)
     with record.lock:
         return views.session_created(session_id, record, settings_of(request))
 
@@ -461,12 +475,14 @@ def download_file(request: Request, session_id: str, file_id: str) -> Response:
     ],
 )
 async def access(request: Request) -> Response:
-    """Exchange the demo password (a form field) for the access cookie.
+    """Exchange the demo password (a form field) for the access cookie. Not in production.
 
     ``application/x-www-form-urlencoded`` only: anything else is ``422``. The
     request must carry an ``Origin`` header equal to the demo's public origin
     (``403 forbidden_origin``). A wrong or missing password is the same
-    ``401`` every route gives.
+    ``401`` every route gives, and **in production every password is**: people
+    sign in with Google (``/auth/google/start``) there, and the demo password
+    is not a credential.
     """
     if not origin_allowed(request.scope, settings_of(request)):
         raise forbidden_origin()

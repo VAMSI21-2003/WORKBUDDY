@@ -120,13 +120,23 @@ def test_a_traversal_attempt_never_reaches_a_session(client: TestClient) -> None
             assert response.json()["session_id"] == session_id
 
 
-def test_the_session_id_is_never_written_to_disk(client: TestClient, settings: Settings) -> None:
+def test_the_session_id_is_written_to_disk_only_in_owner_json(
+    client: TestClient, settings: Settings
+) -> None:
+    """The id used to be the session's only credential and was kept off the disk. A request now
+    needs its owner as well, and ``owner.json`` keeps the id so that a person who signs in again
+    is taken to their most recent session (docs/design/google-sign-in.md, "Ownership"). It is in
+    that one file, never in a path, never in ``session.json`` or a turn record."""
     session_id = client.post("/api/v1/sessions").json()["session_id"]
 
-    names = [p.name for p in settings.data_dir.rglob("*")]
-    contents = b"".join(p.read_bytes() for p in settings.data_dir.rglob("*") if p.is_file())
+    names = [str(p.relative_to(settings.data_dir)) for p in settings.data_dir.rglob("*")]
     assert session_id not in "".join(names)
-    assert session_id.encode() not in contents
+    holders = [
+        p.name
+        for p in settings.data_dir.rglob("*")
+        if p.is_file() and session_id.encode() in p.read_bytes()
+    ]
+    assert holders == ["owner.json"]
 
 
 def test_the_session_key_is_not_the_id() -> None:

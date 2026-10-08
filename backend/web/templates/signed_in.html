@@ -1,0 +1,10 @@
+{% extends "base.html" %}
+{% import "_copy.html" as copy %}
+{% block head_extra %}<meta http-equiv="refresh" content="0; url=/">{% endblock %}
+{% block body %}
+<main class="gate">
+  <h1>{{ copy.site_title() }}</h1>
+  <p>{{ copy.signed_in_moving() }}</p>
+  <p><a class="btn btn-primary" href="/">{{ copy.signed_in_link() }}</a></p>
+</main>
+{% endblock %}

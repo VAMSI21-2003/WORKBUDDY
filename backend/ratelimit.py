@@ -5,9 +5,9 @@ Design "Decisions (2026-09-30, part 2)", item 1, and "Decisions
 by client IP, and every request is charged to them by what its route
 declares, never by its path:
 
-==========  =====  ==========  ============================================
-bucket      burst  refill      charged for
-==========  =====  ==========  ============================================
+============  =====  ==========  ============================================
+bucket        burst  refill      charged for
+============  =====  ==========  ============================================
 general     60     1/s         every ``/api/v1`` request that isn't a valid poll
 poll        30     3/s         a poll of a turn, with a valid credential
 turns       10     10/hour     ``POST .../turns``, in addition to ``general``
@@ -63,6 +63,12 @@ UPLOADS = "uploads"
 ACCESS = "access"
 HEALTHZ = "healthz"
 PAGE = "page"
+SIGNIN = "signin"
+USER_TURNS = "user_turns"
+USER_UPLOADS = "user_uploads"
+
+# The per-person bucket charged alongside a per-address one.
+_PER_PERSON = {TURNS: USER_TURNS, UPLOADS: USER_UPLOADS}
 
 _SAFE_METHODS = frozenset({"GET", "HEAD", "OPTIONS"})
 # A bucket that has refilled completely is the same as a bucket nobody has
@@ -146,7 +152,7 @@ def check_route_declarations(app: FastAPI) -> None:
     """
     from backend.access import require_access  # (access imports nothing from here)
 
-    known = {GENERAL, POLL, TURNS, UPLOADS, ACCESS, HEALTHZ, PAGE}
+    known = {GENERAL, POLL, TURNS, UPLOADS, ACCESS, HEALTHZ, PAGE, SIGNIN}
     for route in iter_routes(app):
         if not _is_api_route(route):
             continue
@@ -170,8 +176,16 @@ def check_route_declarations(app: FastAPI) -> None:
 # -- Charging -----------------------------------------------------------------------------
 
 
-def charges_for(declared: RouteLimits | None, *, valid: bool, path: str) -> list[tuple[str, int]]:
+Charge = tuple[str, int] | tuple[str, int, str]
+
+
+def charges_for(
+    declared: RouteLimits | None, *, valid: bool, path: str, owner: str | None = None
+) -> list[Charge]:
     """What a request costs before it runs: ``[(bucket, tokens), ...]``.
+
+    A charge may carry a third element, the key it is charged under; without one it is the
+    request's address. ``owner`` (a valid request's principal) adds the per-person charges.
 
     ``declared`` is the matched route's declaration; ``None`` (no route
     matched, or the method isn't allowed) is charged to ``general`` under
@@ -182,7 +196,14 @@ def charges_for(declared: RouteLimits | None, *, valid: bool, path: str) -> list
         return [(GENERAL, 1)] if path.startswith("/api/v1") else [(PAGE, 1)]
     if declared.credential and not valid:
         return [(GENERAL, 2)]
-    return [(bucket, 1) for bucket in declared.buckets]
+    charges: list[Charge] = [(bucket, 1) for bucket in declared.buckets]
+    if owner is not None:
+        charges += [
+            (_PER_PERSON[bucket], 1, f"person:{owner}")
+            for bucket in declared.buckets
+            if bucket in _PER_PERSON
+        ]
+    return charges
 
 
 def after_response(
@@ -225,7 +246,7 @@ class RateLimiter:
         self._lock = threading.Lock()
         self._buckets: dict[tuple[str, str], _Bucket] = {}
 
-    def charge(self, ip: str, charges: Sequence[tuple[str, int]]) -> Decision:
+    def charge(self, ip: str, charges: Sequence[Charge]) -> Decision:
         """Charge a request, or refuse it and charge nothing.
 
         Every bucket named must hold at least one token. Then each is
@@ -235,7 +256,10 @@ class RateLimiter:
         """
         with self._lock:
             now = self._clock()
-            states = [(name, cost, self._refilled(ip, name, now)) for name, cost in charges]
+            states = [
+                (name, cost, self._refilled(key, name, now))
+                for name, cost, key in ((c[0], c[1], c[2] if len(c) > 2 else ip) for c in charges)
+            ]
             wait = 0
             for name, _, bucket in states:
                 if bucket.tokens < 1 - _EPSILON:

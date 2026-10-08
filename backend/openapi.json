@@ -1232,7 +1232,7 @@
   "paths": {
     "/api/v1/access": {
       "post": {
-        "description": "Exchange the demo password (a form field) for the access cookie.\n\n``application/x-www-form-urlencoded`` only: anything else is ``422``. The\nrequest must carry an ``Origin`` header equal to the demo's public origin\n(``403 forbidden_origin``). A wrong or missing password is the same\n``401`` every route gives.",
+        "description": "Exchange the demo password (a form field) for the access cookie. Not in production.\n\n``application/x-www-form-urlencoded`` only: anything else is ``422``. The\nrequest must carry an ``Origin`` header equal to the demo's public origin\n(``403 forbidden_origin``). A wrong or missing password is the same\n``401`` every route gives, and **in production every password is**: people\nsign in with Google (``/auth/google/start``) there, and the demo password\nis not a credential.",
         "operationId": "access_api_v1_access_post",
         "requestBody": {
           "content": {
@@ -1273,7 +1273,7 @@
                 }
               }
             },
-            "description": "The demo password is missing or wrong",
+            "description": "There is no valid sign-in or token on the request",
             "headers": {
               "WWW-Authenticate": {
                 "description": "Always `Bearer realm=\"workbuddy-demo\"`.",
@@ -1379,7 +1379,7 @@
                 }
               }
             },
-            "description": "The demo password is missing or wrong",
+            "description": "There is no valid sign-in or token on the request",
             "headers": {
               "WWW-Authenticate": {
                 "description": "Always `Bearer realm=\"workbuddy-demo\"`.",
@@ -1507,7 +1507,7 @@
                 }
               }
             },
-            "description": "The demo password is missing or wrong",
+            "description": "There is no valid sign-in or token on the request",
             "headers": {
               "WWW-Authenticate": {
                 "description": "Always `Bearer realm=\"workbuddy-demo\"`.",
@@ -1615,7 +1615,7 @@
                 }
               }
             },
-            "description": "The demo password is missing or wrong",
+            "description": "There is no valid sign-in or token on the request",
             "headers": {
               "WWW-Authenticate": {
                 "description": "Always `Bearer realm=\"workbuddy-demo\"`.",
@@ -1731,7 +1731,7 @@
                 }
               }
             },
-            "description": "The demo password is missing or wrong",
+            "description": "There is no valid sign-in or token on the request",
             "headers": {
               "WWW-Authenticate": {
                 "description": "Always `Bearer realm=\"workbuddy-demo\"`.",
@@ -1899,7 +1899,7 @@
                 }
               }
             },
-            "description": "The demo password is missing or wrong",
+            "description": "There is no valid sign-in or token on the request",
             "headers": {
               "WWW-Authenticate": {
                 "description": "Always `Bearer realm=\"workbuddy-demo\"`.",
@@ -2027,7 +2027,7 @@
                 }
               }
             },
-            "description": "The demo password is missing or wrong",
+            "description": "There is no valid sign-in or token on the request",
             "headers": {
               "WWW-Authenticate": {
                 "description": "Always `Bearer realm=\"workbuddy-demo\"`.",
@@ -2193,7 +2193,7 @@
                 }
               }
             },
-            "description": "The demo password is missing or wrong",
+            "description": "There is no valid sign-in or token on the request",
             "headers": {
               "WWW-Authenticate": {
                 "description": "Always `Bearer realm=\"workbuddy-demo\"`.",
@@ -2339,7 +2339,7 @@
                 }
               }
             },
-            "description": "The demo password is missing or wrong",
+            "description": "There is no valid sign-in or token on the request",
             "headers": {
               "WWW-Authenticate": {
                 "description": "Always `Bearer realm=\"workbuddy-demo\"`.",
