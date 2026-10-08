@@ -325,9 +325,9 @@ Each item has its own acceptance criterion: fixed with a test, or explicitly clo
   - L4 (`stack_flow.py` fixed in fixes1; the other three still open): `scripts/live_api_runs.py`, `live_frontend_runs.py`, `measure_container.py` and `scripts/live_stack/stack_flow.py` sign in with the demo password, which production no longer accepts. Switch them to the operator token.
   - L5 (fixed in fixes1: the note is corrected, and the server warns at start when the issuer isn't Google's): the design note says sign-out is a plain form POST (it's htmx) and that `WORKBUDDY_OIDC_ISSUER` is for tests only (production accepts any https issuer). Correct the note, or refuse a non-Google issuer in production.
 - **feat-google-sign-in review round 2, deferred LOWs** (`docs/reviews/feat-google-sign-in-review.md`, "Review round 2"). Round 2 confirmed L1, L2 and L3 above as fixed. L4 stays open for the three scripts. L5 is half fixed (R2-L1).
-  - R2-L1: "The page" in `docs/design/google-sign-in.md` still calls Sign out "(a plain form `POST`)" one sentence before saying it's htmx. Delete the parenthesis.
-  - R2-L2: no test pins clearing `__Host-wb_login` on a refusal after the pending login was taken (mutation N07 survives). Assert `Max-Age=0` for it on a `provider_error` refusal.
-  - R2-L3: the start-up warning for a non-Google `WORKBUDDY_OIDC_ISSUER` is untested (mutation N08 survives). Add a `caplog` test: logged once for a non-Google issuer, never for Google's.
+  - (Fixed in `docs/reviews/feat-google-sign-in-fixes2.md`.) R2-L1: "The page" in `docs/design/google-sign-in.md` still calls Sign out "(a plain form `POST`)" one sentence before saying it's htmx. Delete the parenthesis.
+  - (Fixed in fixes2.) R2-L2: no test pins clearing `__Host-wb_login` on a refusal after the pending login was taken (mutation N07 survives). Assert `Max-Age=0` for it on a `provider_error` refusal.
+  - (Fixed in fixes2.) R2-L3: the start-up warning for a non-Google `WORKBUDDY_OIDC_ISSUER` is untested (mutation N08 survives). Add a `caplog` test: logged once for a non-Google issuer, never for Google's.
   - R2-L4: owner ids are `google:<sub>` whatever the issuer. A production server started with a fake issuer on a volume holding real people's sessions would let that issuer's subjects own those sessions. Only someone who sets the environment can reach this. Refuse a non-Google issuer in production without an explicit live-run flag, or put an issuer hash in non-Google owner ids.
 
 ## 6. Decide the supported Python version

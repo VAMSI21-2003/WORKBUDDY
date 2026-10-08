@@ -52,7 +52,7 @@ Sessions written before this change have no `owner.json`. **Decision: they belon
 
 ## The page
 
-The gate is a "Continue with Google" link (a link, not a form: `form-action 'self'` would block the redirect to Google); outside production a password form is shown too when a demo password is set. The header shows "Signed in as <email>" and a "Sign out" button (a plain form `POST`), and a "New session" button (`POST /ui/sessions`; the swap guard lets this one request replace the session). Sign out is an htmx request, not a plain form POST (see Routes). These are labels only; frontend design Section 4 holds and `ui_copy_snapshot.txt` is updated. A `401` notice says "Sign in again". After sign-in the person lands in their most recent session, or a new one.
+The gate is a "Continue with Google" link (a link, not a form: `form-action 'self'` would block the redirect to Google); outside production a password form is shown too when a demo password is set. The header shows "Signed in as <email>" and a "Sign out" button, and a "New session" button (`POST /ui/sessions`; the swap guard lets this one request replace the session). Sign out is an htmx request, not a plain form POST (see Routes). These are labels only; frontend design Section 4 holds and `ui_copy_snapshot.txt` is updated. A `401` notice says "Sign in again". After sign-in the person lands in their most recent session, or a new one.
 
 ## Out of scope
 

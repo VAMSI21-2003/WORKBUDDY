@@ -163,6 +163,38 @@ def test_an_email_is_stored_and_shown_in_lower_case(tmp_path: Path) -> None:
     assert "Signed in as mixed.case@example.test" in client.get("/").text
 
 
+def test_a_refusal_after_the_login_was_used_clears_the_binder(tmp_path: Path) -> None:
+    """The provider saying no uses up the pending login; the binder left in the browser would
+    match nothing, so the refusal removes it (round 2, N07)."""
+    rig = Rig(tmp_path)
+    client = rig.person()
+    started = client.get("/auth/google/start", follow_redirects=False)
+    state = parse_qs(urlsplit(started.headers["location"]).query)["state"][0]
+
+    refused = client.get(f"/auth/google/callback?error=access_denied&state={state}")
+
+    cookie = refused.headers["set-cookie"]
+    assert cookie.startswith(LOGIN_COOKIE + "=") and "Max-Age=0" in cookie
+
+
+def test_a_provider_that_is_not_google_is_warned_about_once(
+    tmp_path: Path, caplog: pytest.LogCaptureFixture
+) -> None:
+    caplog.set_level(logging.WARNING)
+    Rig(tmp_path)  # the fake provider's issuer
+    assert caplog.text.count("WORKBUDDY_OIDC_ISSUER is not Google's") == 1
+    assert "https://idp.test" in caplog.text and GOOGLE_CLIENT_SECRET not in caplog.text
+
+    caplog.clear()
+    from backend.settings import GOOGLE_ISSUER
+
+    create_app(
+        production_settings(tmp_path / "g", oidc_issuer=GOOGLE_ISSUER),
+        PipelineFactory(QueuedProvider([])),
+    )
+    assert "is not Google's" not in caplog.text
+
+
 def test_a_stale_callback_does_not_break_a_sign_in_still_going_on(tmp_path: Path) -> None:
     """Two tabs, or a stray link to the callback: the newer sign-in must still be finishable."""
     rig = Rig(tmp_path)
