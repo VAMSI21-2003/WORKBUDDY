@@ -65,6 +65,15 @@ def git(repo: Path, *args: str) -> str:
     return done.stdout.strip()
 
 
+def ok_env(operator_token: str) -> str:
+    """A complete ``.env`` (the operator token is the setting the tests give bad values)."""
+    return (
+        "WORKBUDDY_DOMAIN=example.test\nWORKBUDDY_GOOGLE_CLIENT_ID=id.apps.test\n"
+        f"WORKBUDDY_GOOGLE_CLIENT_SECRET=secret\nWORKBUDDY_OPERATOR_TOKEN={operator_token}\n"
+        "GROQ_API_KEY=gsk_placeholder\n"
+    )
+
+
 class Site:
     """A temporary repository holding a copy of ``deploy/``, with a stand-in docker."""
 
@@ -88,8 +97,7 @@ class Site:
                 shutil.copy2(item, self.deploy / item.name)
         (self.repo / "Dockerfile").write_text("FROM scratch\n")
         git(self.repo, "init", "-q")
-        self.write_env(f"WORKBUDDY_DOMAIN=example.test\nWORKBUDDY_DEMO_PASSWORD={PASSWORD}\n"
-                       "GROQ_API_KEY=gsk_placeholder\n")
+        self.write_env(ok_env(PASSWORD))
         self.commit("first")
 
     def write_env(self, text: str) -> None:
@@ -218,22 +226,23 @@ def test_a_value_that_compose_would_read_differently_is_refused_by_name_only(
     site: Site, value: str
 ) -> None:
     """Review round 1, M3: ``$horse`` was dropped from the app's password and then printed."""
-    site.write_env(f"WORKBUDDY_DOMAIN=example.test\nWORKBUDDY_DEMO_PASSWORD={value}\n"
-                   "GROQ_API_KEY=gsk_placeholder\n")
+    site.write_env(ok_env(value))
 
     for command in ([str(site.deploy / "release.sh"), "HEAD"],
                     [str(site.deploy / "compose.sh"), "ps"]):
         done = site.run(command)
 
         assert done.returncode != 0
-        assert "WORKBUDDY_DEMO_PASSWORD" in out(done)
+        assert "WORKBUDDY_OPERATOR_TOKEN" in out(done)
         assert value.strip() not in out(done) and "horse" not in out(done)
         assert "unexpected docker" not in "\n".join(site.calls())
 
 
 def test_a_carriage_return_in_env_is_refused(site: Site) -> None:
-    site.write_env("WORKBUDDY_DOMAIN=example.test\r\nWORKBUDDY_DEMO_PASSWORD=x\r\n"
-                   "GROQ_API_KEY=y\r\n")
+    site.write_env(
+        "WORKBUDDY_DOMAIN=example.test\r\nWORKBUDDY_GOOGLE_CLIENT_ID=a\r\n"
+        "WORKBUDDY_GOOGLE_CLIENT_SECRET=b\r\nWORKBUDDY_OPERATOR_TOKEN=x\r\nGROQ_API_KEY=y\r\n"
+    )
 
     done = site.run([str(site.deploy / "release.sh"), "HEAD"])
 
@@ -242,7 +251,9 @@ def test_a_carriage_return_in_env_is_refused(site: Site) -> None:
 
 def test_an_ordinary_env_is_accepted(site: Site) -> None:
     site.write_env("# a comment with $ and 'quotes' is fine\n\nWORKBUDDY_DOMAIN=a.b.c\n"
-                   "WORKBUDDY_DEMO_PASSWORD=Abc-123_.:/=+@%^\nGROQ_API_KEY=gsk_x\n")
+                   "WORKBUDDY_GOOGLE_CLIENT_ID=1-a.apps.googleusercontent.com\n"
+                   "WORKBUDDY_GOOGLE_CLIENT_SECRET=GOCSPX-a_b-c\n"
+                   "WORKBUDDY_OPERATOR_TOKEN=Abc-123_.:/=+@%^\nGROQ_API_KEY=gsk_x\n")
 
     done = site.run(["bash", "-c", f". {site.deploy}/lib.sh; require_settings; echo fine"])
 

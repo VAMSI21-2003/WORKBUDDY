@@ -40,6 +40,20 @@ def test_the_app_is_told_there_is_one_proxy(compose: dict[str, dict[str, object]
     assert environment["WORKBUDDY_PUBLIC_ORIGIN"].startswith("https://")  # type: ignore[index]
 
 
+def test_the_app_is_given_the_sign_in_settings_and_none_may_be_missing(
+    compose: dict[str, dict[str, object]],
+) -> None:
+    environment = compose["services"]["app"]["environment"]  # type: ignore[index]
+    for name in (
+        "WORKBUDDY_GOOGLE_CLIENT_ID",
+        "WORKBUDDY_GOOGLE_CLIENT_SECRET",
+        "WORKBUDDY_OPERATOR_TOKEN",
+    ):
+        assert environment[name] == "${%s:?set %s in .env}" % (name, name), name  # type: ignore[index]
+    assert environment["WORKBUDDY_ALLOWED_EMAILS"] == "${WORKBUDDY_ALLOWED_EMAILS:-}"  # type: ignore[index]
+    assert "WORKBUDDY_DEMO_PASSWORD" not in environment  # type: ignore[operator]
+
+
 def test_caddy_replaces_x_forwarded_for_with_the_address_it_saw() -> None:
     """With one trusted hop the app reads the last entry; this is what makes it the real client."""
     caddyfile = (DEPLOY / "Caddyfile").read_text(encoding="utf-8")
@@ -64,7 +78,13 @@ def test_caddy_waits_for_a_healthy_app(compose: dict[str, dict[str, object]]) ->
 
 
 def test_env_example_holds_names_and_no_values() -> None:
-    required = {"WORKBUDDY_DOMAIN", "WORKBUDDY_DEMO_PASSWORD", "GROQ_API_KEY"}
+    required = {
+        "WORKBUDDY_DOMAIN",
+        "WORKBUDDY_GOOGLE_CLIENT_ID",
+        "WORKBUDDY_GOOGLE_CLIENT_SECRET",
+        "WORKBUDDY_OPERATOR_TOKEN",
+        "GROQ_API_KEY",
+    }
     seen: set[str] = set()
     for line in (DEPLOY / ".env.example").read_text(encoding="utf-8").splitlines():
         text = line.strip()
