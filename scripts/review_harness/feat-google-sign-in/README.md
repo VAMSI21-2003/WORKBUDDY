@@ -18,3 +18,14 @@ Other outputs: `suite_and_lint.txt` (suite, ruff per file and rule head vs base,
 check), `new_tests_on_base.txt` (the branch's new test files over a `git archive origin/main` copy),
 `proto_fix_h1.diff` and `proto_fix_h1_adversarial.jsonl` (c18, c06, c20, c23 with the prototype fix,
 run from a scratch copy that has `adversarial.py` copied into this same path).
+
+## Round 2 (commit 75eb95b)
+
+| Script | What | Output (`out/`) |
+|---|---|---|
+| `adversarial.py` (round 1's 23 cases, unchanged) | rerun on the head | `r2_adversarial_r1cases_head.jsonl` |
+| `adversarial_r2.py [--only rNN]` | 8 cases on the round-1 fixes: r01 demo password, three holders and a restart (with a delivered turn); r02 dev, two browsers; r03 Google + demo password outside production; r04 the operator on `GET /`; r05 stale and hostile callbacks vs the binder; r06 the issuer warning; r07 `latest_for` owner edge strings; r08 a Google person then the demo password in one browser. Imports `adversarial.py` | `r2_adversarial_r2.jsonl` |
+| `mutations_r2.py [--jobs 3] [--only N01] [--wide]` | Round 1's survivors (M08, M12, M19, M26, M30) and N01-N09 on the fixes; multi-patch mutations; imports `mutations.py`. `--wide` adds `tests/e2e` | `r2_mutations.txt` |
+| `../feat-frontend-demo/ui_probe.py [--tree /root/base]`, `signed_in_probe.py`, then `../feat-frontend-deploy/compare_ui.py` and `../feat-frontend-demo/rule_checks.py` | as in round 1 | `r2_ui_probe_{head,base}.jsonl`, `r2_signed_in_head.jsonl`, `r2_probes_vs_base.txt` |
+
+Also: `r2_suite_and_lint.txt`, and `r2_new_tests_on_round1_code.txt` (the round-2 tests over a `git archive 948ec6c` copy with the head's three test files).

@@ -67,3 +67,66 @@ Probes, outputs and how to rerun them: `scripts/review_harness/feat-google-sign-
 - My own Chromium probes of the new header, sign-out and New session. The suite's `tests/e2e/test_signin_browser.py` ran and passed (11 with `test_smoke_auth.py`).
 - Mutations of `app.js` (the New-session swap exception).
 - The full suite on base.
+
+# Review round 2 (commit 75eb95b)
+
+**Verdict: MERGE.** H1 is closed, and L1, L2 and L3 are closed. Nothing new is HIGH or MEDIUM. Four LOWs are deferred.
+
+Scope: `948ec6c..75eb95b`, round 1's open findings, and regression against base (`origin/main` 4b7dec2, unchanged since round 1). Probes and outputs: `scripts/review_harness/feat-google-sign-in/` (README, "Round 2"; outputs `out/r2_*`).
+
+## What was run
+
+| Run | Result |
+|---|---|
+| `python -m pytest -q` (head) | 2828 passed, 1 failed: `test_a_process_that_is_not_root_can_delete_read_only_uploads`, which fails on base too because this sandbox runs as root. `out/r2_suite_and_lint.txt` |
+| `ruff check buddy tests`, per file and rule, head vs base | Identical. `scripts/check_ruff_baseline.py` exits 0. `ruff check backend scripts/live_stack` is clean |
+| Round 1's 23 adversarial cases (`adversarial.py`) | 23/23 held. c18 (H1) now holds: the second password holder sees none of the first holder's file name, reply or session id, and no pointer is set. c03 with two tabs: the first tab gets 400 and the second gets 200 (in round 1 both got 400). `out/r2_adversarial_r1cases_head.jsonl` |
+| 8 new cases on the fixes (`adversarial_r2.py`) | 8/8 held (details below). Each turn with an upload delivered `payroll_private_deduplicated_…xlsx`. The reply says "removed 2 duplicate row(s). The copy has 4 row(s), 0 duplicate row(s) remaining". openpyxl reads the input as 6 rows with 2 duplicates, and the output as 4 rows with 0 duplicates. The original is unchanged in r01, r02 and r03. `out/r2_adversarial_r2.jsonl` |
+| 25 scenarios x 3 speakers through the page in dev mode, head vs a fresh base run | 75/75 rows. One difference, in the statuses a poll caught in `08_chain_timeout`/friend, which is timing. Rule checks: 0 problems in 150 rows. The original is unchanged in 75/75 rows on head and on base. `out/r2_probes_vs_base.txt` |
+| The same 75 runs signed in with Google on production settings, then Bob against each session (`signed_in_probe.py`) | 30 delivered, 45 not delivered, the same as round 1. Against base: 0 differing fields. Against round 1's head output: 0 differing fields. On all 12 session routes, Bob got the unknown-id answer in 75/75 runs. Bob's `GET /` with Alice's pointer planted showed none of her data and cleared the pointer. The original is unchanged in 75/75 |
+| Mutations (`mutations_r2.py`), each in a `git archive HEAD` copy | M00 passes. Round 1's survivors M08, M12, M19, M26 and M30 are now killed. N01 and N03-N06 and N09 are killed: either H1 guard alone, both guards, operator-only, demo-only, L3 reverted, the binder kept after success. N02 (the `index()` kind guard removed) survives the wide set: it's equivalent, because `latest_for` still refuses. N07 and N08 survive the wide set (L-R2-2, L-R2-3). `out/r2_mutations.txt` |
+| The round-2 tests on round-1 code (948ec6c) | The 4 `test_shared_principals.py` tests and the stale-callback test fail there. The 6 L2 guard tests pass there, which is expected: round-1 code was correct, and those tests are aimed at mutations, which they kill (row above). `out/r2_new_tests_on_round1_code.txt` |
+| Rule 2 | The original's SHA-256 was unchanged in every run with an upload: 75 + 75 + 75 page runs, and r01, r02, r03, c06, c09 and c15 |
+
+New cases (`adversarial_r2.py`):
+- **r01:** demo password, three holders, then a server restart on the same data. No holder lands in another's session, including after the restart. Holder 1 still reaches their own session with their pointer.
+- **r02:** dev mode, two browsers, with a delivered turn. The second browser sees nothing of the first.
+- **r03:** outside production, with both Google and the demo password configured. Alice lands in her own session. The password holder doesn't land in hers, and Bob lands in neither.
+- **r04:** the operator token on `GET /` renders an empty workspace with no pointer, not an earlier script's session.
+- **r05:** a hostile callback (the attacker's own state and code, opened in the victim's browser) gets 400. The response doesn't reflect the state. The victim isn't signed in as the attacker, keeps the binder, and finishes their own sign-in. The attacker's pending login isn't used up. A provider error still clears the binder.
+- **r06:** with the fake issuer, the warning is logged once and contains no secret. With Google's issuer, it isn't logged.
+- **r07:** `latest_for` returns nothing for `google:`, `Google:<sub>`, a padded owner, `demo`, `dev`, `operator` and the empty string, and returns Alice's session for Alice.
+- **r08:** information only. In one browser, a Google person who then enters the demo password no longer sees their own session, because the owner changed. Nothing reaches anyone else.
+
+**Earlier findings, checked with my own evidence:**
+- H1: **closed.** c18 and r01-r04 hold. Mutations N01, N03, N04 and N05 are each killed by `tests/web/test_shared_principals.py`. The `identity.py` docstring is now correct.
+- L1: **closed.**
+- L2: **closed.** All five round-1 survivors are killed.
+- L3: **closed.** c03 and r05 hold, and N06 is killed.
+- L4: **partly closed.** `stack_flow.py` uses the operator token. It wasn't run against a stack. The other three scripts stay open in the backlog, as the fixes file says.
+- L5: **partly closed.** See L-R2-1.
+
+**Design deviations** (`docs/design/google-sign-in.md`): round 1's 1 and 3 are fixed in the note. Round 1's 4 (`azp` is checked whenever present, which is stricter) is unchanged and fine. Round 1's 2 is only half fixed (L-R2-1). The writer chose to accept any `https://` issuer in production, with a warning. I accept that, with L-R2-4 as its cost.
+
+## Findings
+
+No HIGH and no MEDIUM.
+
+## Deferred (LOW; added to `docs/backlog.md`)
+
+- **L-R2-1 [Certain]: the design note now contradicts itself on sign-out.** In `docs/design/google-sign-in.md`, "The page" still says the Sign out button is "(a plain form `POST`)". The sentence added after it says the opposite. Fix: delete the parenthesis.
+- **L-R2-2 [Certain]: no test pins when the binder cookie is cleared after a refusal.** Mutation N07 removes the binder clearing from every refusal in `backend/web/auth.py` `_refused`, and it survives `tests/backend`, `tests/web` and `tests/e2e`.
+  - The harm is small. A refusal that comes after `take` has already used up the pending login, so the binder left behind matches nothing.
+  - Fix: in `test_signin.py`, assert `Max-Age=0` for `__Host-wb_login` on a `provider_error` refusal.
+- **L-R2-3 [Certain]: the issuer warning is untested.** Mutation N08 removes it from `backend/main.py`, and it survives the wide set. Fix: a `caplog` test that the warning appears once with a non-Google issuer and not at all with Google's.
+- **L-R2-4 [Possible]: an owner id doesn't record which issuer signed the person in.** Owner ids are `google:<sub>` whatever `WORKBUDDY_OIDC_ISSUER` is.
+  - Scenario: a production server is started with a fake issuer (for example, a live run) on a data volume that already holds real people's sessions. A subject that issuer mints that matches a real Google `sub` then owns that person's sessions.
+  - Reachability: only by someone who can set the server's environment. `docs/deploy.md` says never to set the issuer on a real server.
+  - Fix: refuse a non-Google issuer when `WORKBUDDY_ENV=production` unless an explicit live-run flag is set, or put a hash of the issuer in the owner id for non-Google issuers.
+
+## Not run
+
+- Real Google: the owner's checklist.
+- Live runs with Groq: the writer does them after MERGE. This branch doesn't touch `buddy/`, `core/` or `skills/`.
+- `scripts/live_stack/stack_flow.py` against a running compose stack, and `deploy/smoke.sh` against a built image.
+- My own Chromium probes. `tests/e2e` ran in the suite and in the wide mutation runs.

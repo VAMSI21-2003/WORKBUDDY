@@ -1,0 +1,7 @@
+# round-2 tests on round-1 code (948ec6c + head's test files)
+FAILED tests/web/test_shared_principals.py::test_a_second_holder_of_the_demo_password_is_not_put_in_the_first_ones_session
+FAILED tests/web/test_shared_principals.py::test_two_browsers_on_a_dev_server_do_not_share_a_session
+FAILED tests/web/test_shared_principals.py::test_a_script_with_the_operator_token_is_not_put_in_an_earlier_scripts_session
+FAILED tests/web/test_shared_principals.py::test_the_registry_has_no_latest_session_for_a_shared_owner
+FAILED tests/backend/test_signin.py::test_a_stale_callback_does_not_break_a_sign_in_still_going_on
+5 failed, 6 passed in 3.76s
