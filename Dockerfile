@@ -42,9 +42,9 @@ COPY skills/ skills/
 
 USER app
 
-# Production mode binds 0.0.0.0, and refuses to start without WORKBUDDY_DEMO_PASSWORD and an
-# https WORKBUDDY_PUBLIC_ORIGIN, which the host supplies (docs/deploy.md). No key or password
-# is ever baked into the image.
+# Production mode binds 0.0.0.0, and refuses to start without the Google sign-in client
+# (WORKBUDDY_GOOGLE_CLIENT_ID and _SECRET) and an https WORKBUDDY_PUBLIC_ORIGIN, which the host
+# supplies (docs/deploy.md). No key or password is ever baked into the image.
 ENV WORKBUDDY_ENV=production \
     WORKBUDDY_DATA_DIR=/data \
     PORT=8000

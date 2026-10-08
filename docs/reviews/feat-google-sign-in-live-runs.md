@@ -50,3 +50,7 @@ Alice and Bob signed in through the account chooser of the fake Google, over HTT
 - The real Groq (see above), real Google, Azure, a public name, Let's Encrypt.
 - `deploy/check-proxy.sh` (it checks the proxy layout, which this change doesn't touch) and `install.sh`.
 - A second real browser on this stack (the Chromium tests in `tests/e2e` ran in the suite, against the fake Google with the app and the provider on different sites).
+
+## Found by the first GitHub run on this pull request
+
+The `docker build` job boots the image with only a demo password, which production no longer accepts (`WorkBuddy can't start: WORKBUDDY_GOOGLE_CLIENT_ID and … are required in production`). None of the local runs started the image that way. `.github/workflows/tests.yml` now passes a placeholder Google client id and secret (checked locally: the image answers `/healthz`), and the `Dockerfile` comment says the same. No code under `backend/`, `buddy/`, `core/` or `skills/` changed.
