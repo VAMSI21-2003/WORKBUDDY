@@ -1,0 +1,55 @@
+Releasing c68730122d7c (live now: 4b7dec29e75d)
+
+== 1/5 build the image
+built workbuddy:c68730122d7c
+
+== 2/5 backup
+backup: /root/vm/deploy/backups/workbuddy-data-20261008-122624.tar.gz (12K, 11 files)
+
+== 3/5 start it
+ Container workbuddy-caddy-1 Running 
+ Container workbuddy-app-1 Recreate 
+ Container workbuddy-app-1 Recreated 
+ Container workbuddy-app-1 Starting 
+ Container workbuddy-app-1 Started 
+ Container workbuddy-app-1 Waiting 
+ Container workbuddy-app-1 Healthy 
+
+== 4/5 wait until it's healthy
+healthy
+
+== 5/5 smoke test (a real turn)
+
+== 1. health
+ok: /healthz answers, an LLM key is set
+
+== 2. authenticate
+ok: the operator token is accepted
+
+== 3. upload
+SMOKE FAILED at "POST /api/v1/sessions": HTTP 500 {"error":{"code":"internal_error","message":"Something went wrong on the server."}}
+
+!! RELEASE c68730122d7c FAILED at: the smoke test
+Rolling back to 4b7dec29e75d ...
+
+== 1. health
+ok: /healthz answers, an LLM key is set
+
+== 2. authenticate
+the operator token was refused: this is a release from before sign-in with Google; using the demo password
+ok: the password was exchanged for the access cookie
+
+== 3. upload
+ok: uploaded smoke.xlsx; the server's hash matches (45f300dd1801ec0aeb0a4b23e4e47e0cf649c8556dd0e6329681dfb8c9df2e82)
+
+== 4. a message, and the plan
+ok: the plan was shown: ["spreadsheet.deduplicate"]
+ok: the turn finished, outcome delivered
+
+== 5. download and hash
+ok: the download's hash matches what the server recorded (45a5f27bd2e3599e2081de8d03001963df74fec66a222b1faba4df101d3165ca), and it's different from the original's
+
+SMOKE OK: https://localhost
+
+!! ROLLED BACK to 4b7dec29e75d. Release c68730122d7c failed at: the smoke test. The site is serving the previous release.
+The backup taken before this release is in /root/vm/deploy/backups (restore it only if the data looks wrong).

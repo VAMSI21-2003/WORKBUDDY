@@ -1,0 +1,16 @@
+  alice    GET /api/v1/sessions/s_…                                         404  same as a missing session: True
+  alice    GET /api/v1/sessions/s_…/files                                   404  same as a missing session: True
+  alice    GET /api/v1/sessions/s_…/files/d_t0001_1/download                404  same as a missing session: True
+  alice    GET /ui/s/s_…/transcript                                         404  same as a missing session: True
+  bob      GET /api/v1/sessions/s_…                                         404  same as a missing session: True
+  bob      GET /api/v1/sessions/s_…/files                                   404  same as a missing session: True
+  bob      GET /api/v1/sessions/s_…/files/d_t0001_1/download                404  same as a missing session: True
+  bob      GET /ui/s/s_…/transcript                                         404  same as a missing session: True
+  operator GET /api/v1/sessions/s_…                                         404  same as a missing session: True
+  operator GET /api/v1/sessions/s_…/files                                   404  same as a missing session: True
+  operator GET /api/v1/sessions/s_…/files/d_t0001_1/download                404  same as a missing session: True
+  operator GET /ui/s/s_…/transcript                                         404  same as a missing session: True
+  session folders on the volume: 5
+  owner markers: ['{"owner":"operator","session_id":"s_uWUjxHuMtDYaccI6gaNpUQ","version":1}', '{"owner":null,"session_id":null,"version":1}']
+  the legacy upload on the volume has its old SHA-256 (45f300dd1801ec0a…): True; the delivered file still there with its old SHA-256: True
+RESULT: ok

@@ -1,0 +1,4 @@
+  session folders on the volume: 0
+  owner markers: none
+  the legacy upload and delivered file are gone from the volume: True
+RESULT: ok
