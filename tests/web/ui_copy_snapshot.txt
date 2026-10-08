@@ -3,16 +3,17 @@
 # A change here is a change to what the page says: read it as one.
 _copy.html text: A plan needs your approval
 _copy.html text: Accepts {limit}.
+_copy.html text: Account
 _copy.html text: Approval needed – WorkBuddy
 _copy.html text: Approve plan
 _copy.html text: Buddy
 _copy.html text: Buddy is working
 _copy.html text: Continue
+_copy.html text: Continue with Google
 _copy.html text: Conversation
 _copy.html text: Demo password
 _copy.html text: Download {name} ({size})
 _copy.html text: Enter sends. Shift+Enter adds a new line.
-_copy.html text: Enter the password again
 _copy.html text: Files
 _copy.html text: Files from Buddy
 _copy.html text: Focus
@@ -20,6 +21,7 @@ _copy.html text: Friend
 _copy.html text: Friend: chattier. Focus: brief.
 _copy.html text: Message to Buddy
 _copy.html text: Mode
+_copy.html text: New session
 _copy.html text: No files uploaded yet.
 _copy.html text: No messages yet.
 _copy.html text: Notices
@@ -28,7 +30,13 @@ _copy.html text: Reject plan
 _copy.html text: Send
 _copy.html text: Sending your answer…
 _copy.html text: Sessions and their files are deleted once a session has been idle for {hours} {"hour" if hours == 1 else "hours"}.
+_copy.html text: Sign in again
+_copy.html text: Sign out
+_copy.html text: Sign-in didn't work. Try again.
+_copy.html text: Signed in as {email}
 _copy.html text: Spreadsheet to upload
+_copy.html text: Taking you to the page…
+_copy.html text: That Google account isn't on the list of people who may use this demo.
 _copy.html text: That session no longer exists on the server, so this is a new one.
 _copy.html text: The server didn't confirm receiving that message.
 _copy.html text: The server didn't send the plan, so it can't be approved here.
@@ -71,6 +79,7 @@ app.js string: Retry-After
 app.js string: [data-composer]
 app.js string: [data-error-slot]
 app.js string: [data-gate]
+app.js string: [data-new-session]
 app.js string: [data-notice="
 app.js string: [data-plan-form]
 app.js string: [data-session-id]
@@ -85,7 +94,6 @@ app.js string: auth
 app.js string: button
 app.js string: button[type="submit"]
 app.js string: cant-reach
-app.js string: enter-password-again
 app.js string: file_not_found
 app.js string: htmx:afterRequest
 app.js string: htmx:beforeRequest
@@ -107,6 +115,7 @@ app.js string: role
 app.js string: same-origin
 app.js string: session_busy
 app.js string: session_not_found
+app.js string: sign-in-again
 app.js string: storage
 app.js string: storage_full
 app.js string: string
@@ -121,4 +130,5 @@ app.js string: wb:retry
 base.html attr:content: light dark
 base.html attr:content: width=device-width, initial-scale=1
 base.html attr:content: {"allowEval":false,"allowScriptTags":false,"includeIndicatorStyles":false,"selfRequestsOnly":true,"historyEnabled":false,"historyCacheSize":0}
+signed_in.html attr:content: 0; url=/
 turn_fragment.html text: {turn.reply}

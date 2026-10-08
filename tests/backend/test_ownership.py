@@ -88,9 +88,7 @@ class World:
             folder = data / name / key
             for path in sorted(folder.rglob("*")) if folder.exists() else []:
                 if path.is_file():
-                    out[str(path.relative_to(data))] = hashlib.sha256(
-                        path.read_bytes()
-                    ).hexdigest()
+                    out[str(path.relative_to(data))] = hashlib.sha256(path.read_bytes()).hexdigest()
         return out
 
 

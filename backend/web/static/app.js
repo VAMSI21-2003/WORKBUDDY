@@ -299,7 +299,8 @@
     let drop = false;
     const page = pageSessionId();
     // The New session control is the one request that is meant to bring in another session.
-    const replacing = evt.detail.elt && evt.detail.elt.matches && evt.detail.elt.matches('[data-new-session]');
+    const requester = evt.detail.requestConfig && evt.detail.requestConfig.elt;
+    const replacing = Boolean(requester && requester.matches && requester.matches('[data-new-session]'));
     if (!replacing && page !== '' && fragment.dataset.sessionId !== page) drop = true;
     const turnId = fragment.dataset.turnId;
     const version = Number(fragment.dataset.version);

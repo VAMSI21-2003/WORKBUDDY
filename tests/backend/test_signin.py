@@ -132,7 +132,11 @@ def test_the_redirect_address_comes_from_the_setting_not_from_the_request(tmp_pa
 
     started = client.get(
         "/auth/google/start",
-        headers={"Host": "evil.example", "X-Forwarded-Host": "evil.example", "Origin": "https://evil.example"},
+        headers={
+            "Host": "evil.example",
+            "X-Forwarded-Host": "evil.example",
+            "Origin": "https://evil.example",
+        },
         follow_redirects=False,
     )
 
@@ -442,6 +446,22 @@ def test_sign_out_ends_the_sign_in_on_the_server_and_in_the_browser(tmp_path: Pa
     assert "Continue with Google" in client.get("/").text
 
 
+def test_the_page_signs_out_with_a_request_that_sends_its_origin_and_is_told_where_to_go(
+    tmp_path: Path,
+) -> None:
+    """A plain form POST would send ``Origin: null`` under the page's no-referrer policy and be
+    refused, so the page's sign-out is an htmx request, answered with ``HX-Redirect``."""
+    rig = Rig(tmp_path)
+    client = rig.person(ALICE)
+
+    response = client.post("/auth/signout", headers={"HX-Request": "true"})
+
+    assert response.status_code == 204 and response.headers["HX-Redirect"] == "/"
+    assert ACCESS_COOKIE not in client.cookies
+    assert rig.app.state.access.signins.files() == []
+    assert 'hx-post="/auth/signout"' in rig.person(ALICE).get("/").text
+
+
 def test_sign_out_needs_the_pages_origin(tmp_path: Path) -> None:
     rig = Rig(tmp_path)
     client = rig.person(ALICE)
@@ -534,7 +554,11 @@ def test_a_restart_keeps_people_signed_in_and_stores_only_a_hash(tmp_path: Path)
     assert token.encode() not in on_disk
     (signin,) = (rig.settings.data_dir / "auth" / "signins").glob("*.json")
     assert json.loads(signin.read_text()).keys() == {
-        "version", "owner", "email", "issued_at", "expires_at",
+        "version",
+        "owner",
+        "email",
+        "issued_at",
+        "expires_at",
     }
     import hashlib
 
@@ -642,9 +666,7 @@ def test_a_wrong_operator_token_is_the_one_401(tmp_path: Path) -> None:
     client = browser(rig.app)
 
     for token in (OPERATOR_TOKEN[:-1], OPERATOR_TOKEN + "x", "", "Bearer"):
-        response = client.get(
-            "/api/v1/sessions/s_x", headers={"Authorization": f"Bearer {token}"}
-        )
+        response = client.get("/api/v1/sessions/s_x", headers={"Authorization": f"Bearer {token}"})
         assert response.status_code == 401
 
 

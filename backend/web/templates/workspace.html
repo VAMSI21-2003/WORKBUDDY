@@ -13,7 +13,7 @@
       {% endif %}
       <button type="button" id="new-session" class="btn" hx-post="/ui/sessions" hx-target="#workspace" hx-swap="outerHTML" data-new-session data-error-slot="page-notices">{{ copy.new_session_button() }}</button>
       {% if account_email is not none %}
-      <form class="signout" method="post" action="/auth/signout"><button type="submit" id="signout" class="btn">{{ copy.signout_button() }}</button></form>
+      <form class="signout" method="post" action="/auth/signout" hx-post="/auth/signout" hx-swap="none" data-error-slot="page-notices"><button type="submit" id="signout" class="btn">{{ copy.signout_button() }}</button></form>
       {% endif %}
     </div>
   </header>

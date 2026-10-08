@@ -139,7 +139,12 @@ def callback(
 def signout(request: Request) -> Response:
     """End the sign-in the cookie names (if any), clear the cookies, and go to the gate."""
     access_of(request).sign_out(request)
-    response = RedirectResponse("/", status_code=303)
+    # The page sends this with htmx (an XHR sends its Origin; a plain form POST would send
+    # ``Origin: null`` under the page's ``Referrer-Policy: no-referrer`` and be refused).
+    if request.headers.get("hx-request") == "true":
+        response: Response = Response(status_code=204, headers={"HX-Redirect": "/"})
+    else:
+        response = RedirectResponse("/", status_code=303)
     response.delete_cookie(COOKIE_NAME, path="/", secure=True, httponly=True, samesite="strict")
     clear_pointer(response)
     return response
