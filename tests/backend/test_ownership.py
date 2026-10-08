@@ -338,7 +338,7 @@ def test_the_owner_with_a_pointer_cookie_gets_their_session(world: World) -> Non
     assert world.sid in home.text and "report.xlsx" in home.text
 
 
-# -- Landing after sign-in ------------------------------------------------------------------------------
+# -- Landing after sign-in ----------------------------------------------------------------
 
 
 def test_a_person_lands_in_their_most_recent_session(tmp_path: Path) -> None:
