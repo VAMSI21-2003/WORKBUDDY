@@ -136,6 +136,30 @@ def test_a_route_parameter_that_names_a_session_is_always_called_session_id(worl
                 assert name == "session_id", (route.path, name)
 
 
+def test_no_route_takes_a_session_id_by_any_other_road(world: World) -> None:
+    """The gate looks at the path. A route that read a session id from its query, body, form or a
+    header would slip past it, so none may; the one cookie that names a session is the page's
+    pointer, which ``GET /`` checks with the registry (see the pointer tests below)."""
+    for route in iter_routes(world.app):
+        dependant = getattr(route, "dependant", None)
+        if dependant is None:
+            continue
+        names = [
+            p.alias or p.name
+            for p in (
+                list(dependant.query_params)
+                + list(dependant.header_params)
+                + list(dependant.cookie_params)
+                + list(dependant.body_params)
+            )
+        ]
+        for name in names:
+            assert "sess" not in name.lower() and name.lower() not in ("sid", "id"), (
+                route.path,
+                name,
+            )
+
+
 def test_person_b_gets_exactly_the_answer_for_a_session_that_doesnt_exist(world: World) -> None:
     checked = 0
     for route in _session_routes(world.app):

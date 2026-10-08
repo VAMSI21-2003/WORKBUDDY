@@ -606,6 +606,12 @@ def test_neither_the_password_nor_a_token_reaches_a_response_body_or_a_log(
         (f"Set-Cookie: {COOKIE_NAME}=tok3n_abc-123; Path=/; Secure", "tok3n_abc-123"),
         ("Authorization: Bearer hunter2-hunter2", "hunter2-hunter2"),
         ("form body: password=hunter2&x=1", "hunter2"),
+        ('GET /auth/google/callback?code=4%2F0AbCd-eF&state=Zx9_k HTTP/1.1', "4%2F0AbCd-eF"),
+        ('GET /auth/google/callback?code=4%2F0AbCd-eF&state=Zx9_k HTTP/1.1', "Zx9_k"),
+        ("GET /ui/s/s_AbCdEfGhIjKlMnOpQrStUv/transcript", "s_AbCdEfGhIjKlMnOpQrStUv"),
+        (f"Cookie: __Host-wb_login={'b' * 43}", "b" * 43),
+        ("id token eyJhbGciOiJSUzI1NiJ9.eyJzdWIiOiIxIn0.c2ln here", "eyJzdWIiOiIxIn0"),
+        ("client secret GOCSPX-abc_DEF-123 here", "GOCSPX-abc_DEF-123"),
     ],
 )
 def test_the_log_filter_redacts_the_cookie_the_bearer_and_a_password(raw: str, gone: str) -> None:
