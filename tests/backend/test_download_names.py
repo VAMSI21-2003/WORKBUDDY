@@ -84,6 +84,10 @@ def test_only_the_generated_part_of_the_name_is_rewritten(stored: str, shown: st
     assert download_name(stored, KEY) == shown
 
 
+def test_a_stem_with_characters_no_upload_may_have_is_made_safe() -> None:
+    assert download_name(f'a"b\nc_deduplicated_{KEY}-task-1.xlsx', KEY) == "a_b_c_deduplicated.xlsx"
+
+
 def test_a_long_name_is_cut_in_its_stem_so_the_operation_still_shows() -> None:
     stem = "x" * 95
     first = download_name(f"{stem}_deduplicated_{KEY}-task-1.xlsx", KEY)

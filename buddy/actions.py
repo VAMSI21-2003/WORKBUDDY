@@ -126,9 +126,21 @@ def mentioned_actions(message: str) -> tuple[tuple[Action, str], ...]:
     Returns:
         ``(action, matched_text)`` pairs; ``matched_text`` is the user's own words.
     """
+    # What the message asks to be reported on ("a report on the duplicate rows", "check my file
+    # for duplicates") is not a request to remove them.
+    report_spans = (
+        [m.span() for m in _REPORT_REQUEST.finditer(message)] if mentions_report(message) else []
+    )
     found = []
     for action in ACTIONS:
-        match = action.mention.search(message)
+        match = next(
+            (
+                m
+                for m in action.mention.finditer(message)
+                if not any(m.start() < end and start < m.end() for start, end in report_spans)
+            ),
+            None,
+        )
         if match is not None:
             found.append((match.start(), action, match.group(0)))
     return tuple((action, text) for _, action, text in sorted(found, key=lambda f: f[0]))
@@ -184,10 +196,13 @@ def requested_ledger(understanding: Understanding) -> tuple[RequestedAction, ...
 # question about what Buddy can do. Closed vocabulary, like every other intent.
 CONVERSATION = "conversation"
 
-_REPORT_NOUN = (
-    r"(?:reports?|summary|summaries|summari[sz]e|summari[sz]ation|analysis|analy[sz]e|analyse|"
-    r"rundown|overview)"
+# A report is asked for with a noun ("report", "summary") or a verb ("analyze", "summarize").
+_REPORT_NOMINAL = (
+    r"(?:reports?|summary|summaries|summari[sz]ation|analysis|rundown|overview|"
+    r"(?:quality|health|sanity)\s+check)"
 )
+_REPORT_VERBAL = r"(?:summari[sz]e|analy[sz]e|analyse)"
+_REPORT_NOUN = rf"(?:{_REPORT_NOMINAL}|{_REPORT_VERBAL})"
 # "give me a full report on this file", "send me the summary", "analyze my data": the request,
 # with the verb and determiners in front of the noun, and the thing it is about after it, that
 # belong to it. One pattern for every stage that asks "is this a report request?" (the planner,
@@ -198,21 +213,37 @@ _REPORT_ABOUT = (
     r"(?:file|sheet|spreadsheet|workbook|data|table|issues?|problems?|duplicates?|rows?|columns?|"
     r"errors?)\b)?"
 )
+# "an overview of what you can do" is a question about Buddy, and "the Summary sheet" or "the
+# Analysis column" names part of the file: neither asks for a report on the file.
+_ABOUT_BUDDY = (
+    r"(?!\s+(?:of|on|about|for)\s+"
+    r"(?:what\s+you\s+(?:can\s+do|do|are\s+able\s+to\s+do|offer)\b|your\b|yourself\b))"
+)
+_A_PART_OF_THE_FILE = r"(?!\s+(?:sheet|tab|worksheet|columns?|page)\b)"
 _REPORT_REQUEST = re.compile(
     r"(?:\b(?:give|send|show|make|create|write|produce|generate|prepare|get|run|do|need|want)\s+"
     r"(?:(?:me|us|a|an|the|my|our|your|full|short|brief|quick|detailed|written|data|quality)\s+)*)?"
-    rf"\b{_REPORT_NOUN}\b{_REPORT_ABOUT}"
+    rf"\b(?:{_REPORT_NOMINAL}{_A_PART_OF_THE_FILE}|{_REPORT_VERBAL})\b{_ABOUT_BUDDY}{_REPORT_ABOUT}"
     # "check the file for problems", "take a look at my data", "what's wrong with the sheet": the
     # analysis, asked for by what it does.
     r"|\b(?:check|look\s+(?:at|over)|take\s+a\s+look\s+at|review|inspect)\s+"
     r"(?:(?:the|this|that|my|our|your)\s+)?(?:file|sheet|spreadsheet|workbook|data|table)\b"
-    r"(?:\s+for\s+(?:any\s+)?(?:issues?|problems?|errors?|mistakes?))?"
-    r"|\bwhat'?s\s+wrong\s+with\s+(?:(?:the|this|that|my|our|your)\s+)?"
+    r"(?:\s+for\s+(?:any\s+)?(?:issues?|problems?|errors?|mistakes?|duplicates?|duplicate\s+rows?))?"
+    r"|\bwhat(?:'?s|\s+is|\s+are)\s+wrong\s+with\s+(?:(?:the|this|that|my|our|your)\s+)?"
     r"(?:file|sheet|spreadsheet|workbook|data|table)\b",
     re.IGNORECASE,
 )
+# "no report please", "don't give me a report", "don't look at my data": the opposite request.
 _REPORT_NEGATED = re.compile(
-    rf"\b(?:no|not|without|skip|never|don't|dont|do\s+not)\b[^.;,!?]{{0,24}}\b{_REPORT_NOUN}\b",
+    rf"\b(?:no|not|without|skip|never|don't|dont|do\s+not)\b[^.;,!?]{{0,24}}\b{_REPORT_NOMINAL}\b"
+    r"|\b(?:don't|dont|do\s+not|won't|never|no\s+need\s+to)\s+(?:\w+\s+){0,2}"
+    r"(?:check|look|review|inspect|analy[sz]e|summari[sz]e|give|send|show)\b",
+    re.IGNORECASE,
+)
+# "I'll check the file myself": the person will do it, not ask Buddy to.
+_REPORT_BY_THE_PERSON = re.compile(
+    r"\bmyself\b|\b(?:i'll|i\s+will|i'm\s+going\s+to|i\s+can)\s+(?:\w+\s+){0,3}"
+    r"(?:check|look|review|inspect|analy[sz]e|summari[sz]e)\b",
     re.IGNORECASE,
 )
 # "email me the report", "print the summary": a report to be sent somewhere else. Buddy can't do
@@ -241,6 +272,7 @@ def mentions_report(message: str) -> bool:
     return (
         _REPORT_REQUEST.search(message) is not None
         and _REPORT_NEGATED.search(message) is None
+        and _REPORT_BY_THE_PERSON.search(message) is None
         and _REPORT_ELSEWHERE.search(message) is None
     )
 

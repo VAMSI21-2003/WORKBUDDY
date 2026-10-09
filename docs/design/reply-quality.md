@@ -41,15 +41,16 @@ If a step above READ tier ran or was planned, the turn is not conversational wha
 
 ### D4. A requested report
 
-`buddy.actions.mentions_report(message)` (deterministic, with a negation guard) says the user asked for one.
+`buddy.actions.mentions_report(message)` (deterministic) says the user asked for one. One pattern (`_REPORT_REQUEST`) is shared by every stage that asks "is this a report request?" (the Planner, the mention detector, the outcome renderer), so they can't disagree about a wording. It matches a request verb and determiners, the report noun or verb ("report", "summary", "analysis", "overview", "rundown", "quality check", "analyze", "summarize"), and what it is about ("of the file", "on the duplicate rows", "of everything"), and the analysis asked for by what it does ("check the file for problems", "what is wrong with my file"). It is not a request when the message negates it ("no report", "don't look at my data"), when the person will do it ("I'll check the file myself"), when the report is to be sent somewhere ("email me the report"), when the noun is the name of part of the file ("the Summary sheet") or when it asks about Buddy ("an overview of what you can do", which is answered as a capability question).
 
 - The Planner analyses the file for a report request even if it was analysed earlier, so the report can always be made.
 - A planner step whose `source_phrase` is only a report request (`is_only_a_report_request`) is planned as `spreadsheet.analyze`, so a model's own name for it ("spreadsheet.report") doesn't stop the chain as a step no skill can run.
 - **Delivered turn:** if the re-run of the analysis on the final file passed, the reply says `Report on the copy: <findings>.` (the findings, or the analyzer's all-clear). Otherwise it says why there is no report (`REPORT_RECHECK_FAILED_SENTENCE`, `REPORT_ANALYSIS_FAILED_SENTENCE`, `REPORT_NOT_RUN_SENTENCE`).
 - **Nothing changed:** `Report on your original file: <findings>.` or the same reasons; on a file that can't be analysed, the refusal sentence.
 - **Chain stopped:** `REPORT_NOT_PRODUCED_SENTENCE`.
-- The part of an `unsupported` entry that only asks for a report is not also stated as "I can't do this part yet" (`build_outcome_report(report_stated=True)`).
-- A report has no "Want me to tackle any of these?" question: the user asked for a report, and most findings aren't something Buddy can act on.
+- **A report is never also "something I can't do".** Brain's prompt names "a report" as the example of `unsupported`, so its `unsupported` entry is often the report. When the reply states the report (`build_outcome_report(report_stated=True)`), an `unsupported` phrase that contains a report request produces no "I can't do this part yet" sentence **unless it also names work Buddy can't do**: a word from a closed list of such verbs (`_OTHER_REQUEST_WORDS` in `buddy/outcome.py`: sort, chart, highlight, email, delete, fix, add, ...). The list holds verbs of other work, not the words a report may be described with, because the second can't be finished: two review rounds each found ordinary report wordings ("Can you provide a report?", "analyze the first sheet", "report on everything") that a list of allowed words missed, each a false "can't do". The cost of the closed list is the other way round: an extra attached without any listed verb ("... and send it to my boss" is listed; "... in a pdf" is not) is not mentioned, so the lead word can be "Done" with that extra left undone. The reply stays true; it just doesn't name the extra. Recorded for the owner.
+- A report has no "Want me to tackle any of these?" question: the user asked for a report, and Buddy can't act on most findings.
+- What a report is about is not a request to remove it: "a report on the duplicate rows" does not make the mention detector add "remove duplicate rows" to the ledger.
 
 ### D5. Exact duplicates
 
@@ -61,7 +62,7 @@ If a step above READ tier ran or was planned, the turn is not conversational wha
 
 ### D7. Download names
 
-`backend.names.download_name` drops every `_<session>-task-<n>` and writes `no_empty_rows` as `cleaned`; `display_names` numbers repeats ` (2)`, ` (3)` in delivery order. The stored `DeliveredFile.name` is unchanged (the name on disk), so nothing saved changes and no migration is needed: the friendly name is computed when a response is built (turn, state and file-list views, and the `Content-Disposition` header).
+`backend.names.download_name` parses the shape a skill writes, `<stem>(_<operation>_<session>-task-<n>)+.<ext>`, and rewrites only the generated parts: each loses its id and `no_empty_rows` is written `cleaned`. The stem (the person's own words, in the alphabet uploads are limited to) is kept, and cut if it must be so the operations and the extension always show (total at most 100 characters). Ids in any other shape are dropped. `display_names` numbers repeats ` (2)`, ` (3)` in delivery order, comparing names without regard to case. The stored `DeliveredFile.name` is unchanged (the name on disk), so nothing saved changes and no migration is needed: the friendly name is computed when a response is built (turn, state and file-list views, and the `Content-Disposition` header).
 
 ## Not built (needs model-written text)
 

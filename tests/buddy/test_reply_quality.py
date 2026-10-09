@@ -1075,3 +1075,158 @@ def test_a_think_that_failed_still_says_nothing_was_changed(
     )
 
     assert turn.reply == f"{UNDERSTANDING_FAILED_SENTENCE} {NO_CHANGES_SENTENCE}"
+
+
+# Wordings the first fix was not fitted to (the round-2 reviewer's), as Brain's `unsupported`
+# `source_phrase`. A list of the words a report phrase may contain cannot be finished, so the rule
+# is the other way round: a phrase that asks for a report is only a report unless it names work
+# Buddy can't do (review round 2, M1).
+FRESH_WORDINGS = [
+    "analyze my spreadsheet",
+    "give me a summary of this file",
+    "I'd like a report on this spreadsheet",
+    "analyze the data for me",
+    "Analyze my sales data",
+    "give me a quick summary",
+    "summary of this sheet please",
+    "Generate a report",
+    "Create a summary report",
+    "Prepare a data quality report",
+    "report",
+    "report please",
+    "I want to see a report",
+    "analyze",
+    "give me a detailed analysis of the spreadsheet",
+    "run a quality check on the file",
+    "check the data quality",
+    "get me a report on all issues in this file",
+    "analyze and summarize my file",
+    "provide a report",
+    "Make a report of the missing values",
+    "give me report on missing values",
+    "summarise the spreadsheet",
+    "Summarise my file for me please",
+    "i need a summary of the data",
+    "I need an analysis of my spreadsheet",
+    "show me a report of the data problems",
+    "give me an overview of the file",
+    "what is wrong with my file",
+    "give me a report on the duplicate rows",
+    "analyze the first sheet",
+    "provide a summary of the file",
+    "I'd like a summary please",
+    "give me a summary of the missing values",
+    "report on everything",
+    "check my file for duplicates",
+    "analyze my file thoroughly",
+    "write a report for me",
+    "Do a full analysis of this file",
+    "Send me a summary of what you find",
+]
+
+
+_VERBS = [
+    "give me",
+    "send me",
+    "provide",
+    "I'd like",
+    "I want to see",
+    "can you provide",
+    "please make me",
+    "generate",
+    "show me",
+]
+_NOUNS = ["a report", "a summary", "an analysis", "an overview", "a quick report"]
+_OBJECTS = [
+    "",
+    "of the file",
+    "on this spreadsheet",
+    "of the missing values",
+    "on the duplicate rows",
+    "about my sales data",
+    "of everything",
+    "on the first sheet",
+    "of the data problems and the empty rows",
+]
+GENERATED_WORDINGS = [f"{v} {n} {o}".strip() for v in _VERBS for n in _NOUNS for o in _OBJECTS]
+
+
+def _stated_but_not_done(phrase: str) -> tuple[Any, ...]:
+    from buddy.models import RequestedAction, Understanding
+    from buddy.outcome import build_outcome_report
+
+    understanding = Understanding(
+        intent="unclear", requested_actions=(RequestedAction("unsupported", phrase, "brain"),)
+    )
+    return build_outcome_report(None, None, understanding, report_stated=True).actions
+
+
+@pytest.mark.parametrize("phrase", FRESH_WORDINGS + GENERATED_WORDINGS)
+def test_a_phrase_that_asks_for_a_report_and_nothing_else_is_never_cant_do(phrase: str) -> None:
+    from buddy.actions import mentions_report
+
+    assert mentions_report(phrase), phrase
+    assert _stated_but_not_done(phrase) == ()
+
+
+@pytest.mark.parametrize(
+    "phrase",
+    [
+        "give me a report and sort it by amount",
+        "analyze my file and make a chart",
+        "report on the file and email it to Bob",
+        "analyze the data and highlight the duplicates",
+        "give me a report then delete column B",
+        "summarize the file and translate it",
+        "a report on the file and send it to my boss",
+        "analyze my data and fix the formatting",
+        "report and add a total column",
+    ],
+)
+def test_a_report_phrase_that_also_asks_for_work_buddy_cant_do_still_says_so(phrase: str) -> None:
+    (action,) = _stated_but_not_done(phrase)
+
+    assert action.reason == "no_skill"
+
+
+@pytest.mark.parametrize("speaker", SPEAKERS)
+@pytest.mark.parametrize(
+    ("message", "phrase"),
+    [
+        ("Can you provide a report?", "provide a report"),
+        ("give me a report on the duplicate rows", "give me a report on the duplicate rows"),
+        ("check my file for duplicates", "check my file for duplicates"),
+        ("Make a report of the missing values", "Make a report of the missing values"),
+        ("report on everything", "report on everything"),
+    ],
+)
+def test_ordinary_report_requests_flagged_unsupported_are_delivered_with_no_contradiction(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, speaker: str, message: str, phrase: str
+) -> None:
+    provider = Routed(brain("unclear", ("unsupported", phrase)), think())
+    alone = run_turn(tmp_path / "alone", speaker, message, provider, monkeypatch=monkeypatch)
+
+    assert alone.reply.startswith(REPORT_LEAD_ORIGINAL)
+    for text in ("can't do", "mentions", "didn't run", "Partly done"):
+        assert text not in alone.reply, alone.reply
+    _assert_nothing_claimed(alone)
+
+    after = Routed(
+        brain(
+            "remove_duplicate_rows",
+            ("remove_duplicate_rows", "remove the duplicate rows"),
+            ("unsupported", phrase),
+        ),
+        think(),
+    )
+    turn = run_turn(
+        tmp_path / "after",
+        speaker,
+        f"remove the duplicate rows and {message}",
+        after,
+        monkeypatch=monkeypatch,
+    )
+
+    assert turn.delivered and REPORT_LEAD_COPY in turn.reply
+    for text in ("can't do", "Partly done"):
+        assert text not in turn.reply, turn.reply

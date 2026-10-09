@@ -435,6 +435,21 @@ _LOCATION_PHRASE = re.compile(
     r"(?:sheet|file|spreadsheet|table|data)\b"
 )
 _TWO_REQUESTS = re.compile(r"\b(?:and|then|also|plus)\b|[,;&+]")
+# What a phrase that asks for a report may ALSO ask for that Buddy can't do. Closed on purpose,
+# and the opposite of a filler list: it holds only verbs of work Buddy has no skill for (or does as
+# another step), none of them a word a report is described with ("missing values", "first sheet",
+# "everything", "I'd like", "provide"). A report phrase with none of these is the report and nothing
+# else, and is not also "something I can't do". A phrase with one keeps the sentence that says so.
+# Review rounds 1 and 2 (M1): a list of the words a pure report phrase MAY contain cannot be
+# finished, and every word missing from it was a false "can't do" about a report just delivered.
+_OTHER_REQUEST_WORDS = re.compile(
+    r"\b(?:sort|filter|chart|graph|plot|highlight|colou?r|merge|split|rename|translate|convert|"
+    r"e-?mail|mail|print|upload|share|export|pivot|delete|drop|insert|replace|capitali[sz]e|trim|"
+    r"rotate|freeze|hide|unhide|dashboard|forecast|predict|schedule|attach|forward|save|download|"
+    r"paint|bold|italic|underline|resize|reorder|rearrange|transpose|reformat|fix|correct|remove|"
+    r"add|clean|dedupe|deduplicate|post|publish)(?:s|d|ed|ing)?\b"
+    r"|\bsend(?:s|ing)?\s+(?:it|them|this|that|to)\b",
+)
 
 
 def _no_skill_outcome(
@@ -492,6 +507,9 @@ def _no_skill_outcome(
         lowered, had_report = strip_report_request(lowered)
         if had_report:
             names_action = named_passed = True
+            if not _OTHER_REQUEST_WORDS.search(lowered):
+                # The report, and nothing Buddy can't do: the reply states the report itself.
+                return None
     lowered = _LOCATION_PHRASE.sub(" ", lowered, count=1)
     for other in ledger:
         other_action = ACTIONS_BY_NAME.get(other.action)

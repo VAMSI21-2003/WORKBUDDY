@@ -19,6 +19,11 @@ from collections.abc import Sequence
 from backend.sessions import DeliveredFile
 from backend.uploads import MAX_NAME_CHARS
 
+# The characters an upload's name may have (``backend.uploads.sanitize_name``); anything else in a
+# stored stem (there is none today) is shown as ``_``, so a name can't carry a quote or a newline
+# into a header.
+_SAFE_CHARS = re.compile(r"[^A-Za-z0-9._ -]")
+
 # The operation word each skill puts in the name of the file it writes
 # (``skills/excel/*._build_output_path``), and how a person reads it.
 _OPERATION_WORDS = {"deduplicated": "deduplicated", "no_empty_rows": "cleaned"}
@@ -32,18 +37,19 @@ def download_name(stored_name: str, session_key: str) -> str:
     each loses its id and the empty-row skill's ``no_empty_rows`` is written ``cleaned``. The
     stem, the person's own words, is kept (cut, if it must be, to leave room for the operations,
     so the name still says what was done). A name with ``-task-`` ids in another shape loses them;
-    any other name is returned as it is.
+    any other name is returned as it is. Characters an upload's name can't have are shown as ``_``.
     """
     key = re.escape(session_key)
     operation = "|".join(map(re.escape, _OPERATION_WORDS))
     step = rf"_(?:{operation})_{key}-task-\d+"
     shape = rf"(?P<stem>.*?)(?P<steps>(?:{step})+)(?P<extension>\.[A-Za-z0-9]+)"
-    found = re.fullmatch(shape, stored_name)
+    found = re.fullmatch(shape, stored_name, re.DOTALL)
     if found is not None:
         words = re.findall(rf"_({operation})_{key}-task-\d+", found["steps"])
         tail = "_" + "_".join(_OPERATION_WORDS[word] for word in words) + found["extension"]
-        return found["stem"][: max(1, MAX_NAME_CHARS - len(tail))] + tail
-    return re.sub(rf"_{key}-task-\d+", "", stored_name)
+        stem = _SAFE_CHARS.sub("_", found["stem"])  # the same alphabet uploads are limited to
+        return stem[: max(1, MAX_NAME_CHARS - len(tail))] + tail
+    return _SAFE_CHARS.sub("_", re.sub(rf"_{key}-task-\d+", "", stored_name))
 
 
 def display_names(session_key: str, delivered: Sequence[DeliveredFile]) -> dict[str, str]:

@@ -85,6 +85,16 @@ def test_a_message_that_asks_for_a_report_is_detected(message: str) -> None:
         "no report please",
         "don't give me a report",
         "sort it",
+        # A question about Buddy, a part of the file's name, or something the person will do
+        # themselves is not a request for a report on the file.
+        "give me an overview of what you can do",
+        "give me a rundown of your features",
+        "can you give me a summary of what you do?",
+        "remove the duplicate rows but don't look at my data",
+        "I'll check the file myself",
+        "thanks, I'll review the data now",
+        "remove the duplicate rows from the overview sheet",
+        "remove duplicates by the Analysis column",
         # A report to be sent somewhere Buddy can't send it is not a request for the report.
         "email me the report",
         "remove duplicates and print the summary",
@@ -414,3 +424,33 @@ def test_the_verifiers_finding_uses_the_singular_for_one_repeated_row(tmp_path: 
     pd.DataFrame({"a": [1, 1, 2]}).to_excel(path, index=False)
 
     assert _verify(path) == ("[duplicate_rows] 1 row repeats an earlier row exactly",)
+
+
+@pytest.mark.parametrize(
+    "message",
+    [
+        "Send me a summary of what you find",
+        "I don't know what's wrong, can you analyze it?",
+        "what is wrong with my file",
+        "run a quality check on the file",
+        "check my file for duplicates",
+        "give me an overview of the file",
+    ],
+)
+def test_requests_that_look_like_the_guarded_ones_but_are_requests(message: str) -> None:
+    assert mentions_report(message)
+
+
+def test_what_a_report_is_about_is_not_a_request_to_remove_it() -> None:
+    from buddy.actions import mentioned_actions
+
+    assert mentioned_actions("give me a report on the duplicate rows") == ()
+    assert [
+        a.name for a, _ in mentioned_actions("remove the duplicate rows and give me a report")
+    ] == ["remove_duplicate_rows"]
+    assert [
+        a.name
+        for a, _ in mentioned_actions(
+            "give me a report on the duplicate rows and remove the duplicate rows"
+        )
+    ] == ["remove_duplicate_rows"]
