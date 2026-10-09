@@ -865,3 +865,29 @@ def test_an_all_clear_is_still_qualified_next_to_a_residual_if_the_analysis_miss
     assert "It still has 1 duplicate row." in turn.reply
     assert "None of the other issues I check for were found." in turn.reply
     assert "None of the issues I check for were found" not in turn.reply
+
+
+@pytest.mark.parametrize("speaker", SPEAKERS)
+def test_a_report_to_be_emailed_is_not_given_as_the_report_and_is_stated_as_not_doable(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, speaker: str
+) -> None:
+    provider = Routed(
+        brain(
+            "remove_duplicate_rows",
+            ("remove_duplicate_rows", "remove the duplicate rows"),
+            ("unsupported", "email me the report"),
+        ),
+        think(),
+    )
+
+    turn = run_turn(
+        tmp_path,
+        speaker,
+        "remove the duplicate rows and email me the report",
+        provider,
+        monkeypatch=monkeypatch,
+    )
+
+    assert turn.delivered
+    assert "I can't do this part yet: “email me the report”." in turn.reply
+    assert REPORT_LEAD_COPY not in turn.reply

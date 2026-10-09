@@ -79,7 +79,16 @@ def test_a_message_that_asks_for_a_report_is_detected(message: str) -> None:
 
 @pytest.mark.parametrize(
     "message",
-    ["hi", "remove the duplicate rows", "no report please", "don't give me a report", "sort it"],
+    [
+        "hi",
+        "remove the duplicate rows",
+        "no report please",
+        "don't give me a report",
+        "sort it",
+        # A report to be sent somewhere Buddy can't send it is not a request for the report.
+        "email me the report",
+        "remove duplicates and print the summary",
+    ],
 )
 def test_a_message_that_does_not_ask_for_a_report_is_not(message: str) -> None:
     assert mentions_report(message) is False
@@ -91,6 +100,7 @@ def test_only_a_pure_report_request_counts_as_one() -> None:
     assert not is_only_a_report_request("remove duplicates and give me a report")
     assert not is_only_a_report_request("sort by amount")
     assert not is_only_a_report_request("don't give me a report")
+    assert not is_only_a_report_request("email me the report")
 
 
 def test_conversation_needs_brains_intent_and_nothing_that_contradicts_it() -> None:

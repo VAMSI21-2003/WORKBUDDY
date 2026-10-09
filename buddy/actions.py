@@ -199,6 +199,13 @@ _REPORT_NEGATED = re.compile(
     rf"\b(?:no|not|without|skip|never|don't|dont|do\s+not)\b[^.;,!?]{{0,24}}\b{_REPORT_NOUN}\b",
     re.IGNORECASE,
 )
+# "email me the report", "print the summary": a report to be sent somewhere else. Buddy can't do
+# that, so it isn't a request for the report in the reply, and the reply says what it can't do.
+_REPORT_ELSEWHERE = re.compile(
+    r"\b(?:e-?mail|mail|print|upload|share|export|download|forward|attach|slack|text)\b"
+    rf"[^.;,!?]{{0,24}}\b{_REPORT_NOUN}\b",
+    re.IGNORECASE,
+)
 # Words that may stand around a report request without asking for anything else.
 _REPORT_FILLER = frozenset(
     "a an the please pls and then also just only so but can could would will you i we to "
@@ -212,8 +219,13 @@ def mentions_report(message: str) -> bool:
     Deterministic and independent of every model. A paraphrase it misses ("give me a
     rundown") is simply not labelled as a report; a negation it can't parse is the
     only way to a report nobody wanted, which states findings and claims nothing else.
+    A report to be sent elsewhere ("email me the report") isn't one: Buddy can't send it.
     """
-    return _REPORT_REQUEST.search(message) is not None and _REPORT_NEGATED.search(message) is None
+    return (
+        _REPORT_REQUEST.search(message) is not None
+        and _REPORT_NEGATED.search(message) is None
+        and _REPORT_ELSEWHERE.search(message) is None
+    )
 
 
 def strip_report_request(text: str) -> tuple[str, bool]:
@@ -228,7 +240,7 @@ def is_only_a_report_request(phrase: str) -> bool:
     "give me a report" and "and then send me the summary, please" are; "remove duplicates
     and give me a report" and "sort by amount" are not.
     """
-    if _REPORT_REQUEST.search(phrase) is None or _REPORT_NEGATED.search(phrase) is not None:
+    if not mentions_report(phrase):
         return False
     rest = _REPORT_REQUEST.sub(" ", phrase.casefold().replace("\u2019", "'"))
     return all(word in _REPORT_FILLER for word in re.findall(r"[\w']+", rest))
