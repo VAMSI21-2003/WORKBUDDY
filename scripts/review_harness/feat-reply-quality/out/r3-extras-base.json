@@ -1,0 +1,4401 @@
+[
+ {
+  "speaker": "template",
+  "turn": 0,
+  "msg": "send the report to my boss",
+  "reply": "Before anything else, here's what I noticed: name: 1 missing value(s) (16.7%); amount: 1 missing value(s) (16.7%). Want me to tackle any of these? No changes were made to any file this turn.",
+  "voice_calls": 0,
+  "delivered": false,
+  "steps": [
+   [
+    "analyze",
+    "success"
+   ]
+  ],
+  "stopped_at": null,
+  "failure": null,
+  "orig_unchanged": true,
+  "orig_facts": {
+   "rows": 6,
+   "dups": 2,
+   "blank": 1,
+   "sheets": [
+    "Sheet1"
+   ]
+  },
+  "final_facts": null,
+  "verified": true,
+  "flags": [
+   "paren_s"
+  ],
+  "name": "x00-alone|send the report to my boss",
+  "class": "SILENT",
+  "lead": "Before"
+ },
+ {
+  "speaker": "template",
+  "turn": 0,
+  "msg": "remove the duplicate rows and send the report to my boss",
+  "reply": "Partly done — removed 2 duplicate row(s). I can't do this part yet: “send the report to my boss”. The copy has 4 row(s), 0 duplicate row(s) remaining. Saved as `report_deduplicated_session-1-task-1.xlsx`. The copy has the values only; formatting, column widths and other sheet settings aren't carried over. I also noticed: name: 1 missing value(s) (25.0%); amount: 1 missing value(s) (25.0%). Want me to tackle any of these?",
+  "voice_calls": 0,
+  "delivered": true,
+  "steps": [
+   [
+    "analyze",
+    "success"
+   ],
+   [
+    "deduplicate",
+    "success"
+   ],
+   [
+    "analyze",
+    "success"
+   ]
+  ],
+  "stopped_at": null,
+  "failure": null,
+  "orig_unchanged": true,
+  "orig_facts": {
+   "rows": 6,
+   "dups": 2,
+   "blank": 1,
+   "sheets": [
+    "Sheet1"
+   ]
+  },
+  "final_facts": {
+   "rows": 4,
+   "dups": 0,
+   "blank": 1,
+   "sheets": [
+    "Sheet1"
+   ]
+  },
+  "verified": true,
+  "flags": [
+   "paren_s",
+   "paren",
+   "bad_plural_n"
+  ],
+  "name": "x00-dedupe|send the report to my boss",
+  "class": "SAYS",
+  "lead": "Partly"
+ },
+ {
+  "speaker": "template",
+  "turn": 0,
+  "msg": "send the summary to Bob",
+  "reply": "Before anything else, here's what I noticed: name: 1 missing value(s) (16.7%); amount: 1 missing value(s) (16.7%). Want me to tackle any of these? No changes were made to any file this turn.",
+  "voice_calls": 0,
+  "delivered": false,
+  "steps": [
+   [
+    "analyze",
+    "success"
+   ]
+  ],
+  "stopped_at": null,
+  "failure": null,
+  "orig_unchanged": true,
+  "orig_facts": {
+   "rows": 6,
+   "dups": 2,
+   "blank": 1,
+   "sheets": [
+    "Sheet1"
+   ]
+  },
+  "final_facts": null,
+  "verified": true,
+  "flags": [
+   "paren_s"
+  ],
+  "name": "x01-alone|send the summary to Bob",
+  "class": "SILENT",
+  "lead": "Before"
+ },
+ {
+  "speaker": "template",
+  "turn": 0,
+  "msg": "remove the duplicate rows and send the summary to Bob",
+  "reply": "Partly done — removed 2 duplicate row(s). I can't do this part yet: “send the summary to Bob”. The copy has 4 row(s), 0 duplicate row(s) remaining. Saved as `report_deduplicated_session-1-task-1.xlsx`. The copy has the values only; formatting, column widths and other sheet settings aren't carried over. I also noticed: name: 1 missing value(s) (25.0%); amount: 1 missing value(s) (25.0%). Want me to tackle any of these?",
+  "voice_calls": 0,
+  "delivered": true,
+  "steps": [
+   [
+    "analyze",
+    "success"
+   ],
+   [
+    "deduplicate",
+    "success"
+   ],
+   [
+    "analyze",
+    "success"
+   ]
+  ],
+  "stopped_at": null,
+  "failure": null,
+  "orig_unchanged": true,
+  "orig_facts": {
+   "rows": 6,
+   "dups": 2,
+   "blank": 1,
+   "sheets": [
+    "Sheet1"
+   ]
+  },
+  "final_facts": {
+   "rows": 4,
+   "dups": 0,
+   "blank": 1,
+   "sheets": [
+    "Sheet1"
+   ]
+  },
+  "verified": true,
+  "flags": [
+   "paren_s",
+   "paren",
+   "bad_plural_n"
+  ],
+  "name": "x01-dedupe|send the summary to Bob",
+  "class": "SAYS",
+  "lead": "Partly"
+ },
+ {
+  "speaker": "template",
+  "turn": 0,
+  "msg": "send my manager the report",
+  "reply": "Before anything else, here's what I noticed: name: 1 missing value(s) (16.7%); amount: 1 missing value(s) (16.7%). Want me to tackle any of these? No changes were made to any file this turn.",
+  "voice_calls": 0,
+  "delivered": false,
+  "steps": [
+   [
+    "analyze",
+    "success"
+   ]
+  ],
+  "stopped_at": null,
+  "failure": null,
+  "orig_unchanged": true,
+  "orig_facts": {
+   "rows": 6,
+   "dups": 2,
+   "blank": 1,
+   "sheets": [
+    "Sheet1"
+   ]
+  },
+  "final_facts": null,
+  "verified": true,
+  "flags": [
+   "paren_s"
+  ],
+  "name": "x02-alone|send my manager the report",
+  "class": "SILENT",
+  "lead": "Before"
+ },
+ {
+  "speaker": "template",
+  "turn": 0,
+  "msg": "remove the duplicate rows and send my manager the report",
+  "reply": "Partly done — removed 2 duplicate row(s). I can't do this part yet: “send my manager the report”. The copy has 4 row(s), 0 duplicate row(s) remaining. Saved as `report_deduplicated_session-1-task-1.xlsx`. The copy has the values only; formatting, column widths and other sheet settings aren't carried over. I also noticed: name: 1 missing value(s) (25.0%); amount: 1 missing value(s) (25.0%). Want me to tackle any of these?",
+  "voice_calls": 0,
+  "delivered": true,
+  "steps": [
+   [
+    "analyze",
+    "success"
+   ],
+   [
+    "deduplicate",
+    "success"
+   ],
+   [
+    "analyze",
+    "success"
+   ]
+  ],
+  "stopped_at": null,
+  "failure": null,
+  "orig_unchanged": true,
+  "orig_facts": {
+   "rows": 6,
+   "dups": 2,
+   "blank": 1,
+   "sheets": [
+    "Sheet1"
+   ]
+  },
+  "final_facts": {
+   "rows": 4,
+   "dups": 0,
+   "blank": 1,
+   "sheets": [
+    "Sheet1"
+   ]
+  },
+  "verified": true,
+  "flags": [
+   "paren_s",
+   "paren",
+   "bad_plural_n"
+  ],
+  "name": "x02-dedupe|send my manager the report",
+  "class": "SAYS",
+  "lead": "Partly"
+ },
+ {
+  "speaker": "template",
+  "turn": 0,
+  "msg": "send Bob a summary of the file",
+  "reply": "Before anything else, here's what I noticed: name: 1 missing value(s) (16.7%); amount: 1 missing value(s) (16.7%). Want me to tackle any of these? No changes were made to any file this turn.",
+  "voice_calls": 0,
+  "delivered": false,
+  "steps": [
+   [
+    "analyze",
+    "success"
+   ]
+  ],
+  "stopped_at": null,
+  "failure": null,
+  "orig_unchanged": true,
+  "orig_facts": {
+   "rows": 6,
+   "dups": 2,
+   "blank": 1,
+   "sheets": [
+    "Sheet1"
+   ]
+  },
+  "final_facts": null,
+  "verified": true,
+  "flags": [
+   "paren_s"
+  ],
+  "name": "x03-alone|send Bob a summary of the file",
+  "class": "SILENT",
+  "lead": "Before"
+ },
+ {
+  "speaker": "template",
+  "turn": 0,
+  "msg": "remove the duplicate rows and send Bob a summary of the file",
+  "reply": "Partly done — removed 2 duplicate row(s). I can't do this part yet: “send Bob a summary of the file”. The copy has 4 row(s), 0 duplicate row(s) remaining. Saved as `report_deduplicated_session-1-task-1.xlsx`. The copy has the values only; formatting, column widths and other sheet settings aren't carried over. I also noticed: name: 1 missing value(s) (25.0%); amount: 1 missing value(s) (25.0%). Want me to tackle any of these?",
+  "voice_calls": 0,
+  "delivered": true,
+  "steps": [
+   [
+    "analyze",
+    "success"
+   ],
+   [
+    "deduplicate",
+    "success"
+   ],
+   [
+    "analyze",
+    "success"
+   ]
+  ],
+  "stopped_at": null,
+  "failure": null,
+  "orig_unchanged": true,
+  "orig_facts": {
+   "rows": 6,
+   "dups": 2,
+   "blank": 1,
+   "sheets": [
+    "Sheet1"
+   ]
+  },
+  "final_facts": {
+   "rows": 4,
+   "dups": 0,
+   "blank": 1,
+   "sheets": [
+    "Sheet1"
+   ]
+  },
+  "verified": true,
+  "flags": [
+   "paren_s",
+   "paren",
+   "bad_plural_n"
+  ],
+  "name": "x03-dedupe|send Bob a summary of the file",
+  "class": "SAYS",
+  "lead": "Partly"
+ },
+ {
+  "speaker": "template",
+  "turn": 0,
+  "msg": "give my boss a report on this file",
+  "reply": "Before anything else, here's what I noticed: name: 1 missing value(s) (16.7%); amount: 1 missing value(s) (16.7%). Want me to tackle any of these? No changes were made to any file this turn.",
+  "voice_calls": 0,
+  "delivered": false,
+  "steps": [
+   [
+    "analyze",
+    "success"
+   ]
+  ],
+  "stopped_at": null,
+  "failure": null,
+  "orig_unchanged": true,
+  "orig_facts": {
+   "rows": 6,
+   "dups": 2,
+   "blank": 1,
+   "sheets": [
+    "Sheet1"
+   ]
+  },
+  "final_facts": null,
+  "verified": true,
+  "flags": [
+   "paren_s"
+  ],
+  "name": "x04-alone|give my boss a report on this file",
+  "class": "SILENT",
+  "lead": "Before"
+ },
+ {
+  "speaker": "template",
+  "turn": 0,
+  "msg": "remove the duplicate rows and give my boss a report on this file",
+  "reply": "Partly done — removed 2 duplicate row(s). I can't do this part yet: “give my boss a report on this file”. The copy has 4 row(s), 0 duplicate row(s) remaining. Saved as `report_deduplicated_session-1-task-1.xlsx`. The copy has the values only; formatting, column widths and other sheet settings aren't carried over. I also noticed: name: 1 missing value(s) (25.0%); amount: 1 missing value(s) (25.0%). Want me to tackle any of these?",
+  "voice_calls": 0,
+  "delivered": true,
+  "steps": [
+   [
+    "analyze",
+    "success"
+   ],
+   [
+    "deduplicate",
+    "success"
+   ],
+   [
+    "analyze",
+    "success"
+   ]
+  ],
+  "stopped_at": null,
+  "failure": null,
+  "orig_unchanged": true,
+  "orig_facts": {
+   "rows": 6,
+   "dups": 2,
+   "blank": 1,
+   "sheets": [
+    "Sheet1"
+   ]
+  },
+  "final_facts": {
+   "rows": 4,
+   "dups": 0,
+   "blank": 1,
+   "sheets": [
+    "Sheet1"
+   ]
+  },
+  "verified": true,
+  "flags": [
+   "paren_s",
+   "paren",
+   "bad_plural_n"
+  ],
+  "name": "x04-dedupe|give my boss a report on this file",
+  "class": "SAYS",
+  "lead": "Partly"
+ },
+ {
+  "speaker": "template",
+  "turn": 0,
+  "msg": "show my team a summary of the data",
+  "reply": "Before anything else, here's what I noticed: name: 1 missing value(s) (16.7%); amount: 1 missing value(s) (16.7%). Want me to tackle any of these? No changes were made to any file this turn.",
+  "voice_calls": 0,
+  "delivered": false,
+  "steps": [
+   [
+    "analyze",
+    "success"
+   ]
+  ],
+  "stopped_at": null,
+  "failure": null,
+  "orig_unchanged": true,
+  "orig_facts": {
+   "rows": 6,
+   "dups": 2,
+   "blank": 1,
+   "sheets": [
+    "Sheet1"
+   ]
+  },
+  "final_facts": null,
+  "verified": true,
+  "flags": [
+   "paren_s"
+  ],
+  "name": "x05-alone|show my team a summary of the data",
+  "class": "SILENT",
+  "lead": "Before"
+ },
+ {
+  "speaker": "template",
+  "turn": 0,
+  "msg": "remove the duplicate rows and show my team a summary of the data",
+  "reply": "Partly done — removed 2 duplicate row(s). I can't do this part yet: “show my team a summary of the data”. The copy has 4 row(s), 0 duplicate row(s) remaining. Saved as `report_deduplicated_session-1-task-1.xlsx`. The copy has the values only; formatting, column widths and other sheet settings aren't carried over. I also noticed: name: 1 missing value(s) (25.0%); amount: 1 missing value(s) (25.0%). Want me to tackle any of these?",
+  "voice_calls": 0,
+  "delivered": true,
+  "steps": [
+   [
+    "analyze",
+    "success"
+   ],
+   [
+    "deduplicate",
+    "success"
+   ],
+   [
+    "analyze",
+    "success"
+   ]
+  ],
+  "stopped_at": null,
+  "failure": null,
+  "orig_unchanged": true,
+  "orig_facts": {
+   "rows": 6,
+   "dups": 2,
+   "blank": 1,
+   "sheets": [
+    "Sheet1"
+   ]
+  },
+  "final_facts": {
+   "rows": 4,
+   "dups": 0,
+   "blank": 1,
+   "sheets": [
+    "Sheet1"
+   ]
+  },
+  "verified": true,
+  "flags": [
+   "paren_s",
+   "paren",
+   "bad_plural_n"
+  ],
+  "name": "x05-dedupe|show my team a summary of the data",
+  "class": "SAYS",
+  "lead": "Partly"
+ },
+ {
+  "speaker": "template",
+  "turn": 0,
+  "msg": "message me the report when it is ready",
+  "reply": "Before anything else, here's what I noticed: name: 1 missing value(s) (16.7%); amount: 1 missing value(s) (16.7%). Want me to tackle any of these? No changes were made to any file this turn.",
+  "voice_calls": 0,
+  "delivered": false,
+  "steps": [
+   [
+    "analyze",
+    "success"
+   ]
+  ],
+  "stopped_at": null,
+  "failure": null,
+  "orig_unchanged": true,
+  "orig_facts": {
+   "rows": 6,
+   "dups": 2,
+   "blank": 1,
+   "sheets": [
+    "Sheet1"
+   ]
+  },
+  "final_facts": null,
+  "verified": true,
+  "flags": [
+   "paren_s"
+  ],
+  "name": "x06-alone|message me the report when it is ready",
+  "class": "SILENT",
+  "lead": "Before"
+ },
+ {
+  "speaker": "template",
+  "turn": 0,
+  "msg": "remove the duplicate rows and message me the report when it is ready",
+  "reply": "Partly done — removed 2 duplicate row(s). I can't do this part yet: “message me the report when it is ready”. The copy has 4 row(s), 0 duplicate row(s) remaining. Saved as `report_deduplicated_session-1-task-1.xlsx`. The copy has the values only; formatting, column widths and other sheet settings aren't carried over. I also noticed: name: 1 missing value(s) (25.0%); amount: 1 missing value(s) (25.0%). Want me to tackle any of these?",
+  "voice_calls": 0,
+  "delivered": true,
+  "steps": [
+   [
+    "analyze",
+    "success"
+   ],
+   [
+    "deduplicate",
+    "success"
+   ],
+   [
+    "analyze",
+    "success"
+   ]
+  ],
+  "stopped_at": null,
+  "failure": null,
+  "orig_unchanged": true,
+  "orig_facts": {
+   "rows": 6,
+   "dups": 2,
+   "blank": 1,
+   "sheets": [
+    "Sheet1"
+   ]
+  },
+  "final_facts": {
+   "rows": 4,
+   "dups": 0,
+   "blank": 1,
+   "sheets": [
+    "Sheet1"
+   ]
+  },
+  "verified": true,
+  "flags": [
+   "paren_s",
+   "paren",
+   "bad_plural_n"
+  ],
+  "name": "x06-dedupe|message me the report when it is ready",
+  "class": "SAYS",
+  "lead": "Partly"
+ },
+ {
+  "speaker": "template",
+  "turn": 0,
+  "msg": "text me the report",
+  "reply": "Before anything else, here's what I noticed: name: 1 missing value(s) (16.7%); amount: 1 missing value(s) (16.7%). Want me to tackle any of these? No changes were made to any file this turn.",
+  "voice_calls": 0,
+  "delivered": false,
+  "steps": [
+   [
+    "analyze",
+    "success"
+   ]
+  ],
+  "stopped_at": null,
+  "failure": null,
+  "orig_unchanged": true,
+  "orig_facts": {
+   "rows": 6,
+   "dups": 2,
+   "blank": 1,
+   "sheets": [
+    "Sheet1"
+   ]
+  },
+  "final_facts": null,
+  "verified": true,
+  "flags": [
+   "paren_s"
+  ],
+  "name": "x07-alone|text me the report",
+  "class": "SILENT",
+  "lead": "Before"
+ },
+ {
+  "speaker": "template",
+  "turn": 0,
+  "msg": "remove the duplicate rows and text me the report",
+  "reply": "Partly done — removed 2 duplicate row(s). I can't do this part yet: “text me the report”. The copy has 4 row(s), 0 duplicate row(s) remaining. Saved as `report_deduplicated_session-1-task-1.xlsx`. The copy has the values only; formatting, column widths and other sheet settings aren't carried over. I also noticed: name: 1 missing value(s) (25.0%); amount: 1 missing value(s) (25.0%). Want me to tackle any of these?",
+  "voice_calls": 0,
+  "delivered": true,
+  "steps": [
+   [
+    "analyze",
+    "success"
+   ],
+   [
+    "deduplicate",
+    "success"
+   ],
+   [
+    "analyze",
+    "success"
+   ]
+  ],
+  "stopped_at": null,
+  "failure": null,
+  "orig_unchanged": true,
+  "orig_facts": {
+   "rows": 6,
+   "dups": 2,
+   "blank": 1,
+   "sheets": [
+    "Sheet1"
+   ]
+  },
+  "final_facts": {
+   "rows": 4,
+   "dups": 0,
+   "blank": 1,
+   "sheets": [
+    "Sheet1"
+   ]
+  },
+  "verified": true,
+  "flags": [
+   "paren_s",
+   "paren",
+   "bad_plural_n"
+  ],
+  "name": "x07-dedupe|text me the report",
+  "class": "SAYS",
+  "lead": "Partly"
+ },
+ {
+  "speaker": "template",
+  "turn": 0,
+  "msg": "whatsapp the summary to my team",
+  "reply": "Before anything else, here's what I noticed: name: 1 missing value(s) (16.7%); amount: 1 missing value(s) (16.7%). Want me to tackle any of these? No changes were made to any file this turn.",
+  "voice_calls": 0,
+  "delivered": false,
+  "steps": [
+   [
+    "analyze",
+    "success"
+   ]
+  ],
+  "stopped_at": null,
+  "failure": null,
+  "orig_unchanged": true,
+  "orig_facts": {
+   "rows": 6,
+   "dups": 2,
+   "blank": 1,
+   "sheets": [
+    "Sheet1"
+   ]
+  },
+  "final_facts": null,
+  "verified": true,
+  "flags": [
+   "paren_s"
+  ],
+  "name": "x08-alone|whatsapp the summary to my team",
+  "class": "SILENT",
+  "lead": "Before"
+ },
+ {
+  "speaker": "template",
+  "turn": 0,
+  "msg": "remove the duplicate rows and whatsapp the summary to my team",
+  "reply": "Partly done — removed 2 duplicate row(s). I can't do this part yet: “whatsapp the summary to my team”. The copy has 4 row(s), 0 duplicate row(s) remaining. Saved as `report_deduplicated_session-1-task-1.xlsx`. The copy has the values only; formatting, column widths and other sheet settings aren't carried over. I also noticed: name: 1 missing value(s) (25.0%); amount: 1 missing value(s) (25.0%). Want me to tackle any of these?",
+  "voice_calls": 0,
+  "delivered": true,
+  "steps": [
+   [
+    "analyze",
+    "success"
+   ],
+   [
+    "deduplicate",
+    "success"
+   ],
+   [
+    "analyze",
+    "success"
+   ]
+  ],
+  "stopped_at": null,
+  "failure": null,
+  "orig_unchanged": true,
+  "orig_facts": {
+   "rows": 6,
+   "dups": 2,
+   "blank": 1,
+   "sheets": [
+    "Sheet1"
+   ]
+  },
+  "final_facts": {
+   "rows": 4,
+   "dups": 0,
+   "blank": 1,
+   "sheets": [
+    "Sheet1"
+   ]
+  },
+  "verified": true,
+  "flags": [
+   "paren_s",
+   "paren",
+   "bad_plural_n"
+  ],
+  "name": "x08-dedupe|whatsapp the summary to my team",
+  "class": "SAYS",
+  "lead": "Partly"
+ },
+ {
+  "speaker": "template",
+  "turn": 0,
+  "msg": "drop the report in the shared folder",
+  "reply": "Before anything else, here's what I noticed: name: 1 missing value(s) (16.7%); amount: 1 missing value(s) (16.7%). Want me to tackle any of these? No changes were made to any file this turn.",
+  "voice_calls": 0,
+  "delivered": false,
+  "steps": [
+   [
+    "analyze",
+    "success"
+   ]
+  ],
+  "stopped_at": null,
+  "failure": null,
+  "orig_unchanged": true,
+  "orig_facts": {
+   "rows": 6,
+   "dups": 2,
+   "blank": 1,
+   "sheets": [
+    "Sheet1"
+   ]
+  },
+  "final_facts": null,
+  "verified": true,
+  "flags": [
+   "paren_s"
+  ],
+  "name": "x09-alone|drop the report in the shared folder",
+  "class": "SILENT",
+  "lead": "Before"
+ },
+ {
+  "speaker": "template",
+  "turn": 0,
+  "msg": "remove the duplicate rows and drop the report in the shared folder",
+  "reply": "Partly done — removed 2 duplicate row(s). I can't do this part yet: “drop the report in the shared folder”. The copy has 4 row(s), 0 duplicate row(s) remaining. Saved as `report_deduplicated_session-1-task-1.xlsx`. The copy has the values only; formatting, column widths and other sheet settings aren't carried over. I also noticed: name: 1 missing value(s) (25.0%); amount: 1 missing value(s) (25.0%). Want me to tackle any of these?",
+  "voice_calls": 0,
+  "delivered": true,
+  "steps": [
+   [
+    "analyze",
+    "success"
+   ],
+   [
+    "deduplicate",
+    "success"
+   ],
+   [
+    "analyze",
+    "success"
+   ]
+  ],
+  "stopped_at": null,
+  "failure": null,
+  "orig_unchanged": true,
+  "orig_facts": {
+   "rows": 6,
+   "dups": 2,
+   "blank": 1,
+   "sheets": [
+    "Sheet1"
+   ]
+  },
+  "final_facts": {
+   "rows": 4,
+   "dups": 0,
+   "blank": 1,
+   "sheets": [
+    "Sheet1"
+   ]
+  },
+  "verified": true,
+  "flags": [
+   "paren_s",
+   "paren",
+   "bad_plural_n"
+  ],
+  "name": "x09-dedupe|drop the report in the shared folder",
+  "class": "SAYS",
+  "lead": "Partly"
+ },
+ {
+  "speaker": "template",
+  "turn": 0,
+  "msg": "put the report on the drive",
+  "reply": "Before anything else, here's what I noticed: name: 1 missing value(s) (16.7%); amount: 1 missing value(s) (16.7%). Want me to tackle any of these? No changes were made to any file this turn.",
+  "voice_calls": 0,
+  "delivered": false,
+  "steps": [
+   [
+    "analyze",
+    "success"
+   ]
+  ],
+  "stopped_at": null,
+  "failure": null,
+  "orig_unchanged": true,
+  "orig_facts": {
+   "rows": 6,
+   "dups": 2,
+   "blank": 1,
+   "sheets": [
+    "Sheet1"
+   ]
+  },
+  "final_facts": null,
+  "verified": true,
+  "flags": [
+   "paren_s"
+  ],
+  "name": "x10-alone|put the report on the drive",
+  "class": "SILENT",
+  "lead": "Before"
+ },
+ {
+  "speaker": "template",
+  "turn": 0,
+  "msg": "remove the duplicate rows and put the report on the drive",
+  "reply": "Partly done — removed 2 duplicate row(s). I can't do this part yet: “put the report on the drive”. The copy has 4 row(s), 0 duplicate row(s) remaining. Saved as `report_deduplicated_session-1-task-1.xlsx`. The copy has the values only; formatting, column widths and other sheet settings aren't carried over. I also noticed: name: 1 missing value(s) (25.0%); amount: 1 missing value(s) (25.0%). Want me to tackle any of these?",
+  "voice_calls": 0,
+  "delivered": true,
+  "steps": [
+   [
+    "analyze",
+    "success"
+   ],
+   [
+    "deduplicate",
+    "success"
+   ],
+   [
+    "analyze",
+    "success"
+   ]
+  ],
+  "stopped_at": null,
+  "failure": null,
+  "orig_unchanged": true,
+  "orig_facts": {
+   "rows": 6,
+   "dups": 2,
+   "blank": 1,
+   "sheets": [
+    "Sheet1"
+   ]
+  },
+  "final_facts": {
+   "rows": 4,
+   "dups": 0,
+   "blank": 1,
+   "sheets": [
+    "Sheet1"
+   ]
+  },
+  "verified": true,
+  "flags": [
+   "paren_s",
+   "paren",
+   "bad_plural_n"
+  ],
+  "name": "x10-dedupe|put the report on the drive",
+  "class": "SAYS",
+  "lead": "Partly"
+ },
+ {
+  "speaker": "template",
+  "turn": 0,
+  "msg": "give me a report in pdf",
+  "reply": "Before anything else, here's what I noticed: name: 1 missing value(s) (16.7%); amount: 1 missing value(s) (16.7%). Want me to tackle any of these? No changes were made to any file this turn.",
+  "voice_calls": 0,
+  "delivered": false,
+  "steps": [
+   [
+    "analyze",
+    "success"
+   ]
+  ],
+  "stopped_at": null,
+  "failure": null,
+  "orig_unchanged": true,
+  "orig_facts": {
+   "rows": 6,
+   "dups": 2,
+   "blank": 1,
+   "sheets": [
+    "Sheet1"
+   ]
+  },
+  "final_facts": null,
+  "verified": true,
+  "flags": [
+   "paren_s"
+  ],
+  "name": "x11-alone|give me a report in pdf",
+  "class": "SILENT",
+  "lead": "Before"
+ },
+ {
+  "speaker": "template",
+  "turn": 0,
+  "msg": "remove the duplicate rows and give me a report in pdf",
+  "reply": "Partly done — removed 2 duplicate row(s). I can't do this part yet: “give me a report in pdf”. The copy has 4 row(s), 0 duplicate row(s) remaining. Saved as `report_deduplicated_session-1-task-1.xlsx`. The copy has the values only; formatting, column widths and other sheet settings aren't carried over. I also noticed: name: 1 missing value(s) (25.0%); amount: 1 missing value(s) (25.0%). Want me to tackle any of these?",
+  "voice_calls": 0,
+  "delivered": true,
+  "steps": [
+   [
+    "analyze",
+    "success"
+   ],
+   [
+    "deduplicate",
+    "success"
+   ],
+   [
+    "analyze",
+    "success"
+   ]
+  ],
+  "stopped_at": null,
+  "failure": null,
+  "orig_unchanged": true,
+  "orig_facts": {
+   "rows": 6,
+   "dups": 2,
+   "blank": 1,
+   "sheets": [
+    "Sheet1"
+   ]
+  },
+  "final_facts": {
+   "rows": 4,
+   "dups": 0,
+   "blank": 1,
+   "sheets": [
+    "Sheet1"
+   ]
+  },
+  "verified": true,
+  "flags": [
+   "paren_s",
+   "paren",
+   "bad_plural_n"
+  ],
+  "name": "x11-dedupe|give me a report in pdf",
+  "class": "SAYS",
+  "lead": "Partly"
+ },
+ {
+  "speaker": "template",
+  "turn": 0,
+  "msg": "give me a report as a pdf",
+  "reply": "Before anything else, here's what I noticed: name: 1 missing value(s) (16.7%); amount: 1 missing value(s) (16.7%). Want me to tackle any of these? No changes were made to any file this turn.",
+  "voice_calls": 0,
+  "delivered": false,
+  "steps": [
+   [
+    "analyze",
+    "success"
+   ]
+  ],
+  "stopped_at": null,
+  "failure": null,
+  "orig_unchanged": true,
+  "orig_facts": {
+   "rows": 6,
+   "dups": 2,
+   "blank": 1,
+   "sheets": [
+    "Sheet1"
+   ]
+  },
+  "final_facts": null,
+  "verified": true,
+  "flags": [
+   "paren_s"
+  ],
+  "name": "x12-alone|give me a report as a pdf",
+  "class": "SILENT",
+  "lead": "Before"
+ },
+ {
+  "speaker": "template",
+  "turn": 0,
+  "msg": "remove the duplicate rows and give me a report as a pdf",
+  "reply": "Partly done — removed 2 duplicate row(s). I can't do this part yet: “give me a report as a pdf”. The copy has 4 row(s), 0 duplicate row(s) remaining. Saved as `report_deduplicated_session-1-task-1.xlsx`. The copy has the values only; formatting, column widths and other sheet settings aren't carried over. I also noticed: name: 1 missing value(s) (25.0%); amount: 1 missing value(s) (25.0%). Want me to tackle any of these?",
+  "voice_calls": 0,
+  "delivered": true,
+  "steps": [
+   [
+    "analyze",
+    "success"
+   ],
+   [
+    "deduplicate",
+    "success"
+   ],
+   [
+    "analyze",
+    "success"
+   ]
+  ],
+  "stopped_at": null,
+  "failure": null,
+  "orig_unchanged": true,
+  "orig_facts": {
+   "rows": 6,
+   "dups": 2,
+   "blank": 1,
+   "sheets": [
+    "Sheet1"
+   ]
+  },
+  "final_facts": {
+   "rows": 4,
+   "dups": 0,
+   "blank": 1,
+   "sheets": [
+    "Sheet1"
+   ]
+  },
+  "verified": true,
+  "flags": [
+   "paren_s",
+   "paren",
+   "bad_plural_n"
+  ],
+  "name": "x12-dedupe|give me a report as a pdf",
+  "class": "SAYS",
+  "lead": "Partly"
+ },
+ {
+  "speaker": "template",
+  "turn": 0,
+  "msg": "give me a report in a word doc",
+  "reply": "Before anything else, here's what I noticed: name: 1 missing value(s) (16.7%); amount: 1 missing value(s) (16.7%). Want me to tackle any of these? No changes were made to any file this turn.",
+  "voice_calls": 0,
+  "delivered": false,
+  "steps": [
+   [
+    "analyze",
+    "success"
+   ]
+  ],
+  "stopped_at": null,
+  "failure": null,
+  "orig_unchanged": true,
+  "orig_facts": {
+   "rows": 6,
+   "dups": 2,
+   "blank": 1,
+   "sheets": [
+    "Sheet1"
+   ]
+  },
+  "final_facts": null,
+  "verified": true,
+  "flags": [
+   "paren_s"
+  ],
+  "name": "x13-alone|give me a report in a word doc",
+  "class": "SILENT",
+  "lead": "Before"
+ },
+ {
+  "speaker": "template",
+  "turn": 0,
+  "msg": "remove the duplicate rows and give me a report in a word doc",
+  "reply": "Partly done — removed 2 duplicate row(s). I can't do this part yet: “give me a report in a word doc”. The copy has 4 row(s), 0 duplicate row(s) remaining. Saved as `report_deduplicated_session-1-task-1.xlsx`. The copy has the values only; formatting, column widths and other sheet settings aren't carried over. I also noticed: name: 1 missing value(s) (25.0%); amount: 1 missing value(s) (25.0%). Want me to tackle any of these?",
+  "voice_calls": 0,
+  "delivered": true,
+  "steps": [
+   [
+    "analyze",
+    "success"
+   ],
+   [
+    "deduplicate",
+    "success"
+   ],
+   [
+    "analyze",
+    "success"
+   ]
+  ],
+  "stopped_at": null,
+  "failure": null,
+  "orig_unchanged": true,
+  "orig_facts": {
+   "rows": 6,
+   "dups": 2,
+   "blank": 1,
+   "sheets": [
+    "Sheet1"
+   ]
+  },
+  "final_facts": {
+   "rows": 4,
+   "dups": 0,
+   "blank": 1,
+   "sheets": [
+    "Sheet1"
+   ]
+  },
+  "verified": true,
+  "flags": [
+   "paren_s",
+   "paren",
+   "bad_plural_n"
+  ],
+  "name": "x13-dedupe|give me a report in a word doc",
+  "class": "SAYS",
+  "lead": "Partly"
+ },
+ {
+  "speaker": "template",
+  "turn": 0,
+  "msg": "give me the report as a csv",
+  "reply": "Before anything else, here's what I noticed: name: 1 missing value(s) (16.7%); amount: 1 missing value(s) (16.7%). Want me to tackle any of these? No changes were made to any file this turn.",
+  "voice_calls": 0,
+  "delivered": false,
+  "steps": [
+   [
+    "analyze",
+    "success"
+   ]
+  ],
+  "stopped_at": null,
+  "failure": null,
+  "orig_unchanged": true,
+  "orig_facts": {
+   "rows": 6,
+   "dups": 2,
+   "blank": 1,
+   "sheets": [
+    "Sheet1"
+   ]
+  },
+  "final_facts": null,
+  "verified": true,
+  "flags": [
+   "paren_s"
+  ],
+  "name": "x14-alone|give me the report as a csv",
+  "class": "SILENT",
+  "lead": "Before"
+ },
+ {
+  "speaker": "template",
+  "turn": 0,
+  "msg": "remove the duplicate rows and give me the report as a csv",
+  "reply": "Partly done — removed 2 duplicate row(s). I can't do this part yet: “give me the report as a csv”. The copy has 4 row(s), 0 duplicate row(s) remaining. Saved as `report_deduplicated_session-1-task-1.xlsx`. The copy has the values only; formatting, column widths and other sheet settings aren't carried over. I also noticed: name: 1 missing value(s) (25.0%); amount: 1 missing value(s) (25.0%). Want me to tackle any of these?",
+  "voice_calls": 0,
+  "delivered": true,
+  "steps": [
+   [
+    "analyze",
+    "success"
+   ],
+   [
+    "deduplicate",
+    "success"
+   ],
+   [
+    "analyze",
+    "success"
+   ]
+  ],
+  "stopped_at": null,
+  "failure": null,
+  "orig_unchanged": true,
+  "orig_facts": {
+   "rows": 6,
+   "dups": 2,
+   "blank": 1,
+   "sheets": [
+    "Sheet1"
+   ]
+  },
+  "final_facts": {
+   "rows": 4,
+   "dups": 0,
+   "blank": 1,
+   "sheets": [
+    "Sheet1"
+   ]
+  },
+  "verified": true,
+  "flags": [
+   "paren_s",
+   "paren",
+   "bad_plural_n"
+  ],
+  "name": "x14-dedupe|give me the report as a csv",
+  "class": "SAYS",
+  "lead": "Partly"
+ },
+ {
+  "speaker": "template",
+  "turn": 0,
+  "msg": "give me a report in a powerpoint slide",
+  "reply": "Before anything else, here's what I noticed: name: 1 missing value(s) (16.7%); amount: 1 missing value(s) (16.7%). Want me to tackle any of these? No changes were made to any file this turn.",
+  "voice_calls": 0,
+  "delivered": false,
+  "steps": [
+   [
+    "analyze",
+    "success"
+   ]
+  ],
+  "stopped_at": null,
+  "failure": null,
+  "orig_unchanged": true,
+  "orig_facts": {
+   "rows": 6,
+   "dups": 2,
+   "blank": 1,
+   "sheets": [
+    "Sheet1"
+   ]
+  },
+  "final_facts": null,
+  "verified": true,
+  "flags": [
+   "paren_s"
+  ],
+  "name": "x15-alone|give me a report in a powerpoint slide",
+  "class": "SILENT",
+  "lead": "Before"
+ },
+ {
+  "speaker": "template",
+  "turn": 0,
+  "msg": "remove the duplicate rows and give me a report in a powerpoint slide",
+  "reply": "Partly done — removed 2 duplicate row(s). I can't do this part yet: “give me a report in a powerpoint slide”. The copy has 4 row(s), 0 duplicate row(s) remaining. Saved as `report_deduplicated_session-1-task-1.xlsx`. The copy has the values only; formatting, column widths and other sheet settings aren't carried over. I also noticed: name: 1 missing value(s) (25.0%); amount: 1 missing value(s) (25.0%). Want me to tackle any of these?",
+  "voice_calls": 0,
+  "delivered": true,
+  "steps": [
+   [
+    "analyze",
+    "success"
+   ],
+   [
+    "deduplicate",
+    "success"
+   ],
+   [
+    "analyze",
+    "success"
+   ]
+  ],
+  "stopped_at": null,
+  "failure": null,
+  "orig_unchanged": true,
+  "orig_facts": {
+   "rows": 6,
+   "dups": 2,
+   "blank": 1,
+   "sheets": [
+    "Sheet1"
+   ]
+  },
+  "final_facts": {
+   "rows": 4,
+   "dups": 0,
+   "blank": 1,
+   "sheets": [
+    "Sheet1"
+   ]
+  },
+  "verified": true,
+  "flags": [
+   "paren_s",
+   "paren",
+   "bad_plural_n"
+  ],
+  "name": "x15-dedupe|give me a report in a powerpoint slide",
+  "class": "SAYS",
+  "lead": "Partly"
+ },
+ {
+  "speaker": "template",
+  "turn": 0,
+  "msg": "give me a report in French",
+  "reply": "Before anything else, here's what I noticed: name: 1 missing value(s) (16.7%); amount: 1 missing value(s) (16.7%). Want me to tackle any of these? No changes were made to any file this turn.",
+  "voice_calls": 0,
+  "delivered": false,
+  "steps": [
+   [
+    "analyze",
+    "success"
+   ]
+  ],
+  "stopped_at": null,
+  "failure": null,
+  "orig_unchanged": true,
+  "orig_facts": {
+   "rows": 6,
+   "dups": 2,
+   "blank": 1,
+   "sheets": [
+    "Sheet1"
+   ]
+  },
+  "final_facts": null,
+  "verified": true,
+  "flags": [
+   "paren_s"
+  ],
+  "name": "x16-alone|give me a report in French",
+  "class": "SILENT",
+  "lead": "Before"
+ },
+ {
+  "speaker": "template",
+  "turn": 0,
+  "msg": "remove the duplicate rows and give me a report in French",
+  "reply": "Partly done — removed 2 duplicate row(s). I can't do this part yet: “give me a report in French”. The copy has 4 row(s), 0 duplicate row(s) remaining. Saved as `report_deduplicated_session-1-task-1.xlsx`. The copy has the values only; formatting, column widths and other sheet settings aren't carried over. I also noticed: name: 1 missing value(s) (25.0%); amount: 1 missing value(s) (25.0%). Want me to tackle any of these?",
+  "voice_calls": 0,
+  "delivered": true,
+  "steps": [
+   [
+    "analyze",
+    "success"
+   ],
+   [
+    "deduplicate",
+    "success"
+   ],
+   [
+    "analyze",
+    "success"
+   ]
+  ],
+  "stopped_at": null,
+  "failure": null,
+  "orig_unchanged": true,
+  "orig_facts": {
+   "rows": 6,
+   "dups": 2,
+   "blank": 1,
+   "sheets": [
+    "Sheet1"
+   ]
+  },
+  "final_facts": {
+   "rows": 4,
+   "dups": 0,
+   "blank": 1,
+   "sheets": [
+    "Sheet1"
+   ]
+  },
+  "verified": true,
+  "flags": [
+   "paren_s",
+   "paren",
+   "bad_plural_n"
+  ],
+  "name": "x16-dedupe|give me a report in French",
+  "class": "SAYS",
+  "lead": "Partly"
+ },
+ {
+  "speaker": "template",
+  "turn": 0,
+  "msg": "give me a report in Spanish",
+  "reply": "Before anything else, here's what I noticed: name: 1 missing value(s) (16.7%); amount: 1 missing value(s) (16.7%). Want me to tackle any of these? No changes were made to any file this turn.",
+  "voice_calls": 0,
+  "delivered": false,
+  "steps": [
+   [
+    "analyze",
+    "success"
+   ]
+  ],
+  "stopped_at": null,
+  "failure": null,
+  "orig_unchanged": true,
+  "orig_facts": {
+   "rows": 6,
+   "dups": 2,
+   "blank": 1,
+   "sheets": [
+    "Sheet1"
+   ]
+  },
+  "final_facts": null,
+  "verified": true,
+  "flags": [
+   "paren_s"
+  ],
+  "name": "x17-alone|give me a report in Spanish",
+  "class": "SILENT",
+  "lead": "Before"
+ },
+ {
+  "speaker": "template",
+  "turn": 0,
+  "msg": "remove the duplicate rows and give me a report in Spanish",
+  "reply": "Partly done — removed 2 duplicate row(s). I can't do this part yet: “give me a report in Spanish”. The copy has 4 row(s), 0 duplicate row(s) remaining. Saved as `report_deduplicated_session-1-task-1.xlsx`. The copy has the values only; formatting, column widths and other sheet settings aren't carried over. I also noticed: name: 1 missing value(s) (25.0%); amount: 1 missing value(s) (25.0%). Want me to tackle any of these?",
+  "voice_calls": 0,
+  "delivered": true,
+  "steps": [
+   [
+    "analyze",
+    "success"
+   ],
+   [
+    "deduplicate",
+    "success"
+   ],
+   [
+    "analyze",
+    "success"
+   ]
+  ],
+  "stopped_at": null,
+  "failure": null,
+  "orig_unchanged": true,
+  "orig_facts": {
+   "rows": 6,
+   "dups": 2,
+   "blank": 1,
+   "sheets": [
+    "Sheet1"
+   ]
+  },
+  "final_facts": {
+   "rows": 4,
+   "dups": 0,
+   "blank": 1,
+   "sheets": [
+    "Sheet1"
+   ]
+  },
+  "verified": true,
+  "flags": [
+   "paren_s",
+   "paren",
+   "bad_plural_n"
+  ],
+  "name": "x17-dedupe|give me a report in Spanish",
+  "class": "SAYS",
+  "lead": "Partly"
+ },
+ {
+  "speaker": "template",
+  "turn": 0,
+  "msg": "give me a report as a table in a new sheet",
+  "reply": "Before anything else, here's what I noticed: name: 1 missing value(s) (16.7%); amount: 1 missing value(s) (16.7%). Want me to tackle any of these? No changes were made to any file this turn.",
+  "voice_calls": 0,
+  "delivered": false,
+  "steps": [
+   [
+    "analyze",
+    "success"
+   ]
+  ],
+  "stopped_at": null,
+  "failure": null,
+  "orig_unchanged": true,
+  "orig_facts": {
+   "rows": 6,
+   "dups": 2,
+   "blank": 1,
+   "sheets": [
+    "Sheet1"
+   ]
+  },
+  "final_facts": null,
+  "verified": true,
+  "flags": [
+   "paren_s"
+  ],
+  "name": "x18-alone|give me a report as a table in a new sheet",
+  "class": "SILENT",
+  "lead": "Before"
+ },
+ {
+  "speaker": "template",
+  "turn": 0,
+  "msg": "remove the duplicate rows and give me a report as a table in a new sheet",
+  "reply": "Partly done — removed 2 duplicate row(s). I can't do this part yet: “give me a report as a table in a new sheet”. The copy has 4 row(s), 0 duplicate row(s) remaining. Saved as `report_deduplicated_session-1-task-1.xlsx`. The copy has the values only; formatting, column widths and other sheet settings aren't carried over. I also noticed: name: 1 missing value(s) (25.0%); amount: 1 missing value(s) (25.0%). Want me to tackle any of these?",
+  "voice_calls": 0,
+  "delivered": true,
+  "steps": [
+   [
+    "analyze",
+    "success"
+   ],
+   [
+    "deduplicate",
+    "success"
+   ],
+   [
+    "analyze",
+    "success"
+   ]
+  ],
+  "stopped_at": null,
+  "failure": null,
+  "orig_unchanged": true,
+  "orig_facts": {
+   "rows": 6,
+   "dups": 2,
+   "blank": 1,
+   "sheets": [
+    "Sheet1"
+   ]
+  },
+  "final_facts": {
+   "rows": 4,
+   "dups": 0,
+   "blank": 1,
+   "sheets": [
+    "Sheet1"
+   ]
+  },
+  "verified": true,
+  "flags": [
+   "paren_s",
+   "paren",
+   "bad_plural_n"
+  ],
+  "name": "x18-dedupe|give me a report as a table in a new sheet",
+  "class": "SAYS",
+  "lead": "Partly"
+ },
+ {
+  "speaker": "template",
+  "turn": 0,
+  "msg": "put the report in a new sheet",
+  "reply": "Before anything else, here's what I noticed: name: 1 missing value(s) (16.7%); amount: 1 missing value(s) (16.7%). Want me to tackle any of these? No changes were made to any file this turn.",
+  "voice_calls": 0,
+  "delivered": false,
+  "steps": [
+   [
+    "analyze",
+    "success"
+   ]
+  ],
+  "stopped_at": null,
+  "failure": null,
+  "orig_unchanged": true,
+  "orig_facts": {
+   "rows": 6,
+   "dups": 2,
+   "blank": 1,
+   "sheets": [
+    "Sheet1"
+   ]
+  },
+  "final_facts": null,
+  "verified": true,
+  "flags": [
+   "paren_s"
+  ],
+  "name": "x19-alone|put the report in a new sheet",
+  "class": "SILENT",
+  "lead": "Before"
+ },
+ {
+  "speaker": "template",
+  "turn": 0,
+  "msg": "remove the duplicate rows and put the report in a new sheet",
+  "reply": "Partly done — removed 2 duplicate row(s). I can't do this part yet: “put the report in a new sheet”. The copy has 4 row(s), 0 duplicate row(s) remaining. Saved as `report_deduplicated_session-1-task-1.xlsx`. The copy has the values only; formatting, column widths and other sheet settings aren't carried over. I also noticed: name: 1 missing value(s) (25.0%); amount: 1 missing value(s) (25.0%). Want me to tackle any of these?",
+  "voice_calls": 0,
+  "delivered": true,
+  "steps": [
+   [
+    "analyze",
+    "success"
+   ],
+   [
+    "deduplicate",
+    "success"
+   ],
+   [
+    "analyze",
+    "success"
+   ]
+  ],
+  "stopped_at": null,
+  "failure": null,
+  "orig_unchanged": true,
+  "orig_facts": {
+   "rows": 6,
+   "dups": 2,
+   "blank": 1,
+   "sheets": [
+    "Sheet1"
+   ]
+  },
+  "final_facts": {
+   "rows": 4,
+   "dups": 0,
+   "blank": 1,
+   "sheets": [
+    "Sheet1"
+   ]
+  },
+  "verified": true,
+  "flags": [
+   "paren_s",
+   "paren",
+   "bad_plural_n"
+  ],
+  "name": "x19-dedupe|put the report in a new sheet",
+  "class": "SAYS",
+  "lead": "Partly"
+ },
+ {
+  "speaker": "template",
+  "turn": 0,
+  "msg": "write the report to a new tab",
+  "reply": "Before anything else, here's what I noticed: name: 1 missing value(s) (16.7%); amount: 1 missing value(s) (16.7%). Want me to tackle any of these? No changes were made to any file this turn.",
+  "voice_calls": 0,
+  "delivered": false,
+  "steps": [
+   [
+    "analyze",
+    "success"
+   ]
+  ],
+  "stopped_at": null,
+  "failure": null,
+  "orig_unchanged": true,
+  "orig_facts": {
+   "rows": 6,
+   "dups": 2,
+   "blank": 1,
+   "sheets": [
+    "Sheet1"
+   ]
+  },
+  "final_facts": null,
+  "verified": true,
+  "flags": [
+   "paren_s"
+  ],
+  "name": "x20-alone|write the report to a new tab",
+  "class": "SILENT",
+  "lead": "Before"
+ },
+ {
+  "speaker": "template",
+  "turn": 0,
+  "msg": "remove the duplicate rows and write the report to a new tab",
+  "reply": "Partly done — removed 2 duplicate row(s). I can't do this part yet: “write the report to a new tab”. The copy has 4 row(s), 0 duplicate row(s) remaining. Saved as `report_deduplicated_session-1-task-1.xlsx`. The copy has the values only; formatting, column widths and other sheet settings aren't carried over. I also noticed: name: 1 missing value(s) (25.0%); amount: 1 missing value(s) (25.0%). Want me to tackle any of these?",
+  "voice_calls": 0,
+  "delivered": true,
+  "steps": [
+   [
+    "analyze",
+    "success"
+   ],
+   [
+    "deduplicate",
+    "success"
+   ],
+   [
+    "analyze",
+    "success"
+   ]
+  ],
+  "stopped_at": null,
+  "failure": null,
+  "orig_unchanged": true,
+  "orig_facts": {
+   "rows": 6,
+   "dups": 2,
+   "blank": 1,
+   "sheets": [
+    "Sheet1"
+   ]
+  },
+  "final_facts": {
+   "rows": 4,
+   "dups": 0,
+   "blank": 1,
+   "sheets": [
+    "Sheet1"
+   ]
+  },
+  "verified": true,
+  "flags": [
+   "paren_s",
+   "paren",
+   "bad_plural_n"
+  ],
+  "name": "x20-dedupe|write the report to a new tab",
+  "class": "SAYS",
+  "lead": "Partly"
+ },
+ {
+  "speaker": "template",
+  "turn": 0,
+  "msg": "include the report in the file",
+  "reply": "Before anything else, here's what I noticed: name: 1 missing value(s) (16.7%); amount: 1 missing value(s) (16.7%). Want me to tackle any of these? No changes were made to any file this turn.",
+  "voice_calls": 0,
+  "delivered": false,
+  "steps": [
+   [
+    "analyze",
+    "success"
+   ]
+  ],
+  "stopped_at": null,
+  "failure": null,
+  "orig_unchanged": true,
+  "orig_facts": {
+   "rows": 6,
+   "dups": 2,
+   "blank": 1,
+   "sheets": [
+    "Sheet1"
+   ]
+  },
+  "final_facts": null,
+  "verified": true,
+  "flags": [
+   "paren_s"
+  ],
+  "name": "x21-alone|include the report in the file",
+  "class": "SILENT",
+  "lead": "Before"
+ },
+ {
+  "speaker": "template",
+  "turn": 0,
+  "msg": "remove the duplicate rows and include the report in the file",
+  "reply": "Partly done — removed 2 duplicate row(s). I can't do this part yet: “include the report in the file”. The copy has 4 row(s), 0 duplicate row(s) remaining. Saved as `report_deduplicated_session-1-task-1.xlsx`. The copy has the values only; formatting, column widths and other sheet settings aren't carried over. I also noticed: name: 1 missing value(s) (25.0%); amount: 1 missing value(s) (25.0%). Want me to tackle any of these?",
+  "voice_calls": 0,
+  "delivered": true,
+  "steps": [
+   [
+    "analyze",
+    "success"
+   ],
+   [
+    "deduplicate",
+    "success"
+   ],
+   [
+    "analyze",
+    "success"
+   ]
+  ],
+  "stopped_at": null,
+  "failure": null,
+  "orig_unchanged": true,
+  "orig_facts": {
+   "rows": 6,
+   "dups": 2,
+   "blank": 1,
+   "sheets": [
+    "Sheet1"
+   ]
+  },
+  "final_facts": {
+   "rows": 4,
+   "dups": 0,
+   "blank": 1,
+   "sheets": [
+    "Sheet1"
+   ]
+  },
+  "verified": true,
+  "flags": [
+   "paren_s",
+   "paren",
+   "bad_plural_n"
+  ],
+  "name": "x21-dedupe|include the report in the file",
+  "class": "SAYS",
+  "lead": "Partly"
+ },
+ {
+  "speaker": "template",
+  "turn": 0,
+  "msg": "append the summary to the sheet",
+  "reply": "Before anything else, here's what I noticed: name: 1 missing value(s) (16.7%); amount: 1 missing value(s) (16.7%). Want me to tackle any of these? No changes were made to any file this turn.",
+  "voice_calls": 0,
+  "delivered": false,
+  "steps": [
+   [
+    "analyze",
+    "success"
+   ]
+  ],
+  "stopped_at": null,
+  "failure": null,
+  "orig_unchanged": true,
+  "orig_facts": {
+   "rows": 6,
+   "dups": 2,
+   "blank": 1,
+   "sheets": [
+    "Sheet1"
+   ]
+  },
+  "final_facts": null,
+  "verified": true,
+  "flags": [
+   "paren_s"
+  ],
+  "name": "x22-alone|append the summary to the sheet",
+  "class": "SILENT",
+  "lead": "Before"
+ },
+ {
+  "speaker": "template",
+  "turn": 0,
+  "msg": "remove the duplicate rows and append the summary to the sheet",
+  "reply": "Partly done — removed 2 duplicate row(s). I can't do this part yet: “append the summary to the sheet”. The copy has 4 row(s), 0 duplicate row(s) remaining. Saved as `report_deduplicated_session-1-task-1.xlsx`. The copy has the values only; formatting, column widths and other sheet settings aren't carried over. I also noticed: name: 1 missing value(s) (25.0%); amount: 1 missing value(s) (25.0%). Want me to tackle any of these?",
+  "voice_calls": 0,
+  "delivered": true,
+  "steps": [
+   [
+    "analyze",
+    "success"
+   ],
+   [
+    "deduplicate",
+    "success"
+   ],
+   [
+    "analyze",
+    "success"
+   ]
+  ],
+  "stopped_at": null,
+  "failure": null,
+  "orig_unchanged": true,
+  "orig_facts": {
+   "rows": 6,
+   "dups": 2,
+   "blank": 1,
+   "sheets": [
+    "Sheet1"
+   ]
+  },
+  "final_facts": {
+   "rows": 4,
+   "dups": 0,
+   "blank": 1,
+   "sheets": [
+    "Sheet1"
+   ]
+  },
+  "verified": true,
+  "flags": [
+   "paren_s",
+   "paren",
+   "bad_plural_n"
+  ],
+  "name": "x22-dedupe|append the summary to the sheet",
+  "class": "SAYS",
+  "lead": "Partly"
+ },
+ {
+  "speaker": "template",
+  "turn": 0,
+  "msg": "put the summary at the top of the file",
+  "reply": "Before anything else, here's what I noticed: name: 1 missing value(s) (16.7%); amount: 1 missing value(s) (16.7%). Want me to tackle any of these? No changes were made to any file this turn.",
+  "voice_calls": 0,
+  "delivered": false,
+  "steps": [
+   [
+    "analyze",
+    "success"
+   ]
+  ],
+  "stopped_at": null,
+  "failure": null,
+  "orig_unchanged": true,
+  "orig_facts": {
+   "rows": 6,
+   "dups": 2,
+   "blank": 1,
+   "sheets": [
+    "Sheet1"
+   ]
+  },
+  "final_facts": null,
+  "verified": true,
+  "flags": [
+   "paren_s"
+  ],
+  "name": "x23-alone|put the summary at the top of the file",
+  "class": "SILENT",
+  "lead": "Before"
+ },
+ {
+  "speaker": "template",
+  "turn": 0,
+  "msg": "remove the duplicate rows and put the summary at the top of the file",
+  "reply": "Partly done — removed 2 duplicate row(s). I can't do this part yet: “put the summary at the top of the file”. The copy has 4 row(s), 0 duplicate row(s) remaining. Saved as `report_deduplicated_session-1-task-1.xlsx`. The copy has the values only; formatting, column widths and other sheet settings aren't carried over. I also noticed: name: 1 missing value(s) (25.0%); amount: 1 missing value(s) (25.0%). Want me to tackle any of these?",
+  "voice_calls": 0,
+  "delivered": true,
+  "steps": [
+   [
+    "analyze",
+    "success"
+   ],
+   [
+    "deduplicate",
+    "success"
+   ],
+   [
+    "analyze",
+    "success"
+   ]
+  ],
+  "stopped_at": null,
+  "failure": null,
+  "orig_unchanged": true,
+  "orig_facts": {
+   "rows": 6,
+   "dups": 2,
+   "blank": 1,
+   "sheets": [
+    "Sheet1"
+   ]
+  },
+  "final_facts": {
+   "rows": 4,
+   "dups": 0,
+   "blank": 1,
+   "sheets": [
+    "Sheet1"
+   ]
+  },
+  "verified": true,
+  "flags": [
+   "paren_s",
+   "paren",
+   "bad_plural_n"
+  ],
+  "name": "x23-dedupe|put the summary at the top of the file",
+  "class": "SAYS",
+  "lead": "Partly"
+ },
+ {
+  "speaker": "template",
+  "turn": 0,
+  "msg": "give me a report as an image",
+  "reply": "Before anything else, here's what I noticed: name: 1 missing value(s) (16.7%); amount: 1 missing value(s) (16.7%). Want me to tackle any of these? No changes were made to any file this turn.",
+  "voice_calls": 0,
+  "delivered": false,
+  "steps": [
+   [
+    "analyze",
+    "success"
+   ]
+  ],
+  "stopped_at": null,
+  "failure": null,
+  "orig_unchanged": true,
+  "orig_facts": {
+   "rows": 6,
+   "dups": 2,
+   "blank": 1,
+   "sheets": [
+    "Sheet1"
+   ]
+  },
+  "final_facts": null,
+  "verified": true,
+  "flags": [
+   "paren_s"
+  ],
+  "name": "x24-alone|give me a report as an image",
+  "class": "SILENT",
+  "lead": "Before"
+ },
+ {
+  "speaker": "template",
+  "turn": 0,
+  "msg": "remove the duplicate rows and give me a report as an image",
+  "reply": "Partly done — removed 2 duplicate row(s). I can't do this part yet: “give me a report as an image”. The copy has 4 row(s), 0 duplicate row(s) remaining. Saved as `report_deduplicated_session-1-task-1.xlsx`. The copy has the values only; formatting, column widths and other sheet settings aren't carried over. I also noticed: name: 1 missing value(s) (25.0%); amount: 1 missing value(s) (25.0%). Want me to tackle any of these?",
+  "voice_calls": 0,
+  "delivered": true,
+  "steps": [
+   [
+    "analyze",
+    "success"
+   ],
+   [
+    "deduplicate",
+    "success"
+   ],
+   [
+    "analyze",
+    "success"
+   ]
+  ],
+  "stopped_at": null,
+  "failure": null,
+  "orig_unchanged": true,
+  "orig_facts": {
+   "rows": 6,
+   "dups": 2,
+   "blank": 1,
+   "sheets": [
+    "Sheet1"
+   ]
+  },
+  "final_facts": {
+   "rows": 4,
+   "dups": 0,
+   "blank": 1,
+   "sheets": [
+    "Sheet1"
+   ]
+  },
+  "verified": true,
+  "flags": [
+   "paren_s",
+   "paren",
+   "bad_plural_n"
+  ],
+  "name": "x24-dedupe|give me a report as an image",
+  "class": "SAYS",
+  "lead": "Partly"
+ },
+ {
+  "speaker": "template",
+  "turn": 0,
+  "msg": "give me a report with conditional formatting",
+  "reply": "Before anything else, here's what I noticed: name: 1 missing value(s) (16.7%); amount: 1 missing value(s) (16.7%). Want me to tackle any of these? No changes were made to any file this turn.",
+  "voice_calls": 0,
+  "delivered": false,
+  "steps": [
+   [
+    "analyze",
+    "success"
+   ]
+  ],
+  "stopped_at": null,
+  "failure": null,
+  "orig_unchanged": true,
+  "orig_facts": {
+   "rows": 6,
+   "dups": 2,
+   "blank": 1,
+   "sheets": [
+    "Sheet1"
+   ]
+  },
+  "final_facts": null,
+  "verified": true,
+  "flags": [
+   "paren_s"
+  ],
+  "name": "x25-alone|give me a report with conditional formatting",
+  "class": "SILENT",
+  "lead": "Before"
+ },
+ {
+  "speaker": "template",
+  "turn": 0,
+  "msg": "remove the duplicate rows and give me a report with conditional formatting",
+  "reply": "Partly done — removed 2 duplicate row(s). I can't do this part yet: “give me a report with conditional formatting”. The copy has 4 row(s), 0 duplicate row(s) remaining. Saved as `report_deduplicated_session-1-task-1.xlsx`. The copy has the values only; formatting, column widths and other sheet settings aren't carried over. I also noticed: name: 1 missing value(s) (25.0%); amount: 1 missing value(s) (25.0%). Want me to tackle any of these?",
+  "voice_calls": 0,
+  "delivered": true,
+  "steps": [
+   [
+    "analyze",
+    "success"
+   ],
+   [
+    "deduplicate",
+    "success"
+   ],
+   [
+    "analyze",
+    "success"
+   ]
+  ],
+  "stopped_at": null,
+  "failure": null,
+  "orig_unchanged": true,
+  "orig_facts": {
+   "rows": 6,
+   "dups": 2,
+   "blank": 1,
+   "sheets": [
+    "Sheet1"
+   ]
+  },
+  "final_facts": {
+   "rows": 4,
+   "dups": 0,
+   "blank": 1,
+   "sheets": [
+    "Sheet1"
+   ]
+  },
+  "verified": true,
+  "flags": [
+   "paren_s",
+   "paren",
+   "bad_plural_n"
+  ],
+  "name": "x25-dedupe|give me a report with conditional formatting",
+  "class": "SAYS",
+  "lead": "Partly"
+ },
+ {
+  "speaker": "template",
+  "turn": 0,
+  "msg": "analyze my file and tell me which customer spent the most",
+  "reply": "Before anything else, here's what I noticed: name: 1 missing value(s) (16.7%); amount: 1 missing value(s) (16.7%). Want me to tackle any of these? No changes were made to any file this turn.",
+  "voice_calls": 0,
+  "delivered": false,
+  "steps": [
+   [
+    "analyze",
+    "success"
+   ]
+  ],
+  "stopped_at": null,
+  "failure": null,
+  "orig_unchanged": true,
+  "orig_facts": {
+   "rows": 6,
+   "dups": 2,
+   "blank": 1,
+   "sheets": [
+    "Sheet1"
+   ]
+  },
+  "final_facts": null,
+  "verified": true,
+  "flags": [
+   "paren_s"
+  ],
+  "name": "x26-alone|analyze my file and tell me which customer spent the most",
+  "class": "SILENT",
+  "lead": "Before"
+ },
+ {
+  "speaker": "template",
+  "turn": 0,
+  "msg": "remove the duplicate rows and analyze my file and tell me which customer spent the most",
+  "reply": "Partly done — removed 2 duplicate row(s). I can't do this part yet: “analyze my file and tell me which customer spent the most”. The copy has 4 row(s), 0 duplicate row(s) remaining. Saved as `report_deduplicated_session-1-task-1.xlsx`. The copy has the values only; formatting, column widths and other sheet settings aren't carried over. I also noticed: name: 1 missing value(s) (25.0%); amount: 1 missing value(s) (25.0%). Want me to tackle any of these?",
+  "voice_calls": 0,
+  "delivered": true,
+  "steps": [
+   [
+    "analyze",
+    "success"
+   ],
+   [
+    "deduplicate",
+    "success"
+   ],
+   [
+    "analyze",
+    "success"
+   ]
+  ],
+  "stopped_at": null,
+  "failure": null,
+  "orig_unchanged": true,
+  "orig_facts": {
+   "rows": 6,
+   "dups": 2,
+   "blank": 1,
+   "sheets": [
+    "Sheet1"
+   ]
+  },
+  "final_facts": {
+   "rows": 4,
+   "dups": 0,
+   "blank": 1,
+   "sheets": [
+    "Sheet1"
+   ]
+  },
+  "verified": true,
+  "flags": [
+   "paren_s",
+   "paren",
+   "bad_plural_n"
+  ],
+  "name": "x26-dedupe|analyze my file and tell me which customer spent the most",
+  "class": "SAYS",
+  "lead": "Partly"
+ },
+ {
+  "speaker": "template",
+  "turn": 0,
+  "msg": "give me a report and calculate the total of the amount column",
+  "reply": "Before anything else, here's what I noticed: name: 1 missing value(s) (16.7%); amount: 1 missing value(s) (16.7%). Want me to tackle any of these? No changes were made to any file this turn.",
+  "voice_calls": 0,
+  "delivered": false,
+  "steps": [
+   [
+    "analyze",
+    "success"
+   ]
+  ],
+  "stopped_at": null,
+  "failure": null,
+  "orig_unchanged": true,
+  "orig_facts": {
+   "rows": 6,
+   "dups": 2,
+   "blank": 1,
+   "sheets": [
+    "Sheet1"
+   ]
+  },
+  "final_facts": null,
+  "verified": true,
+  "flags": [
+   "paren_s"
+  ],
+  "name": "x27-alone|give me a report and calculate the total of the amount column",
+  "class": "SILENT",
+  "lead": "Before"
+ },
+ {
+  "speaker": "template",
+  "turn": 0,
+  "msg": "remove the duplicate rows and give me a report and calculate the total of the amount column",
+  "reply": "Partly done — removed 2 duplicate row(s). I can't do this part yet: “give me a report and calculate the total of the amount column”. The copy has 4 row(s), 0 duplicate row(s) remaining. Saved as `report_deduplicated_session-1-task-1.xlsx`. The copy has the values only; formatting, column widths and other sheet settings aren't carried over. I also noticed: name: 1 missing value(s) (25.0%); amount: 1 missing value(s) (25.0%). Want me to tackle any of these?",
+  "voice_calls": 0,
+  "delivered": true,
+  "steps": [
+   [
+    "analyze",
+    "success"
+   ],
+   [
+    "deduplicate",
+    "success"
+   ],
+   [
+    "analyze",
+    "success"
+   ]
+  ],
+  "stopped_at": null,
+  "failure": null,
+  "orig_unchanged": true,
+  "orig_facts": {
+   "rows": 6,
+   "dups": 2,
+   "blank": 1,
+   "sheets": [
+    "Sheet1"
+   ]
+  },
+  "final_facts": {
+   "rows": 4,
+   "dups": 0,
+   "blank": 1,
+   "sheets": [
+    "Sheet1"
+   ]
+  },
+  "verified": true,
+  "flags": [
+   "paren_s",
+   "paren",
+   "bad_plural_n"
+  ],
+  "name": "x27-dedupe|give me a report and calculate the total of the amount column",
+  "class": "SAYS",
+  "lead": "Partly"
+ },
+ {
+  "speaker": "template",
+  "turn": 0,
+  "msg": "analyze my file and sum the amount column",
+  "reply": "Before anything else, here's what I noticed: name: 1 missing value(s) (16.7%); amount: 1 missing value(s) (16.7%). Want me to tackle any of these? No changes were made to any file this turn.",
+  "voice_calls": 0,
+  "delivered": false,
+  "steps": [
+   [
+    "analyze",
+    "success"
+   ]
+  ],
+  "stopped_at": null,
+  "failure": null,
+  "orig_unchanged": true,
+  "orig_facts": {
+   "rows": 6,
+   "dups": 2,
+   "blank": 1,
+   "sheets": [
+    "Sheet1"
+   ]
+  },
+  "final_facts": null,
+  "verified": true,
+  "flags": [
+   "paren_s"
+  ],
+  "name": "x28-alone|analyze my file and sum the amount column",
+  "class": "SILENT",
+  "lead": "Before"
+ },
+ {
+  "speaker": "template",
+  "turn": 0,
+  "msg": "remove the duplicate rows and analyze my file and sum the amount column",
+  "reply": "Partly done — removed 2 duplicate row(s). I can't do this part yet: “analyze my file and sum the amount column”. The copy has 4 row(s), 0 duplicate row(s) remaining. Saved as `report_deduplicated_session-1-task-1.xlsx`. The copy has the values only; formatting, column widths and other sheet settings aren't carried over. I also noticed: name: 1 missing value(s) (25.0%); amount: 1 missing value(s) (25.0%). Want me to tackle any of these?",
+  "voice_calls": 0,
+  "delivered": true,
+  "steps": [
+   [
+    "analyze",
+    "success"
+   ],
+   [
+    "deduplicate",
+    "success"
+   ],
+   [
+    "analyze",
+    "success"
+   ]
+  ],
+  "stopped_at": null,
+  "failure": null,
+  "orig_unchanged": true,
+  "orig_facts": {
+   "rows": 6,
+   "dups": 2,
+   "blank": 1,
+   "sheets": [
+    "Sheet1"
+   ]
+  },
+  "final_facts": {
+   "rows": 4,
+   "dups": 0,
+   "blank": 1,
+   "sheets": [
+    "Sheet1"
+   ]
+  },
+  "verified": true,
+  "flags": [
+   "paren_s",
+   "paren",
+   "bad_plural_n"
+  ],
+  "name": "x28-dedupe|analyze my file and sum the amount column",
+  "class": "SAYS",
+  "lead": "Partly"
+ },
+ {
+  "speaker": "template",
+  "turn": 0,
+  "msg": "give me a summary with the average amount",
+  "reply": "Before anything else, here's what I noticed: name: 1 missing value(s) (16.7%); amount: 1 missing value(s) (16.7%). Want me to tackle any of these? No changes were made to any file this turn.",
+  "voice_calls": 0,
+  "delivered": false,
+  "steps": [
+   [
+    "analyze",
+    "success"
+   ]
+  ],
+  "stopped_at": null,
+  "failure": null,
+  "orig_unchanged": true,
+  "orig_facts": {
+   "rows": 6,
+   "dups": 2,
+   "blank": 1,
+   "sheets": [
+    "Sheet1"
+   ]
+  },
+  "final_facts": null,
+  "verified": true,
+  "flags": [
+   "paren_s"
+  ],
+  "name": "x29-alone|give me a summary with the average amount",
+  "class": "SILENT",
+  "lead": "Before"
+ },
+ {
+  "speaker": "template",
+  "turn": 0,
+  "msg": "remove the duplicate rows and give me a summary with the average amount",
+  "reply": "Partly done — removed 2 duplicate row(s). I can't do this part yet: “give me a summary with the average amount”. The copy has 4 row(s), 0 duplicate row(s) remaining. Saved as `report_deduplicated_session-1-task-1.xlsx`. The copy has the values only; formatting, column widths and other sheet settings aren't carried over. I also noticed: name: 1 missing value(s) (25.0%); amount: 1 missing value(s) (25.0%). Want me to tackle any of these?",
+  "voice_calls": 0,
+  "delivered": true,
+  "steps": [
+   [
+    "analyze",
+    "success"
+   ],
+   [
+    "deduplicate",
+    "success"
+   ],
+   [
+    "analyze",
+    "success"
+   ]
+  ],
+  "stopped_at": null,
+  "failure": null,
+  "orig_unchanged": true,
+  "orig_facts": {
+   "rows": 6,
+   "dups": 2,
+   "blank": 1,
+   "sheets": [
+    "Sheet1"
+   ]
+  },
+  "final_facts": {
+   "rows": 4,
+   "dups": 0,
+   "blank": 1,
+   "sheets": [
+    "Sheet1"
+   ]
+  },
+  "verified": true,
+  "flags": [
+   "paren_s",
+   "paren",
+   "bad_plural_n"
+  ],
+  "name": "x29-dedupe|give me a summary with the average amount",
+  "class": "SAYS",
+  "lead": "Partly"
+ },
+ {
+  "speaker": "template",
+  "turn": 0,
+  "msg": "report on the file and count the unique names",
+  "reply": "Before anything else, here's what I noticed: name: 1 missing value(s) (16.7%); amount: 1 missing value(s) (16.7%). Want me to tackle any of these? No changes were made to any file this turn.",
+  "voice_calls": 0,
+  "delivered": false,
+  "steps": [
+   [
+    "analyze",
+    "success"
+   ]
+  ],
+  "stopped_at": null,
+  "failure": null,
+  "orig_unchanged": true,
+  "orig_facts": {
+   "rows": 6,
+   "dups": 2,
+   "blank": 1,
+   "sheets": [
+    "Sheet1"
+   ]
+  },
+  "final_facts": null,
+  "verified": true,
+  "flags": [
+   "paren_s"
+  ],
+  "name": "x30-alone|report on the file and count the unique names",
+  "class": "SILENT",
+  "lead": "Before"
+ },
+ {
+  "speaker": "template",
+  "turn": 0,
+  "msg": "remove the duplicate rows and report on the file and count the unique names",
+  "reply": "Partly done — removed 2 duplicate row(s). I can't do this part yet: “report on the file and count the unique names”. The copy has 4 row(s), 0 duplicate row(s) remaining. Saved as `report_deduplicated_session-1-task-1.xlsx`. The copy has the values only; formatting, column widths and other sheet settings aren't carried over. I also noticed: name: 1 missing value(s) (25.0%); amount: 1 missing value(s) (25.0%). Want me to tackle any of these?",
+  "voice_calls": 0,
+  "delivered": true,
+  "steps": [
+   [
+    "analyze",
+    "success"
+   ],
+   [
+    "deduplicate",
+    "success"
+   ],
+   [
+    "analyze",
+    "success"
+   ]
+  ],
+  "stopped_at": null,
+  "failure": null,
+  "orig_unchanged": true,
+  "orig_facts": {
+   "rows": 6,
+   "dups": 2,
+   "blank": 1,
+   "sheets": [
+    "Sheet1"
+   ]
+  },
+  "final_facts": {
+   "rows": 4,
+   "dups": 0,
+   "blank": 1,
+   "sheets": [
+    "Sheet1"
+   ]
+  },
+  "verified": true,
+  "flags": [
+   "paren_s",
+   "paren",
+   "bad_plural_n"
+  ],
+  "name": "x30-dedupe|report on the file and count the unique names",
+  "class": "SAYS",
+  "lead": "Partly"
+ },
+ {
+  "speaker": "template",
+  "turn": 0,
+  "msg": "summarize the file and group it by name",
+  "reply": "Before anything else, here's what I noticed: name: 1 missing value(s) (16.7%); amount: 1 missing value(s) (16.7%). Want me to tackle any of these? No changes were made to any file this turn.",
+  "voice_calls": 0,
+  "delivered": false,
+  "steps": [
+   [
+    "analyze",
+    "success"
+   ]
+  ],
+  "stopped_at": null,
+  "failure": null,
+  "orig_unchanged": true,
+  "orig_facts": {
+   "rows": 6,
+   "dups": 2,
+   "blank": 1,
+   "sheets": [
+    "Sheet1"
+   ]
+  },
+  "final_facts": null,
+  "verified": true,
+  "flags": [
+   "paren_s"
+  ],
+  "name": "x31-alone|summarize the file and group it by name",
+  "class": "SILENT",
+  "lead": "Before"
+ },
+ {
+  "speaker": "template",
+  "turn": 0,
+  "msg": "remove the duplicate rows and summarize the file and group it by name",
+  "reply": "Partly done — removed 2 duplicate row(s). I can't do this part yet: “summarize the file and group it by name”. The copy has 4 row(s), 0 duplicate row(s) remaining. Saved as `report_deduplicated_session-1-task-1.xlsx`. The copy has the values only; formatting, column widths and other sheet settings aren't carried over. I also noticed: name: 1 missing value(s) (25.0%); amount: 1 missing value(s) (25.0%). Want me to tackle any of these?",
+  "voice_calls": 0,
+  "delivered": true,
+  "steps": [
+   [
+    "analyze",
+    "success"
+   ],
+   [
+    "deduplicate",
+    "success"
+   ],
+   [
+    "analyze",
+    "success"
+   ]
+  ],
+  "stopped_at": null,
+  "failure": null,
+  "orig_unchanged": true,
+  "orig_facts": {
+   "rows": 6,
+   "dups": 2,
+   "blank": 1,
+   "sheets": [
+    "Sheet1"
+   ]
+  },
+  "final_facts": {
+   "rows": 4,
+   "dups": 0,
+   "blank": 1,
+   "sheets": [
+    "Sheet1"
+   ]
+  },
+  "verified": true,
+  "flags": [
+   "paren_s",
+   "paren",
+   "bad_plural_n"
+  ],
+  "name": "x31-dedupe|summarize the file and group it by name",
+  "class": "SAYS",
+  "lead": "Partly"
+ },
+ {
+  "speaker": "template",
+  "turn": 0,
+  "msg": "analyze my data and compare it to last month",
+  "reply": "Before anything else, here's what I noticed: name: 1 missing value(s) (16.7%); amount: 1 missing value(s) (16.7%). Want me to tackle any of these? No changes were made to any file this turn.",
+  "voice_calls": 0,
+  "delivered": false,
+  "steps": [
+   [
+    "analyze",
+    "success"
+   ]
+  ],
+  "stopped_at": null,
+  "failure": null,
+  "orig_unchanged": true,
+  "orig_facts": {
+   "rows": 6,
+   "dups": 2,
+   "blank": 1,
+   "sheets": [
+    "Sheet1"
+   ]
+  },
+  "final_facts": null,
+  "verified": true,
+  "flags": [
+   "paren_s"
+  ],
+  "name": "x32-alone|analyze my data and compare it to last month",
+  "class": "SILENT",
+  "lead": "Before"
+ },
+ {
+  "speaker": "template",
+  "turn": 0,
+  "msg": "remove the duplicate rows and analyze my data and compare it to last month",
+  "reply": "Partly done — removed 2 duplicate row(s). I can't do this part yet: “analyze my data and compare it to last month”. The copy has 4 row(s), 0 duplicate row(s) remaining. Saved as `report_deduplicated_session-1-task-1.xlsx`. The copy has the values only; formatting, column widths and other sheet settings aren't carried over. I also noticed: name: 1 missing value(s) (25.0%); amount: 1 missing value(s) (25.0%). Want me to tackle any of these?",
+  "voice_calls": 0,
+  "delivered": true,
+  "steps": [
+   [
+    "analyze",
+    "success"
+   ],
+   [
+    "deduplicate",
+    "success"
+   ],
+   [
+    "analyze",
+    "success"
+   ]
+  ],
+  "stopped_at": null,
+  "failure": null,
+  "orig_unchanged": true,
+  "orig_facts": {
+   "rows": 6,
+   "dups": 2,
+   "blank": 1,
+   "sheets": [
+    "Sheet1"
+   ]
+  },
+  "final_facts": {
+   "rows": 4,
+   "dups": 0,
+   "blank": 1,
+   "sheets": [
+    "Sheet1"
+   ]
+  },
+  "verified": true,
+  "flags": [
+   "paren_s",
+   "paren",
+   "bad_plural_n"
+  ],
+  "name": "x32-dedupe|analyze my data and compare it to last month",
+  "class": "SAYS",
+  "lead": "Partly"
+ },
+ {
+  "speaker": "template",
+  "turn": 0,
+  "msg": "give me a report and combine it with the other file",
+  "reply": "Before anything else, here's what I noticed: name: 1 missing value(s) (16.7%); amount: 1 missing value(s) (16.7%). Want me to tackle any of these? No changes were made to any file this turn.",
+  "voice_calls": 0,
+  "delivered": false,
+  "steps": [
+   [
+    "analyze",
+    "success"
+   ]
+  ],
+  "stopped_at": null,
+  "failure": null,
+  "orig_unchanged": true,
+  "orig_facts": {
+   "rows": 6,
+   "dups": 2,
+   "blank": 1,
+   "sheets": [
+    "Sheet1"
+   ]
+  },
+  "final_facts": null,
+  "verified": true,
+  "flags": [
+   "paren_s"
+  ],
+  "name": "x33-alone|give me a report and combine it with the other file",
+  "class": "SILENT",
+  "lead": "Before"
+ },
+ {
+  "speaker": "template",
+  "turn": 0,
+  "msg": "remove the duplicate rows and give me a report and combine it with the other file",
+  "reply": "Partly done — removed 2 duplicate row(s). I can't do this part yet: “give me a report and combine it with the other file”. The copy has 4 row(s), 0 duplicate row(s) remaining. Saved as `report_deduplicated_session-1-task-1.xlsx`. The copy has the values only; formatting, column widths and other sheet settings aren't carried over. I also noticed: name: 1 missing value(s) (25.0%); amount: 1 missing value(s) (25.0%). Want me to tackle any of these?",
+  "voice_calls": 0,
+  "delivered": true,
+  "steps": [
+   [
+    "analyze",
+    "success"
+   ],
+   [
+    "deduplicate",
+    "success"
+   ],
+   [
+    "analyze",
+    "success"
+   ]
+  ],
+  "stopped_at": null,
+  "failure": null,
+  "orig_unchanged": true,
+  "orig_facts": {
+   "rows": 6,
+   "dups": 2,
+   "blank": 1,
+   "sheets": [
+    "Sheet1"
+   ]
+  },
+  "final_facts": {
+   "rows": 4,
+   "dups": 0,
+   "blank": 1,
+   "sheets": [
+    "Sheet1"
+   ]
+  },
+  "verified": true,
+  "flags": [
+   "paren_s",
+   "paren",
+   "bad_plural_n"
+  ],
+  "name": "x33-dedupe|give me a report and combine it with the other file",
+  "class": "SAYS",
+  "lead": "Partly"
+ },
+ {
+  "speaker": "template",
+  "turn": 0,
+  "msg": "analyze the file and join it with sheet2",
+  "reply": "Before anything else, here's what I noticed: name: 1 missing value(s) (16.7%); amount: 1 missing value(s) (16.7%). Want me to tackle any of these? No changes were made to any file this turn.",
+  "voice_calls": 0,
+  "delivered": false,
+  "steps": [
+   [
+    "analyze",
+    "success"
+   ]
+  ],
+  "stopped_at": null,
+  "failure": null,
+  "orig_unchanged": true,
+  "orig_facts": {
+   "rows": 6,
+   "dups": 2,
+   "blank": 1,
+   "sheets": [
+    "Sheet1"
+   ]
+  },
+  "final_facts": null,
+  "verified": true,
+  "flags": [
+   "paren_s"
+  ],
+  "name": "x34-alone|analyze the file and join it with sheet2",
+  "class": "SILENT",
+  "lead": "Before"
+ },
+ {
+  "speaker": "template",
+  "turn": 0,
+  "msg": "remove the duplicate rows and analyze the file and join it with sheet2",
+  "reply": "Partly done — removed 2 duplicate row(s). I can't do this part yet: “analyze the file and join it with sheet2”. The copy has 4 row(s), 0 duplicate row(s) remaining. Saved as `report_deduplicated_session-1-task-1.xlsx`. The copy has the values only; formatting, column widths and other sheet settings aren't carried over. I also noticed: name: 1 missing value(s) (25.0%); amount: 1 missing value(s) (25.0%). Want me to tackle any of these?",
+  "voice_calls": 0,
+  "delivered": true,
+  "steps": [
+   [
+    "analyze",
+    "success"
+   ],
+   [
+    "deduplicate",
+    "success"
+   ],
+   [
+    "analyze",
+    "success"
+   ]
+  ],
+  "stopped_at": null,
+  "failure": null,
+  "orig_unchanged": true,
+  "orig_facts": {
+   "rows": 6,
+   "dups": 2,
+   "blank": 1,
+   "sheets": [
+    "Sheet1"
+   ]
+  },
+  "final_facts": {
+   "rows": 4,
+   "dups": 0,
+   "blank": 1,
+   "sheets": [
+    "Sheet1"
+   ]
+  },
+  "verified": true,
+  "flags": [
+   "paren_s",
+   "paren",
+   "bad_plural_n"
+  ],
+  "name": "x34-dedupe|analyze the file and join it with sheet2",
+  "class": "SAYS",
+  "lead": "Partly"
+ },
+ {
+  "speaker": "template",
+  "turn": 0,
+  "msg": "give me a report and update the totals",
+  "reply": "Before anything else, here's what I noticed: name: 1 missing value(s) (16.7%); amount: 1 missing value(s) (16.7%). Want me to tackle any of these? No changes were made to any file this turn.",
+  "voice_calls": 0,
+  "delivered": false,
+  "steps": [
+   [
+    "analyze",
+    "success"
+   ]
+  ],
+  "stopped_at": null,
+  "failure": null,
+  "orig_unchanged": true,
+  "orig_facts": {
+   "rows": 6,
+   "dups": 2,
+   "blank": 1,
+   "sheets": [
+    "Sheet1"
+   ]
+  },
+  "final_facts": null,
+  "verified": true,
+  "flags": [
+   "paren_s"
+  ],
+  "name": "x35-alone|give me a report and update the totals",
+  "class": "SILENT",
+  "lead": "Before"
+ },
+ {
+  "speaker": "template",
+  "turn": 0,
+  "msg": "remove the duplicate rows and give me a report and update the totals",
+  "reply": "Partly done — removed 2 duplicate row(s). I can't do this part yet: “give me a report and update the totals”. The copy has 4 row(s), 0 duplicate row(s) remaining. Saved as `report_deduplicated_session-1-task-1.xlsx`. The copy has the values only; formatting, column widths and other sheet settings aren't carried over. I also noticed: name: 1 missing value(s) (25.0%); amount: 1 missing value(s) (25.0%). Want me to tackle any of these?",
+  "voice_calls": 0,
+  "delivered": true,
+  "steps": [
+   [
+    "analyze",
+    "success"
+   ],
+   [
+    "deduplicate",
+    "success"
+   ],
+   [
+    "analyze",
+    "success"
+   ]
+  ],
+  "stopped_at": null,
+  "failure": null,
+  "orig_unchanged": true,
+  "orig_facts": {
+   "rows": 6,
+   "dups": 2,
+   "blank": 1,
+   "sheets": [
+    "Sheet1"
+   ]
+  },
+  "final_facts": {
+   "rows": 4,
+   "dups": 0,
+   "blank": 1,
+   "sheets": [
+    "Sheet1"
+   ]
+  },
+  "verified": true,
+  "flags": [
+   "paren_s",
+   "paren",
+   "bad_plural_n"
+  ],
+  "name": "x35-dedupe|give me a report and update the totals",
+  "class": "SAYS",
+  "lead": "Partly"
+ },
+ {
+  "speaker": "template",
+  "turn": 0,
+  "msg": "analyze my file and predict next month",
+  "reply": "Before anything else, here's what I noticed: name: 1 missing value(s) (16.7%); amount: 1 missing value(s) (16.7%). Want me to tackle any of these? No changes were made to any file this turn.",
+  "voice_calls": 0,
+  "delivered": false,
+  "steps": [
+   [
+    "analyze",
+    "success"
+   ]
+  ],
+  "stopped_at": null,
+  "failure": null,
+  "orig_unchanged": true,
+  "orig_facts": {
+   "rows": 6,
+   "dups": 2,
+   "blank": 1,
+   "sheets": [
+    "Sheet1"
+   ]
+  },
+  "final_facts": null,
+  "verified": true,
+  "flags": [
+   "paren_s"
+  ],
+  "name": "x36-alone|analyze my file and predict next month",
+  "class": "SILENT",
+  "lead": "Before"
+ },
+ {
+  "speaker": "template",
+  "turn": 0,
+  "msg": "remove the duplicate rows and analyze my file and predict next month",
+  "reply": "Partly done — removed 2 duplicate row(s). I can't do this part yet: “analyze my file and predict next month”. The copy has 4 row(s), 0 duplicate row(s) remaining. Saved as `report_deduplicated_session-1-task-1.xlsx`. The copy has the values only; formatting, column widths and other sheet settings aren't carried over. I also noticed: name: 1 missing value(s) (25.0%); amount: 1 missing value(s) (25.0%). Want me to tackle any of these?",
+  "voice_calls": 0,
+  "delivered": true,
+  "steps": [
+   [
+    "analyze",
+    "success"
+   ],
+   [
+    "deduplicate",
+    "success"
+   ],
+   [
+    "analyze",
+    "success"
+   ]
+  ],
+  "stopped_at": null,
+  "failure": null,
+  "orig_unchanged": true,
+  "orig_facts": {
+   "rows": 6,
+   "dups": 2,
+   "blank": 1,
+   "sheets": [
+    "Sheet1"
+   ]
+  },
+  "final_facts": {
+   "rows": 4,
+   "dups": 0,
+   "blank": 1,
+   "sheets": [
+    "Sheet1"
+   ]
+  },
+  "verified": true,
+  "flags": [
+   "paren_s",
+   "paren",
+   "bad_plural_n"
+  ],
+  "name": "x36-dedupe|analyze my file and predict next month",
+  "class": "SAYS",
+  "lead": "Partly"
+ },
+ {
+  "speaker": "template",
+  "turn": 0,
+  "msg": "give me a report and find the outliers",
+  "reply": "Before anything else, here's what I noticed: name: 1 missing value(s) (16.7%); amount: 1 missing value(s) (16.7%). Want me to tackle any of these? No changes were made to any file this turn.",
+  "voice_calls": 0,
+  "delivered": false,
+  "steps": [
+   [
+    "analyze",
+    "success"
+   ]
+  ],
+  "stopped_at": null,
+  "failure": null,
+  "orig_unchanged": true,
+  "orig_facts": {
+   "rows": 6,
+   "dups": 2,
+   "blank": 1,
+   "sheets": [
+    "Sheet1"
+   ]
+  },
+  "final_facts": null,
+  "verified": true,
+  "flags": [
+   "paren_s"
+  ],
+  "name": "x37-alone|give me a report and find the outliers",
+  "class": "SILENT",
+  "lead": "Before"
+ },
+ {
+  "speaker": "template",
+  "turn": 0,
+  "msg": "remove the duplicate rows and give me a report and find the outliers",
+  "reply": "Partly done — removed 2 duplicate row(s). I can't do this part yet: “give me a report and find the outliers”. The copy has 4 row(s), 0 duplicate row(s) remaining. Saved as `report_deduplicated_session-1-task-1.xlsx`. The copy has the values only; formatting, column widths and other sheet settings aren't carried over. I also noticed: name: 1 missing value(s) (25.0%); amount: 1 missing value(s) (25.0%). Want me to tackle any of these?",
+  "voice_calls": 0,
+  "delivered": true,
+  "steps": [
+   [
+    "analyze",
+    "success"
+   ],
+   [
+    "deduplicate",
+    "success"
+   ],
+   [
+    "analyze",
+    "success"
+   ]
+  ],
+  "stopped_at": null,
+  "failure": null,
+  "orig_unchanged": true,
+  "orig_facts": {
+   "rows": 6,
+   "dups": 2,
+   "blank": 1,
+   "sheets": [
+    "Sheet1"
+   ]
+  },
+  "final_facts": {
+   "rows": 4,
+   "dups": 0,
+   "blank": 1,
+   "sheets": [
+    "Sheet1"
+   ]
+  },
+  "verified": true,
+  "flags": [
+   "paren_s",
+   "paren",
+   "bad_plural_n"
+  ],
+  "name": "x37-dedupe|give me a report and find the outliers",
+  "class": "SAYS",
+  "lead": "Partly"
+ },
+ {
+  "speaker": "template",
+  "turn": 0,
+  "msg": "analyze my file and tell me what to do next",
+  "reply": "Before anything else, here's what I noticed: name: 1 missing value(s) (16.7%); amount: 1 missing value(s) (16.7%). Want me to tackle any of these? No changes were made to any file this turn.",
+  "voice_calls": 0,
+  "delivered": false,
+  "steps": [
+   [
+    "analyze",
+    "success"
+   ]
+  ],
+  "stopped_at": null,
+  "failure": null,
+  "orig_unchanged": true,
+  "orig_facts": {
+   "rows": 6,
+   "dups": 2,
+   "blank": 1,
+   "sheets": [
+    "Sheet1"
+   ]
+  },
+  "final_facts": null,
+  "verified": true,
+  "flags": [
+   "paren_s"
+  ],
+  "name": "x38-alone|analyze my file and tell me what to do next",
+  "class": "SILENT",
+  "lead": "Before"
+ },
+ {
+  "speaker": "template",
+  "turn": 0,
+  "msg": "remove the duplicate rows and analyze my file and tell me what to do next",
+  "reply": "Partly done — removed 2 duplicate row(s). I can't do this part yet: “analyze my file and tell me what to do next”. The copy has 4 row(s), 0 duplicate row(s) remaining. Saved as `report_deduplicated_session-1-task-1.xlsx`. The copy has the values only; formatting, column widths and other sheet settings aren't carried over. I also noticed: name: 1 missing value(s) (25.0%); amount: 1 missing value(s) (25.0%). Want me to tackle any of these?",
+  "voice_calls": 0,
+  "delivered": true,
+  "steps": [
+   [
+    "analyze",
+    "success"
+   ],
+   [
+    "deduplicate",
+    "success"
+   ],
+   [
+    "analyze",
+    "success"
+   ]
+  ],
+  "stopped_at": null,
+  "failure": null,
+  "orig_unchanged": true,
+  "orig_facts": {
+   "rows": 6,
+   "dups": 2,
+   "blank": 1,
+   "sheets": [
+    "Sheet1"
+   ]
+  },
+  "final_facts": {
+   "rows": 4,
+   "dups": 0,
+   "blank": 1,
+   "sheets": [
+    "Sheet1"
+   ]
+  },
+  "verified": true,
+  "flags": [
+   "paren_s",
+   "paren",
+   "bad_plural_n"
+  ],
+  "name": "x38-dedupe|analyze my file and tell me what to do next",
+  "class": "SAYS",
+  "lead": "Partly"
+ },
+ {
+  "speaker": "template",
+  "turn": 0,
+  "msg": "give me a report and move column B",
+  "reply": "Before anything else, here's what I noticed: name: 1 missing value(s) (16.7%); amount: 1 missing value(s) (16.7%). Want me to tackle any of these? No changes were made to any file this turn.",
+  "voice_calls": 0,
+  "delivered": false,
+  "steps": [
+   [
+    "analyze",
+    "success"
+   ]
+  ],
+  "stopped_at": null,
+  "failure": null,
+  "orig_unchanged": true,
+  "orig_facts": {
+   "rows": 6,
+   "dups": 2,
+   "blank": 1,
+   "sheets": [
+    "Sheet1"
+   ]
+  },
+  "final_facts": null,
+  "verified": true,
+  "flags": [
+   "paren_s"
+  ],
+  "name": "x39-alone|give me a report and move column B",
+  "class": "SILENT",
+  "lead": "Before"
+ },
+ {
+  "speaker": "template",
+  "turn": 0,
+  "msg": "remove the duplicate rows and give me a report and move column B",
+  "reply": "Partly done — removed 2 duplicate row(s). I can't do this part yet: “give me a report and move column B”. The copy has 4 row(s), 0 duplicate row(s) remaining. Saved as `report_deduplicated_session-1-task-1.xlsx`. The copy has the values only; formatting, column widths and other sheet settings aren't carried over. I also noticed: name: 1 missing value(s) (25.0%); amount: 1 missing value(s) (25.0%). Want me to tackle any of these?",
+  "voice_calls": 0,
+  "delivered": true,
+  "steps": [
+   [
+    "analyze",
+    "success"
+   ],
+   [
+    "deduplicate",
+    "success"
+   ],
+   [
+    "analyze",
+    "success"
+   ]
+  ],
+  "stopped_at": null,
+  "failure": null,
+  "orig_unchanged": true,
+  "orig_facts": {
+   "rows": 6,
+   "dups": 2,
+   "blank": 1,
+   "sheets": [
+    "Sheet1"
+   ]
+  },
+  "final_facts": {
+   "rows": 4,
+   "dups": 0,
+   "blank": 1,
+   "sheets": [
+    "Sheet1"
+   ]
+  },
+  "verified": true,
+  "flags": [
+   "paren_s",
+   "paren",
+   "bad_plural_n"
+  ],
+  "name": "x39-dedupe|give me a report and move column B",
+  "class": "SAYS",
+  "lead": "Partly"
+ },
+ {
+  "speaker": "template",
+  "turn": 0,
+  "msg": "analyze my file and copy it to a new file",
+  "reply": "Before anything else, here's what I noticed: name: 1 missing value(s) (16.7%); amount: 1 missing value(s) (16.7%). Want me to tackle any of these? No changes were made to any file this turn.",
+  "voice_calls": 0,
+  "delivered": false,
+  "steps": [
+   [
+    "analyze",
+    "success"
+   ]
+  ],
+  "stopped_at": null,
+  "failure": null,
+  "orig_unchanged": true,
+  "orig_facts": {
+   "rows": 6,
+   "dups": 2,
+   "blank": 1,
+   "sheets": [
+    "Sheet1"
+   ]
+  },
+  "final_facts": null,
+  "verified": true,
+  "flags": [
+   "paren_s"
+  ],
+  "name": "x40-alone|analyze my file and copy it to a new file",
+  "class": "SILENT",
+  "lead": "Before"
+ },
+ {
+  "speaker": "template",
+  "turn": 0,
+  "msg": "remove the duplicate rows and analyze my file and copy it to a new file",
+  "reply": "Partly done — removed 2 duplicate row(s). I can't do this part yet: “analyze my file and copy it to a new file”. The copy has 4 row(s), 0 duplicate row(s) remaining. Saved as `report_deduplicated_session-1-task-1.xlsx`. The copy has the values only; formatting, column widths and other sheet settings aren't carried over. I also noticed: name: 1 missing value(s) (25.0%); amount: 1 missing value(s) (25.0%). Want me to tackle any of these?",
+  "voice_calls": 0,
+  "delivered": true,
+  "steps": [
+   [
+    "analyze",
+    "success"
+   ],
+   [
+    "deduplicate",
+    "success"
+   ],
+   [
+    "analyze",
+    "success"
+   ]
+  ],
+  "stopped_at": null,
+  "failure": null,
+  "orig_unchanged": true,
+  "orig_facts": {
+   "rows": 6,
+   "dups": 2,
+   "blank": 1,
+   "sheets": [
+    "Sheet1"
+   ]
+  },
+  "final_facts": {
+   "rows": 4,
+   "dups": 0,
+   "blank": 1,
+   "sheets": [
+    "Sheet1"
+   ]
+  },
+  "verified": true,
+  "flags": [
+   "paren_s",
+   "paren",
+   "bad_plural_n"
+  ],
+  "name": "x40-dedupe|analyze my file and copy it to a new file",
+  "class": "SAYS",
+  "lead": "Partly"
+ },
+ {
+  "speaker": "template",
+  "turn": 0,
+  "msg": "give me a report and lock the header row",
+  "reply": "Before anything else, here's what I noticed: name: 1 missing value(s) (16.7%); amount: 1 missing value(s) (16.7%). Want me to tackle any of these? No changes were made to any file this turn.",
+  "voice_calls": 0,
+  "delivered": false,
+  "steps": [
+   [
+    "analyze",
+    "success"
+   ]
+  ],
+  "stopped_at": null,
+  "failure": null,
+  "orig_unchanged": true,
+  "orig_facts": {
+   "rows": 6,
+   "dups": 2,
+   "blank": 1,
+   "sheets": [
+    "Sheet1"
+   ]
+  },
+  "final_facts": null,
+  "verified": true,
+  "flags": [
+   "paren_s"
+  ],
+  "name": "x41-alone|give me a report and lock the header row",
+  "class": "SILENT",
+  "lead": "Before"
+ },
+ {
+  "speaker": "template",
+  "turn": 0,
+  "msg": "remove the duplicate rows and give me a report and lock the header row",
+  "reply": "Partly done — removed 2 duplicate row(s). I can't do this part yet: “give me a report and lock the header row”. The copy has 4 row(s), 0 duplicate row(s) remaining. Saved as `report_deduplicated_session-1-task-1.xlsx`. The copy has the values only; formatting, column widths and other sheet settings aren't carried over. I also noticed: name: 1 missing value(s) (25.0%); amount: 1 missing value(s) (25.0%). Want me to tackle any of these?",
+  "voice_calls": 0,
+  "delivered": true,
+  "steps": [
+   [
+    "analyze",
+    "success"
+   ],
+   [
+    "deduplicate",
+    "success"
+   ],
+   [
+    "analyze",
+    "success"
+   ]
+  ],
+  "stopped_at": null,
+  "failure": null,
+  "orig_unchanged": true,
+  "orig_facts": {
+   "rows": 6,
+   "dups": 2,
+   "blank": 1,
+   "sheets": [
+    "Sheet1"
+   ]
+  },
+  "final_facts": {
+   "rows": 4,
+   "dups": 0,
+   "blank": 1,
+   "sheets": [
+    "Sheet1"
+   ]
+  },
+  "verified": true,
+  "flags": [
+   "paren_s",
+   "paren",
+   "bad_plural_n"
+  ],
+  "name": "x41-dedupe|give me a report and lock the header row",
+  "class": "SAYS",
+  "lead": "Partly"
+ },
+ {
+  "speaker": "template",
+  "turn": 0,
+  "msg": "summarize the file and shorten the names",
+  "reply": "Before anything else, here's what I noticed: name: 1 missing value(s) (16.7%); amount: 1 missing value(s) (16.7%). Want me to tackle any of these? No changes were made to any file this turn.",
+  "voice_calls": 0,
+  "delivered": false,
+  "steps": [
+   [
+    "analyze",
+    "success"
+   ]
+  ],
+  "stopped_at": null,
+  "failure": null,
+  "orig_unchanged": true,
+  "orig_facts": {
+   "rows": 6,
+   "dups": 2,
+   "blank": 1,
+   "sheets": [
+    "Sheet1"
+   ]
+  },
+  "final_facts": null,
+  "verified": true,
+  "flags": [
+   "paren_s"
+  ],
+  "name": "x42-alone|summarize the file and shorten the names",
+  "class": "SILENT",
+  "lead": "Before"
+ },
+ {
+  "speaker": "template",
+  "turn": 0,
+  "msg": "remove the duplicate rows and summarize the file and shorten the names",
+  "reply": "Partly done — removed 2 duplicate row(s). I can't do this part yet: “summarize the file and shorten the names”. The copy has 4 row(s), 0 duplicate row(s) remaining. Saved as `report_deduplicated_session-1-task-1.xlsx`. The copy has the values only; formatting, column widths and other sheet settings aren't carried over. I also noticed: name: 1 missing value(s) (25.0%); amount: 1 missing value(s) (25.0%). Want me to tackle any of these?",
+  "voice_calls": 0,
+  "delivered": true,
+  "steps": [
+   [
+    "analyze",
+    "success"
+   ],
+   [
+    "deduplicate",
+    "success"
+   ],
+   [
+    "analyze",
+    "success"
+   ]
+  ],
+  "stopped_at": null,
+  "failure": null,
+  "orig_unchanged": true,
+  "orig_facts": {
+   "rows": 6,
+   "dups": 2,
+   "blank": 1,
+   "sheets": [
+    "Sheet1"
+   ]
+  },
+  "final_facts": {
+   "rows": 4,
+   "dups": 0,
+   "blank": 1,
+   "sheets": [
+    "Sheet1"
+   ]
+  },
+  "verified": true,
+  "flags": [
+   "paren_s",
+   "paren",
+   "bad_plural_n"
+  ],
+  "name": "x42-dedupe|summarize the file and shorten the names",
+  "class": "SAYS",
+  "lead": "Partly"
+ },
+ {
+  "speaker": "template",
+  "turn": 0,
+  "msg": "give me a report and make the header bold",
+  "reply": "Before anything else, here's what I noticed: name: 1 missing value(s) (16.7%); amount: 1 missing value(s) (16.7%). Want me to tackle any of these? No changes were made to any file this turn.",
+  "voice_calls": 0,
+  "delivered": false,
+  "steps": [
+   [
+    "analyze",
+    "success"
+   ]
+  ],
+  "stopped_at": null,
+  "failure": null,
+  "orig_unchanged": true,
+  "orig_facts": {
+   "rows": 6,
+   "dups": 2,
+   "blank": 1,
+   "sheets": [
+    "Sheet1"
+   ]
+  },
+  "final_facts": null,
+  "verified": true,
+  "flags": [
+   "paren_s"
+  ],
+  "name": "x43-alone|give me a report and make the header bold",
+  "class": "SILENT",
+  "lead": "Before"
+ },
+ {
+  "speaker": "template",
+  "turn": 0,
+  "msg": "remove the duplicate rows and give me a report and make the header bold",
+  "reply": "Partly done — removed 2 duplicate row(s). I can't do this part yet: “give me a report and make the header bold”. The copy has 4 row(s), 0 duplicate row(s) remaining. Saved as `report_deduplicated_session-1-task-1.xlsx`. The copy has the values only; formatting, column widths and other sheet settings aren't carried over. I also noticed: name: 1 missing value(s) (25.0%); amount: 1 missing value(s) (25.0%). Want me to tackle any of these?",
+  "voice_calls": 0,
+  "delivered": true,
+  "steps": [
+   [
+    "analyze",
+    "success"
+   ],
+   [
+    "deduplicate",
+    "success"
+   ],
+   [
+    "analyze",
+    "success"
+   ]
+  ],
+  "stopped_at": null,
+  "failure": null,
+  "orig_unchanged": true,
+  "orig_facts": {
+   "rows": 6,
+   "dups": 2,
+   "blank": 1,
+   "sheets": [
+    "Sheet1"
+   ]
+  },
+  "final_facts": {
+   "rows": 4,
+   "dups": 0,
+   "blank": 1,
+   "sheets": [
+    "Sheet1"
+   ]
+  },
+  "verified": true,
+  "flags": [
+   "paren_s",
+   "paren",
+   "bad_plural_n"
+  ],
+  "name": "x43-dedupe|give me a report and make the header bold",
+  "class": "SAYS",
+  "lead": "Partly"
+ },
+ {
+  "speaker": "template",
+  "turn": 0,
+  "msg": "analyze my file and fix the typos",
+  "reply": "Before anything else, here's what I noticed: name: 1 missing value(s) (16.7%); amount: 1 missing value(s) (16.7%). Want me to tackle any of these? No changes were made to any file this turn.",
+  "voice_calls": 0,
+  "delivered": false,
+  "steps": [
+   [
+    "analyze",
+    "success"
+   ]
+  ],
+  "stopped_at": null,
+  "failure": null,
+  "orig_unchanged": true,
+  "orig_facts": {
+   "rows": 6,
+   "dups": 2,
+   "blank": 1,
+   "sheets": [
+    "Sheet1"
+   ]
+  },
+  "final_facts": null,
+  "verified": true,
+  "flags": [
+   "paren_s"
+  ],
+  "name": "x44-alone|analyze my file and fix the typos",
+  "class": "SILENT",
+  "lead": "Before"
+ },
+ {
+  "speaker": "template",
+  "turn": 0,
+  "msg": "remove the duplicate rows and analyze my file and fix the typos",
+  "reply": "Partly done — removed 2 duplicate row(s). I can't do this part yet: “analyze my file and fix the typos”. The copy has 4 row(s), 0 duplicate row(s) remaining. Saved as `report_deduplicated_session-1-task-1.xlsx`. The copy has the values only; formatting, column widths and other sheet settings aren't carried over. I also noticed: name: 1 missing value(s) (25.0%); amount: 1 missing value(s) (25.0%). Want me to tackle any of these?",
+  "voice_calls": 0,
+  "delivered": true,
+  "steps": [
+   [
+    "analyze",
+    "success"
+   ],
+   [
+    "deduplicate",
+    "success"
+   ],
+   [
+    "analyze",
+    "success"
+   ]
+  ],
+  "stopped_at": null,
+  "failure": null,
+  "orig_unchanged": true,
+  "orig_facts": {
+   "rows": 6,
+   "dups": 2,
+   "blank": 1,
+   "sheets": [
+    "Sheet1"
+   ]
+  },
+  "final_facts": {
+   "rows": 4,
+   "dups": 0,
+   "blank": 1,
+   "sheets": [
+    "Sheet1"
+   ]
+  },
+  "verified": true,
+  "flags": [
+   "paren_s",
+   "paren",
+   "bad_plural_n"
+  ],
+  "name": "x44-dedupe|analyze my file and fix the typos",
+  "class": "SAYS",
+  "lead": "Partly"
+ },
+ {
+  "speaker": "template",
+  "turn": 0,
+  "msg": "give me a report and normalise the dates",
+  "reply": "Before anything else, here's what I noticed: name: 1 missing value(s) (16.7%); amount: 1 missing value(s) (16.7%). Want me to tackle any of these? No changes were made to any file this turn.",
+  "voice_calls": 0,
+  "delivered": false,
+  "steps": [
+   [
+    "analyze",
+    "success"
+   ]
+  ],
+  "stopped_at": null,
+  "failure": null,
+  "orig_unchanged": true,
+  "orig_facts": {
+   "rows": 6,
+   "dups": 2,
+   "blank": 1,
+   "sheets": [
+    "Sheet1"
+   ]
+  },
+  "final_facts": null,
+  "verified": true,
+  "flags": [
+   "paren_s"
+  ],
+  "name": "x45-alone|give me a report and normalise the dates",
+  "class": "SILENT",
+  "lead": "Before"
+ },
+ {
+  "speaker": "template",
+  "turn": 0,
+  "msg": "remove the duplicate rows and give me a report and normalise the dates",
+  "reply": "Partly done — removed 2 duplicate row(s). I can't do this part yet: “give me a report and normalise the dates”. The copy has 4 row(s), 0 duplicate row(s) remaining. Saved as `report_deduplicated_session-1-task-1.xlsx`. The copy has the values only; formatting, column widths and other sheet settings aren't carried over. I also noticed: name: 1 missing value(s) (25.0%); amount: 1 missing value(s) (25.0%). Want me to tackle any of these?",
+  "voice_calls": 0,
+  "delivered": true,
+  "steps": [
+   [
+    "analyze",
+    "success"
+   ],
+   [
+    "deduplicate",
+    "success"
+   ],
+   [
+    "analyze",
+    "success"
+   ]
+  ],
+  "stopped_at": null,
+  "failure": null,
+  "orig_unchanged": true,
+  "orig_facts": {
+   "rows": 6,
+   "dups": 2,
+   "blank": 1,
+   "sheets": [
+    "Sheet1"
+   ]
+  },
+  "final_facts": {
+   "rows": 4,
+   "dups": 0,
+   "blank": 1,
+   "sheets": [
+    "Sheet1"
+   ]
+  },
+  "verified": true,
+  "flags": [
+   "paren_s",
+   "paren",
+   "bad_plural_n"
+  ],
+  "name": "x45-dedupe|give me a report and normalise the dates",
+  "class": "SAYS",
+  "lead": "Partly"
+ },
+ {
+  "speaker": "template",
+  "turn": 0,
+  "msg": "analyze the file and standardise the names",
+  "reply": "Before anything else, here's what I noticed: name: 1 missing value(s) (16.7%); amount: 1 missing value(s) (16.7%). Want me to tackle any of these? No changes were made to any file this turn.",
+  "voice_calls": 0,
+  "delivered": false,
+  "steps": [
+   [
+    "analyze",
+    "success"
+   ]
+  ],
+  "stopped_at": null,
+  "failure": null,
+  "orig_unchanged": true,
+  "orig_facts": {
+   "rows": 6,
+   "dups": 2,
+   "blank": 1,
+   "sheets": [
+    "Sheet1"
+   ]
+  },
+  "final_facts": null,
+  "verified": true,
+  "flags": [
+   "paren_s"
+  ],
+  "name": "x46-alone|analyze the file and standardise the names",
+  "class": "SILENT",
+  "lead": "Before"
+ },
+ {
+  "speaker": "template",
+  "turn": 0,
+  "msg": "remove the duplicate rows and analyze the file and standardise the names",
+  "reply": "Partly done — removed 2 duplicate row(s). I can't do this part yet: “analyze the file and standardise the names”. The copy has 4 row(s), 0 duplicate row(s) remaining. Saved as `report_deduplicated_session-1-task-1.xlsx`. The copy has the values only; formatting, column widths and other sheet settings aren't carried over. I also noticed: name: 1 missing value(s) (25.0%); amount: 1 missing value(s) (25.0%). Want me to tackle any of these?",
+  "voice_calls": 0,
+  "delivered": true,
+  "steps": [
+   [
+    "analyze",
+    "success"
+   ],
+   [
+    "deduplicate",
+    "success"
+   ],
+   [
+    "analyze",
+    "success"
+   ]
+  ],
+  "stopped_at": null,
+  "failure": null,
+  "orig_unchanged": true,
+  "orig_facts": {
+   "rows": 6,
+   "dups": 2,
+   "blank": 1,
+   "sheets": [
+    "Sheet1"
+   ]
+  },
+  "final_facts": {
+   "rows": 4,
+   "dups": 0,
+   "blank": 1,
+   "sheets": [
+    "Sheet1"
+   ]
+  },
+  "verified": true,
+  "flags": [
+   "paren_s",
+   "paren",
+   "bad_plural_n"
+  ],
+  "name": "x46-dedupe|analyze the file and standardise the names",
+  "class": "SAYS",
+  "lead": "Partly"
+ },
+ {
+  "speaker": "template",
+  "turn": 0,
+  "msg": "give me a report and clean up the formatting",
+  "reply": "Before anything else, here's what I noticed: name: 1 missing value(s) (16.7%); amount: 1 missing value(s) (16.7%). Want me to tackle any of these? No changes were made to any file this turn.",
+  "voice_calls": 0,
+  "delivered": false,
+  "steps": [
+   [
+    "analyze",
+    "success"
+   ]
+  ],
+  "stopped_at": null,
+  "failure": null,
+  "orig_unchanged": true,
+  "orig_facts": {
+   "rows": 6,
+   "dups": 2,
+   "blank": 1,
+   "sheets": [
+    "Sheet1"
+   ]
+  },
+  "final_facts": null,
+  "verified": true,
+  "flags": [
+   "paren_s"
+  ],
+  "name": "x47-alone|give me a report and clean up the formatting",
+  "class": "SILENT",
+  "lead": "Before"
+ },
+ {
+  "speaker": "template",
+  "turn": 0,
+  "msg": "remove the duplicate rows and give me a report and clean up the formatting",
+  "reply": "Partly done — removed 2 duplicate row(s). I can't do this part yet: “give me a report and clean up the formatting”. The copy has 4 row(s), 0 duplicate row(s) remaining. Saved as `report_deduplicated_session-1-task-1.xlsx`. The copy has the values only; formatting, column widths and other sheet settings aren't carried over. I also noticed: name: 1 missing value(s) (25.0%); amount: 1 missing value(s) (25.0%). Want me to tackle any of these?",
+  "voice_calls": 0,
+  "delivered": true,
+  "steps": [
+   [
+    "analyze",
+    "success"
+   ],
+   [
+    "deduplicate",
+    "success"
+   ],
+   [
+    "analyze",
+    "success"
+   ]
+  ],
+  "stopped_at": null,
+  "failure": null,
+  "orig_unchanged": true,
+  "orig_facts": {
+   "rows": 6,
+   "dups": 2,
+   "blank": 1,
+   "sheets": [
+    "Sheet1"
+   ]
+  },
+  "final_facts": {
+   "rows": 4,
+   "dups": 0,
+   "blank": 1,
+   "sheets": [
+    "Sheet1"
+   ]
+  },
+  "verified": true,
+  "flags": [
+   "paren_s",
+   "paren",
+   "bad_plural_n"
+  ],
+  "name": "x47-dedupe|give me a report and clean up the formatting",
+  "class": "SAYS",
+  "lead": "Partly"
+ },
+ {
+  "speaker": "template",
+  "turn": 0,
+  "msg": "analyze my file and tidy it up",
+  "reply": "Before anything else, here's what I noticed: name: 1 missing value(s) (16.7%); amount: 1 missing value(s) (16.7%). Want me to tackle any of these? No changes were made to any file this turn.",
+  "voice_calls": 0,
+  "delivered": false,
+  "steps": [
+   [
+    "analyze",
+    "success"
+   ]
+  ],
+  "stopped_at": null,
+  "failure": null,
+  "orig_unchanged": true,
+  "orig_facts": {
+   "rows": 6,
+   "dups": 2,
+   "blank": 1,
+   "sheets": [
+    "Sheet1"
+   ]
+  },
+  "final_facts": null,
+  "verified": true,
+  "flags": [
+   "paren_s"
+  ],
+  "name": "x48-alone|analyze my file and tidy it up",
+  "class": "SILENT",
+  "lead": "Before"
+ },
+ {
+  "speaker": "template",
+  "turn": 0,
+  "msg": "remove the duplicate rows and analyze my file and tidy it up",
+  "reply": "Partly done — removed 2 duplicate row(s). I can't do this part yet: “analyze my file and tidy it up”. The copy has 4 row(s), 0 duplicate row(s) remaining. Saved as `report_deduplicated_session-1-task-1.xlsx`. The copy has the values only; formatting, column widths and other sheet settings aren't carried over. I also noticed: name: 1 missing value(s) (25.0%); amount: 1 missing value(s) (25.0%). Want me to tackle any of these?",
+  "voice_calls": 0,
+  "delivered": true,
+  "steps": [
+   [
+    "analyze",
+    "success"
+   ],
+   [
+    "deduplicate",
+    "success"
+   ],
+   [
+    "analyze",
+    "success"
+   ]
+  ],
+  "stopped_at": null,
+  "failure": null,
+  "orig_unchanged": true,
+  "orig_facts": {
+   "rows": 6,
+   "dups": 2,
+   "blank": 1,
+   "sheets": [
+    "Sheet1"
+   ]
+  },
+  "final_facts": {
+   "rows": 4,
+   "dups": 0,
+   "blank": 1,
+   "sheets": [
+    "Sheet1"
+   ]
+  },
+  "verified": true,
+  "flags": [
+   "paren_s",
+   "paren",
+   "bad_plural_n"
+  ],
+  "name": "x48-dedupe|analyze my file and tidy it up",
+  "class": "SAYS",
+  "lead": "Partly"
+ },
+ {
+  "speaker": "template",
+  "turn": 0,
+  "msg": "report on the file and also sort out the blanks",
+  "reply": "Before anything else, here's what I noticed: name: 1 missing value(s) (16.7%); amount: 1 missing value(s) (16.7%). Want me to tackle any of these? No changes were made to any file this turn.",
+  "voice_calls": 0,
+  "delivered": false,
+  "steps": [
+   [
+    "analyze",
+    "success"
+   ]
+  ],
+  "stopped_at": null,
+  "failure": null,
+  "orig_unchanged": true,
+  "orig_facts": {
+   "rows": 6,
+   "dups": 2,
+   "blank": 1,
+   "sheets": [
+    "Sheet1"
+   ]
+  },
+  "final_facts": null,
+  "verified": true,
+  "flags": [
+   "paren_s"
+  ],
+  "name": "x49-alone|report on the file and also sort out the blanks",
+  "class": "SILENT",
+  "lead": "Before"
+ },
+ {
+  "speaker": "template",
+  "turn": 0,
+  "msg": "remove the duplicate rows and report on the file and also sort out the blanks",
+  "reply": "Partly done — removed 2 duplicate row(s). I can't do this part yet: “report on the file and also sort out the blanks”. The copy has 4 row(s), 0 duplicate row(s) remaining. Saved as `report_deduplicated_session-1-task-1.xlsx`. The copy has the values only; formatting, column widths and other sheet settings aren't carried over. I also noticed: name: 1 missing value(s) (25.0%); amount: 1 missing value(s) (25.0%). Want me to tackle any of these?",
+  "voice_calls": 0,
+  "delivered": true,
+  "steps": [
+   [
+    "analyze",
+    "success"
+   ],
+   [
+    "deduplicate",
+    "success"
+   ],
+   [
+    "analyze",
+    "success"
+   ]
+  ],
+  "stopped_at": null,
+  "failure": null,
+  "orig_unchanged": true,
+  "orig_facts": {
+   "rows": 6,
+   "dups": 2,
+   "blank": 1,
+   "sheets": [
+    "Sheet1"
+   ]
+  },
+  "final_facts": {
+   "rows": 4,
+   "dups": 0,
+   "blank": 1,
+   "sheets": [
+    "Sheet1"
+   ]
+  },
+  "verified": true,
+  "flags": [
+   "paren_s",
+   "paren",
+   "bad_plural_n"
+  ],
+  "name": "x49-dedupe|report on the file and also sort out the blanks",
+  "class": "SAYS",
+  "lead": "Partly"
+ },
+ {
+  "speaker": "template",
+  "turn": 0,
+  "msg": "give me a report and email it to Bob",
+  "reply": "Before anything else, here's what I noticed: name: 1 missing value(s) (16.7%); amount: 1 missing value(s) (16.7%). Want me to tackle any of these? No changes were made to any file this turn.",
+  "voice_calls": 0,
+  "delivered": false,
+  "steps": [
+   [
+    "analyze",
+    "success"
+   ]
+  ],
+  "stopped_at": null,
+  "failure": null,
+  "orig_unchanged": true,
+  "orig_facts": {
+   "rows": 6,
+   "dups": 2,
+   "blank": 1,
+   "sheets": [
+    "Sheet1"
+   ]
+  },
+  "final_facts": null,
+  "verified": true,
+  "flags": [
+   "paren_s"
+  ],
+  "name": "x50-alone|give me a report and email it to Bob",
+  "class": "SILENT",
+  "lead": "Before"
+ },
+ {
+  "speaker": "template",
+  "turn": 0,
+  "msg": "remove the duplicate rows and give me a report and email it to Bob",
+  "reply": "Partly done — removed 2 duplicate row(s). I can't do this part yet: “give me a report and email it to Bob”. The copy has 4 row(s), 0 duplicate row(s) remaining. Saved as `report_deduplicated_session-1-task-1.xlsx`. The copy has the values only; formatting, column widths and other sheet settings aren't carried over. I also noticed: name: 1 missing value(s) (25.0%); amount: 1 missing value(s) (25.0%). Want me to tackle any of these?",
+  "voice_calls": 0,
+  "delivered": true,
+  "steps": [
+   [
+    "analyze",
+    "success"
+   ],
+   [
+    "deduplicate",
+    "success"
+   ],
+   [
+    "analyze",
+    "success"
+   ]
+  ],
+  "stopped_at": null,
+  "failure": null,
+  "orig_unchanged": true,
+  "orig_facts": {
+   "rows": 6,
+   "dups": 2,
+   "blank": 1,
+   "sheets": [
+    "Sheet1"
+   ]
+  },
+  "final_facts": {
+   "rows": 4,
+   "dups": 0,
+   "blank": 1,
+   "sheets": [
+    "Sheet1"
+   ]
+  },
+  "verified": true,
+  "flags": [
+   "paren_s",
+   "paren",
+   "bad_plural_n"
+  ],
+  "name": "x50-dedupe|give me a report and email it to Bob",
+  "class": "SAYS",
+  "lead": "Partly"
+ },
+ {
+  "speaker": "template",
+  "turn": 0,
+  "msg": "give me a report and sort it by amount",
+  "reply": "Before anything else, here's what I noticed: name: 1 missing value(s) (16.7%); amount: 1 missing value(s) (16.7%). Want me to tackle any of these? No changes were made to any file this turn.",
+  "voice_calls": 0,
+  "delivered": false,
+  "steps": [
+   [
+    "analyze",
+    "success"
+   ]
+  ],
+  "stopped_at": null,
+  "failure": null,
+  "orig_unchanged": true,
+  "orig_facts": {
+   "rows": 6,
+   "dups": 2,
+   "blank": 1,
+   "sheets": [
+    "Sheet1"
+   ]
+  },
+  "final_facts": null,
+  "verified": true,
+  "flags": [
+   "paren_s"
+  ],
+  "name": "x51-alone|give me a report and sort it by amount",
+  "class": "SILENT",
+  "lead": "Before"
+ },
+ {
+  "speaker": "template",
+  "turn": 0,
+  "msg": "remove the duplicate rows and give me a report and sort it by amount",
+  "reply": "Partly done — removed 2 duplicate row(s). I can't do this part yet: “give me a report and sort it by amount”. The copy has 4 row(s), 0 duplicate row(s) remaining. Saved as `report_deduplicated_session-1-task-1.xlsx`. The copy has the values only; formatting, column widths and other sheet settings aren't carried over. I also noticed: name: 1 missing value(s) (25.0%); amount: 1 missing value(s) (25.0%). Want me to tackle any of these?",
+  "voice_calls": 0,
+  "delivered": true,
+  "steps": [
+   [
+    "analyze",
+    "success"
+   ],
+   [
+    "deduplicate",
+    "success"
+   ],
+   [
+    "analyze",
+    "success"
+   ]
+  ],
+  "stopped_at": null,
+  "failure": null,
+  "orig_unchanged": true,
+  "orig_facts": {
+   "rows": 6,
+   "dups": 2,
+   "blank": 1,
+   "sheets": [
+    "Sheet1"
+   ]
+  },
+  "final_facts": {
+   "rows": 4,
+   "dups": 0,
+   "blank": 1,
+   "sheets": [
+    "Sheet1"
+   ]
+  },
+  "verified": true,
+  "flags": [
+   "paren_s",
+   "paren",
+   "bad_plural_n"
+  ],
+  "name": "x51-dedupe|give me a report and sort it by amount",
+  "class": "SAYS",
+  "lead": "Partly"
+ },
+ {
+  "speaker": "template",
+  "turn": 0,
+  "msg": "give me a report",
+  "reply": "Before anything else, here's what I noticed: name: 1 missing value(s) (16.7%); amount: 1 missing value(s) (16.7%). Want me to tackle any of these? No changes were made to any file this turn.",
+  "voice_calls": 0,
+  "delivered": false,
+  "steps": [
+   [
+    "analyze",
+    "success"
+   ]
+  ],
+  "stopped_at": null,
+  "failure": null,
+  "orig_unchanged": true,
+  "orig_facts": {
+   "rows": 6,
+   "dups": 2,
+   "blank": 1,
+   "sheets": [
+    "Sheet1"
+   ]
+  },
+  "final_facts": null,
+  "verified": true,
+  "flags": [
+   "paren_s"
+  ],
+  "name": "x52-alone|give me a report",
+  "class": "SILENT",
+  "lead": "Before"
+ },
+ {
+  "speaker": "template",
+  "turn": 0,
+  "msg": "remove the duplicate rows and give me a report",
+  "reply": "Partly done — removed 2 duplicate row(s). I can't do this part yet: “give me a report”. The copy has 4 row(s), 0 duplicate row(s) remaining. Saved as `report_deduplicated_session-1-task-1.xlsx`. The copy has the values only; formatting, column widths and other sheet settings aren't carried over. I also noticed: name: 1 missing value(s) (25.0%); amount: 1 missing value(s) (25.0%). Want me to tackle any of these?",
+  "voice_calls": 0,
+  "delivered": true,
+  "steps": [
+   [
+    "analyze",
+    "success"
+   ],
+   [
+    "deduplicate",
+    "success"
+   ],
+   [
+    "analyze",
+    "success"
+   ]
+  ],
+  "stopped_at": null,
+  "failure": null,
+  "orig_unchanged": true,
+  "orig_facts": {
+   "rows": 6,
+   "dups": 2,
+   "blank": 1,
+   "sheets": [
+    "Sheet1"
+   ]
+  },
+  "final_facts": {
+   "rows": 4,
+   "dups": 0,
+   "blank": 1,
+   "sheets": [
+    "Sheet1"
+   ]
+  },
+  "verified": true,
+  "flags": [
+   "paren_s",
+   "paren",
+   "bad_plural_n"
+  ],
+  "name": "x52-dedupe|give me a report",
+  "class": "SAYS",
+  "lead": "Partly"
+ }
+]

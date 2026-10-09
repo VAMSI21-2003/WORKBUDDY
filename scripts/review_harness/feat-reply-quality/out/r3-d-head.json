@@ -1,0 +1,520 @@
+{
+ "A-friend": {
+  "views": {
+   "turn_bodies": [
+    [
+     "report_deduplicated.xlsx"
+    ],
+    [
+     "report_deduplicated (2).xlsx"
+    ],
+    [
+     "report_cleaned.xlsx"
+    ],
+    [
+     "report_cleaned (2).xlsx"
+    ],
+    [
+     "report_deduplicated_cleaned.xlsx"
+    ],
+    [
+     "report_deduplicated_cleaned (2).xlsx"
+    ]
+   ],
+   "file_list": [
+    [
+     "upload",
+     "report.xlsx"
+    ],
+    [
+     "delivered",
+     "report_deduplicated.xlsx"
+    ],
+    [
+     "delivered",
+     "report_deduplicated (2).xlsx"
+    ],
+    [
+     "delivered",
+     "report_cleaned.xlsx"
+    ],
+    [
+     "delivered",
+     "report_cleaned (2).xlsx"
+    ],
+    [
+     "delivered",
+     "report_deduplicated_cleaned.xlsx"
+    ],
+    [
+     "delivered",
+     "report_deduplicated_cleaned (2).xlsx"
+    ]
+   ],
+   "state_turns": [
+    [
+     "report_deduplicated.xlsx"
+    ],
+    [
+     "report_deduplicated (2).xlsx"
+    ],
+    [
+     "report_cleaned.xlsx"
+    ],
+    [
+     "report_cleaned (2).xlsx"
+    ],
+    [
+     "report_deduplicated_cleaned.xlsx"
+    ],
+    [
+     "report_deduplicated_cleaned (2).xlsx"
+    ]
+   ]
+  },
+  "downloads": [
+   {
+    "listed": "report_deduplicated.xlsx",
+    "http": 200,
+    "cd": "attachment; filename*=UTF-8''report_deduplicated.xlsx",
+    "media": "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+   },
+   {
+    "listed": "report_deduplicated (2).xlsx",
+    "http": 200,
+    "cd": "attachment; filename*=UTF-8''report_deduplicated%20%282%29.xlsx",
+    "media": "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+   },
+   {
+    "listed": "report_cleaned.xlsx",
+    "http": 200,
+    "cd": "attachment; filename*=UTF-8''report_cleaned.xlsx",
+    "media": "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+   },
+   {
+    "listed": "report_cleaned (2).xlsx",
+    "http": 200,
+    "cd": "attachment; filename*=UTF-8''report_cleaned%20%282%29.xlsx",
+    "media": "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+   },
+   {
+    "listed": "report_deduplicated_cleaned.xlsx",
+    "http": 200,
+    "cd": "attachment; filename*=UTF-8''report_deduplicated_cleaned.xlsx",
+    "media": "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+   },
+   {
+    "listed": "report_deduplicated_cleaned (2).xlsx",
+    "http": 200,
+    "cd": "attachment; filename*=UTF-8''report_deduplicated_cleaned%20%282%29.xlsx",
+    "media": "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+   }
+  ],
+  "on_disk": [
+   "report_deduplicated_b254647da8e45030abe49e15738e911c-task-0.xlsx",
+   "report_deduplicated_b254647da8e45030abe49e15738e911c-task-0.xlsx",
+   "report_deduplicated_b254647da8e45030abe49e15738e911c-task-0.xlsx",
+   "report_deduplicated_b254647da8e45030abe49e15738e911c-task-0_no_empty_rows_b254647da8e45030abe49e15738e911c-task-1.xlsx",
+   "report_deduplicated_b254647da8e45030abe49e15738e911c-task-0_no_empty_rows_b254647da8e45030abe49e15738e911c-task-1.xlsx",
+   "report_deduplicated_b254647da8e45030abe49e15738e911c-task-1.xlsx",
+   "report_no_empty_rows_b254647da8e45030abe49e15738e911c-task-0.xlsx",
+   "report_no_empty_rows_b254647da8e45030abe49e15738e911c-task-0.xlsx"
+  ],
+  "distinct": true,
+  "replies": [
+   "Here's where things landed. Done — removed 2 duplicate rows. The copy has 4 rows, with 0 duplicate rows remaining. Your cleaned copy of report.xlsx is ready. The copy has the values only; formatting, column widths and other sheet settings aren't carried over. I also noticed: name: 1 missing value (25.0%); amount: 1 missing value (25.0%). Want me to tackle any of these?",
+   "Here's where things landed. Done — removed 2 duplicate rows. The copy has 4 rows, with 0 duplicate rows remaining. Your cleaned copy of report.xlsx is ready. The copy has the values only; formatting, column widths and other sheet settings aren't carried over. I made this copy from your original upload, not from a file I handed back earlier. What's next on the list?",
+   "Here's where things landed. Done — removed 1 fully-empty row. The copy has 5 rows, with 0 fully-empty rows remaining. Your cleaned copy of report.xlsx is ready. The copy has the values only; formatting, column widths and other sheet settings aren't carried over. I made this copy from your original upload, not from a file I handed back earlier.",
+   "Okay, here's the rundown. Done — removed 1 fully-empty row. The copy has 5 rows, with 0 fully-empty rows remaining. Your cleaned copy of report.xlsx is ready. The copy has the values only; formatting, column widths and other sheet settings aren't carried over. I made this copy from your original upload, not from a file I handed back earlier.",
+   "Okay, here's the rundown. Done — removed 2 duplicate rows. Removed 1 fully-empty row. The copy has 3 rows, with 0 duplicate rows and 0 fully-empty rows remaining. Your cleaned copy of report.xlsx is ready. The copy has the values only; formatting, column widths and other sheet settings aren't carried over. I made this copy from your original upload, not from a file I handed back earlier. What's next on the list?",
+   "Those blank rows were just taking up space. Done — removed 2 duplicate rows. Removed 1 fully-empty row. The copy has 3 rows, with 0 duplicate rows and 0 fully-empty rows remaining. Your cleaned copy of report.xlsx is ready. The copy has the values only; formatting, column widths and other sheet settings aren't carried over. I made this copy from your original upload, not from a file I handed back earlier. What's next on the list?"
+  ],
+  "orig_unchanged": [
+   true,
+   true,
+   true,
+   true,
+   true,
+   true
+  ],
+  "outcomes": [
+   "delivered",
+   "delivered",
+   "delivered",
+   "delivered",
+   "delivered",
+   "delivered"
+  ]
+ },
+ "A-template": {
+  "views": {
+   "turn_bodies": [
+    [
+     "report_deduplicated.xlsx"
+    ],
+    [
+     "report_deduplicated (2).xlsx"
+    ],
+    [
+     "report_cleaned.xlsx"
+    ],
+    [
+     "report_cleaned (2).xlsx"
+    ],
+    [
+     "report_deduplicated_cleaned.xlsx"
+    ],
+    [
+     "report_deduplicated_cleaned (2).xlsx"
+    ]
+   ],
+   "file_list": [
+    [
+     "upload",
+     "report.xlsx"
+    ],
+    [
+     "delivered",
+     "report_deduplicated.xlsx"
+    ],
+    [
+     "delivered",
+     "report_deduplicated (2).xlsx"
+    ],
+    [
+     "delivered",
+     "report_cleaned.xlsx"
+    ],
+    [
+     "delivered",
+     "report_cleaned (2).xlsx"
+    ],
+    [
+     "delivered",
+     "report_deduplicated_cleaned.xlsx"
+    ],
+    [
+     "delivered",
+     "report_deduplicated_cleaned (2).xlsx"
+    ]
+   ],
+   "state_turns": [
+    [
+     "report_deduplicated.xlsx"
+    ],
+    [
+     "report_deduplicated (2).xlsx"
+    ],
+    [
+     "report_cleaned.xlsx"
+    ],
+    [
+     "report_cleaned (2).xlsx"
+    ],
+    [
+     "report_deduplicated_cleaned.xlsx"
+    ],
+    [
+     "report_deduplicated_cleaned (2).xlsx"
+    ]
+   ]
+  },
+  "downloads": [
+   {
+    "listed": "report_deduplicated.xlsx",
+    "http": 200,
+    "cd": "attachment; filename*=UTF-8''report_deduplicated.xlsx",
+    "media": "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+   },
+   {
+    "listed": "report_deduplicated (2).xlsx",
+    "http": 200,
+    "cd": "attachment; filename*=UTF-8''report_deduplicated%20%282%29.xlsx",
+    "media": "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+   },
+   {
+    "listed": "report_cleaned.xlsx",
+    "http": 200,
+    "cd": "attachment; filename*=UTF-8''report_cleaned.xlsx",
+    "media": "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+   },
+   {
+    "listed": "report_cleaned (2).xlsx",
+    "http": 200,
+    "cd": "attachment; filename*=UTF-8''report_cleaned%20%282%29.xlsx",
+    "media": "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+   },
+   {
+    "listed": "report_deduplicated_cleaned.xlsx",
+    "http": 200,
+    "cd": "attachment; filename*=UTF-8''report_deduplicated_cleaned.xlsx",
+    "media": "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+   },
+   {
+    "listed": "report_deduplicated_cleaned (2).xlsx",
+    "http": 200,
+    "cd": "attachment; filename*=UTF-8''report_deduplicated_cleaned%20%282%29.xlsx",
+    "media": "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+   }
+  ],
+  "on_disk": [
+   "report_deduplicated_3fc1ae5a4f2b19b2c8a9190bb2cdd17c-task-0.xlsx",
+   "report_deduplicated_3fc1ae5a4f2b19b2c8a9190bb2cdd17c-task-0.xlsx",
+   "report_deduplicated_3fc1ae5a4f2b19b2c8a9190bb2cdd17c-task-0.xlsx",
+   "report_deduplicated_3fc1ae5a4f2b19b2c8a9190bb2cdd17c-task-0_no_empty_rows_3fc1ae5a4f2b19b2c8a9190bb2cdd17c-task-1.xlsx",
+   "report_deduplicated_3fc1ae5a4f2b19b2c8a9190bb2cdd17c-task-0_no_empty_rows_3fc1ae5a4f2b19b2c8a9190bb2cdd17c-task-1.xlsx",
+   "report_deduplicated_3fc1ae5a4f2b19b2c8a9190bb2cdd17c-task-1.xlsx",
+   "report_no_empty_rows_3fc1ae5a4f2b19b2c8a9190bb2cdd17c-task-0.xlsx",
+   "report_no_empty_rows_3fc1ae5a4f2b19b2c8a9190bb2cdd17c-task-0.xlsx"
+  ],
+  "distinct": true,
+  "replies": [
+   "Done — removed 2 duplicate rows. The copy has 4 rows, with 0 duplicate rows remaining. Saved as `report_deduplicated_3fc1ae5a4f2b19b2c8a9190bb2cdd17c-task-1.xlsx`. The copy has the values only; formatting, column widths and other sheet settings aren't carried over. I also noticed: name: 1 missing value (25.0%); amount: 1 missing value (25.0%). Want me to tackle any of these?",
+   "Done — removed 2 duplicate rows. The copy has 4 rows, with 0 duplicate rows remaining. Saved as `report_deduplicated_3fc1ae5a4f2b19b2c8a9190bb2cdd17c-task-0.xlsx`. The copy has the values only; formatting, column widths and other sheet settings aren't carried over. I made this copy from your original upload, not from a file I handed back earlier.",
+   "Done — removed 1 fully-empty row. The copy has 5 rows, with 0 fully-empty rows remaining. Saved as `report_no_empty_rows_3fc1ae5a4f2b19b2c8a9190bb2cdd17c-task-0.xlsx`. The copy has the values only; formatting, column widths and other sheet settings aren't carried over. I made this copy from your original upload, not from a file I handed back earlier.",
+   "Done — removed 1 fully-empty row. The copy has 5 rows, with 0 fully-empty rows remaining. Saved as `report_no_empty_rows_3fc1ae5a4f2b19b2c8a9190bb2cdd17c-task-0.xlsx`. The copy has the values only; formatting, column widths and other sheet settings aren't carried over. I made this copy from your original upload, not from a file I handed back earlier.",
+   "Done — removed 2 duplicate rows. Removed 1 fully-empty row. The copy has 3 rows, with 0 duplicate rows and 0 fully-empty rows remaining. Saved as `report_deduplicated_3fc1ae5a4f2b19b2c8a9190bb2cdd17c-task-0_no_empty_rows_3fc1ae5a4f2b19b2c8a9190bb2cdd17c-task-1.xlsx`. The copy has the values only; formatting, column widths and other sheet settings aren't carried over. I made this copy from your original upload, not from a file I handed back earlier.",
+   "Done — removed 2 duplicate rows. Removed 1 fully-empty row. The copy has 3 rows, with 0 duplicate rows and 0 fully-empty rows remaining. Saved as `report_deduplicated_3fc1ae5a4f2b19b2c8a9190bb2cdd17c-task-0_no_empty_rows_3fc1ae5a4f2b19b2c8a9190bb2cdd17c-task-1.xlsx`. The copy has the values only; formatting, column widths and other sheet settings aren't carried over. I made this copy from your original upload, not from a file I handed back earlier."
+  ],
+  "orig_unchanged": [
+   true,
+   true,
+   true,
+   true,
+   true,
+   true
+  ],
+  "outcomes": [
+   "delivered",
+   "delivered",
+   "delivered",
+   "delivered",
+   "delivered",
+   "delivered"
+  ]
+ },
+ "B-my_no_empty_rows_data.xlsx": {
+  "stored": [
+   "my_no_empty_rows_data_deduplicated_2705aa38fb07b95fdd70040a141faa25-task-1.xlsx",
+   "my_no_empty_rows_data_no_empty_rows_2705aa38fb07b95fdd70040a141faa25-task-0.xlsx"
+  ],
+  "shown": [
+   "my_no_empty_rows_data_deduplicated.xlsx",
+   "my_no_empty_rows_data_cleaned.xlsx"
+  ],
+  "uploads": [
+   "my_no_empty_rows_data.xlsx"
+  ]
+ },
+ "B-report (2).xlsx": {
+  "stored": [
+   "report _2__deduplicated_0dddb66c75da98f30449f71a8e00fd80-task-1.xlsx",
+   "report _2__no_empty_rows_0dddb66c75da98f30449f71a8e00fd80-task-0.xlsx"
+  ],
+  "shown": [
+   "report _2__deduplicated.xlsx",
+   "report _2__cleaned.xlsx"
+  ],
+  "uploads": [
+   "report _2_.xlsx"
+  ]
+ },
+ "B-Q3 sales — final.xlsx": {
+  "stored": [
+   "Q3 sales _ final_deduplicated_e5ac37464dfaa0c3572275ccae1b506a-task-1.xlsx",
+   "Q3 sales _ final_no_empty_rows_e5ac37464dfaa0c3572275ccae1b506a-task-0.xlsx"
+  ],
+  "shown": [
+   "Q3 sales _ final_deduplicated.xlsx",
+   "Q3 sales _ final_cleaned.xlsx"
+  ],
+  "uploads": [
+   "Q3 sales _ final.xlsx"
+  ]
+ },
+ "B-xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx": {
+  "stored": [
+   "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx_deduplicated_85a79c1bf76d7769537209a224278164-task-1.xlsx",
+   "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx_no_empty_rows_85a79c1bf76d7769537209a224278164-task-0.xlsx"
+  ],
+  "shown": [
+   "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx_deduplicated.xlsx",
+   "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx_cleaned.xlsx"
+  ],
+  "uploads": [
+   "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx.xlsx"
+  ]
+ },
+ "B-report_deduplicated.xlsx": {
+  "stored": [
+   "report_deduplicated_deduplicated_50737c4c7b9c56f8155ffa0485988370-task-1.xlsx",
+   "report_deduplicated_no_empty_rows_50737c4c7b9c56f8155ffa0485988370-task-0.xlsx"
+  ],
+  "shown": [
+   "report_deduplicated_deduplicated.xlsx",
+   "report_deduplicated_cleaned.xlsx"
+  ],
+  "uploads": [
+   "report_deduplicated.xlsx"
+  ]
+ },
+ "B-a.b.c.xlsx": {
+  "stored": [
+   "a.b.c_deduplicated_6c8fa28bec3b6017e79d64f22f5cb9d4-task-1.xlsx",
+   "a.b.c_no_empty_rows_6c8fa28bec3b6017e79d64f22f5cb9d4-task-0.xlsx"
+  ],
+  "shown": [
+   "a.b.c_deduplicated.xlsx",
+   "a.b.c_cleaned.xlsx"
+  ],
+  "uploads": [
+   "a.b.c.xlsx"
+  ]
+ },
+ "B-REPORT.XLSX": {
+  "stored": [
+   "REPORT_deduplicated_0b69b100375fe01e4b3a58dc2a0ed525-task-1.xlsx",
+   "REPORT_no_empty_rows_0b69b100375fe01e4b3a58dc2a0ed525-task-0.xlsx"
+  ],
+  "shown": [
+   "REPORT_deduplicated.xlsx",
+   "REPORT_cleaned.xlsx"
+  ],
+  "uploads": [
+   "REPORT.XLSX"
+  ]
+ },
+ "B-con.xlsx": {
+  "stored": [
+   "_con_deduplicated_968d738fc959c9c25ca1723fe631e872-task-1.xlsx",
+   "_con_no_empty_rows_968d738fc959c9c25ca1723fe631e872-task-0.xlsx"
+  ],
+  "shown": [
+   "_con_deduplicated.xlsx",
+   "_con_cleaned.xlsx"
+  ],
+  "uploads": [
+   "_con.xlsx"
+  ]
+ },
+ "C-friend-hi-nofile": {
+  "reply": "Hello! I can remove duplicate rows, remove empty rows, and look a spreadsheet over for anything that seems off. Upload a spreadsheet and tell me what you'd like me to do with it.",
+  "outcome": "not_delivered",
+  "src": "pipeline"
+ },
+ "C-friend-action-nofile": {
+  "reply": "I don't have a file to work on yet. Upload a spreadsheet and ask again. No changes were made to any file this turn.",
+  "outcome": "not_delivered",
+  "start": null,
+  "body": null
+ },
+ "C-friend-hi-file": {
+  "reply": "Hi there! I can remove duplicate rows, remove empty rows, and look a spreadsheet over for anything that seems off. What would you like me to do with your file?",
+  "outcome": "not_delivered",
+  "orig": true,
+  "written": []
+ },
+ "C-friend-report-file": {
+  "reply": "Report on your original file: 2 rows repeat an earlier row exactly; name: 1 missing value (16.7%); amount: 1 missing value (16.7%). No changes were made to any file this turn.",
+  "outcome": "not_delivered",
+  "orig": true,
+  "delivered": []
+ },
+ "C-friend-dedupe-report": {
+  "reply": "Here's where things landed. Done — removed 2 duplicate rows. The copy has 4 rows, with 0 duplicate rows remaining. Your cleaned copy of report.xlsx is ready. The copy has the values only; formatting, column widths and other sheet settings aren't carried over. Report on the copy: name: 1 missing value (25.0%); amount: 1 missing value (25.0%).",
+  "outcome": "delivered",
+  "orig": true,
+  "delivered": [
+   {
+    "name": "report_deduplicated.xlsx",
+    "http": 200,
+    "sha_matches_listing": true,
+    "independent": {
+     "rows": 4,
+     "duplicates": 0,
+     "empty": 1
+    }
+   }
+  ]
+ },
+ "C-focus-hi-nofile": {
+  "reply": "Hi. I can remove duplicate rows, remove empty rows, and check a spreadsheet for problems. Upload a spreadsheet and tell me what to do.",
+  "outcome": "not_delivered",
+  "src": "pipeline"
+ },
+ "C-focus-action-nofile": {
+  "reply": "I don't have a file to work on yet. Upload a spreadsheet and ask again. No changes were made to any file this turn.",
+  "outcome": "not_delivered",
+  "start": null,
+  "body": null
+ },
+ "C-focus-hi-file": {
+  "reply": "Hi. I can remove duplicate rows, remove empty rows, and check a spreadsheet for problems. What should I do with the file?",
+  "outcome": "not_delivered",
+  "orig": true,
+  "written": []
+ },
+ "C-focus-report-file": {
+  "reply": "Report on your original file: 2 rows repeat an earlier row exactly; name: 1 missing value (16.7%); amount: 1 missing value (16.7%). No changes were made to any file this turn.",
+  "outcome": "not_delivered",
+  "orig": true,
+  "delivered": []
+ },
+ "C-focus-dedupe-report": {
+  "reply": "Done — removed 2 duplicate rows. The copy has 4 rows, with 0 duplicate rows remaining. Your cleaned copy of report.xlsx is ready. The copy has the values only; formatting, column widths and other sheet settings aren't carried over. Report on the copy: name: 1 missing value (25.0%); amount: 1 missing value (25.0%).",
+  "outcome": "delivered",
+  "orig": true,
+  "delivered": [
+   {
+    "name": "report_deduplicated.xlsx",
+    "http": 200,
+    "sha_matches_listing": true,
+    "independent": {
+     "rows": 4,
+     "duplicates": 0,
+     "empty": 1
+    }
+   }
+  ]
+ },
+ "C-template-hi-nofile": {
+  "reply": "Hello. I can remove duplicate rows, remove empty rows, and look a spreadsheet over for possible problems. Upload a spreadsheet and tell me what to do with it.",
+  "outcome": "not_delivered",
+  "src": "pipeline"
+ },
+ "C-template-action-nofile": {
+  "reply": "I don't have a file to work on yet. Upload a spreadsheet and ask again. No changes were made to any file this turn.",
+  "outcome": "not_delivered",
+  "start": null,
+  "body": null
+ },
+ "C-template-hi-file": {
+  "reply": "Hello. I can remove duplicate rows, remove empty rows, and look a spreadsheet over for possible problems. Tell me what to do with your file.",
+  "outcome": "not_delivered",
+  "orig": true,
+  "written": []
+ },
+ "C-template-report-file": {
+  "reply": "Report on your original file: 2 rows repeat an earlier row exactly; name: 1 missing value (16.7%); amount: 1 missing value (16.7%). No changes were made to any file this turn.",
+  "outcome": "not_delivered",
+  "orig": true,
+  "delivered": []
+ },
+ "C-template-dedupe-report": {
+  "reply": "Done — removed 2 duplicate rows. The copy has 4 rows, with 0 duplicate rows remaining. Saved as `report_deduplicated_4129bc258fd7cfc116a05b341dcae600-task-1.xlsx`. The copy has the values only; formatting, column widths and other sheet settings aren't carried over. Report on the copy: name: 1 missing value (25.0%); amount: 1 missing value (25.0%).",
+  "outcome": "delivered",
+  "orig": true,
+  "delivered": [
+   {
+    "name": "report_deduplicated.xlsx",
+    "http": 200,
+    "sha_matches_listing": true,
+    "independent": {
+     "rows": 4,
+     "duplicates": 0,
+     "empty": 1
+    }
+   }
+  ]
+ }
+}

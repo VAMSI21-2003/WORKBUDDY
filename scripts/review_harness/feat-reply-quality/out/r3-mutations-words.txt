@@ -1,0 +1,49 @@
+word-sort                                     KILLED    1 failed, 653 passed, 308 warnings in 20.79s FAILED tests/buddy/test_reply_quality.py::test_a_report_phrase_that_also_asks_for_work_buddy_cant_do_still_says_so[give 
+word-filter                                   SURVIVED  979 passed, 410 warnings in 22.61s 
+word-chart                                    KILLED    1 failed, 654 passed, 308 warnings in 17.35s FAILED tests/buddy/test_reply_quality.py::test_a_report_phrase_that_also_asks_for_work_buddy_cant_do_still_says_so[analy
+word-graph                                    SURVIVED  979 passed, 410 warnings in 22.01s 
+word-plot                                     SURVIVED  979 passed, 410 warnings in 21.54s 
+word-highlight                                KILLED    1 failed, 656 passed, 308 warnings in 16.37s FAILED tests/buddy/test_reply_quality.py::test_a_report_phrase_that_also_asks_for_work_buddy_cant_do_still_says_so[analy
+word-colou?r                                  SURVIVED  979 passed, 410 warnings in 20.85s 
+word-merge                                    SURVIVED  979 passed, 410 warnings in 21.89s 
+word-split                                    SURVIVED  979 passed, 410 warnings in 22.38s 
+word-rename                                   SURVIVED  979 passed, 410 warnings in 22.34s 
+word-translate                                KILLED    1 failed, 658 passed, 308 warnings in 17.21s FAILED tests/buddy/test_reply_quality.py::test_a_report_phrase_that_also_asks_for_work_buddy_cant_do_still_says_so[summa
+word-convert                                  SURVIVED  979 passed, 410 warnings in 22.12s 
+word-e-?mail                                  KILLED    1 failed, 655 passed, 308 warnings in 16.97s FAILED tests/buddy/test_reply_quality.py::test_a_report_phrase_that_also_asks_for_work_buddy_cant_do_still_says_so[repor
+word-mail                                     SURVIVED  979 passed, 410 warnings in 22.14s 
+word-print                                    SURVIVED  979 passed, 410 warnings in 20.98s 
+word-upload                                   SURVIVED  979 passed, 410 warnings in 21.26s 
+word-share                                    SURVIVED  979 passed, 410 warnings in 20.52s 
+word-export                                   SURVIVED  979 passed, 410 warnings in 20.63s 
+word-pivot                                    SURVIVED  979 passed, 410 warnings in 20.17s 
+word-delete                                   KILLED    1 failed, 657 passed, 308 warnings in 15.29s FAILED tests/buddy/test_reply_quality.py::test_a_report_phrase_that_also_asks_for_work_buddy_cant_do_still_says_so[give 
+word-drop                                     SURVIVED  979 passed, 410 warnings in 20.49s 
+word-insert                                   SURVIVED  979 passed, 410 warnings in 20.87s 
+word-replace                                  SURVIVED  979 passed, 410 warnings in 20.62s 
+word-capitali[sz]e                            SURVIVED  979 passed, 410 warnings in 20.45s 
+word-trim                                     SURVIVED  979 passed, 410 warnings in 20.88s 
+word-rotate                                   SURVIVED  979 passed, 410 warnings in 21.19s 
+word-freeze                                   SURVIVED  979 passed, 410 warnings in 21.54s 
+word-hide                                     SURVIVED  979 passed, 410 warnings in 22.18s 
+word-unhide                                   SURVIVED  979 passed, 410 warnings in 21.53s 
+word-dashboard                                SURVIVED  979 passed, 410 warnings in 20.97s 
+word-forecast                                 SURVIVED  979 passed, 410 warnings in 20.27s 
+word-predict                                  SURVIVED  979 passed, 410 warnings in 21.34s 
+word-schedule                                 SURVIVED  979 passed, 410 warnings in 20.50s 
+word-attach                                   SURVIVED  979 passed, 410 warnings in 21.03s 
+word-forward                                  SURVIVED  979 passed, 410 warnings in 20.62s 
+word-save                                     SURVIVED  979 passed, 410 warnings in 20.55s 
+word-download                                 SURVIVED  979 passed, 410 warnings in 20.74s 
+word-paint                                    SURVIVED  979 passed, 410 warnings in 20.99s 
+word-bold                                     SURVIVED  979 passed, 410 warnings in 20.33s 
+word-italic                                   SURVIVED  979 passed, 410 warnings in 20.88s 
+word-underline                                SURVIVED  979 passed, 410 warnings in 21.24s 
+word-resize                                   SURVIVED  979 passed, 410 warnings in 20.98s 
+word-reorder                                  SURVIVED  979 passed, 410 warnings in 20.86s 
+word-rearrange                                SURVIVED  979 passed, 410 warnings in 20.19s 
+word-transpose                                SURVIVED  979 passed, 410 warnings in 20.79s 
+word-reformat                                 SURVIVED  979 passed, 410 warnings in 20.47s 
+word-fix                                      KILLED    1 failed, 660 passed, 308 warnings in 15.59s FAILED tests/buddy/test_reply_quality.py::test_a_report_phrase_that_also_asks_for_work_buddy_cant_do_still_says_so[analy
+word-correct                                  SURVIVED  979 passed, 410 warnings in 21.01s 
+word-remove                                   SURVIVED  979 passed, 410 warnings in 20.28s 

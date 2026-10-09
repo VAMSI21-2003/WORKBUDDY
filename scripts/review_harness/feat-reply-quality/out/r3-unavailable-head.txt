@@ -1,0 +1,84 @@
+[template] file=None dedupe=False delivered=False orig_ok=None flags=[]
+
+[friend] file=None dedupe=False delivered=False orig_ok=None flags=[]
+
+[focus] file=None dedupe=False delivered=False orig_ok=None flags=[]
+
+[template] file=None dedupe=True delivered=False orig_ok=None flags=[]
+
+[friend] file=None dedupe=True delivered=False orig_ok=None flags=[]
+
+[focus] file=None dedupe=True delivered=False orig_ok=None flags=[]
+
+[template] file=garbage dedupe=False delivered=False orig_ok=True flags=[]
+
+[friend] file=garbage dedupe=False delivered=False orig_ok=True flags=[]
+
+[focus] file=garbage dedupe=False delivered=False orig_ok=True flags=[]
+
+[template] file=garbage dedupe=True delivered=False orig_ok=True flags=[]
+
+[friend] file=garbage dedupe=True delivered=False orig_ok=True flags=[]
+
+[focus] file=garbage dedupe=True delivered=False orig_ok=True flags=[]
+
+[template] file=password dedupe=False delivered=False orig_ok=True flags=[]
+
+[friend] file=password dedupe=False delivered=False orig_ok=True flags=[]
+
+[focus] file=password dedupe=False delivered=False orig_ok=True flags=[]
+
+[template] file=password dedupe=True delivered=False orig_ok=True flags=[]
+
+[friend] file=password dedupe=True delivered=False orig_ok=True flags=[]
+
+[focus] file=password dedupe=True delivered=False orig_ok=True flags=[]
+
+[template] file=xls dedupe=False delivered=False orig_ok=True flags=[]
+
+[friend] file=xls dedupe=False delivered=False orig_ok=True flags=[]
+
+[focus] file=xls dedupe=False delivered=False orig_ok=True flags=[]
+
+[template] file=xls dedupe=True delivered=False orig_ok=True flags=[]
+
+[friend] file=xls dedupe=True delivered=False orig_ok=True flags=[]
+
+[focus] file=xls dedupe=True delivered=False orig_ok=True flags=[]
+
+[template] file=empty_only dedupe=False delivered=False orig_ok=True flags=[]
+
+[friend] file=empty_only dedupe=False delivered=False orig_ok=True flags=[]
+
+[focus] file=empty_only dedupe=False delivered=False orig_ok=True flags=[]
+
+[template] file=empty_only dedupe=True delivered=True orig_ok=True flags=[]
+
+[friend] file=empty_only dedupe=True delivered=True orig_ok=True flags=[]
+
+[focus] file=empty_only dedupe=True delivered=True orig_ok=True flags=[]
+
+[template] file=multi dedupe=False delivered=False orig_ok=True flags=[]
+
+[friend] file=multi dedupe=False delivered=False orig_ok=True flags=[]
+
+[focus] file=multi dedupe=False delivered=False orig_ok=True flags=[]
+
+[template] file=multi dedupe=True delivered=False orig_ok=True flags=[]
+
+[friend] file=multi dedupe=True delivered=False orig_ok=True flags=[]
+
+[focus] file=multi dedupe=True delivered=False orig_ok=True flags=[]
+
+[template] file=merged dedupe=False delivered=False orig_ok=True flags=[]
+
+[friend] file=merged dedupe=False delivered=False orig_ok=True flags=[]
+
+[focus] file=merged dedupe=False delivered=False orig_ok=True flags=[]
+
+[template] file=merged dedupe=True delivered=False orig_ok=True flags=[]
+
+[friend] file=merged dedupe=True delivered=False orig_ok=True flags=[]
+
+[focus] file=merged dedupe=True delivered=False orig_ok=True flags=[]
+
