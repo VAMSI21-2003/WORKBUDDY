@@ -13,7 +13,7 @@ The working session is the **writer**. It does the following, in order.
 
 1. **Write** the change on its branch, with tests. Run the full suite and lint. Write `docs/reviews/<branch>-impl.md`.
    - **Before every review round, bring the branch up to date:** `git fetch`, and if `origin/main` has moved, `git merge origin/main` (no rebase, no force-push), then run the suite again. A review of a stale branch doesn't cover what will be merged.
-2. **Start a new reviewer agent.** Give it exactly this, and nothing else:
+2. **Start a new reviewer agent**, on the same model as this session unless the owner's prompt names a stronger one (it does so only for security code and for a new verifier). Give it exactly this, and nothing else:
    - the text of "The reviewer's brief" below, word for word;
    - the branch name and the base it's compared with (normally `origin/main`);
    - the path of the design document, if the change has one;
@@ -22,9 +22,10 @@ The working session is the **writer**. It does the following, in order.
    Do **not** give it your reasoning, your summary of the change, a list of what you think is risky, or any hint about what to check or skip. It reads the code and the documents itself.
 3. **Commit the reviewer's file as written.** Don't edit it, shorten it or reword its verdict. Commit its probe scripts too.
 4. **If the verdict is DON'T MERGE:** fix what it lists, add tests that fail on the old code, write `docs/reviews/<branch>-fixes<N>.md`, run the suite and lint, and go back to step 2 with a **new** reviewer agent. A reviewer that specified or prototyped a fix never reviews that fix.
-5. **If the verdict is MERGE:** do the live runs `CLAUDE.md` requires, on the final head, and write them to `docs/reviews/<branch>-live-runs.md`. If a live run shows a false claim or a changed original, that's a HIGH finding: fix it and go back to step 2.
+5. **If the verdict is MERGE:** do the live runs the "Live runs" section below says this change needs, on the final head, and write them to `docs/reviews/<branch>-live-runs.md`. If a live run shows a false claim or a changed original, that's a HIGH finding: fix it and go back to step 2.
 6. **Check the branch can be merged.** `git fetch` again. If `origin/main` moved after the last reviewed commit, merge it in and run the suite. If that merge changed anything under `buddy/`, `core/`, `skills/` or `backend/`, go back to step 2 for one more round on the merged code. If it changed only documents or scripts, say so in the report.
-7. **Report and stop.** Say the verdict, how many rounds ran, the final commit, what's deferred, and anything that wasn't run. Don't merge.
+7. **Open the pull request** if it isn't open yet, so the tests on GitHub run.
+8. **Report and stop.** Say the verdict, how many rounds ran, the final commit, what's deferred, and anything that wasn't run. Don't merge. Don't wait for the tests on GitHub to finish, and don't start anything else: the owner's advisor checks them.
 
 There's no fixed number of rounds. The loop ends when a reviewer says MERGE.
 
@@ -36,6 +37,14 @@ There's no fixed number of rounds. The loop ends when a reviewer says MERGE.
 - **Keep the reviewer's files apart from other branches'.** Probe scripts go in `scripts/review_harness/<branch>/`, with the branch's slashes written as dashes (for `feat/backend-api-core`, `scripts/review_harness/feat-backend-api-core/`). Never add or change a file directly in `scripts/review_harness/` or in another branch's folder: two branches that both add `harness.py` there can't be merged. Import from another folder if you need its helpers.
 - **If you're about to run out of room or usage,** commit and push what you have, and write the exact state (the round, the open findings, the next step) at the top of the latest fixes file, so another session can pick it up.
 - **Keep the owner's decisions.** A reviewer can recommend changing something under "Decided behaviour" in `CLAUDE.md`. Neither of you changes it. List it in the report for the owner.
+
+## Live runs: which ones, and who does them
+
+Session usage is the project's scarcest resource, and live runs inside a session are its most expensive step. So:
+
+- **A change that alters what the pipeline does or says** (anything under `buddy/`, `core/` or `skills/`, or reply text anywhere): the session does **at most three** live runs with the real Groq key, chosen to exercise the change, in the format `CLAUDE.md` gives. No more.
+- **Any other change** (`backend/` plumbing, the page, `deploy/`, CI, documents): the session does **no** live runs. After the MERGE verdict the owner releases the branch's head on the server (`./deploy/release.sh <commit>` after `git fetch`), which runs a real turn with the real model on the real host, checks the page by hand, and merges. If the release fails, it rolls back by itself, and the owner brings the output to the advisor.
+- **Never build stand-ins to get a live run through.** If the real model or another live service refuses (a `401`, a `403`, a network error), stop the live runs, report the exact error, and finish. A run against a fake service is a test, not a live run, and the tests already exist.
 
 ## The reviewer's brief
 
