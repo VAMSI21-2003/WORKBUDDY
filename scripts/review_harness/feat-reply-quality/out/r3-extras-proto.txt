@@ -1,0 +1,55 @@
+106 turns; {'SILENT': 104, 'SAYS': 2}
+original changed: 0 | errors: 0 | voice calls: 0
+  alone=SILENT dedupe=SILENT/Removed send the report to my boss
+  alone=SILENT dedupe=SILENT/Removed send the summary to Bob
+  alone=SILENT dedupe=SILENT/Removed send my manager the report
+  alone=SILENT dedupe=SILENT/Removed send Bob a summary of the file
+  alone=SILENT dedupe=SILENT/Removed give my boss a report on this file
+  alone=SILENT dedupe=SILENT/Removed show my team a summary of the data
+  alone=SILENT dedupe=SILENT/Removed message me the report when it is ready
+  alone=SAYS   dedupe=SAYS  /Partly text me the report
+  alone=SILENT dedupe=SILENT/Removed whatsapp the summary to my team
+  alone=SILENT dedupe=SILENT/Removed drop the report in the shared folder
+  alone=SILENT dedupe=SILENT/Removed put the report on the drive
+  alone=SILENT dedupe=SILENT/Removed give me a report in pdf
+  alone=SILENT dedupe=SILENT/Removed give me a report as a pdf
+  alone=SILENT dedupe=SILENT/Removed give me a report in a word doc
+  alone=SILENT dedupe=SILENT/Removed give me the report as a csv
+  alone=SILENT dedupe=SILENT/Removed give me a report in a powerpoint slide
+  alone=SILENT dedupe=SILENT/Removed give me a report in French
+  alone=SILENT dedupe=SILENT/Removed give me a report in Spanish
+  alone=SILENT dedupe=SILENT/Removed give me a report as a table in a new sheet
+  alone=SILENT dedupe=SILENT/Removed put the report in a new sheet
+  alone=SILENT dedupe=SILENT/Removed write the report to a new tab
+  alone=SILENT dedupe=SILENT/Removed include the report in the file
+  alone=SILENT dedupe=SILENT/Removed append the summary to the sheet
+  alone=SILENT dedupe=SILENT/Removed put the summary at the top of the file
+  alone=SILENT dedupe=SILENT/Removed give me a report as an image
+  alone=SILENT dedupe=SILENT/Removed give me a report with conditional formatting
+  alone=SILENT dedupe=SILENT/Removed analyze my file and tell me which customer spent the most
+  alone=SILENT dedupe=SILENT/Removed give me a report and calculate the total of the amount column
+  alone=SILENT dedupe=SILENT/Removed analyze my file and sum the amount column
+  alone=SILENT dedupe=SILENT/Removed give me a summary with the average amount
+  alone=SILENT dedupe=SILENT/Removed report on the file and count the unique names
+  alone=SILENT dedupe=SILENT/Removed summarize the file and group it by name
+  alone=SILENT dedupe=SILENT/Removed analyze my data and compare it to last month
+  alone=SILENT dedupe=SILENT/Removed give me a report and combine it with the other file
+  alone=SILENT dedupe=SILENT/Removed analyze the file and join it with sheet2
+  alone=SILENT dedupe=SILENT/Removed give me a report and update the totals
+  alone=SILENT dedupe=SILENT/Removed analyze my file and predict next month
+  alone=SILENT dedupe=SILENT/Removed give me a report and find the outliers
+  alone=SILENT dedupe=SILENT/Removed analyze my file and tell me what to do next
+  alone=SILENT dedupe=SILENT/Removed give me a report and move column B
+  alone=SILENT dedupe=SILENT/Removed analyze my file and copy it to a new file
+  alone=SILENT dedupe=SILENT/Removed give me a report and lock the header row
+  alone=SILENT dedupe=SILENT/Removed summarize the file and shorten the names
+  alone=SILENT dedupe=SILENT/Removed give me a report and make the header bold
+  alone=SILENT dedupe=SILENT/Removed analyze my file and fix the typos
+  alone=SILENT dedupe=SILENT/Removed give me a report and normalise the dates
+  alone=SILENT dedupe=SILENT/Removed analyze the file and standardise the names
+  alone=SILENT dedupe=SILENT/Removed give me a report and clean up the formatting
+  alone=SILENT dedupe=SILENT/Removed analyze my file and tidy it up
+  alone=SILENT dedupe=SILENT/Removed report on the file and also sort out the blanks
+  alone=SILENT dedupe=SILENT/Removed give me a report and email it to Bob
+  alone=SILENT dedupe=SILENT/Removed give me a report and sort it by amount
+  alone=SILENT dedupe=SILENT/Done   give me a report

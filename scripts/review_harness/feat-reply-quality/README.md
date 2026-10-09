@@ -58,3 +58,34 @@ Shared harnesses (not edited), head vs base: `python scripts/review_harness/{har
 `out/r2-*` : `f` = fresh wordings (`-proto` = with the prototype fix applied in a throwaway worktree), `w` = first attempt's wordings, `b` = the 34, `x` = misc,
 `a`/`c`/`e`/`d` = round-1 probes re-run, `names-fuzz.txt`, `harness-cmp.txt`, `mutations.txt`, `prototype-fix-for-*.diff` (apply with `git apply` in a worktree of the head;
 not applied to the branch).
+
+## Round 3 (head `2ecaecd` and later; the source is `efaf27d`'s, later commits only add documents and probe output)
+
+The first round-3 attempt (the container restarted) left `r3_cautious.py`, `r3_detect.py`, `r3_extras.py`, `r3_fn.py`, `r3_listed.py`,
+`r3_mutations.py`, `r3_names_fuzz.py`, `r3_unavailable.py` and its `out/r3-*` files. I re-read every script, re-ran each one and regenerated
+**every** `out/r3-*` file listed below; nothing from that attempt's output is relied on. Same library (`rq.py`), same `--tree DIR` convention
+(a worktree of `origin/main` for the base, of `e51b2fc` for round 2's source).
+
+    python r3_listed.py --speakers template,friend,focus --out out/r3-listed-head.json   # 44 PURE report phrases that contain a word of `_OTHER_REQUEST_WORDS` (remove, clean, fix, email ...)
+    python r3_columns.py --out out/r3-columns-head.json                                  # "analyze the email column" etc.: 34 everyday column names x 3 wordings
+    python r3_cautious.py --speakers template                                            # "just analyze my file, don't delete anything"
+    python r3_extras.py --speakers template,friend,focus --out out/r3-extras-head.json   # 53 report + ONE extra wordings (send it, in pdf, in a new tab ...): are they said, or dropped?
+    python r3_guards.py [--tree DIR]                                                     # 44 messages for the new N2 guards (genuine requests with "so I can", "myself", ... and genuine declines)
+    python r3_guards_engine.py --speakers template,focus --out out/r3-guards-engine-head.json   # those vetoed requests through the real pipeline (Brain: unsupported / unclear / conversation)
+    python r3_detect.py ; python r3_fn.py --speakers template,friend ; python r3_unavailable.py   # detector table + timing; vetoed requests; report cannot be made
+    python r3_names_fuzz.py [--upload-alphabet --seed 7]                                 # 20,000 stored names vs an independent oracle (N4)
+    python r3_mutations.py --tree $THROWAWAY --words --tests tests/buddy/test_reply_quality.py tests/buddy/test_outcome.py   # the closed list, word by word
+    python r3_mutations.py --tree $THROWAWAY --others                                    # the early return, report spans, the guards, names (28; results in out/r3-mutations-all.txt)
+    python r3_nonreport.py --speakers template,friend,focus --out out/r3-nonreport-head.json   # "remove the duplicate rows and update the summary": a non-report request with a report noun
+    # re-runs of earlier probes on this head (outputs `out/r3-*`): r2_fresh_wordings.py (40 fresh wordings: 0 contradictions now), probe_b_report_phrases.py (34: 0),
+    #   r2_wordings.py, r2_misc.py (chains, capability questions, guards, Think failing), r2_unrequested.py, r2_mention.py, probe_h_thanks.py,
+    #   probe_a.py (489 turns), probe_c_faults.py, probe_e_more.py, probe_d_api.py, probe_d2_page.py, probe_f_header_text.py
+    python -m pytest -q -p no:cacheprovider -s r3_xcheck_writer_helpers.py               # H1, M1, M2 again with the WRITER's own helpers (tests/buddy/test_reply_quality.py), friend/focus; each assertion states the finding, so a fixed head FAILS them
+    python check_numbers.py out/r3-*-head.json                                           # every stated count against the independent read
+    python cmp_harness.py base.json head.json                                            # harness.py / rereview3.py / round5.py (shared, not edited): out/r3-harness-cmp.txt
+
+`out/r3-prototype-fix-for-F1-F2-F3.diff` is my prototype (apply with `git apply` in a worktree of the head; **not applied to the branch**):
+`REPORT_ONLY` reason with the fixed sentence "The report is all I did for that part of your request." for every `unsupported` phrase that holds a
+report request plus other words, instead of `_OTHER_REQUEST_WORDS`; and the by-the-person guard only for the "check/look at/review the file"
+alternatives, clause-scoped. `out/r3-*-proto.json` and `r3-x-proto.json` are probes run against it. (These files replace the first attempt's
+`-proto` files, which came from a different prototype.)

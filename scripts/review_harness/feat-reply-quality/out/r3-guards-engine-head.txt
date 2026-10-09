@@ -1,0 +1,73 @@
+[tem] g0-unsupported|give me a summary so I can review it
+    I can't do that yet: “give me a summary”. I can remove duplicate rows, remove empty rows, and look a spreadsheet over for possible problems. Here's what I noticed when I looked it over: 2 rows repeat an earlier row exactly; name: 1 missing value (16.7%); amount: 1 missing value (16.7%). Want me to tackle any of these? No changes were made to any file this turn.
+[foc] g0-unsupported|give me a summary so I can review it
+    I can't do that yet: “give me a summary”. I can remove duplicate rows, remove empty rows, and check a spreadsheet for problems. Here's what I noticed when I looked it over: 2 rows repeat an earlier row exactly; name: 1 missing value (16.7%); amount: 1 missing value (16.7%). Want me to tackle any of these? No changes were made to any file this turn.
+[tem] g0-unclear|give me a summary so I can review it
+    I didn't read that as something I can do. I can remove duplicate rows, remove empty rows, and look a spreadsheet over for possible problems. Here's what I noticed when I looked it over: 2 rows repeat an earlier row exactly; name: 1 missing value (16.7%); amount: 1 missing value (16.7%). Want me to tackle any of these? No changes were made to any file this turn.
+[foc] g0-unclear|give me a summary so I can review it
+    I didn't read that as something I can do. I can remove duplicate rows, remove empty rows, and check a spreadsheet for problems. Here's what I noticed when I looked it over: 2 rows repeat an earlier row exactly; name: 1 missing value (16.7%); amount: 1 missing value (16.7%). Want me to tackle any of these? No changes were made to any file this turn.
+[tem] g0-conversation|give me a summary so I can review it
+    Hello. I can remove duplicate rows, remove empty rows, and look a spreadsheet over for possible problems. Tell me what to do with your file.
+[foc] g0-conversation|give me a summary so I can review it
+    Hi. I can remove duplicate rows, remove empty rows, and check a spreadsheet for problems. What should I do with the file?
+[tem] g1-unsupported|give me a report so I can check it
+    I can't do that yet: “give me a report”. I can remove duplicate rows, remove empty rows, and look a spreadsheet over for possible problems. Here's what I noticed when I looked it over: 2 rows repeat an earlier row exactly; name: 1 missing value (16.7%); amount: 1 missing value (16.7%). Want me to tackle any of these? No changes were made to any file this turn.
+[foc] g1-unsupported|give me a report so I can check it
+    I can't do that yet: “give me a report”. I can remove duplicate rows, remove empty rows, and check a spreadsheet for problems. Here's what I noticed when I looked it over: 2 rows repeat an earlier row exactly; name: 1 missing value (16.7%); amount: 1 missing value (16.7%). Want me to tackle any of these? No changes were made to any file this turn.
+[tem] g1-unclear|give me a report so I can check it
+    I didn't read that as something I can do. I can remove duplicate rows, remove empty rows, and look a spreadsheet over for possible problems. Here's what I noticed when I looked it over: 2 rows repeat an earlier row exactly; name: 1 missing value (16.7%); amount: 1 missing value (16.7%). Want me to tackle any of these? No changes were made to any file this turn.
+[foc] g1-unclear|give me a report so I can check it
+    I didn't read that as something I can do. I can remove duplicate rows, remove empty rows, and check a spreadsheet for problems. Here's what I noticed when I looked it over: 2 rows repeat an earlier row exactly; name: 1 missing value (16.7%); amount: 1 missing value (16.7%). Want me to tackle any of these? No changes were made to any file this turn.
+[tem] g1-conversation|give me a report so I can check it
+    Hello. I can remove duplicate rows, remove empty rows, and look a spreadsheet over for possible problems. Tell me what to do with your file.
+[foc] g1-conversation|give me a report so I can check it
+    Hi. I can remove duplicate rows, remove empty rows, and check a spreadsheet for problems. What should I do with the file?
+[tem] g2-unsupported|analyze my file so I can look at the problems
+    I can't do that yet: “analyze my file”. I can remove duplicate rows, remove empty rows, and look a spreadsheet over for possible problems. Here's what I noticed when I looked it over: 2 rows repeat an earlier row exactly; name: 1 missing value (16.7%); amount: 1 missing value (16.7%). Want me to tackle any of these? No changes were made to any file this turn.
+[foc] g2-unsupported|analyze my file so I can look at the problems
+    I can't do that yet: “analyze my file”. I can remove duplicate rows, remove empty rows, and check a spreadsheet for problems. Here's what I noticed when I looked it over: 2 rows repeat an earlier row exactly; name: 1 missing value (16.7%); amount: 1 missing value (16.7%). Want me to tackle any of these? No changes were made to any file this turn.
+[tem] g2-unclear|analyze my file so I can look at the problems
+    I didn't read that as something I can do. I can remove duplicate rows, remove empty rows, and look a spreadsheet over for possible problems. Here's what I noticed when I looked it over: 2 rows repeat an earlier row exactly; name: 1 missing value (16.7%); amount: 1 missing value (16.7%). Want me to tackle any of these? No changes were made to any file this turn.
+[foc] g2-unclear|analyze my file so I can look at the problems
+    I didn't read that as something I can do. I can remove duplicate rows, remove empty rows, and check a spreadsheet for problems. Here's what I noticed when I looked it over: 2 rows repeat an earlier row exactly; name: 1 missing value (16.7%); amount: 1 missing value (16.7%). Want me to tackle any of these? No changes were made to any file this turn.
+[tem] g2-conversation|analyze my file so I can look at the problems
+    Hello. I can remove duplicate rows, remove empty rows, and look a spreadsheet over for possible problems. Tell me what to do with your file.
+[foc] g2-conversation|analyze my file so I can look at the problems
+    Hi. I can remove duplicate rows, remove empty rows, and check a spreadsheet for problems. What should I do with the file?
+[tem] g3-unsupported|I built this file myself, can you analyze it
+    I can't do that yet: “analyze it”. I can remove duplicate rows, remove empty rows, and look a spreadsheet over for possible problems. Here's what I noticed when I looked it over: 2 rows repeat an earlier row exactly; name: 1 missing value (16.7%); amount: 1 missing value (16.7%). Want me to tackle any of these? No changes were made to any file this turn.
+[foc] g3-unsupported|I built this file myself, can you analyze it
+    I can't do that yet: “analyze it”. I can remove duplicate rows, remove empty rows, and check a spreadsheet for problems. Here's what I noticed when I looked it over: 2 rows repeat an earlier row exactly; name: 1 missing value (16.7%); amount: 1 missing value (16.7%). Want me to tackle any of these? No changes were made to any file this turn.
+[tem] g3-unclear|I built this file myself, can you analyze it
+    I didn't read that as something I can do. I can remove duplicate rows, remove empty rows, and look a spreadsheet over for possible problems. Here's what I noticed when I looked it over: 2 rows repeat an earlier row exactly; name: 1 missing value (16.7%); amount: 1 missing value (16.7%). Want me to tackle any of these? No changes were made to any file this turn.
+[foc] g3-unclear|I built this file myself, can you analyze it
+    I didn't read that as something I can do. I can remove duplicate rows, remove empty rows, and check a spreadsheet for problems. Here's what I noticed when I looked it over: 2 rows repeat an earlier row exactly; name: 1 missing value (16.7%); amount: 1 missing value (16.7%). Want me to tackle any of these? No changes were made to any file this turn.
+[tem] g3-conversation|I built this file myself, can you analyze it
+    Hello. I can remove duplicate rows, remove empty rows, and look a spreadsheet over for possible problems. Tell me what to do with your file.
+[foc] g3-conversation|I built this file myself, can you analyze it
+    Hi. I can remove duplicate rows, remove empty rows, and check a spreadsheet for problems. What should I do with the file?
+[tem] g4-unsupported|I'm new to this myself, give me a summary of the file
+    I can't do that yet: “give me a summary of the file”. I can remove duplicate rows, remove empty rows, and look a spreadsheet over for possible problems. Here's what I noticed when I looked it over: 2 rows repeat an earlier row exactly; name: 1 missing value (16.7%); amount: 1 missing value (16.7%). Want me to tackle any of these? No changes were made to any file this turn.
+[foc] g4-unsupported|I'm new to this myself, give me a summary of the file
+    I can't do that yet: “give me a summary of the file”. I can remove duplicate rows, remove empty rows, and check a spreadsheet for problems. Here's what I noticed when I looked it over: 2 rows repeat an earlier row exactly; name: 1 missing value (16.7%); amount: 1 missing value (16.7%). Want me to tackle any of these? No changes were made to any file this turn.
+[tem] g4-unclear|I'm new to this myself, give me a summary of the file
+    I didn't read that as something I can do. I can remove duplicate rows, remove empty rows, and look a spreadsheet over for possible problems. Here's what I noticed when I looked it over: 2 rows repeat an earlier row exactly; name: 1 missing value (16.7%); amount: 1 missing value (16.7%). Want me to tackle any of these? No changes were made to any file this turn.
+[foc] g4-unclear|I'm new to this myself, give me a summary of the file
+    I didn't read that as something I can do. I can remove duplicate rows, remove empty rows, and check a spreadsheet for problems. Here's what I noticed when I looked it over: 2 rows repeat an earlier row exactly; name: 1 missing value (16.7%); amount: 1 missing value (16.7%). Want me to tackle any of these? No changes were made to any file this turn.
+[tem] g4-conversation|I'm new to this myself, give me a summary of the file
+    Hello. I can remove duplicate rows, remove empty rows, and look a spreadsheet over for possible problems. Tell me what to do with your file.
+[foc] g4-conversation|I'm new to this myself, give me a summary of the file
+    Hi. I can remove duplicate rows, remove empty rows, and check a spreadsheet for problems. What should I do with the file?
+[tem] g5-unsupported|I will review it later, give me a summary now
+    I can't do that yet: “give me a summary”. I can remove duplicate rows, remove empty rows, and look a spreadsheet over for possible problems. Here's what I noticed when I looked it over: 2 rows repeat an earlier row exactly; name: 1 missing value (16.7%); amount: 1 missing value (16.7%). Want me to tackle any of these? No changes were made to any file this turn.
+[foc] g5-unsupported|I will review it later, give me a summary now
+    I can't do that yet: “give me a summary”. I can remove duplicate rows, remove empty rows, and check a spreadsheet for problems. Here's what I noticed when I looked it over: 2 rows repeat an earlier row exactly; name: 1 missing value (16.7%); amount: 1 missing value (16.7%). Want me to tackle any of these? No changes were made to any file this turn.
+[tem] g5-unclear|I will review it later, give me a summary now
+    I didn't read that as something I can do. I can remove duplicate rows, remove empty rows, and look a spreadsheet over for possible problems. Here's what I noticed when I looked it over: 2 rows repeat an earlier row exactly; name: 1 missing value (16.7%); amount: 1 missing value (16.7%). Want me to tackle any of these? No changes were made to any file this turn.
+[foc] g5-unclear|I will review it later, give me a summary now
+    I didn't read that as something I can do. I can remove duplicate rows, remove empty rows, and check a spreadsheet for problems. Here's what I noticed when I looked it over: 2 rows repeat an earlier row exactly; name: 1 missing value (16.7%); amount: 1 missing value (16.7%). Want me to tackle any of these? No changes were made to any file this turn.
+[tem] g5-conversation|I will review it later, give me a summary now
+    Hello. I can remove duplicate rows, remove empty rows, and look a spreadsheet over for possible problems. Tell me what to do with your file.
+[foc] g5-conversation|I will review it later, give me a summary now
+    Hi. I can remove duplicate rows, remove empty rows, and check a spreadsheet for problems. What should I do with the file?
+original changed: 0 | errors: 0

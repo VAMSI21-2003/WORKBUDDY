@@ -1,0 +1,43 @@
+# non-word mutations (28): r3-mutations-others.txt + -b + -c, one line each
+about-buddy-off                               KILLED    1 failed, 689 passed, 398 warnings in 25.44s FAILED tests/buddy/test_reply_quality_units.py::test_a_message_that_does_not_ask_for_a_report_is_not[give me an overview
+about-buddy-offer-off                         SURVIVED  979 passed, 410 warnings in 26.36s 
+about-buddy-offer-off                         SURVIVED  979 passed, 410 warnings in 27.75s 
+about-buddy-your-off                          KILLED    1 failed, 690 passed, 398 warnings in 26.54s FAILED tests/buddy/test_reply_quality_units.py::test_a_message_that_does_not_ask_for_a_report_is_not[give me a rundown o
+by-person-ican-off                            SURVIVED  979 passed, 410 warnings in 27.94s 
+by-person-ill-off                             KILLED    1 failed, 694 passed, 398 warnings in 27.31s FAILED tests/buddy/test_reply_quality_units.py::test_a_message_that_does_not_ask_for_a_report_is_not[thanks, I'll review
+by-person-myself-off                          SURVIVED  979 passed, 410 warnings in 27.71s 
+by-person-off                                 KILLED    1 failed, 693 passed, 398 warnings in 25.62s FAILED tests/buddy/test_reply_quality_units.py::test_a_message_that_does_not_ask_for_a_report_is_not[I'll check the file
+early-return-always                           KILLED    1 failed, 653 passed, 308 warnings in 22.78s FAILED tests/buddy/test_reply_quality.py::test_a_report_phrase_that_also_asks_for_work_buddy_cant_do_still_says_so[give 
+early-return-off                              KILLED    1 failed, 210 passed, 308 warnings in 23.97s FAILED tests/buddy/test_reply_quality.py::test_a_phrase_that_asks_for_a_report_and_nothing_else_is_never_cant_do[I'd lik
+for-duplicates-off                            KILLED    1 failed, 668 passed, 346 warnings in 24.22s FAILED tests/buddy/test_reply_quality.py::test_ordinary_report_requests_flagged_unsupported_are_delivered_with_no_contra
+names-dotall-off                              SURVIVED  979 passed, 410 warnings in 28.19s 
+names-safe-chars-wider                        KILLED    1 failed, 823 passed, 398 warnings in 26.25s FAILED tests/backend/test_download_names.py::test_a_stem_with_characters_no_upload_may_have_is_made_safe
+names-safe-fallback-off                       SURVIVED  979 passed, 410 warnings in 28.03s 
+names-safe-main-off                           KILLED    1 failed, 823 passed, 398 warnings in 26.73s FAILED tests/backend/test_download_names.py::test_a_stem_with_characters_no_upload_may_have_is_made_safe
+negated-nominal-only                          SURVIVED  979 passed, 410 warnings in 28.08s 
+negated-noneed-off                            SURVIVED  979 passed, 410 warnings in 27.84s 
+negated-verbs-off                             KILLED    1 failed, 692 passed, 398 warnings in 25.44s FAILED tests/buddy/test_reply_quality_units.py::test_a_message_that_does_not_ask_for_a_report_is_not[remove the duplicat
+negated-wont-off                              SURVIVED  979 passed, 410 warnings in 27.48s 
+overlap-never                                 KILLED    1 failed, 665 passed, 328 warnings in 20.65s FAILED tests/buddy/test_reply_quality.py::test_ordinary_report_requests_flagged_unsupported_are_delivered_with_no_contra
+overlap-touching                              SURVIVED  979 passed, 410 warnings in 26.47s 
+part-of-file-off                              KILLED    1 failed, 695 passed, 398 warnings in 25.67s FAILED tests/buddy/test_reply_quality_units.py::test_a_message_that_does_not_ask_for_a_report_is_not[remove the duplicat
+part-of-file-tab-off                          SURVIVED  979 passed, 410 warnings in 27.62s 
+quality-check-off                             KILLED    1 failed, 223 passed, 308 warnings in 21.15s FAILED tests/buddy/test_reply_quality.py::test_a_phrase_that_asks_for_a_report_and_nothing_else_is_never_cant_do[run a q
+send-alternative-off                          KILLED    1 failed, 659 passed, 308 warnings in 22.46s FAILED tests/buddy/test_reply_quality.py::test_a_report_phrase_that_also_asks_for_work_buddy_cant_do_still_says_so[a rep
+spans-off                                     KILLED    1 failed, 665 passed, 328 warnings in 21.14s FAILED tests/buddy/test_reply_quality.py::test_ordinary_report_requests_flagged_unsupported_are_delivered_with_no_contra
+spans-only-if-report-off                      SURVIVED  979 passed, 410 warnings in 26.91s 
+suffix-off                                    SURVIVED  979 passed, 410 warnings in 25.87s 
+whats-wrong-forms-off                         KILLED    1 failed, 236 passed, 308 warnings in 20.97s FAILED tests/buddy/test_reply_quality.py::test_a_phrase_that_asks_for_a_report_and_nothing_else_is_never_cant_do[what is
+
+# the closed list, word by word (first 11 of 55, then stopped); batch: all words except sort, chart, highlight, translate, email, delete, fix, add removed -> 979 passed
+word-sort                                     KILLED    1 failed, 653 passed, 307 warnings in 24.12s FAILED tests/buddy/test_reply_quality.py::test_a_report_phrase_that_also_asks_for_work_buddy_cant_do_still_says_so[give 
+word-filter                                   SURVIVED  733 passed, 397 warnings in 26.93s 
+word-chart                                    KILLED    1 failed, 654 passed, 307 warnings in 21.52s FAILED tests/buddy/test_reply_quality.py::test_a_report_phrase_that_also_asks_for_work_buddy_cant_do_still_says_so[analy
+word-graph                                    SURVIVED  733 passed, 397 warnings in 23.58s 
+word-plot                                     SURVIVED  733 passed, 397 warnings in 24.28s 
+word-highlight                                KILLED    1 failed, 656 passed, 307 warnings in 20.53s FAILED tests/buddy/test_reply_quality.py::test_a_report_phrase_that_also_asks_for_work_buddy_cant_do_still_says_so[analy
+word-colou?r                                  SURVIVED  733 passed, 397 warnings in 23.36s 
+word-merge                                    SURVIVED  733 passed, 397 warnings in 23.98s 
+word-split                                    SURVIVED  733 passed, 397 warnings in 24.41s 
+word-rename                                   SURVIVED  733 passed, 397 warnings in 25.00s 
+word-translate                                KILLED    1 failed, 658 passed, 307 warnings in 21.21s FAILED tests/buddy/test_reply_quality.py::test_a_report_phrase_that_also_asks_for_work_buddy_cant_do_still_says_so[summa

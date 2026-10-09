@@ -1,0 +1,31 @@
+checked 20000 stored names; 0 problems
+
+stored -> head [-> round 1]
+  'report_somethingnew_s-task-3.xlsx'                            -> 'report_somethingnew.xlsx'
+  'weird-task-5.xlsx'                                            -> 'weird-task-5.xlsx'
+  'report.xlsx'                                                  -> 'report.xlsx'
+  's-task-1.xlsx'                                                -> 's-task-1.xlsx'
+  '_deduplicated_s-task-1.xlsx'                                  -> '_deduplicated.xlsx'
+  'a_deduplicated_s-task-1'                                      -> 'a_deduplicated'
+  'a_deduplicated_s-task-1.tar.gz'                               -> 'a_deduplicated.tar.gz'
+  'a_deduplicated_s-task-1.xlsx.exe'                             -> 'a_deduplicated.xlsx.exe'
+  'a_deduplicated_s-task-1_deduplicated_s-task-2.xlsx'           -> 'a_deduplicated_deduplicated.xlsx'
+  'a_deduplicated_s-task-1_foo_s-task-2.xlsx'                    -> 'a_deduplicated_foo.xlsx'
+  'a_deduplicated_S-TASK-1.xlsx'                                 -> 'a_deduplicated_S-TASK-1.xlsx'
+  'a_deduplicated_s-task-.xlsx'                                  -> 'a_deduplicated_s-task-.xlsx'
+  'a_deduplicated_s-task-1 .xlsx'                                -> 'a_deduplicated .xlsx'
+  'a\nb_deduplicated_s-task-1.xlsx'                              -> 'a_b_deduplicated.xlsx'
+  'a"b_deduplicated_s-task-1.xlsx'                               -> 'a_b_deduplicated.xlsx'
+  '../a_deduplicated_s-task-1.xlsx'                              -> '.._a_deduplicated.xlsx'
+
+three same: ['r_deduplicated.xlsx', 'r_deduplicated (2).xlsx', 'r_deduplicated (3).xlsx']  collision=False max_len=23
+
+case: ['R_deduplicated.xlsx', 'r_deduplicated (2).xlsx']  collision=False max_len=23
+
+user file already named (2): ['r_deduplicated.xlsx', 'r_deduplicated (2).xlsx', 'r_deduplicated _2_.xlsx']  collision=False max_len=23
+
+numbered vs real: ['r_deduplicated _2_.xlsx', 'r_deduplicated.xlsx', 'r_deduplicated (2).xlsx']  collision=False max_len=23
+
+long: ['xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx_deduplicated.xlsx', 'xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx_deduplicated (2).xlsx']  collision=False max_len=104
+
+no extension: ['abc', 'abc (2)']  collision=False max_len=7

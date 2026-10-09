@@ -17,6 +17,7 @@ ap = argparse.ArgumentParser()
 ap.add_argument("--tree", required=True)
 ap.add_argument("--words", action="store_true")
 ap.add_argument("--others", action="store_true")
+ap.add_argument("--tests", nargs="*", default=None, help="test files to run instead of the default list")
 ap.add_argument("names", nargs="*")
 A = ap.parse_args()
 TREE = Path(A.tree).resolve()
@@ -101,7 +102,7 @@ def main():
                 continue
             path.write_text(src.replace(old, new, 1))
         try:
-            r = sh([sys.executable, "-m", "pytest", "-x", "-q", "-p", "no:cacheprovider", *TESTS], TREE)
+            r = sh([sys.executable, "-m", "pytest", "-x", "-q", "-p", "no:cacheprovider", *(A.tests or TESTS)], TREE)
             tail = r.stdout.strip().splitlines()
             summary = next((ln for ln in reversed(tail) if "passed" in ln or "failed" in ln or "error" in ln), tail[-1] if tail else "")
             first_fail = next((ln for ln in tail if ln.startswith("FAILED") or ln.startswith("ERROR")), "")

@@ -28,8 +28,8 @@ mentioned_actions (action names):
    ['remove_empty_rows']                                   'how many blank rows are there?'
    ['remove_duplicate_rows']                               'count the duplicate rows'
    ['remove_duplicate_rows']                               'list the duplicates'
-    0.011s  27000 chars  'give me xgive me xgive me xgiv'
-    0.017s  9006 chars  'no no no no no no no no no no '
-    0.015s  16007 chars  'the the the the the the the th'
-    0.010s  18005 chars  'I can I can I can I can I can '
-    0.004s  6006 chars  "don't a a a a a a a a a a a a "
+    0.014s  27000 chars  'give me xgive me xgive me xgiv'
+    0.024s  9006 chars  'no no no no no no no no no no '
+    0.018s  16007 chars  'the the the the the the the th'
+    0.013s  18005 chars  'I can I can I can I can I can '
+    0.007s  6006 chars  "don't a a a a a a a a a a a a "

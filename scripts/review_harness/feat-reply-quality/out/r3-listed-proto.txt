@@ -1,0 +1,46 @@
+88 turns; {'OK': 84, 'CANT-NO-REPORT': 4}
+original changed: 0 | errors: 0
+  alone=OK              dedupe=OK              give me a report on which rows to remove
+  alone=OK              dedupe=OK              analyze my file and tell me what needs to be fixed
+  alone=OK              dedupe=OK              give me a report on what needs cleaning
+  alone=OK              dedupe=OK              give me a summary of what you cleaned
+  alone=OK              dedupe=OK              give me a summary of the rows you removed
+  alone=OK              dedupe=OK              report on the duplicates that were removed
+  alone=OK              dedupe=OK              give me a report on how clean the data is
+  alone=OK              dedupe=OK              analyze the data and show me what I should clean up
+  alone=OK              dedupe=OK              give me a report on any errors that need fixing
+  alone=OK              dedupe=OK              summarize the problems I should correct
+  alone=OK              dedupe=OK              report on the rows I could delete
+  alone=OK              dedupe=OK              analyze my file so I know what to fix
+  alone=OK              dedupe=OK              give me a report so I can decide what to drop
+  alone=OK              dedupe=OK              report on which columns I should add
+  alone=OK              dedupe=OK              summary of the problems before I save it
+  alone=OK              dedupe=OK              analyze my file before I clean it
+  alone=OK              dedupe=OK              report on trailing spaces to trim
+  alone=OK              dedupe=OK              report on cells that were replaced
+  alone=OK              dedupe=OK              give me a summary of everything that was dropped
+  alone=OK              dedupe=OK              analysis of what needs to be removed
+  alone=CANT-NO-REPORT  dedupe=CANT-NO-REPORT  check how clean my data is
+  alone=OK              dedupe=OK              give me a report on what you fixed
+  alone=OK              dedupe=OK              report of the changes you made and what you removed
+  alone=OK              dedupe=OK              give me a quick report on rows that could be deleted
+  alone=OK              dedupe=OK              summary of what to correct
+  alone=OK              dedupe=OK              analyze my file and list the issues to fix
+  alone=CANT-NO-REPORT  dedupe=CANT-NO-REPORT  what needs fixing in my file
+  alone=OK              dedupe=OK              report on the data I can safely remove
+  alone=OK              dedupe=OK              summarize which rows were added
+  alone=OK              dedupe=OK              report on the pasted rows
+  alone=OK              dedupe=OK              give me a report on the colour of the cells
+  alone=OK              dedupe=OK              give me a report on the dashboard sheet
+  alone=OK              dedupe=OK              analyze the forecast sheet
+  alone=OK              dedupe=OK              give me a summary of the schedule column
+  alone=OK              dedupe=OK              give me a report on the hidden rows
+  alone=OK              dedupe=OK              give me a report on the merged cells
+  alone=OK              dedupe=OK              report on the split names
+  alone=OK              dedupe=OK              summarize the converted dates
+  alone=OK              dedupe=OK              give me a report on the printed rows
+  alone=OK              dedupe=OK              give me a report on the filtered rows
+  alone=OK              dedupe=OK              report on the sorted order of the file
+  alone=OK              dedupe=OK              analyze the shared sheet
+  alone=OK              dedupe=OK              report on the frozen panes
+  alone=OK              dedupe=OK              give me a report on the bold headers
