@@ -1,6 +1,6 @@
 """Compare two runs of an existing review harness: which replies changed, and why.
 
-    python scripts/review_harness/feat-reply-quality/compare.py base.json new.json [--show N]
+    python scripts/review_harness/feat-reply-quality/writer/compare.py base.json new.json [--show N]
 
 Both files are the JSON a harness in ``scripts/review_harness/`` writes (``--out``): one record per
 turn with ``name``, ``speaker``, ``sid`` (or ``fixture``/``request``), ``reply``, ``delivered``,

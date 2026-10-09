@@ -50,4 +50,24 @@ No model call is made for any reply (`voice_calls == 0` in every matrix run).
 - Existing tests updated for the new wording (plurals, "with"), for `PersonalityVoice` now wording the greeting and the question for the mode (`_factual` in `test_voice.py`), and for the report step: the old "the report step has no skill, so the chain doesn't start" scenarios use a dashboard step instead, because a report now has a skill (the analysis). The decided behaviour (a chain with a step no skill can run doesn't start) is untouched and still tested with the dashboard/sort steps.
 - Found while testing: `ClaudeThinker._parse_reply("[1]")` raised `AttributeError` (pre-existing, on `main`); it is now caught like the other malformed shapes.
 
-(Suite counts, lint, the harness comparison and the live runs are in the sections below, filled in as they are produced.)
+## Results at the head handed to the reviewer (`0f1a5d1` and the commit that moves the probes)
+
+- **Suite:** `python -m pytest -q`: **2985 passed, 6 skipped** (base `5ec6cac`: 2792 passed, 6 skipped). The first full run after the change had 623 failures, all from the new wording; each was read before its expectation was changed (see "Tests").
+- **Lint:** `ruff check buddy tests`: no error beyond the baseline (`scripts/check_ruff_baseline.py`; the baseline is not updated).
+- **Existing harnesses against `origin/main`** (worktree of `5ec6cac`; `scripts/review_harness/feat-reply-quality/writer/compare.py`, output in `writer/results/`):
+
+| harness | turns | plural only | plural + exact-duplicate finding / flow | named new reply | other |
+|---|---|---|---|---|---|
+| `harness.py` | 532 | 434 | 84 | 14 (`r-unclear`: not-understood + capabilities) | 0 |
+| `rereview3.py` | 1078 | 1008 | 63 | 0 | 7 (below) |
+| `round5.py` | 222 | 72 (+54 identical) | 96 | 0 | 0 |
+| `values_only_probe.py` (26 of 29 fixtures build here) | 650 | 175 (+50 identical) | 271 | 60 refused-file replies (`I can't work on this file`), 60 not-understood | 34 (below) |
+| `round2_probe.py` (12 of 14 fixtures build here) | 320 | 76 (+20 identical) | 160 | 36 refusal + 24 not-understood | 4 (below) |
+
+  In every run: 0 replies with `(s)`, "verifier" or a raw capability id; 0 voice-model calls; 0 changed originals; whether a file was handed back is the same as on the base for every turn. `round5.py`'s 6 errors are its intentional raising-Voice scenario, on the base too.
+  - "other" in `rereview3`/`round2`/`values_only` is one pattern: `remove the empty rows` on a file that still has a repeated row. Base: "None of the issues I check for were found." (not true of the file); new: "I also noticed: N rows repeat an earlier row exactly. Want me to tackle any of these?", with the friend closer dropped because a question is asked. The count is `df.duplicated().sum()` of the delivered file.
+  - The other "other" cases in `values_only` are the `text_equals` fixture, whose dedupe step fails its own check on the base too; the new reply adds the exact-duplicate finding before the same failure sentence.
+- **`writer/writer_matrix.py`** (40 scenarios, 120 turns, template/friend/focus), base vs new: 0 errors, 0 voice-model calls, 0 changed originals, 0 forbidden text. The only difference in whether a file was handed back is `r2-dedupe-then-report` ("remove the duplicate rows and then give me a report" where the planner names the report step `spreadsheet.report`): the base delivered nothing (the chain doesn't start because no skill runs a report step), the new code delivers the deduplicated copy and the report (the report step is the analysis). That is intended (backlog item 3), but it moves the line the owner confirmed in `CLAUDE.md` ("a chain that contains a step no skill can run doesn't start") by giving one more step a skill; the rule itself is unchanged and still tested with dashboard and sort steps.
+- **Fixtures:** none added. `tests/deploy/fixtures/data-v1` and `data-v2` are untouched; nothing under `/data` changed format.
+
+(Live runs: see `docs/reviews/feat-reply-quality-live-runs.md`, written after a MERGE verdict.)

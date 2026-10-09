@@ -4,9 +4,9 @@ Real ``build_engine`` (real skills, verifiers, planner, Voice), fake LLM only. N
 Writes one record per scenario x speaker with the reply, the steps, whether a file was handed
 back, and the original's SHA-256 before/after. Run it on two trees and diff the JSON.
 
-    python scripts/review_harness/feat-reply-quality/writer_matrix.py --out new.json
-    python scripts/review_harness/feat-reply-quality/writer_matrix.py --tree ../main --out old.json
-    python scripts/review_harness/feat-reply-quality/writer_matrix.py --summary
+    python scripts/review_harness/feat-reply-quality/writer/writer_matrix.py --out new.json
+    python scripts/review_harness/feat-reply-quality/writer/writer_matrix.py --tree ../main --out old.json
+    python scripts/review_harness/feat-reply-quality/writer/writer_matrix.py --summary
 """
 import argparse
 import hashlib
@@ -17,7 +17,7 @@ import tempfile
 from pathlib import Path
 
 _ap = argparse.ArgumentParser()
-_ap.add_argument("--tree", default=str(Path(__file__).resolve().parents[3]))
+_ap.add_argument("--tree", default=str(Path(__file__).resolve().parents[4]))
 _ap.add_argument("--out", default="writer_matrix.json")
 _ap.add_argument("--summary", action="store_true")
 _ap.add_argument("only", nargs="*")

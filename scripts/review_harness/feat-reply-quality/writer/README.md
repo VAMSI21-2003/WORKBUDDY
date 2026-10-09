@@ -2,9 +2,9 @@
 
 Real `build_engine` (real skills, planner, Inspector, Voice), fake LLM. No key, no network. Run from the repo root.
 
-    python scripts/review_harness/feat-reply-quality/writer_matrix.py --out new.json            # this checkout
-    python scripts/review_harness/feat-reply-quality/writer_matrix.py --tree ../main --out old.json   # a worktree of origin/main
-    python scripts/review_harness/feat-reply-quality/compare.py old.json new.json --show 3
+    python scripts/review_harness/feat-reply-quality/writer/writer_matrix.py --out new.json            # this checkout
+    python scripts/review_harness/feat-reply-quality/writer/writer_matrix.py --tree ../main --out old.json   # a worktree of origin/main
+    python scripts/review_harness/feat-reply-quality/writer/compare.py old.json new.json --show 3
 
 `writer_matrix.py` (the writer's): 40 scenarios x template/friend/focus, one record per turn (reply, steps, whether a file was
 handed back, the original's hash before/after). Groups: `n*` nothing ran (no file, unclear, refused files of every kind),
