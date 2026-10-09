@@ -360,12 +360,22 @@ def _declined_before_any_change(execution_result: ExecutionResult) -> bool:
     return False
 
 
-def _stopped_at_first_action(execution_result: ExecutionResult) -> bool:
-    """Whether the chain stopped at its first file-changing step, so none had run before it."""
-    for step in execution_result.steps:
-        if _is_action_step(step) or step.capability == execution_result.stopped_at:
-            return step.capability == execution_result.stopped_at
-    return False
+def _an_action_step_succeeded(execution_result: ExecutionResult) -> bool:
+    """Whether a file-changing step other than the one that stopped the chain succeeded.
+
+    "Partway through" is only true if one did. A chain that stopped at its first
+    step (even a step whose skill succeeded but failed verification), or that never
+    started because a later step can't run, got nowhere.
+    """
+    return any(
+        _is_action_step(step)
+        and step.status == "success"
+        and step.capability != execution_result.stopped_at
+        for step in execution_result.steps
+    )
+
+
+STOPPED_BEFORE_ANY_CHANGE = "I ran into a problem before I could change anything."
 
 
 def _chain_stop_sentence(execution_result: ExecutionResult | None) -> str:
@@ -818,8 +828,8 @@ class TemplateSpeaker:
         sentence = []
         if not _declined_before_any_change(execution_result):
             sentence.append(
-                "I ran into a problem on the first step."
-                if _stopped_at_first_action(execution_result)
+                STOPPED_BEFORE_ANY_CHANGE
+                if not _an_action_step_succeeded(execution_result)
                 else "I ran into a problem partway through."
             )
         if reasons:

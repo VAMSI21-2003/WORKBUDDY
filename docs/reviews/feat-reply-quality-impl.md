@@ -17,7 +17,7 @@ Writer's notes for the independent review (`docs/process/review-loop.md`, step 1
 - `row(s)`, `cell(s)`, `step(s)`, `file(s)`, `value(s)`, `format(s)`, `thing(s)` → counted nouns (`count_noun`), also in the verifier findings and the skills' own summaries.
 - "The copy has 4 row(s), 0 duplicate row(s) remaining." → "The copy has 4 rows, with 0 duplicate rows remaining."
 - "Before anything else, here's what I noticed: …" (on a turn that changed nothing) → "Here's what I noticed when I looked it over: …": nothing is "before" anything there.
-- "I ran into a problem partway through." → "… on the first step." when the chain stopped at its first file-changing step.
+- "I ran into a problem partway through." → "I ran into a problem before I could change anything." when no file-changing step had succeeded before the chain stopped (a refused file, or a chain that never started): "partway through" was false there.
 - "I can't do this part yet: “x”." → "I can't do that yet: “x”." when nothing at all was done.
 - A requested report has no "Want me to tackle any of these?": the user asked for a report, and most findings aren't something Buddy can act on.
 - Unchanged on purpose: the question "Want me to tackle any of these?" after "I also noticed: …" findings (deferred, see below).

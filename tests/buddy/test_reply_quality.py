@@ -301,7 +301,7 @@ def test_a_cleaning_request_on_a_refused_file_says_the_same_reason(
     )
 
     assert "the workbook has 2 sheets, and only single-sheet workbooks are supported" in turn.reply
-    assert "I ran into a problem on the first step." in turn.reply
+    assert "I ran into a problem before I could change anything." in turn.reply
     assert "partway through" not in turn.reply
     _assert_nothing_claimed(turn)
 

@@ -27,7 +27,7 @@ Branch `feat/reply-quality`. Backlog items 2 and 3, backlog R2-1 and N2, and the
 
 After the main sentence: the requested report or why there isn't one (D4); else the analysis findings if the analysis ran; the "initial analysis couldn't run" sentence if it failed; and, unless the reply is a greeting or a question, "No changes were made to any file this turn."
 
-A cleaning request on a refused file *does* run a step (the skill refuses): it keeps the stopped-chain reply, which already quotes the refusal text. Its opener says "on the first step" and not "partway through" when the chain stopped at its first file-changing step.
+A cleaning request on a refused file *does* run a step (the skill refuses): it keeps the stopped-chain reply, which already quotes the refusal text. Its opener says "I ran into a problem before I could change anything." and not "partway through" when no file-changing step had succeeded before the chain stopped.
 
 ### D2. Think's reason is a closed vocabulary
 

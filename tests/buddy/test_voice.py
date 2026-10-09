@@ -874,7 +874,7 @@ def test_personality_voice_reply_says_where_the_chain_stopped_and_what_never_ran
 def test_template_speaker_names_the_failed_step_and_what_never_ran() -> None:
     reply = TemplateSpeaker()(_stopped_chain_request())
 
-    assert reply.startswith("I ran into a problem on the first step.")
+    assert reply.startswith("I ran into a problem before I could change anything.")
     assert "Done" not in reply
     assert reply.endswith(
         "I stopped at the deduplicate step, so remove empty rows never ran and no file was "
