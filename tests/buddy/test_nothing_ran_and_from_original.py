@@ -51,6 +51,7 @@ def test_a_turn_where_nothing_ran_gets_the_fixed_reply(kind: str) -> None:
         execution_result=ExecutionResult(success=True, warnings=("nothing to execute",)),
         verification_result=VerificationResult(passed=False, findings=("x",)),
         mode="focus" if kind == "focus" else "friend",
+        has_file=False,
     )
 
     reply = _speaker(kind)(request)  # type: ignore[operator]
