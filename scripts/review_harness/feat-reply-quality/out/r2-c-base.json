@@ -1,0 +1,2702 @@
+[
+ {
+  "speaker": "template",
+  "turn": 0,
+  "msg": "give me a report",
+  "reply": "Before anything else, here's what I noticed: name: 1 missing value(s) (16.7%); amount: 1 missing value(s) (16.7%). Want me to tackle any of these? No changes were made to any file this turn.",
+  "voice_calls": 0,
+  "delivered": false,
+  "steps": [
+   [
+    "analyze",
+    "success"
+   ]
+  ],
+  "stopped_at": null,
+  "failure": null,
+  "orig_unchanged": true,
+  "orig_facts": {
+   "rows": 6,
+   "dups": 2,
+   "blank": 1,
+   "sheets": [
+    "Sheet1"
+   ]
+  },
+  "final_facts": null,
+  "verified": true,
+  "flags": [
+   "paren_s"
+  ],
+  "name": "f01-report-only-analyzer-raises"
+ },
+ {
+  "speaker": "friend",
+  "turn": 0,
+  "msg": "give me a report",
+  "reply": "Before anything else, here's what I noticed: name: 1 missing value(s) (16.7%); amount: 1 missing value(s) (16.7%). Want me to tackle any of these? No changes were made to any file this turn.",
+  "voice_calls": 0,
+  "delivered": false,
+  "steps": [
+   [
+    "analyze",
+    "success"
+   ]
+  ],
+  "stopped_at": null,
+  "failure": null,
+  "orig_unchanged": true,
+  "orig_facts": {
+   "rows": 6,
+   "dups": 2,
+   "blank": 1,
+   "sheets": [
+    "Sheet1"
+   ]
+  },
+  "final_facts": null,
+  "verified": true,
+  "flags": [
+   "paren_s"
+  ],
+  "name": "f01-report-only-analyzer-raises"
+ },
+ {
+  "speaker": "focus",
+  "turn": 0,
+  "msg": "give me a report",
+  "reply": "Before anything else, here's what I noticed: name: 1 missing value(s) (16.7%); amount: 1 missing value(s) (16.7%). Want me to tackle any of these? No changes were made to any file this turn.",
+  "voice_calls": 0,
+  "delivered": false,
+  "steps": [
+   [
+    "analyze",
+    "success"
+   ]
+  ],
+  "stopped_at": null,
+  "failure": null,
+  "orig_unchanged": true,
+  "orig_facts": {
+   "rows": 6,
+   "dups": 2,
+   "blank": 1,
+   "sheets": [
+    "Sheet1"
+   ]
+  },
+  "final_facts": null,
+  "verified": true,
+  "flags": [
+   "paren_s"
+  ],
+  "name": "f01-report-only-analyzer-raises"
+ },
+ {
+  "speaker": "template",
+  "turn": 0,
+  "msg": "give me a report",
+  "reply": "I wasn't able to confirm that worked. TOPSECRET verifier says no. No changes were made to any file this turn.",
+  "voice_calls": 0,
+  "delivered": false,
+  "steps": [
+   [
+    "analyze",
+    "success"
+   ]
+  ],
+  "stopped_at": null,
+  "failure": null,
+  "orig_unchanged": true,
+  "orig_facts": {
+   "rows": 6,
+   "dups": 2,
+   "blank": 1,
+   "sheets": [
+    "Sheet1"
+   ]
+  },
+  "final_facts": null,
+  "verified": false,
+  "flags": [
+   "verifier",
+   "secret_or_file_text"
+  ],
+  "name": "f02-report-only-verifier-fails"
+ },
+ {
+  "speaker": "friend",
+  "turn": 0,
+  "msg": "give me a report",
+  "reply": "I wasn't able to confirm that worked. TOPSECRET verifier says no. No changes were made to any file this turn.",
+  "voice_calls": 0,
+  "delivered": false,
+  "steps": [
+   [
+    "analyze",
+    "success"
+   ]
+  ],
+  "stopped_at": null,
+  "failure": null,
+  "orig_unchanged": true,
+  "orig_facts": {
+   "rows": 6,
+   "dups": 2,
+   "blank": 1,
+   "sheets": [
+    "Sheet1"
+   ]
+  },
+  "final_facts": null,
+  "verified": false,
+  "flags": [
+   "verifier",
+   "secret_or_file_text"
+  ],
+  "name": "f02-report-only-verifier-fails"
+ },
+ {
+  "speaker": "focus",
+  "turn": 0,
+  "msg": "give me a report",
+  "reply": "I wasn't able to confirm that worked. TOPSECRET verifier says no. No changes were made to any file this turn.",
+  "voice_calls": 0,
+  "delivered": false,
+  "steps": [
+   [
+    "analyze",
+    "success"
+   ]
+  ],
+  "stopped_at": null,
+  "failure": null,
+  "orig_unchanged": true,
+  "orig_facts": {
+   "rows": 6,
+   "dups": 2,
+   "blank": 1,
+   "sheets": [
+    "Sheet1"
+   ]
+  },
+  "final_facts": null,
+  "verified": false,
+  "flags": [
+   "verifier",
+   "secret_or_file_text"
+  ],
+  "name": "f02-report-only-verifier-fails"
+ },
+ {
+  "speaker": "template",
+  "turn": 0,
+  "msg": "remove the duplicate rows and give me a report",
+  "reply": "Partly done — removed 2 duplicate row(s). I can't do this part yet: “give me a report”. The copy has 4 row(s), 0 duplicate row(s) remaining. Saved as `report_deduplicated_session-1-task-1.xlsx`. The copy has the values only; formatting, column widths and other sheet settings aren't carried over. I also noticed: name: 1 missing value(s) (25.0%); amount: 1 missing value(s) (25.0%). Want me to tackle any of these?",
+  "voice_calls": 0,
+  "delivered": true,
+  "steps": [
+   [
+    "analyze",
+    "success"
+   ],
+   [
+    "deduplicate",
+    "success"
+   ],
+   [
+    "analyze",
+    "success"
+   ]
+  ],
+  "stopped_at": null,
+  "failure": null,
+  "orig_unchanged": true,
+  "orig_facts": {
+   "rows": 6,
+   "dups": 2,
+   "blank": 1,
+   "sheets": [
+    "Sheet1"
+   ]
+  },
+  "final_facts": {
+   "rows": 4,
+   "dups": 0,
+   "blank": 1,
+   "sheets": [
+    "Sheet1"
+   ]
+  },
+  "verified": true,
+  "flags": [
+   "paren_s",
+   "paren",
+   "bad_plural_n"
+  ],
+  "name": "f03-dedupe-report-recheck-analyzer-raises"
+ },
+ {
+  "speaker": "friend",
+  "turn": 0,
+  "msg": "remove the duplicate rows and give me a report",
+  "reply": "Here's where things landed. Partly done — removed 2 duplicate row(s). I can't do this part yet: “give me a report”. The copy has 4 row(s), 0 duplicate row(s) remaining. Your cleaned copy of report.xlsx is ready. The copy has the values only; formatting, column widths and other sheet settings aren't carried over. I also noticed: name: 1 missing value(s) (25.0%); amount: 1 missing value(s) (25.0%). Want me to tackle any of these?",
+  "voice_calls": 0,
+  "delivered": true,
+  "steps": [
+   [
+    "analyze",
+    "success"
+   ],
+   [
+    "deduplicate",
+    "success"
+   ],
+   [
+    "analyze",
+    "success"
+   ]
+  ],
+  "stopped_at": null,
+  "failure": null,
+  "orig_unchanged": true,
+  "orig_facts": {
+   "rows": 6,
+   "dups": 2,
+   "blank": 1,
+   "sheets": [
+    "Sheet1"
+   ]
+  },
+  "final_facts": {
+   "rows": 4,
+   "dups": 0,
+   "blank": 1,
+   "sheets": [
+    "Sheet1"
+   ]
+  },
+  "verified": true,
+  "flags": [
+   "paren_s",
+   "paren",
+   "bad_plural_n"
+  ],
+  "name": "f03-dedupe-report-recheck-analyzer-raises"
+ },
+ {
+  "speaker": "focus",
+  "turn": 0,
+  "msg": "remove the duplicate rows and give me a report",
+  "reply": "Partly done — removed 2 duplicate row(s). I can't do this part yet: “give me a report”. The copy has 4 row(s), 0 duplicate row(s) remaining. Your cleaned copy of report.xlsx is ready. The copy has the values only; formatting, column widths and other sheet settings aren't carried over. I also noticed: name: 1 missing value(s) (25.0%); amount: 1 missing value(s) (25.0%). Want me to tackle any of these?",
+  "voice_calls": 0,
+  "delivered": true,
+  "steps": [
+   [
+    "analyze",
+    "success"
+   ],
+   [
+    "deduplicate",
+    "success"
+   ],
+   [
+    "analyze",
+    "success"
+   ]
+  ],
+  "stopped_at": null,
+  "failure": null,
+  "orig_unchanged": true,
+  "orig_facts": {
+   "rows": 6,
+   "dups": 2,
+   "blank": 1,
+   "sheets": [
+    "Sheet1"
+   ]
+  },
+  "final_facts": {
+   "rows": 4,
+   "dups": 0,
+   "blank": 1,
+   "sheets": [
+    "Sheet1"
+   ]
+  },
+  "verified": true,
+  "flags": [
+   "paren_s",
+   "paren",
+   "bad_plural_n"
+  ],
+  "name": "f03-dedupe-report-recheck-analyzer-raises"
+ },
+ {
+  "speaker": "template",
+  "turn": 0,
+  "msg": "remove the duplicate rows and give me a report",
+  "reply": "Partly done — removed 2 duplicate row(s). I can't do this part yet: “give me a report”. The copy has 4 row(s), 0 duplicate row(s) remaining. Saved as `report_deduplicated_session-1-task-1.xlsx`. The copy has the values only; formatting, column widths and other sheet settings aren't carried over. I also noticed: name: 1 missing value(s) (25.0%); amount: 1 missing value(s) (25.0%). Want me to tackle any of these?",
+  "voice_calls": 0,
+  "delivered": true,
+  "steps": [
+   [
+    "analyze",
+    "success"
+   ],
+   [
+    "deduplicate",
+    "success"
+   ],
+   [
+    "analyze",
+    "success"
+   ]
+  ],
+  "stopped_at": null,
+  "failure": null,
+  "orig_unchanged": true,
+  "orig_facts": {
+   "rows": 6,
+   "dups": 2,
+   "blank": 1,
+   "sheets": [
+    "Sheet1"
+   ]
+  },
+  "final_facts": {
+   "rows": 4,
+   "dups": 0,
+   "blank": 1,
+   "sheets": [
+    "Sheet1"
+   ]
+  },
+  "verified": true,
+  "flags": [
+   "paren_s",
+   "paren",
+   "bad_plural_n"
+  ],
+  "name": "f04-dedupe-report-first-analyzer-raises"
+ },
+ {
+  "speaker": "friend",
+  "turn": 0,
+  "msg": "remove the duplicate rows and give me a report",
+  "reply": "Here's where things landed. Partly done — removed 2 duplicate row(s). I can't do this part yet: “give me a report”. The copy has 4 row(s), 0 duplicate row(s) remaining. Your cleaned copy of report.xlsx is ready. The copy has the values only; formatting, column widths and other sheet settings aren't carried over. I also noticed: name: 1 missing value(s) (25.0%); amount: 1 missing value(s) (25.0%). Want me to tackle any of these?",
+  "voice_calls": 0,
+  "delivered": true,
+  "steps": [
+   [
+    "analyze",
+    "success"
+   ],
+   [
+    "deduplicate",
+    "success"
+   ],
+   [
+    "analyze",
+    "success"
+   ]
+  ],
+  "stopped_at": null,
+  "failure": null,
+  "orig_unchanged": true,
+  "orig_facts": {
+   "rows": 6,
+   "dups": 2,
+   "blank": 1,
+   "sheets": [
+    "Sheet1"
+   ]
+  },
+  "final_facts": {
+   "rows": 4,
+   "dups": 0,
+   "blank": 1,
+   "sheets": [
+    "Sheet1"
+   ]
+  },
+  "verified": true,
+  "flags": [
+   "paren_s",
+   "paren",
+   "bad_plural_n"
+  ],
+  "name": "f04-dedupe-report-first-analyzer-raises"
+ },
+ {
+  "speaker": "focus",
+  "turn": 0,
+  "msg": "remove the duplicate rows and give me a report",
+  "reply": "Partly done — removed 2 duplicate row(s). I can't do this part yet: “give me a report”. The copy has 4 row(s), 0 duplicate row(s) remaining. Your cleaned copy of report.xlsx is ready. The copy has the values only; formatting, column widths and other sheet settings aren't carried over. I also noticed: name: 1 missing value(s) (25.0%); amount: 1 missing value(s) (25.0%). Want me to tackle any of these?",
+  "voice_calls": 0,
+  "delivered": true,
+  "steps": [
+   [
+    "analyze",
+    "success"
+   ],
+   [
+    "deduplicate",
+    "success"
+   ],
+   [
+    "analyze",
+    "success"
+   ]
+  ],
+  "stopped_at": null,
+  "failure": null,
+  "orig_unchanged": true,
+  "orig_facts": {
+   "rows": 6,
+   "dups": 2,
+   "blank": 1,
+   "sheets": [
+    "Sheet1"
+   ]
+  },
+  "final_facts": {
+   "rows": 4,
+   "dups": 0,
+   "blank": 1,
+   "sheets": [
+    "Sheet1"
+   ]
+  },
+  "verified": true,
+  "flags": [
+   "paren_s",
+   "paren",
+   "bad_plural_n"
+  ],
+  "name": "f04-dedupe-report-first-analyzer-raises"
+ },
+ {
+  "speaker": "template",
+  "turn": 0,
+  "msg": "remove the duplicate rows and give me a report",
+  "reply": "Partly done — removed 2 duplicate row(s). I can't do this part yet: “give me a report”. The copy has 4 row(s), 0 duplicate row(s) remaining. Saved as `report_deduplicated_session-1-task-1.xlsx`. The copy has the values only; formatting, column widths and other sheet settings aren't carried over. I couldn't re-check the final file for anything else worth flagging after the changes.",
+  "voice_calls": 0,
+  "delivered": true,
+  "steps": [
+   [
+    "analyze",
+    "success"
+   ],
+   [
+    "deduplicate",
+    "success"
+   ],
+   [
+    "analyze",
+    "success"
+   ]
+  ],
+  "stopped_at": null,
+  "failure": null,
+  "orig_unchanged": true,
+  "orig_facts": {
+   "rows": 6,
+   "dups": 2,
+   "blank": 1,
+   "sheets": [
+    "Sheet1"
+   ]
+  },
+  "final_facts": {
+   "rows": 4,
+   "dups": 0,
+   "blank": 1,
+   "sheets": [
+    "Sheet1"
+   ]
+  },
+  "verified": true,
+  "flags": [
+   "paren_s",
+   "paren",
+   "bad_plural_n"
+  ],
+  "name": "f05-dedupe-report-recheck-verifier-fails"
+ },
+ {
+  "speaker": "friend",
+  "turn": 0,
+  "msg": "remove the duplicate rows and give me a report",
+  "reply": "Here's where things landed. Partly done — removed 2 duplicate row(s). I can't do this part yet: “give me a report”. The copy has 4 row(s), 0 duplicate row(s) remaining. Your cleaned copy of report.xlsx is ready. The copy has the values only; formatting, column widths and other sheet settings aren't carried over. I couldn't re-check the final file for anything else worth flagging after the changes.",
+  "voice_calls": 0,
+  "delivered": true,
+  "steps": [
+   [
+    "analyze",
+    "success"
+   ],
+   [
+    "deduplicate",
+    "success"
+   ],
+   [
+    "analyze",
+    "success"
+   ]
+  ],
+  "stopped_at": null,
+  "failure": null,
+  "orig_unchanged": true,
+  "orig_facts": {
+   "rows": 6,
+   "dups": 2,
+   "blank": 1,
+   "sheets": [
+    "Sheet1"
+   ]
+  },
+  "final_facts": {
+   "rows": 4,
+   "dups": 0,
+   "blank": 1,
+   "sheets": [
+    "Sheet1"
+   ]
+  },
+  "verified": true,
+  "flags": [
+   "paren_s",
+   "paren",
+   "bad_plural_n"
+  ],
+  "name": "f05-dedupe-report-recheck-verifier-fails"
+ },
+ {
+  "speaker": "focus",
+  "turn": 0,
+  "msg": "remove the duplicate rows and give me a report",
+  "reply": "Partly done — removed 2 duplicate row(s). I can't do this part yet: “give me a report”. The copy has 4 row(s), 0 duplicate row(s) remaining. Your cleaned copy of report.xlsx is ready. The copy has the values only; formatting, column widths and other sheet settings aren't carried over. I couldn't re-check the final file for anything else worth flagging after the changes.",
+  "voice_calls": 0,
+  "delivered": true,
+  "steps": [
+   [
+    "analyze",
+    "success"
+   ],
+   [
+    "deduplicate",
+    "success"
+   ],
+   [
+    "analyze",
+    "success"
+   ]
+  ],
+  "stopped_at": null,
+  "failure": null,
+  "orig_unchanged": true,
+  "orig_facts": {
+   "rows": 6,
+   "dups": 2,
+   "blank": 1,
+   "sheets": [
+    "Sheet1"
+   ]
+  },
+  "final_facts": {
+   "rows": 4,
+   "dups": 0,
+   "blank": 1,
+   "sheets": [
+    "Sheet1"
+   ]
+  },
+  "verified": true,
+  "flags": [
+   "paren_s",
+   "paren",
+   "bad_plural_n"
+  ],
+  "name": "f05-dedupe-report-recheck-verifier-fails"
+ },
+ {
+  "speaker": "template",
+  "turn": 0,
+  "msg": "remove the duplicate rows and give me a report",
+  "reply": "Partly done — removed 2 duplicate row(s). I can't do this part yet: “give me a report”. The copy has 4 row(s), 0 duplicate row(s) remaining. Saved as `report_deduplicated_session-1-task-1.xlsx`. The copy has the values only; formatting, column widths and other sheet settings aren't carried over. I also noticed: name: 1 missing value(s) (25.0%); amount: 1 missing value(s) (25.0%). Want me to tackle any of these? The initial analysis of your original file couldn't run.",
+  "voice_calls": 0,
+  "delivered": true,
+  "steps": [
+   [
+    "analyze",
+    "success"
+   ],
+   [
+    "deduplicate",
+    "success"
+   ],
+   [
+    "analyze",
+    "success"
+   ]
+  ],
+  "stopped_at": null,
+  "failure": null,
+  "orig_unchanged": true,
+  "orig_facts": {
+   "rows": 6,
+   "dups": 2,
+   "blank": 1,
+   "sheets": [
+    "Sheet1"
+   ]
+  },
+  "final_facts": {
+   "rows": 4,
+   "dups": 0,
+   "blank": 1,
+   "sheets": [
+    "Sheet1"
+   ]
+  },
+  "verified": true,
+  "flags": [
+   "paren_s",
+   "paren",
+   "bad_plural_n"
+  ],
+  "name": "f06-dedupe-report-first-verifier-fails"
+ },
+ {
+  "speaker": "friend",
+  "turn": 0,
+  "msg": "remove the duplicate rows and give me a report",
+  "reply": "Here's where things landed. Partly done — removed 2 duplicate row(s). I can't do this part yet: “give me a report”. The copy has 4 row(s), 0 duplicate row(s) remaining. Your cleaned copy of report.xlsx is ready. The copy has the values only; formatting, column widths and other sheet settings aren't carried over. I also noticed: name: 1 missing value(s) (25.0%); amount: 1 missing value(s) (25.0%). Want me to tackle any of these? The initial analysis of your original file couldn't run.",
+  "voice_calls": 0,
+  "delivered": true,
+  "steps": [
+   [
+    "analyze",
+    "success"
+   ],
+   [
+    "deduplicate",
+    "success"
+   ],
+   [
+    "analyze",
+    "success"
+   ]
+  ],
+  "stopped_at": null,
+  "failure": null,
+  "orig_unchanged": true,
+  "orig_facts": {
+   "rows": 6,
+   "dups": 2,
+   "blank": 1,
+   "sheets": [
+    "Sheet1"
+   ]
+  },
+  "final_facts": {
+   "rows": 4,
+   "dups": 0,
+   "blank": 1,
+   "sheets": [
+    "Sheet1"
+   ]
+  },
+  "verified": true,
+  "flags": [
+   "paren_s",
+   "paren",
+   "bad_plural_n"
+  ],
+  "name": "f06-dedupe-report-first-verifier-fails"
+ },
+ {
+  "speaker": "focus",
+  "turn": 0,
+  "msg": "remove the duplicate rows and give me a report",
+  "reply": "Partly done — removed 2 duplicate row(s). I can't do this part yet: “give me a report”. The copy has 4 row(s), 0 duplicate row(s) remaining. Your cleaned copy of report.xlsx is ready. The copy has the values only; formatting, column widths and other sheet settings aren't carried over. I also noticed: name: 1 missing value(s) (25.0%); amount: 1 missing value(s) (25.0%). Want me to tackle any of these? The initial analysis of your original file couldn't run.",
+  "voice_calls": 0,
+  "delivered": true,
+  "steps": [
+   [
+    "analyze",
+    "success"
+   ],
+   [
+    "deduplicate",
+    "success"
+   ],
+   [
+    "analyze",
+    "success"
+   ]
+  ],
+  "stopped_at": null,
+  "failure": null,
+  "orig_unchanged": true,
+  "orig_facts": {
+   "rows": 6,
+   "dups": 2,
+   "blank": 1,
+   "sheets": [
+    "Sheet1"
+   ]
+  },
+  "final_facts": {
+   "rows": 4,
+   "dups": 0,
+   "blank": 1,
+   "sheets": [
+    "Sheet1"
+   ]
+  },
+  "verified": true,
+  "flags": [
+   "paren_s",
+   "paren",
+   "bad_plural_n"
+  ],
+  "name": "f06-dedupe-report-first-verifier-fails"
+ },
+ {
+  "speaker": "template",
+  "turn": 0,
+  "msg": "remove the duplicate rows and give me a report",
+  "reply": "Before anything else, here's what I noticed: name: 1 missing value(s) (16.7%); amount: 1 missing value(s) (16.7%). Want me to tackle any of these? I ran into a problem partway through. The deduplicate step: TOPSECRET dedupe verifier no. I stopped at the deduplicate step and no file was handed back; your original file is unchanged.",
+  "voice_calls": 0,
+  "delivered": false,
+  "steps": [
+   [
+    "analyze",
+    "success"
+   ],
+   [
+    "deduplicate",
+    "success"
+   ]
+  ],
+  "stopped_at": "spreadsheet.deduplicate",
+  "failure": null,
+  "orig_unchanged": true,
+  "orig_facts": {
+   "rows": 6,
+   "dups": 2,
+   "blank": 1,
+   "sheets": [
+    "Sheet1"
+   ]
+  },
+  "final_facts": null,
+  "verified": false,
+  "flags": [
+   "paren_s",
+   "verifier",
+   "secret_or_file_text"
+  ],
+  "name": "f07-dedupe-report-dedupe-verifier-fails"
+ },
+ {
+  "speaker": "friend",
+  "turn": 0,
+  "msg": "remove the duplicate rows and give me a report",
+  "reply": "Before anything else, here's what I noticed: name: 1 missing value(s) (16.7%); amount: 1 missing value(s) (16.7%). Want me to tackle any of these? I ran into a problem partway through. The deduplicate step: TOPSECRET dedupe verifier no. I stopped at the deduplicate step and no file was handed back; your original file is unchanged.",
+  "voice_calls": 0,
+  "delivered": false,
+  "steps": [
+   [
+    "analyze",
+    "success"
+   ],
+   [
+    "deduplicate",
+    "success"
+   ]
+  ],
+  "stopped_at": "spreadsheet.deduplicate",
+  "failure": null,
+  "orig_unchanged": true,
+  "orig_facts": {
+   "rows": 6,
+   "dups": 2,
+   "blank": 1,
+   "sheets": [
+    "Sheet1"
+   ]
+  },
+  "final_facts": null,
+  "verified": false,
+  "flags": [
+   "paren_s",
+   "verifier",
+   "secret_or_file_text"
+  ],
+  "name": "f07-dedupe-report-dedupe-verifier-fails"
+ },
+ {
+  "speaker": "focus",
+  "turn": 0,
+  "msg": "remove the duplicate rows and give me a report",
+  "reply": "Before anything else, here's what I noticed: name: 1 missing value(s) (16.7%); amount: 1 missing value(s) (16.7%). Want me to tackle any of these? I ran into a problem partway through. The deduplicate step: TOPSECRET dedupe verifier no. I stopped at the deduplicate step and no file was handed back; your original file is unchanged.",
+  "voice_calls": 0,
+  "delivered": false,
+  "steps": [
+   [
+    "analyze",
+    "success"
+   ],
+   [
+    "deduplicate",
+    "success"
+   ]
+  ],
+  "stopped_at": "spreadsheet.deduplicate",
+  "failure": null,
+  "orig_unchanged": true,
+  "orig_facts": {
+   "rows": 6,
+   "dups": 2,
+   "blank": 1,
+   "sheets": [
+    "Sheet1"
+   ]
+  },
+  "final_facts": null,
+  "verified": false,
+  "flags": [
+   "paren_s",
+   "verifier",
+   "secret_or_file_text"
+  ],
+  "name": "f07-dedupe-report-dedupe-verifier-fails"
+ },
+ {
+  "speaker": "template",
+  "turn": 0,
+  "msg": "remove the duplicate rows",
+  "reply": "Before anything else, here's what I noticed: name: 1 missing value(s) (16.7%); amount: 1 missing value(s) (16.7%). Want me to tackle any of these? I ran into a problem partway through. The deduplicate step: TOPSECRET dedupe verifier no. I stopped at the deduplicate step and no file was handed back; your original file is unchanged.",
+  "voice_calls": 0,
+  "delivered": false,
+  "steps": [
+   [
+    "analyze",
+    "success"
+   ],
+   [
+    "deduplicate",
+    "success"
+   ]
+  ],
+  "stopped_at": "spreadsheet.deduplicate",
+  "failure": null,
+  "orig_unchanged": true,
+  "orig_facts": {
+   "rows": 6,
+   "dups": 2,
+   "blank": 1,
+   "sheets": [
+    "Sheet1"
+   ]
+  },
+  "final_facts": null,
+  "verified": false,
+  "flags": [
+   "paren_s",
+   "verifier",
+   "secret_or_file_text"
+  ],
+  "name": "f08-dedupe-only-dedupe-verifier-fails"
+ },
+ {
+  "speaker": "friend",
+  "turn": 0,
+  "msg": "remove the duplicate rows",
+  "reply": "Before anything else, here's what I noticed: name: 1 missing value(s) (16.7%); amount: 1 missing value(s) (16.7%). Want me to tackle any of these? I ran into a problem partway through. The deduplicate step: TOPSECRET dedupe verifier no. I stopped at the deduplicate step and no file was handed back; your original file is unchanged.",
+  "voice_calls": 0,
+  "delivered": false,
+  "steps": [
+   [
+    "analyze",
+    "success"
+   ],
+   [
+    "deduplicate",
+    "success"
+   ]
+  ],
+  "stopped_at": "spreadsheet.deduplicate",
+  "failure": null,
+  "orig_unchanged": true,
+  "orig_facts": {
+   "rows": 6,
+   "dups": 2,
+   "blank": 1,
+   "sheets": [
+    "Sheet1"
+   ]
+  },
+  "final_facts": null,
+  "verified": false,
+  "flags": [
+   "paren_s",
+   "verifier",
+   "secret_or_file_text"
+  ],
+  "name": "f08-dedupe-only-dedupe-verifier-fails"
+ },
+ {
+  "speaker": "focus",
+  "turn": 0,
+  "msg": "remove the duplicate rows",
+  "reply": "Before anything else, here's what I noticed: name: 1 missing value(s) (16.7%); amount: 1 missing value(s) (16.7%). Want me to tackle any of these? I ran into a problem partway through. The deduplicate step: TOPSECRET dedupe verifier no. I stopped at the deduplicate step and no file was handed back; your original file is unchanged.",
+  "voice_calls": 0,
+  "delivered": false,
+  "steps": [
+   [
+    "analyze",
+    "success"
+   ],
+   [
+    "deduplicate",
+    "success"
+   ]
+  ],
+  "stopped_at": "spreadsheet.deduplicate",
+  "failure": null,
+  "orig_unchanged": true,
+  "orig_facts": {
+   "rows": 6,
+   "dups": 2,
+   "blank": 1,
+   "sheets": [
+    "Sheet1"
+   ]
+  },
+  "final_facts": null,
+  "verified": false,
+  "flags": [
+   "paren_s",
+   "verifier",
+   "secret_or_file_text"
+  ],
+  "name": "f08-dedupe-only-dedupe-verifier-fails"
+ },
+ {
+  "speaker": "template",
+  "turn": 0,
+  "msg": "give me a report",
+  "error": "AttributeError(\"<class 'buddy.planner.Planner'> does not have the attribute '_resolve_analysis_target'\")",
+  "name": "f09-report-planner-raises"
+ },
+ {
+  "speaker": "friend",
+  "turn": 0,
+  "msg": "give me a report",
+  "error": "AttributeError(\"<class 'buddy.planner.Planner'> does not have the attribute '_resolve_analysis_target'\")",
+  "name": "f09-report-planner-raises"
+ },
+ {
+  "speaker": "focus",
+  "turn": 0,
+  "msg": "give me a report",
+  "error": "AttributeError(\"<class 'buddy.planner.Planner'> does not have the attribute '_resolve_analysis_target'\")",
+  "name": "f09-report-planner-raises"
+ },
+ {
+  "speaker": "template",
+  "turn": 0,
+  "msg": "give me a report",
+  "reply": "Something went wrong while running the steps, so I can't confirm that any change was made. I haven't handed back any file from this turn.",
+  "voice_calls": 0,
+  "delivered": false,
+  "steps": [],
+  "stopped_at": null,
+  "failure": "hands",
+  "orig_unchanged": true,
+  "orig_facts": {
+   "rows": 6,
+   "dups": 2,
+   "blank": 1,
+   "sheets": [
+    "Sheet1"
+   ]
+  },
+  "final_facts": null,
+  "verified": false,
+  "flags": [],
+  "name": "f10-report-hands-raises"
+ },
+ {
+  "speaker": "friend",
+  "turn": 0,
+  "msg": "give me a report",
+  "reply": "Something went wrong while running the steps, so I can't confirm that any change was made. I haven't handed back any file from this turn.",
+  "voice_calls": 0,
+  "delivered": false,
+  "steps": [],
+  "stopped_at": null,
+  "failure": "hands",
+  "orig_unchanged": true,
+  "orig_facts": {
+   "rows": 6,
+   "dups": 2,
+   "blank": 1,
+   "sheets": [
+    "Sheet1"
+   ]
+  },
+  "final_facts": null,
+  "verified": false,
+  "flags": [],
+  "name": "f10-report-hands-raises"
+ },
+ {
+  "speaker": "focus",
+  "turn": 0,
+  "msg": "give me a report",
+  "reply": "Something went wrong while running the steps, so I can't confirm that any change was made. I haven't handed back any file from this turn.",
+  "voice_calls": 0,
+  "delivered": false,
+  "steps": [],
+  "stopped_at": null,
+  "failure": "hands",
+  "orig_unchanged": true,
+  "orig_facts": {
+   "rows": 6,
+   "dups": 2,
+   "blank": 1,
+   "sheets": [
+    "Sheet1"
+   ]
+  },
+  "final_facts": null,
+  "verified": false,
+  "flags": [],
+  "name": "f10-report-hands-raises"
+ },
+ {
+  "speaker": "template",
+  "turn": 0,
+  "msg": "make it nicer",
+  "reply": "Before anything else, here's what I noticed: name: 1 missing value(s) (16.7%); amount: 1 missing value(s) (16.7%). Want me to tackle any of these? No changes were made to any file this turn.",
+  "voice_calls": 0,
+  "delivered": false,
+  "steps": [
+   [
+    "analyze",
+    "success"
+   ]
+  ],
+  "stopped_at": null,
+  "failure": null,
+  "orig_unchanged": true,
+  "orig_facts": {
+   "rows": 6,
+   "dups": 2,
+   "blank": 1,
+   "sheets": [
+    "Sheet1"
+   ]
+  },
+  "final_facts": null,
+  "verified": true,
+  "flags": [
+   "paren_s"
+  ],
+  "name": "f11-unclear-analyzer-raises"
+ },
+ {
+  "speaker": "friend",
+  "turn": 0,
+  "msg": "make it nicer",
+  "reply": "Before anything else, here's what I noticed: name: 1 missing value(s) (16.7%); amount: 1 missing value(s) (16.7%). Want me to tackle any of these? No changes were made to any file this turn.",
+  "voice_calls": 0,
+  "delivered": false,
+  "steps": [
+   [
+    "analyze",
+    "success"
+   ]
+  ],
+  "stopped_at": null,
+  "failure": null,
+  "orig_unchanged": true,
+  "orig_facts": {
+   "rows": 6,
+   "dups": 2,
+   "blank": 1,
+   "sheets": [
+    "Sheet1"
+   ]
+  },
+  "final_facts": null,
+  "verified": true,
+  "flags": [
+   "paren_s"
+  ],
+  "name": "f11-unclear-analyzer-raises"
+ },
+ {
+  "speaker": "focus",
+  "turn": 0,
+  "msg": "make it nicer",
+  "reply": "Before anything else, here's what I noticed: name: 1 missing value(s) (16.7%); amount: 1 missing value(s) (16.7%). Want me to tackle any of these? No changes were made to any file this turn.",
+  "voice_calls": 0,
+  "delivered": false,
+  "steps": [
+   [
+    "analyze",
+    "success"
+   ]
+  ],
+  "stopped_at": null,
+  "failure": null,
+  "orig_unchanged": true,
+  "orig_facts": {
+   "rows": 6,
+   "dups": 2,
+   "blank": 1,
+   "sheets": [
+    "Sheet1"
+   ]
+  },
+  "final_facts": null,
+  "verified": true,
+  "flags": [
+   "paren_s"
+  ],
+  "name": "f11-unclear-analyzer-raises"
+ },
+ {
+  "speaker": "template",
+  "turn": 0,
+  "msg": "make it nicer",
+  "reply": "I wasn't able to confirm that worked. TOPSECRET verifier says no. No changes were made to any file this turn.",
+  "voice_calls": 0,
+  "delivered": false,
+  "steps": [
+   [
+    "analyze",
+    "success"
+   ]
+  ],
+  "stopped_at": null,
+  "failure": null,
+  "orig_unchanged": true,
+  "orig_facts": {
+   "rows": 6,
+   "dups": 2,
+   "blank": 1,
+   "sheets": [
+    "Sheet1"
+   ]
+  },
+  "final_facts": null,
+  "verified": false,
+  "flags": [
+   "verifier",
+   "secret_or_file_text"
+  ],
+  "name": "f12-unclear-verifier-fails"
+ },
+ {
+  "speaker": "friend",
+  "turn": 0,
+  "msg": "make it nicer",
+  "reply": "I wasn't able to confirm that worked. TOPSECRET verifier says no. No changes were made to any file this turn.",
+  "voice_calls": 0,
+  "delivered": false,
+  "steps": [
+   [
+    "analyze",
+    "success"
+   ]
+  ],
+  "stopped_at": null,
+  "failure": null,
+  "orig_unchanged": true,
+  "orig_facts": {
+   "rows": 6,
+   "dups": 2,
+   "blank": 1,
+   "sheets": [
+    "Sheet1"
+   ]
+  },
+  "final_facts": null,
+  "verified": false,
+  "flags": [
+   "verifier",
+   "secret_or_file_text"
+  ],
+  "name": "f12-unclear-verifier-fails"
+ },
+ {
+  "speaker": "focus",
+  "turn": 0,
+  "msg": "make it nicer",
+  "reply": "I wasn't able to confirm that worked. TOPSECRET verifier says no. No changes were made to any file this turn.",
+  "voice_calls": 0,
+  "delivered": false,
+  "steps": [
+   [
+    "analyze",
+    "success"
+   ]
+  ],
+  "stopped_at": null,
+  "failure": null,
+  "orig_unchanged": true,
+  "orig_facts": {
+   "rows": 6,
+   "dups": 2,
+   "blank": 1,
+   "sheets": [
+    "Sheet1"
+   ]
+  },
+  "final_facts": null,
+  "verified": false,
+  "flags": [
+   "verifier",
+   "secret_or_file_text"
+  ],
+  "name": "f12-unclear-verifier-fails"
+ },
+ {
+  "speaker": "template",
+  "turn": 0,
+  "msg": "hi",
+  "reply": "I wasn't able to confirm that worked. TOPSECRET verifier says no. No changes were made to any file this turn.",
+  "voice_calls": 0,
+  "delivered": false,
+  "steps": [
+   [
+    "analyze",
+    "success"
+   ]
+  ],
+  "stopped_at": null,
+  "failure": null,
+  "orig_unchanged": true,
+  "orig_facts": {
+   "rows": 6,
+   "dups": 2,
+   "blank": 1,
+   "sheets": [
+    "Sheet1"
+   ]
+  },
+  "final_facts": null,
+  "verified": false,
+  "flags": [
+   "verifier",
+   "secret_or_file_text"
+  ],
+  "name": "f13-hi-verifier-fails"
+ },
+ {
+  "speaker": "friend",
+  "turn": 0,
+  "msg": "hi",
+  "reply": "I wasn't able to confirm that worked. TOPSECRET verifier says no. No changes were made to any file this turn.",
+  "voice_calls": 0,
+  "delivered": false,
+  "steps": [
+   [
+    "analyze",
+    "success"
+   ]
+  ],
+  "stopped_at": null,
+  "failure": null,
+  "orig_unchanged": true,
+  "orig_facts": {
+   "rows": 6,
+   "dups": 2,
+   "blank": 1,
+   "sheets": [
+    "Sheet1"
+   ]
+  },
+  "final_facts": null,
+  "verified": false,
+  "flags": [
+   "verifier",
+   "secret_or_file_text"
+  ],
+  "name": "f13-hi-verifier-fails"
+ },
+ {
+  "speaker": "focus",
+  "turn": 0,
+  "msg": "hi",
+  "reply": "I wasn't able to confirm that worked. TOPSECRET verifier says no. No changes were made to any file this turn.",
+  "voice_calls": 0,
+  "delivered": false,
+  "steps": [
+   [
+    "analyze",
+    "success"
+   ]
+  ],
+  "stopped_at": null,
+  "failure": null,
+  "orig_unchanged": true,
+  "orig_facts": {
+   "rows": 6,
+   "dups": 2,
+   "blank": 1,
+   "sheets": [
+    "Sheet1"
+   ]
+  },
+  "final_facts": null,
+  "verified": false,
+  "flags": [
+   "verifier",
+   "secret_or_file_text"
+  ],
+  "name": "f13-hi-verifier-fails"
+ },
+ {
+  "speaker": "template",
+  "turn": 0,
+  "msg": "remove the duplicate rows",
+  "reply": "Done — removed 2 duplicate row(s). The copy has 4 row(s), 0 duplicate row(s) remaining. Saved as `report_deduplicated_session-1-task-1.xlsx`. The copy has the values only; formatting, column widths and other sheet settings aren't carried over. I also noticed: name: 1 missing value(s) (25.0%); amount: 1 missing value(s) (25.0%). Want me to tackle any of these? The initial analysis of your original file couldn't run.",
+  "voice_calls": 0,
+  "delivered": true,
+  "steps": [
+   [
+    "analyze",
+    "success"
+   ],
+   [
+    "deduplicate",
+    "success"
+   ],
+   [
+    "analyze",
+    "success"
+   ]
+  ],
+  "stopped_at": null,
+  "failure": null,
+  "orig_unchanged": true,
+  "orig_facts": {
+   "rows": 6,
+   "dups": 2,
+   "blank": 1,
+   "sheets": [
+    "Sheet1"
+   ]
+  },
+  "final_facts": {
+   "rows": 4,
+   "dups": 0,
+   "blank": 1,
+   "sheets": [
+    "Sheet1"
+   ]
+  },
+  "verified": true,
+  "flags": [
+   "paren_s",
+   "paren",
+   "bad_plural_n"
+  ],
+  "name": "f14-dedupe-first-verifier-fails"
+ },
+ {
+  "speaker": "friend",
+  "turn": 0,
+  "msg": "remove the duplicate rows",
+  "reply": "Okay, here's the rundown. Done — removed 2 duplicate row(s). The copy has 4 row(s), 0 duplicate row(s) remaining. Your cleaned copy of report.xlsx is ready. The copy has the values only; formatting, column widths and other sheet settings aren't carried over. I also noticed: name: 1 missing value(s) (25.0%); amount: 1 missing value(s) (25.0%). Want me to tackle any of these? The initial analysis of your original file couldn't run.",
+  "voice_calls": 0,
+  "delivered": true,
+  "steps": [
+   [
+    "analyze",
+    "success"
+   ],
+   [
+    "deduplicate",
+    "success"
+   ],
+   [
+    "analyze",
+    "success"
+   ]
+  ],
+  "stopped_at": null,
+  "failure": null,
+  "orig_unchanged": true,
+  "orig_facts": {
+   "rows": 6,
+   "dups": 2,
+   "blank": 1,
+   "sheets": [
+    "Sheet1"
+   ]
+  },
+  "final_facts": {
+   "rows": 4,
+   "dups": 0,
+   "blank": 1,
+   "sheets": [
+    "Sheet1"
+   ]
+  },
+  "verified": true,
+  "flags": [
+   "paren_s",
+   "paren",
+   "bad_plural_n"
+  ],
+  "name": "f14-dedupe-first-verifier-fails"
+ },
+ {
+  "speaker": "focus",
+  "turn": 0,
+  "msg": "remove the duplicate rows",
+  "reply": "Done — removed 2 duplicate row(s). The copy has 4 row(s), 0 duplicate row(s) remaining. Your cleaned copy of report.xlsx is ready. The copy has the values only; formatting, column widths and other sheet settings aren't carried over. I also noticed: name: 1 missing value(s) (25.0%); amount: 1 missing value(s) (25.0%). Want me to tackle any of these? The initial analysis of your original file couldn't run.",
+  "voice_calls": 0,
+  "delivered": true,
+  "steps": [
+   [
+    "analyze",
+    "success"
+   ],
+   [
+    "deduplicate",
+    "success"
+   ],
+   [
+    "analyze",
+    "success"
+   ]
+  ],
+  "stopped_at": null,
+  "failure": null,
+  "orig_unchanged": true,
+  "orig_facts": {
+   "rows": 6,
+   "dups": 2,
+   "blank": 1,
+   "sheets": [
+    "Sheet1"
+   ]
+  },
+  "final_facts": {
+   "rows": 4,
+   "dups": 0,
+   "blank": 1,
+   "sheets": [
+    "Sheet1"
+   ]
+  },
+  "verified": true,
+  "flags": [
+   "paren_s",
+   "paren",
+   "bad_plural_n"
+  ],
+  "name": "f14-dedupe-first-verifier-fails"
+ },
+ {
+  "speaker": "template",
+  "turn": 0,
+  "msg": "remove the duplicate rows",
+  "reply": "Done — removed 2 duplicate row(s). The copy has 4 row(s), 0 duplicate row(s) remaining. Saved as `report_deduplicated_session-1-task-1.xlsx`. The copy has the values only; formatting, column widths and other sheet settings aren't carried over. I couldn't re-check the final file for anything else worth flagging after the changes.",
+  "voice_calls": 0,
+  "delivered": true,
+  "steps": [
+   [
+    "analyze",
+    "success"
+   ],
+   [
+    "deduplicate",
+    "success"
+   ],
+   [
+    "analyze",
+    "success"
+   ]
+  ],
+  "stopped_at": null,
+  "failure": null,
+  "orig_unchanged": true,
+  "orig_facts": {
+   "rows": 6,
+   "dups": 2,
+   "blank": 1,
+   "sheets": [
+    "Sheet1"
+   ]
+  },
+  "final_facts": {
+   "rows": 4,
+   "dups": 0,
+   "blank": 1,
+   "sheets": [
+    "Sheet1"
+   ]
+  },
+  "verified": true,
+  "flags": [
+   "paren_s",
+   "paren",
+   "bad_plural_n"
+  ],
+  "name": "f15-dedupe-recheck-verifier-fails"
+ },
+ {
+  "speaker": "friend",
+  "turn": 0,
+  "msg": "remove the duplicate rows",
+  "reply": "Okay, here's the rundown. Done — removed 2 duplicate row(s). The copy has 4 row(s), 0 duplicate row(s) remaining. Your cleaned copy of report.xlsx is ready. The copy has the values only; formatting, column widths and other sheet settings aren't carried over. I couldn't re-check the final file for anything else worth flagging after the changes. Anything else you want me to look at?",
+  "voice_calls": 0,
+  "delivered": true,
+  "steps": [
+   [
+    "analyze",
+    "success"
+   ],
+   [
+    "deduplicate",
+    "success"
+   ],
+   [
+    "analyze",
+    "success"
+   ]
+  ],
+  "stopped_at": null,
+  "failure": null,
+  "orig_unchanged": true,
+  "orig_facts": {
+   "rows": 6,
+   "dups": 2,
+   "blank": 1,
+   "sheets": [
+    "Sheet1"
+   ]
+  },
+  "final_facts": {
+   "rows": 4,
+   "dups": 0,
+   "blank": 1,
+   "sheets": [
+    "Sheet1"
+   ]
+  },
+  "verified": true,
+  "flags": [
+   "paren_s",
+   "paren",
+   "bad_plural_n"
+  ],
+  "name": "f15-dedupe-recheck-verifier-fails"
+ },
+ {
+  "speaker": "focus",
+  "turn": 0,
+  "msg": "remove the duplicate rows",
+  "reply": "Done — removed 2 duplicate row(s). The copy has 4 row(s), 0 duplicate row(s) remaining. Your cleaned copy of report.xlsx is ready. The copy has the values only; formatting, column widths and other sheet settings aren't carried over. I couldn't re-check the final file for anything else worth flagging after the changes.",
+  "voice_calls": 0,
+  "delivered": true,
+  "steps": [
+   [
+    "analyze",
+    "success"
+   ],
+   [
+    "deduplicate",
+    "success"
+   ],
+   [
+    "analyze",
+    "success"
+   ]
+  ],
+  "stopped_at": null,
+  "failure": null,
+  "orig_unchanged": true,
+  "orig_facts": {
+   "rows": 6,
+   "dups": 2,
+   "blank": 1,
+   "sheets": [
+    "Sheet1"
+   ]
+  },
+  "final_facts": {
+   "rows": 4,
+   "dups": 0,
+   "blank": 1,
+   "sheets": [
+    "Sheet1"
+   ]
+  },
+  "verified": true,
+  "flags": [
+   "paren_s",
+   "paren",
+   "bad_plural_n"
+  ],
+  "name": "f15-dedupe-recheck-verifier-fails"
+ },
+ {
+  "speaker": "template",
+  "turn": 0,
+  "msg": "remove the duplicate rows and give me a report",
+  "reply": "Partly done — removed 2 duplicate row(s). I can't do this part yet: “give me a report”. The copy has 4 row(s), 0 duplicate row(s) remaining. Saved as `report_deduplicated_session-1-task-1.xlsx`. The copy has the values only; formatting, column widths and other sheet settings aren't carried over. The initial analysis of your original file couldn't run. I couldn't re-check the final file for anything else worth flagging after the changes.",
+  "voice_calls": 0,
+  "delivered": true,
+  "steps": [
+   [
+    "analyze",
+    "success"
+   ],
+   [
+    "deduplicate",
+    "success"
+   ],
+   [
+    "analyze",
+    "success"
+   ]
+  ],
+  "stopped_at": null,
+  "failure": null,
+  "orig_unchanged": true,
+  "orig_facts": {
+   "rows": 6,
+   "dups": 2,
+   "blank": 1,
+   "sheets": [
+    "Sheet1"
+   ]
+  },
+  "final_facts": {
+   "rows": 4,
+   "dups": 0,
+   "blank": 1,
+   "sheets": [
+    "Sheet1"
+   ]
+  },
+  "verified": true,
+  "flags": [
+   "paren_s",
+   "paren",
+   "bad_plural_n"
+  ],
+  "name": "f16-dedupe-report-both-fail"
+ },
+ {
+  "speaker": "friend",
+  "turn": 0,
+  "msg": "remove the duplicate rows and give me a report",
+  "reply": "Here's where things landed. Partly done — removed 2 duplicate row(s). I can't do this part yet: “give me a report”. The copy has 4 row(s), 0 duplicate row(s) remaining. Your cleaned copy of report.xlsx is ready. The copy has the values only; formatting, column widths and other sheet settings aren't carried over. The initial analysis of your original file couldn't run. I couldn't re-check the final file for anything else worth flagging after the changes.",
+  "voice_calls": 0,
+  "delivered": true,
+  "steps": [
+   [
+    "analyze",
+    "success"
+   ],
+   [
+    "deduplicate",
+    "success"
+   ],
+   [
+    "analyze",
+    "success"
+   ]
+  ],
+  "stopped_at": null,
+  "failure": null,
+  "orig_unchanged": true,
+  "orig_facts": {
+   "rows": 6,
+   "dups": 2,
+   "blank": 1,
+   "sheets": [
+    "Sheet1"
+   ]
+  },
+  "final_facts": {
+   "rows": 4,
+   "dups": 0,
+   "blank": 1,
+   "sheets": [
+    "Sheet1"
+   ]
+  },
+  "verified": true,
+  "flags": [
+   "paren_s",
+   "paren",
+   "bad_plural_n"
+  ],
+  "name": "f16-dedupe-report-both-fail"
+ },
+ {
+  "speaker": "focus",
+  "turn": 0,
+  "msg": "remove the duplicate rows and give me a report",
+  "reply": "Partly done — removed 2 duplicate row(s). I can't do this part yet: “give me a report”. The copy has 4 row(s), 0 duplicate row(s) remaining. Your cleaned copy of report.xlsx is ready. The copy has the values only; formatting, column widths and other sheet settings aren't carried over. The initial analysis of your original file couldn't run. I couldn't re-check the final file for anything else worth flagging after the changes.",
+  "voice_calls": 0,
+  "delivered": true,
+  "steps": [
+   [
+    "analyze",
+    "success"
+   ],
+   [
+    "deduplicate",
+    "success"
+   ],
+   [
+    "analyze",
+    "success"
+   ]
+  ],
+  "stopped_at": null,
+  "failure": null,
+  "orig_unchanged": true,
+  "orig_facts": {
+   "rows": 6,
+   "dups": 2,
+   "blank": 1,
+   "sheets": [
+    "Sheet1"
+   ]
+  },
+  "final_facts": {
+   "rows": 4,
+   "dups": 0,
+   "blank": 1,
+   "sheets": [
+    "Sheet1"
+   ]
+  },
+  "verified": true,
+  "flags": [
+   "paren_s",
+   "paren",
+   "bad_plural_n"
+  ],
+  "name": "f16-dedupe-report-both-fail"
+ },
+ {
+  "speaker": "template",
+  "turn": 0,
+  "msg": "remove the duplicate rows and then give me a report",
+  "reply": "Before anything else, here's what I noticed: name: 1 missing value(s) (16.7%); amount: 1 missing value(s) (16.7%). Want me to tackle any of these? I ran into a problem partway through. The report step: couldn't be run because no available skill can do it. I stopped at the report step, so deduplicate never ran and no file was handed back; your original file is unchanged.",
+  "voice_calls": 0,
+  "delivered": false,
+  "steps": [
+   [
+    "analyze",
+    "success"
+   ],
+   [
+    "deduplicate",
+    "skipped"
+   ],
+   [
+    "report",
+    "failure"
+   ]
+  ],
+  "stopped_at": "spreadsheet.report",
+  "failure": null,
+  "orig_unchanged": true,
+  "orig_facts": {
+   "rows": 6,
+   "dups": 2,
+   "blank": 1,
+   "sheets": [
+    "Sheet1"
+   ]
+  },
+  "final_facts": null,
+  "verified": false,
+  "flags": [
+   "paren_s"
+  ],
+  "name": "f17-report-plan-report-chain-analyzer-raises"
+ },
+ {
+  "speaker": "friend",
+  "turn": 0,
+  "msg": "remove the duplicate rows and then give me a report",
+  "reply": "Before anything else, here's what I noticed: name: 1 missing value(s) (16.7%); amount: 1 missing value(s) (16.7%). Want me to tackle any of these? I ran into a problem partway through. The report step: couldn't be run because no available skill can do it. I stopped at the report step, so deduplicate never ran and no file was handed back; your original file is unchanged.",
+  "voice_calls": 0,
+  "delivered": false,
+  "steps": [
+   [
+    "analyze",
+    "success"
+   ],
+   [
+    "deduplicate",
+    "skipped"
+   ],
+   [
+    "report",
+    "failure"
+   ]
+  ],
+  "stopped_at": "spreadsheet.report",
+  "failure": null,
+  "orig_unchanged": true,
+  "orig_facts": {
+   "rows": 6,
+   "dups": 2,
+   "blank": 1,
+   "sheets": [
+    "Sheet1"
+   ]
+  },
+  "final_facts": null,
+  "verified": false,
+  "flags": [
+   "paren_s"
+  ],
+  "name": "f17-report-plan-report-chain-analyzer-raises"
+ },
+ {
+  "speaker": "focus",
+  "turn": 0,
+  "msg": "remove the duplicate rows and then give me a report",
+  "reply": "Before anything else, here's what I noticed: name: 1 missing value(s) (16.7%); amount: 1 missing value(s) (16.7%). Want me to tackle any of these? I ran into a problem partway through. The report step: couldn't be run because no available skill can do it. I stopped at the report step, so deduplicate never ran and no file was handed back; your original file is unchanged.",
+  "voice_calls": 0,
+  "delivered": false,
+  "steps": [
+   [
+    "analyze",
+    "success"
+   ],
+   [
+    "deduplicate",
+    "skipped"
+   ],
+   [
+    "report",
+    "failure"
+   ]
+  ],
+  "stopped_at": "spreadsheet.report",
+  "failure": null,
+  "orig_unchanged": true,
+  "orig_facts": {
+   "rows": 6,
+   "dups": 2,
+   "blank": 1,
+   "sheets": [
+    "Sheet1"
+   ]
+  },
+  "final_facts": null,
+  "verified": false,
+  "flags": [
+   "paren_s"
+  ],
+  "name": "f17-report-plan-report-chain-analyzer-raises"
+ },
+ {
+  "speaker": "template",
+  "turn": 0,
+  "msg": "give me a report",
+  "reply": "Before anything else, here's what I noticed: name: 1 missing value(s) (16.7%); amount: 1 missing value(s) (16.7%). Want me to tackle any of these? No changes were made to any file this turn.",
+  "voice_calls": 0,
+  "delivered": false,
+  "steps": [
+   [
+    "analyze",
+    "success"
+   ]
+  ],
+  "stopped_at": null,
+  "failure": null,
+  "orig_unchanged": true,
+  "orig_facts": {
+   "rows": 6,
+   "dups": 2,
+   "blank": 1,
+   "sheets": [
+    "Sheet1"
+   ]
+  },
+  "final_facts": null,
+  "verified": true,
+  "flags": [
+   "paren_s"
+  ],
+  "name": "f18-think-raises-report"
+ },
+ {
+  "speaker": "friend",
+  "turn": 0,
+  "msg": "give me a report",
+  "reply": "Before anything else, here's what I noticed: name: 1 missing value(s) (16.7%); amount: 1 missing value(s) (16.7%). Want me to tackle any of these? No changes were made to any file this turn.",
+  "voice_calls": 0,
+  "delivered": false,
+  "steps": [
+   [
+    "analyze",
+    "success"
+   ]
+  ],
+  "stopped_at": null,
+  "failure": null,
+  "orig_unchanged": true,
+  "orig_facts": {
+   "rows": 6,
+   "dups": 2,
+   "blank": 1,
+   "sheets": [
+    "Sheet1"
+   ]
+  },
+  "final_facts": null,
+  "verified": true,
+  "flags": [
+   "paren_s"
+  ],
+  "name": "f18-think-raises-report"
+ },
+ {
+  "speaker": "focus",
+  "turn": 0,
+  "msg": "give me a report",
+  "reply": "Before anything else, here's what I noticed: name: 1 missing value(s) (16.7%); amount: 1 missing value(s) (16.7%). Want me to tackle any of these? No changes were made to any file this turn.",
+  "voice_calls": 0,
+  "delivered": false,
+  "steps": [
+   [
+    "analyze",
+    "success"
+   ]
+  ],
+  "stopped_at": null,
+  "failure": null,
+  "orig_unchanged": true,
+  "orig_facts": {
+   "rows": 6,
+   "dups": 2,
+   "blank": 1,
+   "sheets": [
+    "Sheet1"
+   ]
+  },
+  "final_facts": null,
+  "verified": true,
+  "flags": [
+   "paren_s"
+  ],
+  "name": "f18-think-raises-report"
+ },
+ {
+  "speaker": "template",
+  "turn": 0,
+  "msg": "give me a report",
+  "reply": "I didn't run anything on a file this turn, so no file was changed.",
+  "voice_calls": 0,
+  "delivered": false,
+  "steps": [],
+  "stopped_at": null,
+  "failure": null,
+  "orig_unchanged": true,
+  "orig_facts": {
+   "rows": 6,
+   "dups": 2,
+   "blank": 1,
+   "sheets": [
+    "Q1",
+    "Q2"
+   ]
+  },
+  "final_facts": null,
+  "verified": false,
+  "flags": [],
+  "name": "f19-report-refused-plus-failure"
+ },
+ {
+  "speaker": "friend",
+  "turn": 0,
+  "msg": "give me a report",
+  "reply": "I didn't run anything on a file this turn, so no file was changed.",
+  "voice_calls": 0,
+  "delivered": false,
+  "steps": [],
+  "stopped_at": null,
+  "failure": null,
+  "orig_unchanged": true,
+  "orig_facts": {
+   "rows": 6,
+   "dups": 2,
+   "blank": 1,
+   "sheets": [
+    "Q1",
+    "Q2"
+   ]
+  },
+  "final_facts": null,
+  "verified": false,
+  "flags": [],
+  "name": "f19-report-refused-plus-failure"
+ },
+ {
+  "speaker": "focus",
+  "turn": 0,
+  "msg": "give me a report",
+  "reply": "I didn't run anything on a file this turn, so no file was changed.",
+  "voice_calls": 0,
+  "delivered": false,
+  "steps": [],
+  "stopped_at": null,
+  "failure": null,
+  "orig_unchanged": true,
+  "orig_facts": {
+   "rows": 6,
+   "dups": 2,
+   "blank": 1,
+   "sheets": [
+    "Q1",
+    "Q2"
+   ]
+  },
+  "final_facts": null,
+  "verified": false,
+  "flags": [],
+  "name": "f19-report-refused-plus-failure"
+ },
+ {
+  "speaker": "template",
+  "turn": 0,
+  "msg": "give me a report",
+  "reply": "I wasn't able to confirm that worked. The analysis reported failure. No changes were made to any file this turn.",
+  "voice_calls": 0,
+  "delivered": false,
+  "steps": [
+   [
+    "analyze",
+    "failure"
+   ]
+  ],
+  "stopped_at": null,
+  "failure": null,
+  "orig_unchanged": true,
+  "orig_facts": {
+   "rows": 6,
+   "dups": 2,
+   "blank": 1,
+   "sheets": [
+    "Sheet1"
+   ]
+  },
+  "final_facts": null,
+  "verified": false,
+  "flags": [],
+  "name": "f20-report-only-skill-read-fails"
+ },
+ {
+  "speaker": "friend",
+  "turn": 0,
+  "msg": "give me a report",
+  "reply": "I wasn't able to confirm that worked. The analysis reported failure. No changes were made to any file this turn.",
+  "voice_calls": 0,
+  "delivered": false,
+  "steps": [
+   [
+    "analyze",
+    "failure"
+   ]
+  ],
+  "stopped_at": null,
+  "failure": null,
+  "orig_unchanged": true,
+  "orig_facts": {
+   "rows": 6,
+   "dups": 2,
+   "blank": 1,
+   "sheets": [
+    "Sheet1"
+   ]
+  },
+  "final_facts": null,
+  "verified": false,
+  "flags": [],
+  "name": "f20-report-only-skill-read-fails"
+ },
+ {
+  "speaker": "focus",
+  "turn": 0,
+  "msg": "give me a report",
+  "reply": "I wasn't able to confirm that worked. The analysis reported failure. No changes were made to any file this turn.",
+  "voice_calls": 0,
+  "delivered": false,
+  "steps": [
+   [
+    "analyze",
+    "failure"
+   ]
+  ],
+  "stopped_at": null,
+  "failure": null,
+  "orig_unchanged": true,
+  "orig_facts": {
+   "rows": 6,
+   "dups": 2,
+   "blank": 1,
+   "sheets": [
+    "Sheet1"
+   ]
+  },
+  "final_facts": null,
+  "verified": false,
+  "flags": [],
+  "name": "f20-report-only-skill-read-fails"
+ },
+ {
+  "speaker": "template",
+  "turn": 0,
+  "msg": "make it nicer",
+  "reply": "I wasn't able to confirm that worked. The analysis reported failure. No changes were made to any file this turn.",
+  "voice_calls": 0,
+  "delivered": false,
+  "steps": [
+   [
+    "analyze",
+    "failure"
+   ]
+  ],
+  "stopped_at": null,
+  "failure": null,
+  "orig_unchanged": true,
+  "orig_facts": {
+   "rows": 6,
+   "dups": 2,
+   "blank": 1,
+   "sheets": [
+    "Sheet1"
+   ]
+  },
+  "final_facts": null,
+  "verified": false,
+  "flags": [],
+  "name": "f21-unclear-skill-read-fails"
+ },
+ {
+  "speaker": "friend",
+  "turn": 0,
+  "msg": "make it nicer",
+  "reply": "I wasn't able to confirm that worked. The analysis reported failure. No changes were made to any file this turn.",
+  "voice_calls": 0,
+  "delivered": false,
+  "steps": [
+   [
+    "analyze",
+    "failure"
+   ]
+  ],
+  "stopped_at": null,
+  "failure": null,
+  "orig_unchanged": true,
+  "orig_facts": {
+   "rows": 6,
+   "dups": 2,
+   "blank": 1,
+   "sheets": [
+    "Sheet1"
+   ]
+  },
+  "final_facts": null,
+  "verified": false,
+  "flags": [],
+  "name": "f21-unclear-skill-read-fails"
+ },
+ {
+  "speaker": "focus",
+  "turn": 0,
+  "msg": "make it nicer",
+  "reply": "I wasn't able to confirm that worked. The analysis reported failure. No changes were made to any file this turn.",
+  "voice_calls": 0,
+  "delivered": false,
+  "steps": [
+   [
+    "analyze",
+    "failure"
+   ]
+  ],
+  "stopped_at": null,
+  "failure": null,
+  "orig_unchanged": true,
+  "orig_facts": {
+   "rows": 6,
+   "dups": 2,
+   "blank": 1,
+   "sheets": [
+    "Sheet1"
+   ]
+  },
+  "final_facts": null,
+  "verified": false,
+  "flags": [],
+  "name": "f21-unclear-skill-read-fails"
+ },
+ {
+  "speaker": "template",
+  "turn": 0,
+  "msg": "remove the duplicate rows and give me a report",
+  "reply": "Partly done — removed 2 duplicate row(s). I can't do this part yet: “give me a report”. The copy has 4 row(s), 0 duplicate row(s) remaining. Saved as `report_deduplicated_session-1-task-1.xlsx`. The copy has the values only; formatting, column widths and other sheet settings aren't carried over. I also noticed: name: 1 missing value(s) (25.0%); amount: 1 missing value(s) (25.0%). Want me to tackle any of these? The initial analysis of your original file couldn't run.",
+  "voice_calls": 0,
+  "delivered": true,
+  "steps": [
+   [
+    "analyze",
+    "failure"
+   ],
+   [
+    "deduplicate",
+    "success"
+   ],
+   [
+    "analyze",
+    "success"
+   ]
+  ],
+  "stopped_at": null,
+  "failure": null,
+  "orig_unchanged": true,
+  "orig_facts": {
+   "rows": 6,
+   "dups": 2,
+   "blank": 1,
+   "sheets": [
+    "Sheet1"
+   ]
+  },
+  "final_facts": {
+   "rows": 4,
+   "dups": 0,
+   "blank": 1,
+   "sheets": [
+    "Sheet1"
+   ]
+  },
+  "verified": true,
+  "flags": [
+   "paren_s",
+   "paren",
+   "bad_plural_n"
+  ],
+  "name": "f22-dedupe-report-skill-read-fails-first"
+ },
+ {
+  "speaker": "friend",
+  "turn": 0,
+  "msg": "remove the duplicate rows and give me a report",
+  "reply": "Here's where things landed. Partly done — removed 2 duplicate row(s). I can't do this part yet: “give me a report”. The copy has 4 row(s), 0 duplicate row(s) remaining. Your cleaned copy of report.xlsx is ready. The copy has the values only; formatting, column widths and other sheet settings aren't carried over. I also noticed: name: 1 missing value(s) (25.0%); amount: 1 missing value(s) (25.0%). Want me to tackle any of these? The initial analysis of your original file couldn't run.",
+  "voice_calls": 0,
+  "delivered": true,
+  "steps": [
+   [
+    "analyze",
+    "failure"
+   ],
+   [
+    "deduplicate",
+    "success"
+   ],
+   [
+    "analyze",
+    "success"
+   ]
+  ],
+  "stopped_at": null,
+  "failure": null,
+  "orig_unchanged": true,
+  "orig_facts": {
+   "rows": 6,
+   "dups": 2,
+   "blank": 1,
+   "sheets": [
+    "Sheet1"
+   ]
+  },
+  "final_facts": {
+   "rows": 4,
+   "dups": 0,
+   "blank": 1,
+   "sheets": [
+    "Sheet1"
+   ]
+  },
+  "verified": true,
+  "flags": [
+   "paren_s",
+   "paren",
+   "bad_plural_n"
+  ],
+  "name": "f22-dedupe-report-skill-read-fails-first"
+ },
+ {
+  "speaker": "focus",
+  "turn": 0,
+  "msg": "remove the duplicate rows and give me a report",
+  "reply": "Partly done — removed 2 duplicate row(s). I can't do this part yet: “give me a report”. The copy has 4 row(s), 0 duplicate row(s) remaining. Your cleaned copy of report.xlsx is ready. The copy has the values only; formatting, column widths and other sheet settings aren't carried over. I also noticed: name: 1 missing value(s) (25.0%); amount: 1 missing value(s) (25.0%). Want me to tackle any of these? The initial analysis of your original file couldn't run.",
+  "voice_calls": 0,
+  "delivered": true,
+  "steps": [
+   [
+    "analyze",
+    "failure"
+   ],
+   [
+    "deduplicate",
+    "success"
+   ],
+   [
+    "analyze",
+    "success"
+   ]
+  ],
+  "stopped_at": null,
+  "failure": null,
+  "orig_unchanged": true,
+  "orig_facts": {
+   "rows": 6,
+   "dups": 2,
+   "blank": 1,
+   "sheets": [
+    "Sheet1"
+   ]
+  },
+  "final_facts": {
+   "rows": 4,
+   "dups": 0,
+   "blank": 1,
+   "sheets": [
+    "Sheet1"
+   ]
+  },
+  "verified": true,
+  "flags": [
+   "paren_s",
+   "paren",
+   "bad_plural_n"
+  ],
+  "name": "f22-dedupe-report-skill-read-fails-first"
+ },
+ {
+  "speaker": "template",
+  "turn": 0,
+  "msg": "remove the duplicate rows and give me a report",
+  "reply": "I ran into a problem partway through. deduplicate failed verification: [deduplicate] output has 4 row(s), 0 duplicate row(s) remaining; [deduplicate] could not independently read its input 'uploads/report.xlsx': read boom /secret/path TOPSECRET. I stopped at the deduplicate step and no file was handed back; your original file is unchanged.",
+  "voice_calls": 0,
+  "delivered": false,
+  "steps": [
+   [
+    "analyze",
+    "success"
+   ],
+   [
+    "deduplicate",
+    "success"
+   ]
+  ],
+  "stopped_at": "spreadsheet.deduplicate",
+  "failure": null,
+  "orig_unchanged": true,
+  "orig_facts": {
+   "rows": 6,
+   "dups": 2,
+   "blank": 1,
+   "sheets": [
+    "Sheet1"
+   ]
+  },
+  "final_facts": null,
+  "verified": true,
+  "flags": [
+   "paren_s",
+   "paren",
+   "secret_or_file_text",
+   "bad_plural_n"
+  ],
+  "name": "f23-dedupe-report-recheck-skill-read-fails"
+ },
+ {
+  "speaker": "friend",
+  "turn": 0,
+  "msg": "remove the duplicate rows and give me a report",
+  "reply": "I ran into a problem partway through. deduplicate failed verification: [deduplicate] output has 4 row(s), 0 duplicate row(s) remaining; [deduplicate] could not independently read its input 'uploads/report.xlsx': read boom /secret/path TOPSECRET. I stopped at the deduplicate step and no file was handed back; your original file is unchanged.",
+  "voice_calls": 0,
+  "delivered": false,
+  "steps": [
+   [
+    "analyze",
+    "success"
+   ],
+   [
+    "deduplicate",
+    "success"
+   ]
+  ],
+  "stopped_at": "spreadsheet.deduplicate",
+  "failure": null,
+  "orig_unchanged": true,
+  "orig_facts": {
+   "rows": 6,
+   "dups": 2,
+   "blank": 1,
+   "sheets": [
+    "Sheet1"
+   ]
+  },
+  "final_facts": null,
+  "verified": true,
+  "flags": [
+   "paren_s",
+   "paren",
+   "secret_or_file_text",
+   "bad_plural_n"
+  ],
+  "name": "f23-dedupe-report-recheck-skill-read-fails"
+ },
+ {
+  "speaker": "focus",
+  "turn": 0,
+  "msg": "remove the duplicate rows and give me a report",
+  "reply": "I ran into a problem partway through. deduplicate failed verification: [deduplicate] output has 4 row(s), 0 duplicate row(s) remaining; [deduplicate] could not independently read its input 'uploads/report.xlsx': read boom /secret/path TOPSECRET. I stopped at the deduplicate step and no file was handed back; your original file is unchanged.",
+  "voice_calls": 0,
+  "delivered": false,
+  "steps": [
+   [
+    "analyze",
+    "success"
+   ],
+   [
+    "deduplicate",
+    "success"
+   ]
+  ],
+  "stopped_at": "spreadsheet.deduplicate",
+  "failure": null,
+  "orig_unchanged": true,
+  "orig_facts": {
+   "rows": 6,
+   "dups": 2,
+   "blank": 1,
+   "sheets": [
+    "Sheet1"
+   ]
+  },
+  "final_facts": null,
+  "verified": true,
+  "flags": [
+   "paren_s",
+   "paren",
+   "secret_or_file_text",
+   "bad_plural_n"
+  ],
+  "name": "f23-dedupe-report-recheck-skill-read-fails"
+ },
+ {
+  "speaker": "template",
+  "turn": 0,
+  "msg": "give me a report",
+  "reply": "I wasn't able to confirm that worked. The analysis reported failure. No changes were made to any file this turn.",
+  "voice_calls": 0,
+  "delivered": false,
+  "steps": [
+   [
+    "analyze",
+    "failure"
+   ]
+  ],
+  "stopped_at": null,
+  "failure": null,
+  "orig_unchanged": true,
+  "orig_facts": {
+   "rows": 6,
+   "dups": 2,
+   "blank": 1,
+   "sheets": [
+    "Sheet1"
+   ]
+  },
+  "final_facts": null,
+  "verified": false,
+  "flags": [],
+  "name": "f24-report-all-reads-fail"
+ },
+ {
+  "speaker": "friend",
+  "turn": 0,
+  "msg": "give me a report",
+  "reply": "I wasn't able to confirm that worked. The analysis reported failure. No changes were made to any file this turn.",
+  "voice_calls": 0,
+  "delivered": false,
+  "steps": [
+   [
+    "analyze",
+    "failure"
+   ]
+  ],
+  "stopped_at": null,
+  "failure": null,
+  "orig_unchanged": true,
+  "orig_facts": {
+   "rows": 6,
+   "dups": 2,
+   "blank": 1,
+   "sheets": [
+    "Sheet1"
+   ]
+  },
+  "final_facts": null,
+  "verified": false,
+  "flags": [],
+  "name": "f24-report-all-reads-fail"
+ },
+ {
+  "speaker": "focus",
+  "turn": 0,
+  "msg": "give me a report",
+  "reply": "I wasn't able to confirm that worked. The analysis reported failure. No changes were made to any file this turn.",
+  "voice_calls": 0,
+  "delivered": false,
+  "steps": [
+   [
+    "analyze",
+    "failure"
+   ]
+  ],
+  "stopped_at": null,
+  "failure": null,
+  "orig_unchanged": true,
+  "orig_facts": {
+   "rows": 6,
+   "dups": 2,
+   "blank": 1,
+   "sheets": [
+    "Sheet1"
+   ]
+  },
+  "final_facts": null,
+  "verified": false,
+  "flags": [],
+  "name": "f24-report-all-reads-fail"
+ },
+ {
+  "speaker": "template",
+  "turn": 0,
+  "msg": "remove the duplicate rows",
+  "reply": "I ran into a problem partway through. The deduplicate step: could not read the workbook. I stopped at the deduplicate step and no file was handed back; your original file is unchanged.",
+  "voice_calls": 0,
+  "delivered": false,
+  "steps": [
+   [
+    "analyze",
+    "failure"
+   ],
+   [
+    "deduplicate",
+    "failure"
+   ]
+  ],
+  "stopped_at": "spreadsheet.deduplicate",
+  "failure": null,
+  "orig_unchanged": true,
+  "orig_facts": {
+   "rows": 6,
+   "dups": 2,
+   "blank": 1,
+   "sheets": [
+    "Sheet1"
+   ]
+  },
+  "final_facts": null,
+  "verified": false,
+  "flags": [],
+  "name": "f25-dedupe-reads-fail"
+ },
+ {
+  "speaker": "friend",
+  "turn": 0,
+  "msg": "remove the duplicate rows",
+  "reply": "I ran into a problem partway through. The deduplicate step: could not read the workbook. I stopped at the deduplicate step and no file was handed back; your original file is unchanged.",
+  "voice_calls": 0,
+  "delivered": false,
+  "steps": [
+   [
+    "analyze",
+    "failure"
+   ],
+   [
+    "deduplicate",
+    "failure"
+   ]
+  ],
+  "stopped_at": "spreadsheet.deduplicate",
+  "failure": null,
+  "orig_unchanged": true,
+  "orig_facts": {
+   "rows": 6,
+   "dups": 2,
+   "blank": 1,
+   "sheets": [
+    "Sheet1"
+   ]
+  },
+  "final_facts": null,
+  "verified": false,
+  "flags": [],
+  "name": "f25-dedupe-reads-fail"
+ },
+ {
+  "speaker": "focus",
+  "turn": 0,
+  "msg": "remove the duplicate rows",
+  "reply": "I ran into a problem partway through. The deduplicate step: could not read the workbook. I stopped at the deduplicate step and no file was handed back; your original file is unchanged.",
+  "voice_calls": 0,
+  "delivered": false,
+  "steps": [
+   [
+    "analyze",
+    "failure"
+   ],
+   [
+    "deduplicate",
+    "failure"
+   ]
+  ],
+  "stopped_at": "spreadsheet.deduplicate",
+  "failure": null,
+  "orig_unchanged": true,
+  "orig_facts": {
+   "rows": 6,
+   "dups": 2,
+   "blank": 1,
+   "sheets": [
+    "Sheet1"
+   ]
+  },
+  "final_facts": null,
+  "verified": false,
+  "flags": [],
+  "name": "f25-dedupe-reads-fail"
+ }
+]
