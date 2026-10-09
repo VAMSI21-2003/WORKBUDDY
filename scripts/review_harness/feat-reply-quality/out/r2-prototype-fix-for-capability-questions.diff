@@ -1,0 +1,13 @@
+diff --git a/buddy/actions.py b/buddy/actions.py
+index 6248aa4..485701d 100644
+--- a/buddy/actions.py
++++ b/buddy/actions.py
+@@ -201,7 +201,7 @@ _REPORT_ABOUT = (
+ _REPORT_REQUEST = re.compile(
+     r"(?:\b(?:give|send|show|make|create|write|produce|generate|prepare|get|run|do|need|want)\s+"
+     r"(?:(?:me|us|a|an|the|my|our|your|full|short|brief|quick|detailed|written|data|quality)\s+)*)?"
+-    rf"\b{_REPORT_NOUN}\b{_REPORT_ABOUT}"
++    rf"\b{_REPORT_NOUN}\b(?!\s+(?:of|on|about)\s+(?:what\s+)?(?:you|your)\b){_REPORT_ABOUT}"
+     # "check the file for problems", "take a look at my data", "what's wrong with the sheet": the
+     # analysis, asked for by what it does.
+     r"|\b(?:check|look\s+(?:at|over)|take\s+a\s+look\s+at|review|inspect)\s+"

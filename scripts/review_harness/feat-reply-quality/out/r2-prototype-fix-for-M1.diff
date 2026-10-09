@@ -1,0 +1,28 @@
+diff --git a/buddy/outcome.py b/buddy/outcome.py
+index 8ee9c44..1603732 100644
+--- a/buddy/outcome.py
++++ b/buddy/outcome.py
+@@ -434,6 +434,13 @@ _LOCATION_PHRASE = re.compile(
+     r"\b(?:from|in|on)\s+(?:(?:the|this|that|my|our|your)\s+)?"
+     r"(?:sheet|file|spreadsheet|table|data)\b"
+ )
++_OTHER_REQUEST_WORDS = re.compile(
++    r"\b(?:sort|sorted|filter|chart|graph|plot|highlight|colou?r|format|merge|split|rename|translate|"
++    r"convert|e-?mail|mail|print|upload|share|export|pivot|delete|remove|drop|add|insert|fix|correct|"
++    r"replace|capitali[sz]e|trim|round|rotate|freeze|hide|unhide|group|count|sum|total|average|"
++    r"dashboard|forecast|predict|schedule|attach|forward|save|download|open|copy|move|paste|paint|"
++    r"bold|italic|underline|resize|reorder|rearrange|transpose|flip|clean|dedupe|deduplicate)\w*\b"
++)
+ _TWO_REQUESTS = re.compile(r"\b(?:and|then|also|plus)\b|[,;&+]")
+ 
+ 
+@@ -492,6 +499,9 @@ def _no_skill_outcome(
+         lowered, had_report = strip_report_request(lowered)
+         if had_report:
+             names_action = named_passed = True
++            if not _TWO_REQUESTS.search(phrase) and not _OTHER_REQUEST_WORDS.search(lowered):
++                # PROTOTYPE: one request, and what is left names nothing Buddy can't do.
++                return None
+     lowered = _LOCATION_PHRASE.sub(" ", lowered, count=1)
+     for other in ledger:
+         other_action = ACTIONS_BY_NAME.get(other.action)

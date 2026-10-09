@@ -1,0 +1,37 @@
+checked 20000 stored names; 0 problems
+
+stored -> head [-> round 1]
+  'report_somethingnew_s-task-3.xlsx'                            -> 'report_somethingnew.xlsx'   r1: 'report_somethingnew.xlsx'
+  'weird-task-5.xlsx'                                            -> 'weird-task-5.xlsx'   r1: 'weird-task-5.xlsx'
+  'report.xlsx'                                                  -> 'report.xlsx'   r1: 'report.xlsx'
+  's-task-1.xlsx'                                                -> 's-task-1.xlsx'   r1: 's-task-1.xlsx'
+  '_deduplicated_s-task-1.xlsx'                                  -> '_deduplicated.xlsx'   r1: '_deduplicated.xlsx'
+  'a_deduplicated_s-task-1'                                      -> 'a_deduplicated'   r1: 'a_deduplicated'
+  'a_deduplicated_s-task-1.tar.gz'                               -> 'a_deduplicated.tar.gz'   r1: 'a_deduplicated.tar.gz'
+  'a_deduplicated_s-task-1.xlsx.exe'                             -> 'a_deduplicated.xlsx.exe'   r1: 'a_deduplicated.xlsx.exe'
+  'a_deduplicated_s-task-1_deduplicated_s-task-2.xlsx'           -> 'a_deduplicated_deduplicated.xlsx'   r1: 'a_deduplicated_deduplicated.xlsx'
+  'a_deduplicated_s-task-1_foo_s-task-2.xlsx'                    -> 'a_deduplicated_foo.xlsx'   r1: 'a_deduplicated_foo.xlsx'
+  'a_deduplicated_S-TASK-1.xlsx'                                 -> 'a_deduplicated_S-TASK-1.xlsx'   r1: 'a_deduplicated_S-TASK-1.xlsx'
+  'a_deduplicated_s-task-.xlsx'                                  -> 'a_deduplicated_s-task-.xlsx'   r1: 'a_deduplicated_s-task-.xlsx'
+  'a_deduplicated_s-task-1 .xlsx'                                -> 'a_deduplicated .xlsx'   r1: 'a_deduplicated .xlsx'
+  'a\nb_deduplicated_s-task-1.xlsx'                              -> 'a\nb_deduplicated.xlsx'   r1: 'ab_deduplicated.xlsx'
+  'a"b_deduplicated_s-task-1.xlsx'                               -> 'a"b_deduplicated.xlsx'   r1: 'a_b_deduplicated.xlsx'
+  '../a_deduplicated_s-task-1.xlsx'                              -> '../a_deduplicated.xlsx'   r1: 'a_deduplicated.xlsx'
+
+three same: ['r_deduplicated.xlsx', 'r_deduplicated (2).xlsx', 'r_deduplicated (3).xlsx']  collision=False max_len=23
+   r1:   ['r_deduplicated.xlsx', 'r_deduplicated (2).xlsx', 'r_deduplicated (3).xlsx']
+
+case: ['R_deduplicated.xlsx', 'r_deduplicated (2).xlsx']  collision=False max_len=23
+   r1:   ['R_deduplicated.xlsx', 'r_deduplicated (2).xlsx']
+
+user file already named (2): ['r_deduplicated.xlsx', 'r_deduplicated (2).xlsx', 'r_deduplicated (2).xlsx']  collision=True max_len=23
+   r1:   ['r_deduplicated.xlsx', 'r_deduplicated (2).xlsx', 'r_deduplicated (2).xlsx']
+
+numbered vs real: ['r_deduplicated (2).xlsx', 'r_deduplicated.xlsx', 'r_deduplicated (2).xlsx']  collision=True max_len=23
+   r1:   ['r_deduplicated (2).xlsx', 'r_deduplicated.xlsx', 'r_deduplicated (2).xlsx']
+
+long: ['xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx_deduplicated.xlsx', 'xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx_deduplicated (2).xlsx']  collision=False max_len=104
+   r1:   ['xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx.xlsx', 'xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx (2).xlsx']
+
+no extension: ['abc', 'abc (2)']  collision=False max_len=7
+   r1:   ['abc', 'abc (2)']
