@@ -12,6 +12,7 @@ from __future__ import annotations
 
 import hashlib
 import json
+import re
 import shutil
 from pathlib import Path
 from typing import Any
@@ -160,9 +161,15 @@ def test_the_saved_turns_read_back_as_they_were_written(
         assert turn["reply"] == expected["reply"]
         assert turn["detail"]["confirmation"] == expected["confirmation"]
         keys = ("file_id", "name", "size", "sha256")
-        assert [{k: f[k] for k in keys} for f in turn["delivered_files"]] == expected[
-            "delivered_files"
+        # What is saved is unchanged: a delivered file's stored name is its name on disk, with
+        # the internal session key and task number. The API shows it without them
+        # (`backend.names`), so the name read back is the saved one minus those, whichever
+        # server version wrote it.
+        saved = [
+            {**f, "name": re.sub(r"_[0-9a-f]{32}-task-\d+", "", f["name"])}
+            for f in expected["delivered_files"]
         ]
+        assert [{k: f[k] for k in keys} for f in turn["delivered_files"]] == saved
 
 
 def test_the_saved_files_have_the_same_hash(
