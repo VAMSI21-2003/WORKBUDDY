@@ -50,9 +50,9 @@ No model call is made for any reply (`voice_calls == 0` in every matrix run).
 - Existing tests updated for the new wording (plurals, "with"), for `PersonalityVoice` now wording the greeting and the question for the mode (`_factual` in `test_voice.py`), and for the report step: the old "the report step has no skill, so the chain doesn't start" scenarios use a dashboard step instead, because a report now has a skill (the analysis). The decided behaviour (a chain with a step no skill can run doesn't start) is untouched and still tested with the dashboard/sort steps.
 - Found while testing: `ClaudeThinker._parse_reply("[1]")` raised `AttributeError` (pre-existing, on `main`); it is now caught like the other malformed shapes.
 
-## Results at the head handed to the reviewer (updated for round 2, head `e51b2fc` plus this file)
+## Results at the head handed to the reviewer (updated for round 3, head `efaf27d` plus this file)
 
-- **Suite:** `python -m pytest -q`: **3055 passed, 6 skipped** (base `5ec6cac`: 2792 passed, 6 skipped; round 1 saw 2985 passed). The first full run after the change had 623 failures, all from the new wording; each was read before its expectation was changed (see "Tests").
+- **Suite:** `python -m pytest -q`: **3540 passed, 6 skipped** (base `5ec6cac`: 2792 passed, 6 skipped; round 1 saw 2985, round 2 saw 3055). The first full run after the change had 623 failures, all from the new wording; each was read before its expectation was changed (see "Tests").
 - **Lint:** `ruff check buddy tests` and `ruff check skills backend core`: no error beyond the baseline (`scripts/check_ruff_baseline.py`; the baseline is not updated).
 - **Existing harnesses against `origin/main`** (worktree of `5ec6cac`; `scripts/review_harness/feat-reply-quality/writer/compare.py`, output in `writer/results/`):
 
@@ -73,3 +73,5 @@ No model call is made for any reply (`voice_calls == 0` in every matrix run).
 (Live runs: see `docs/reviews/feat-reply-quality-live-runs.md`, written after a MERGE verdict.)
 
 **Round 1:** DON'T MERGE (one MEDIUM). Fixes: `docs/reviews/feat-reply-quality-fixes1.md`. The harness and matrix comparisons above were re-run on the fixed head with the same numbers; the files in `writer/results/` are from that run.
+
+**Round 2:** DON'T MERGE (M1 still open). Fixes: `docs/reviews/feat-reply-quality-fixes2.md` (the report-phrase word list is replaced, not widened again). The harness and matrix comparisons were re-run on that head with the same numbers; `writer/results/` is from that run.
