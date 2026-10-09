@@ -1,0 +1,45 @@
+diff --git a/buddy/actions.py b/buddy/actions.py
+index b734884..256129f 100644
+--- a/buddy/actions.py
++++ b/buddy/actions.py
+@@ -192,7 +192,9 @@ _REPORT_NOUN = (
+ _REPORT_REQUEST = re.compile(
+     r"(?:\b(?:give|send|show|make|create|write|produce|generate|prepare|get|run|do|need|want)\s+"
+     r"(?:(?:me|us|a|an|the|my|our|your|full|short|brief|quick|detailed|written|data|quality)\s+)*)?"
+-    rf"\b{_REPORT_NOUN}\b",
++    rf"\b{_REPORT_NOUN}\b"
++    r"(?:\s+(?:of|on|about|for)\s+(?:(?:the|this|that|my|our|your|all|any|every|these|those)\s+)*"
++    r"(?:file|sheet|spreadsheet|workbook|data|table|issues?|problems?|duplicates?|rows?|columns?|errors?)\b)?",
+     re.IGNORECASE,
+ )
+ _REPORT_NEGATED = re.compile(
+@@ -209,7 +211,7 @@ _REPORT_ELSEWHERE = re.compile(
+ # Words that may stand around a report request without asking for anything else.
+ _REPORT_FILLER = frozenset(
+     "a an the please pls and then also just only so but can could would will you i we to "
+-    "me us it of on for this that my our your file sheet spreadsheet data".split()
++    "me us it of on for this that my our your file sheet spreadsheet data would be great thanks thank".split()
+ )
+ 
+ 
+diff --git a/buddy/outcome.py b/buddy/outcome.py
+index ff3a541..e853a48 100644
+--- a/buddy/outcome.py
++++ b/buddy/outcome.py
+@@ -30,6 +30,7 @@ from buddy.actions import (
+     BRAIN_SOURCES,
+     UNSUPPORTED,
+     requested_ledger,
++    is_only_a_report_request,
+     strip_report_request,
+ )
+ from buddy.inspector import FINAL_OUTPUT_CAPABILITY
+@@ -470,6 +471,8 @@ def _no_skill_outcome(
+       as a negation.
+     """
+     phrase = entry.source_phrase
++    if report_stated and is_only_a_report_request(phrase):
++        return None
+     lowered = phrase.casefold().replace("\u2019", "'")
+     names_action = named_passed = named_silent = False
+     for action in ACTIONS_BY_NAME.values():

@@ -1,0 +1,19 @@
+r2-unchanged-lead-says-copy                   KILLED    1 failed, 95 passed, 64 warnings in 7.46s FAILED tests/buddy/test_reply_quality.py::test_a_report_only_request_reports_on_the_original_and_changes_nothi
+r2-delivered-lead-says-original               KILLED    1 failed, 92 passed, 54 warnings in 9.52s FAILED tests/buddy/test_reply_quality.py::test_dedupe_then_report_delivers_the_report_on_the_final_file[templa
+r2-final-needs-no-recheck                     KILLED    1 failed, 122 passed, 106 warnings in 12.30s FAILED tests/buddy/test_reply_quality.py::test_a_report_the_analysis_could_not_make_is_stated_as_not_available
+r2-nochange-ignores-errors                    KILLED    1 failed, 188 passed, 182 warnings in 14.31s FAILED tests/buddy/test_voice.py::test_template_speaker_describes_execution_failure_when_verification_never_ra
+r2-nochange-ignores-outputs                   KILLED    1 failed, 186 passed, 182 warnings in 14.32s FAILED tests/buddy/test_voice.py::test_template_speaker_failure_message_covers_every_steps_finding
+r2-nochange-no-question-after-findings        KILLED    1 failed, 191 passed, 182 warnings in 13.83s FAILED tests/buddy/test_voice.py::test_template_speaker_gives_the_reason_then_the_analysis_findings
+r2-report-not-produced-always                 KILLED    1 failed, 238 passed, 182 warnings in 13.72s FAILED tests/buddy/test_voice.py::test_a_rejected_plan_isnt_called_a_problem_and_says_nothing_ran[friend]
+r2-catalog-greeting-next-step-ignores-file    KILLED    1 failed, 6 passed, 1 warning in 2.27s FAILED tests/buddy/test_reply_quality.py::test_no_file_yet_says_so[conversation-template]
+r2-plan-refusal-ignored-for-report            KILLED    1 failed, 9 passed, 4 warnings in 4.20s FAILED tests/buddy/test_reply_quality.py::test_a_file_that_cannot_be_cleaned_says_why_in_the_skills_own_words[
+r2-think-reason-no-strip                      KILLED    1 failed, 161 passed, 182 warnings in 13.51s FAILED tests/buddy/test_reply_quality_units.py::test_think_keeps_only_a_known_reason_code
+r2-think-list-shape                           KILLED    1 failed, 163 passed, 182 warnings in 13.40s FAILED tests/buddy/test_reply_quality_units.py::test_a_failed_think_is_marked_failed_by_code_not_by_the_model
+r2-brain-conversation-removed                 KILLED    1 failed, 6 passed, 1 warning in 1.96s FAILED tests/buddy/test_reply_quality.py::test_no_file_yet_says_so[conversation-template]
+r2-names-casefold                             SURVIVED  721 passed, 216 warnings in 18.09s 
+r2-names-sanitize-dropped                     SURVIVED  721 passed, 216 warnings in 18.40s 
+r2-names-ext-handling                         KILLED    1 failed, 422 passed, 182 warnings in 14.05s FAILED tests/backend/test_download_names.py::test_two_files_with_the_same_name_are_numbered_in_the_order_deliv
+r2-actions-report-verbless                    KILLED    1 failed, 170 passed, 182 warnings in 14.48s FAILED tests/buddy/test_reply_quality_units.py::test_a_step_that_only_asks_for_a_report_is_planned_as_the_anal
+r2-inspector-dup-wrong-count                  KILLED    1 failed, 30 passed, 4 warnings in 4.34s FAILED tests/buddy/test_reply_quality.py::test_an_unrecognised_request_lists_what_buddy_can_do[template]
+r2-analyzer-singular                          KILLED    1 failed, 178 passed, 182 warnings in 13.58s FAILED tests/buddy/test_reply_quality_units.py::test_the_analyzer_reports_exact_duplicate_rows_with_a_count
+r2-inspector-singular                         SURVIVED  721 passed, 216 warnings in 18.12s 

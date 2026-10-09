@@ -1,0 +1,69 @@
+[
+ {
+  "speaker": "template",
+  "turn": 0,
+  "msg": "give me a report",
+  "reply": "I wasn't able to confirm that worked. The analysis reported failure. No changes were made to any file this turn.",
+  "voice_calls": 0,
+  "delivered": false,
+  "steps": [
+   [
+    "analyze",
+    "failure"
+   ]
+  ],
+  "stopped_at": null,
+  "failure": null,
+  "orig_unchanged": true,
+  "orig_facts": {
+   "rows": 6,
+   "dups": 2,
+   "blank": 1,
+   "sheets": [
+    "Sheet1"
+   ]
+  },
+  "final_facts": null,
+  "verified": false,
+  "flags": [],
+  "name": "f20-report-only-skill-read-fails"
+ },
+ {
+  "speaker": "template",
+  "turn": 0,
+  "msg": "remove the duplicate rows and give me a report",
+  "reply": "I ran into a problem partway through. deduplicate failed verification: [deduplicate] output has 4 row(s), 0 duplicate row(s) remaining; [deduplicate] could not independently read its input 'uploads/report.xlsx': read boom /secret/path TOPSECRET. I stopped at the deduplicate step and no file was handed back; your original file is unchanged.",
+  "voice_calls": 0,
+  "delivered": false,
+  "steps": [
+   [
+    "analyze",
+    "success"
+   ],
+   [
+    "deduplicate",
+    "success"
+   ]
+  ],
+  "stopped_at": "spreadsheet.deduplicate",
+  "failure": null,
+  "orig_unchanged": true,
+  "orig_facts": {
+   "rows": 6,
+   "dups": 2,
+   "blank": 1,
+   "sheets": [
+    "Sheet1"
+   ]
+  },
+  "final_facts": null,
+  "verified": true,
+  "flags": [
+   "paren_s",
+   "paren",
+   "secret_or_file_text",
+   "bad_plural_n"
+  ],
+  "name": "f23-dedupe-report-recheck-skill-read-fails"
+ }
+]
