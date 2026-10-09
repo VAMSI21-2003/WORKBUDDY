@@ -1,0 +1,72 @@
+# Reply quality
+
+Branch `feat/reply-quality`. Backlog items 2 and 3, backlog R2-1 and N2, and the plural and download-name wording. Rule 1 is the centre of it: a reply never claims an outcome that didn't happen, and the Voice model never writes reply text (`CLAUDE.md`, "Decided behaviour"). Every new sentence is **fixed text chosen by code**, or **a number or refusal text that code already holds**.
+
+## What was asked (the owner's five parts)
+
+1. **"Nothing ran" says why.** When a turn runs no file-changing step, the reply states the real reason. It comes from data the code already has: the file can't be cleaned (the refusal's own fixed text), there is no file yet, or the request wasn't understood as something Buddy can do (a fixed line listing what Buddy can do). "No verifier has been configured" never reaches a user (R2-1, N2).
+2. **Greetings and capability questions** get a short fixed reply in Friend or Focus style and no analysis dump. An action request misread as a greeting never gets a completion claim. When Think asks for clarification, the user sees a question: Think's reason is mapped to a fixed catalog question. Think's own words are never shown.
+3. **A requested report is delivered or stated as not available.** Delivered means the analysis findings on the final file, labelled as the report. The analyzer reports exact duplicate rows with a count, so "It still has 2 duplicate rows" can't sit next to "None of the issues I check for were found."
+4. **Wording.** Correct plurals everywhere (`1 row`, `2 rows`, never `row(s)`); every reply template read once for flow; numbers come only from verifier measurements. The phrase catalog and the UI copy snapshot are updated.
+5. **Download names.** A person downloads `report_deduplicated.xlsx` or `report_cleaned.xlsx`, without the internal id. Files on disk keep their unique names. Two downloads in one session don't collide.
+
+## Decisions
+
+### D1. What decides the reply of a turn that changed nothing
+
+`buddy.voice.TemplateSpeaker._no_change_reply`, for a turn with no file-changing step, no stage failure and no recorded error. The first that holds decides the main sentence:
+
+| # | Condition (data) | Reply |
+|---|---|---|
+| 1 | `buddy.actions.is_conversation`: Brain's intent is `conversation`, and Brain listed no action, the mention detector finds none, and the message doesn't ask for a report | greeting + what Buddy can do + what to do next (D3) |
+| 2 | the session has no file | `NO_FILE_SENTENCE` + "No changes were made to any file this turn." |
+| 3 | `BuddyState.file_refusal` (set by the Planner) | `I can't work on this file: <the skills' own refusal text>.` + no-changes sentence |
+| 4 | Think asked for clarification | the fixed question for Think's reason code (D2); for `failed`, the "couldn't work out what you asked" sentence |
+| 5 | Brain's call failed (`intent is None`) | the "couldn't work out what you asked" sentence + no-changes sentence |
+| 6 | otherwise | each ledger action that didn't run, in the outcome renderer's own sentence for its reason code (`unsupported` quoted, "your message mentions X but I didn't run it", "I read it as part of your request but didn't run it"), then what Buddy can do; or, with an empty ledger, "I didn't read that as something I can do" and what Buddy can do |
+
+After the main sentence: the requested report or why there isn't one (D4); else the analysis findings if the analysis ran; the "initial analysis couldn't run" sentence if it failed; and, unless the reply is a greeting or a question, "No changes were made to any file this turn."
+
+A cleaning request on a refused file *does* run a step (the skill refuses): it keeps the stopped-chain reply, which already quotes the refusal text. Its opener says "on the first step" and not "partway through" when the chain stopped at its first file-changing step.
+
+### D2. Think's reason is a closed vocabulary
+
+`Reasoning.clarification_reason` is one of `which_action`, `which_file`, `other` (the model picks from the list in Think's prompt) or `failed` (set by code when Think itself couldn't produce a reading). Anything else the model writes becomes `other`; no free text is kept. `voice_catalog.CLARIFICATION_QUESTIONS[reason][style]` holds the question. This is the same pattern as Brain's closed intent vocabulary: the model chooses a label, code writes the sentence.
+
+### D3. Greetings are a Brain intent, guarded by code
+
+Brain's vocabulary gains `conversation`. It lets a turn be answered with a greeting only when nothing contradicts it (`is_conversation`). The Planner also runs no proactive analysis for a conversation turn or a turn waiting for the user's answer (nobody asked for the file to be looked at, and a file is analysed once, so the findings would be used up before the real request). A message that asks for a report still gets its analysis.
+
+If a step above READ tier ran or was planned, the turn is not conversational whatever the intent: the greeting path is only reached when no file-changing step ran, and a delivered turn is rendered by the outcome block. A misread action request whose wording gives it away (a mention, a listed action, a report request) gets the "your message mentions…" sentences; one that gives nothing away gets a greeting, which claims nothing and invites the user to say what to do.
+
+### D4. A requested report
+
+`buddy.actions.mentions_report(message)` (deterministic, with a negation guard) says the user asked for one.
+
+- The Planner analyses the file for a report request even if it was analysed earlier, so the report can always be made.
+- A planner step whose `source_phrase` is only a report request (`is_only_a_report_request`) is planned as `spreadsheet.analyze`, so a model's own name for it ("spreadsheet.report") doesn't stop the chain as a step no skill can run.
+- **Delivered turn:** if the re-run of the analysis on the final file passed, the reply says `Report on the copy: <findings>.` (the findings, or the analyzer's all-clear). Otherwise it says why there is no report (`REPORT_RECHECK_FAILED_SENTENCE`, `REPORT_ANALYSIS_FAILED_SENTENCE`, `REPORT_NOT_RUN_SENTENCE`).
+- **Nothing changed:** `Report on your original file: <findings>.` or the same reasons; on a file that can't be analysed, the refusal sentence.
+- **Chain stopped:** `REPORT_NOT_PRODUCED_SENTENCE`.
+- The part of an `unsupported` entry that only asks for a report is not also stated as "I can't do this part yet" (`build_outcome_report(report_stated=True)`).
+- A report has no "Want me to tackle any of these?" question: the user asked for a report, and most findings aren't something Buddy can act on.
+
+### D5. Exact duplicates
+
+`ExactDuplicateRowAnalyzer` (skill) and `_independent_duplicate_row_findings` (Inspector, independently re-derived) report `N rows repeat an earlier row exactly`, using the same definition the dedupe verifier and the residual measurement use (`DataFrame.duplicated`, repeated blank rows included). A residual "still has 2 duplicate rows" and this finding therefore can't disagree.
+
+### D6. Plurals
+
+`buddy.text.count_noun(n, singular, plural=None)`. `Action.counted` became `Action.row_noun`. Every user-reachable `(s)` is gone from `buddy/`, `skills/` and `backend/`; a test scans the string literals.
+
+### D7. Download names
+
+`backend.names.download_name` drops every `_<session>-task-<n>` and writes `no_empty_rows` as `cleaned`; `display_names` numbers repeats ` (2)`, ` (3)` in delivery order. The stored `DeliveredFile.name` is unchanged (the name on disk), so nothing saved changes and no migration is needed: the friendly name is computed when a response is built (turn, state and file-list views, and the `Content-Disposition` header).
+
+## Not built (needs model-written text)
+
+None. Every reply path uses fixed catalog text or data. Two things were considered and left out because they would need the model to write text: a reply that quotes or paraphrases Think's own reason, and a free-text answer to "what can you do?" tailored to the user's file.
+
+## Deferred
+
+See the review file and `docs/backlog.md`.

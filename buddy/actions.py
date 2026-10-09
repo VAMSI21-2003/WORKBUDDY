@@ -39,7 +39,8 @@ class Action:
         request: How the reply states it as a request: "remove duplicate rows".
         object: What it acts on, as the reply names it: "duplicate rows".
         rows: The rows it removes, for "There were no … to remove": "duplicate rows".
-        counted: The rows it removes, with a count: "duplicate row(s)".
+        row_noun: The singular noun for the rows it removes, which a count turns
+            into "1 duplicate row" or "2 duplicate rows" (``buddy.text.count_noun``).
         step: The step, as a noun: "duplicate-row removal".
         mention: Finds the action's object in a user's message (English only).
     """
@@ -50,7 +51,7 @@ class Action:
     request: str
     object: str
     rows: str
-    counted: str
+    row_noun: str
     step: str
     mention: re.Pattern[str]
 
@@ -63,7 +64,7 @@ ACTIONS: tuple[Action, ...] = (
         request="remove duplicate rows",
         object="duplicate rows",
         rows="duplicate rows",
-        counted="duplicate row(s)",
+        row_noun="duplicate row",
         step="duplicate-row removal",
         # Longest alternative first, so "duplicate rows" is recorded whole.
         mention=re.compile(
@@ -78,7 +79,7 @@ ACTIONS: tuple[Action, ...] = (
         request="remove empty rows",
         object="empty rows",
         rows="fully-empty rows",
-        counted="fully-empty row(s)",
+        row_noun="fully-empty row",
         step="empty-row removal",
         mention=re.compile(r"\b(empty|blank)[\s-]+(rows?|lines?)\b", re.IGNORECASE),
     ),
@@ -170,3 +171,81 @@ def requested_ledger(understanding: Understanding) -> tuple[RequestedAction, ...
             listed.add(entry.action)
             mentions.append(entry)
     return brain + tuple(mentions)
+
+
+# -- A report request, and a conversational turn ---------------------------------------
+#
+# Neither is a file-changing action, so neither is in ``ACTIONS``. Both are detected by
+# deterministic patterns, independent of every model, and used to decide what the reply
+# owes the user: a requested report is delivered or stated as not available (backlog
+# item 3), and a greeting gets a greeting (item 2).
+
+# The intent Brain gives a message that asks for no action: a greeting, thanks, or a
+# question about what Buddy can do. Closed vocabulary, like every other intent.
+CONVERSATION = "conversation"
+
+_REPORT_NOUN = (
+    r"(?:reports?|summary|summaries|summari[sz]e|summari[sz]ation|analysis|analy[sz]e|analyse)"
+)
+# "give me a full report", "send me the summary", "analyze it": the request, with the verb and
+# determiners in front of the noun that belong to it.
+_REPORT_REQUEST = re.compile(
+    r"(?:\b(?:give|send|show|make|create|write|produce|generate|prepare|get|run|do|need|want)\s+"
+    r"(?:(?:me|us|a|an|the|my|our|your|full|short|brief|quick|detailed|written|data|quality)\s+)*)?"
+    rf"\b{_REPORT_NOUN}\b",
+    re.IGNORECASE,
+)
+_REPORT_NEGATED = re.compile(
+    rf"\b(?:no|not|without|skip|never|don't|dont|do\s+not)\b[^.;,!?]{{0,24}}\b{_REPORT_NOUN}\b",
+    re.IGNORECASE,
+)
+# Words that may stand around a report request without asking for anything else.
+_REPORT_FILLER = frozenset(
+    "a an the please pls and then also just only so but can could would will you i we to "
+    "me us it of on for this that my our your file sheet spreadsheet data".split()
+)
+
+
+def mentions_report(message: str) -> bool:
+    """Whether ``message`` asks for a report on the file (and doesn't say not to).
+
+    Deterministic and independent of every model. A paraphrase it misses ("give me a
+    rundown") is simply not labelled as a report; a negation it can't parse is the
+    only way to a report nobody wanted, which states findings and claims nothing else.
+    """
+    return _REPORT_REQUEST.search(message) is not None and _REPORT_NEGATED.search(message) is None
+
+
+def strip_report_request(text: str) -> tuple[str, bool]:
+    """``text`` without its report request, and whether it had one."""
+    stripped, count = _REPORT_REQUEST.subn(" ", text)
+    return stripped, count > 0
+
+
+def is_only_a_report_request(phrase: str) -> bool:
+    """Whether ``phrase`` is a report request and nothing else.
+
+    "give me a report" and "and then send me the summary, please" are; "remove duplicates
+    and give me a report" and "sort by amount" are not.
+    """
+    if _REPORT_REQUEST.search(phrase) is None or _REPORT_NEGATED.search(phrase) is not None:
+        return False
+    rest = _REPORT_REQUEST.sub(" ", phrase.casefold().replace("\u2019", "'"))
+    return all(word in _REPORT_FILLER for word in re.findall(r"[\w']+", rest))
+
+
+def is_conversation(understanding: Understanding, message: str) -> bool:
+    """Whether this turn is only a greeting, thanks or a question about what Buddy can do.
+
+    Brain's intent says so, **and** nothing contradicts it: Brain listed no action
+    (supported or not), the mention detector finds none in the message, and the message
+    doesn't ask for a report. An action request that Brain misread as conversation therefore
+    never gets a conversational reply when anything in the message gives it away. (When
+    nothing does, no step runs and the reply still claims nothing.)
+    """
+    return (
+        understanding.intent == CONVERSATION
+        and not requested_ledger(understanding)
+        and not mentioned_actions(message)
+        and not mentions_report(message)
+    )

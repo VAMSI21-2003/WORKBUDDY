@@ -23,6 +23,7 @@ from buddy.models import (
     VerificationResult,
 )
 from buddy.state import BuddyState
+from buddy.text import count_noun
 from skills.excel.workbook import (
     WorkbookRefused,
     formula_cell_counts,
@@ -148,7 +149,8 @@ class SpreadsheetDedupeVerifier:
 
         duplicate_count = _duplicate_rows(written)  # recomputed from scratch
         findings = [
-            f"output has {len(written)} row(s), {duplicate_count} duplicate row(s) remaining"
+            f"output has {count_noun(len(written), 'row')}, "
+            f"{count_noun(duplicate_count, 'duplicate row')} remaining"
         ]
         if duplicate_count:
             return VerificationResult(
@@ -225,7 +227,8 @@ class SpreadsheetEmptyRowsVerifier:
 
         empty_row_count = _empty_rows(written)  # recomputed from scratch
         findings = [
-            f"output has {len(written)} row(s), {empty_row_count} fully-empty row(s) remaining"
+            f"output has {count_noun(len(written), 'row')}, "
+            f"{count_noun(empty_row_count, 'fully-empty row')} remaining"
         ]
         if empty_row_count:
             return VerificationResult(
@@ -399,13 +402,17 @@ def _check_against_input(
     if len(written) != expected:
         return _InputCheck(
             problem=(
-                f"expected {expected} non-empty row(s) from its {len(original)}-row input, "
+                f"expected {count_noun(expected, 'non-empty row')} from its "
+                f"{len(original)}-row input, "
                 f"found {len(written)}"
             )
         )
     unexpected = _row_set(written) - _row_set(original)
     if unexpected:
-        return _InputCheck(problem=f"{len(unexpected)} output row(s) don't appear in its input")
+        return _InputCheck(problem=(
+            f"{count_noun(len(unexpected), 'output row')} "
+            f"{'doesn' if len(unexpected) == 1 else 'don'}'t appear in its input"
+        ))
     return _InputCheck(
         input_rows=input_rows,
         removed=removed,
@@ -447,6 +454,20 @@ def _matched_date_format(value: str) -> str | None:
     return None
 
 
+def _independent_duplicate_row_findings(df: pd.DataFrame) -> tuple[str, ...]:
+    """Recompute how many rows repeat an earlier row exactly, directly from ``df``.
+
+    The same definition the step verifiers and ``ResidualMeasurer`` count
+    (``_duplicate_rows``), so "it still has 2 duplicate rows" and this
+    finding can never disagree. Backlog item 3 (L-4).
+    """
+    count = _duplicate_rows(df)
+    if count == 0:
+        return ()
+    verb = "repeats" if count == 1 else "repeat"
+    return (f"{count_noun(count, 'row')} {verb} an earlier row exactly",)
+
+
 def _independent_missing_value_findings(df: pd.DataFrame) -> tuple[str, ...]:
     """Recompute missing-value counts directly from ``df``.
 
@@ -458,7 +479,9 @@ def _independent_missing_value_findings(df: pd.DataFrame) -> tuple[str, ...]:
         if missing == 0:
             continue
         percentage = 100 * missing / len(df) if len(df) else 0.0
-        findings.append(f"{column}: {missing} missing value(s) ({percentage:.1f}%)")
+        findings.append(
+            f"{column}: {count_noun(missing, 'missing value')} ({percentage:.1f}%)"
+        )
     return tuple(findings)
 
 
@@ -482,7 +505,8 @@ def _independent_outlier_findings(df: pd.DataFrame) -> tuple[str, ...]:
             continue
         examples = ", ".join(f"{value:g}" for value in outliers.head(3).tolist())
         findings.append(
-            f"{column}: {len(outliers)} unusually high/low value(s) (e.g. {examples})"
+            f"{column}: {count_noun(len(outliers), 'unusually high/low value')} "
+            f"(e.g. {examples})"
         )
     return tuple(findings)
 
@@ -509,9 +533,15 @@ def _independent_date_format_findings(df: pd.DataFrame) -> tuple[str, ...]:
             continue
         parts = []
         if distinct_formats:
-            parts.append(f"{len(distinct_formats)} different format(s): {', '.join(distinct_formats)}")
+            parts.append(
+                f"{count_noun(len(distinct_formats), 'different format')}: "
+                f"{', '.join(distinct_formats)}"
+            )
         if unparseable:
-            parts.append(f"{unparseable} value(s) that don't match a recognized date format")
+            parts.append(
+                f"{count_noun(unparseable, 'value')} that "
+                f"{'doesn' if unparseable == 1 else 'don'}'t match a recognized date format"
+            )
         findings.append(f"{column}: " + "; ".join(parts))
     return tuple(findings)
 
@@ -539,7 +569,8 @@ def _independent_grouped_key_conflict_findings(df: pd.DataFrame) -> tuple[str, .
                 continue
             example_key = conflicts.index[0]
             findings.append(
-                f"{len(conflicts)} value(s) of {key_column!r} are linked to more than one "
+                f"{count_noun(len(conflicts), 'value')} of {key_column!r} "
+                f"{'is' if len(conflicts) == 1 else 'are'} linked to more than one "
                 f"{other_column!r} (e.g. {key_column}={example_key!r})"
             )
     return tuple(findings)
@@ -613,6 +644,7 @@ class SpreadsheetAnalysisVerifier:
 
         findings: list[str] = []
         for category, category_findings in (
+            ("duplicate_rows", _independent_duplicate_row_findings(df)),
             ("missing_values", _independent_missing_value_findings(df)),
             ("outliers", _independent_outlier_findings(df)),
             ("date_format", _independent_date_format_findings(df)),
@@ -627,8 +659,8 @@ class SpreadsheetAnalysisVerifier:
         )
 
         if not findings:
-            # Not "nothing notable": the analysis doesn't check everything
-            # (e.g. exact duplicate rows), so it must not read as "clean".
+            # Not "nothing notable": the analysis doesn't check everything,
+            # so it must not read as "clean".
             findings.append(NO_ANALYSIS_FINDINGS)
 
         # A run with any self-reported (unverified) content is never as

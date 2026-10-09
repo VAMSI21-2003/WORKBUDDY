@@ -1,6 +1,6 @@
 """Analyze — proactively looks over an uploaded spreadsheet for missing
 values, outliers, inconsistent date formats, grouped-key conflicts, and
-near-duplicate rows, independent of whatever the user actually asked for.
+near-duplicate and exact-duplicate rows, independent of whatever the user asked for.
 
 See ``docs/design/proactive-analysis-design.md`` for the full design this
 implements, and ``scripts/spike_tools_test.py`` for the real-tool spike
@@ -85,6 +85,22 @@ class MissingValueAndDistributionAnalyzer:
         )
 
 
+class ExactDuplicateRowAnalyzer:
+    """Flags rows that repeat an earlier row exactly, with a count.
+
+    The same definition the cleaning skill removes by (``DataFrame.duplicated``),
+    so a "still has N duplicate rows" after cleaning and this finding agree.
+    Backlog item 3 (L-4).
+    """
+
+    def __call__(self, df: pd.DataFrame) -> tuple[str, ...]:
+        count = int(df.duplicated().sum())
+        if count == 0:
+            return ()
+        verb = "repeats" if count == 1 else "repeat"
+        return (f"{count} {'row' if count == 1 else 'rows'} {verb} an earlier row exactly",)
+
+
 class IQROutlierAnalyzer:
     """Flags numeric outliers via a simple, dependency-free IQR check.
 
@@ -108,7 +124,8 @@ class IQROutlierAnalyzer:
                 continue
             examples = ", ".join(f"{value:g}" for value in outliers.head(3).tolist())
             findings.append(
-                f"{column}: {len(outliers)} unusually high/low value(s) (e.g. {examples})"
+                f"{column}: {len(outliers)} unusually high/low "
+                f"{'value' if len(outliers) == 1 else 'values'} (e.g. {examples})"
             )
         return tuple(findings)
 
@@ -152,10 +169,15 @@ class DateFormatConsistencyAnalyzer:
             parts = []
             if distinct_formats:
                 parts.append(
-                    f"{len(distinct_formats)} different format(s): {', '.join(distinct_formats)}"
+                    f"{len(distinct_formats)} different "
+                    f"{'format' if len(distinct_formats) == 1 else 'formats'}: "
+                    f"{', '.join(distinct_formats)}"
                 )
             if unparseable:
-                parts.append(f"{unparseable} value(s) that don't match a recognized date format")
+                parts.append(
+                    f"{unparseable} {'value that doesn' if unparseable == 1 else 'values that don'}"
+                    "'t match a recognized date format"
+                )
             findings.append(f"{column}: " + "; ".join(parts))
         return tuple(findings)
 
@@ -182,7 +204,8 @@ class GroupedKeyConflictAnalyzer:
                     continue
                 example_key = conflicts.index[0]
                 findings.append(
-                    f"{len(conflicts)} value(s) of {key_column!r} are linked to more than one "
+                    f"{len(conflicts)} {'value' if len(conflicts) == 1 else 'values'} of "
+                    f"{key_column!r} {'is' if len(conflicts) == 1 else 'are'} linked to more than one "
                     f"{other_column!r} (e.g. {key_column}={example_key!r})"
                 )
         return tuple(findings)
@@ -263,6 +286,7 @@ class NearDuplicateAnalyzer:
 
 _ANALYZERS: tuple[tuple[str, Analyzer], ...] = (
     ("missing_and_distribution", MissingValueAndDistributionAnalyzer()),
+    ("duplicate_rows", ExactDuplicateRowAnalyzer()),
     ("outliers", IQROutlierAnalyzer()),
     ("date_format_consistency", DateFormatConsistencyAnalyzer()),
     ("grouped_key_conflicts", GroupedKeyConflictAnalyzer()),
@@ -286,7 +310,7 @@ class SpreadsheetAnalysisSkill(Skill):
     Only ``NearDuplicateAnalyzer``'s findings are carried on
     ``self_reported_findings`` — the one category ``SpreadsheetAnalysisVerifier``
     (``buddy/inspector.py``) treats as self-reported rather than
-    independently re-derived. The other four analyzers' findings feed only
+    independently re-derived. The other analyzers' findings feed only
     this Skill's own ``summary`` and its own well-formedness self-check;
     ``SpreadsheetAnalysisVerifier`` fully recomputes those independently
     from the original upload and never reads this Skill's copy of them.
@@ -375,7 +399,8 @@ class SpreadsheetAnalysisSkill(Skill):
 
         file_name = Path(input_path).name
         summary = (
-            f"Looked over {file_name}: found {total_finding_count} thing(s) worth a look."
+            f"Looked over {file_name}: found {total_finding_count} "
+            f"{'thing' if total_finding_count == 1 else 'things'} worth a look."
             if total_finding_count
             else f"Looked over {file_name}: nothing stood out."
         )

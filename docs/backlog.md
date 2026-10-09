@@ -61,7 +61,7 @@ Open work, in priority order. Each item follows the working method in `CLAUDE.md
 **Deferred from the re-review (`docs/reviews/fix-multi-sheet-review2.md`), in this order:**
 - N1 (Medium): a valid one-sheet workbook whose workbook part is typed by a `<Default>` entry (not an `<Override>`) is refused as "may be damaged"; `main` cleans it. Template content types are probably refused too. Mirror `openpyxl.reader.excel._find_workbook_part` in `_declared_sheet_names`, plus a test.
 - N4 (Low): the write error "could not write the cleaned copy" matches `_COMPLETION_CLAIM`; use "could not write the new file", plus an engine-level write-failure test.
-- N2 (Medium): a vague (`unclear`) turn on a multi-sheet or unreadable workbook now gets "I wasn't able to confirm that worked. No verifier has been configured." (pre-existing text for an empty plan, newly reachable). Give the empty plan an honest reply, or skip the analysis only when a file-changing step is planned.
+- N2 (Medium): a vague (`unclear`) turn on a multi-sheet or unreadable workbook now gets "I wasn't able to confirm that worked. No verifier has been configured." (pre-existing text for an empty plan, newly reachable). Give the empty plan an honest reply, or skip the analysis only when a file-changing step is planned. **Closed on `feat/reply-quality` (pending review): every no-change turn gets a reason (`tests/buddy/test_reply_quality.py` asserts no reply across the matrix mentions a verifier).**
 - N3 (Low): `EncryptedPackage` in `.xls` cell text (with a character above U+00FF) makes the file "password-protected"; match only at an OLE2 directory-entry position (`(offset - 512) % 128 == 0`, name length 34 at `offset + 64`).
 - N5 (Low): any non-encrypted OLE2 file (e.g. a renamed Word `.doc`) is called an "older .xls workbook".
 - N6 (Low): the live script's `password-protected` fixture is a stand-in, and its independent check prints only "unreadable".
@@ -89,11 +89,13 @@ Open work, in priority order. Each item follows the working method in `CLAUDE.md
   - R1-4: "had no saved value" is the wrong reason for a formula that returns `""` (Excel saves an empty string); the count also includes formula cells in rows the turn removed. Reword to "K of them are empty in the copy".
   - R1-6: cost of the extra passes on a large sheet (100,000 x 5: pandas read 8.9 s, plain-table check 10.1 s, formula count 17.6 s); an up-front refusal reads "partway through"; `sheet._get_source()` is private openpyxl API (pin or guard); no test for an empty-string header cell (`_is_empty` mutation survives).
 - **From the `fix/values-only-copy` review, round 2 (deferred, LOW; see `docs/reviews/fix-values-only-copy-review.md`):**
-  - R2-1: an analysis-only request on a file the cleaning skills would refuse (any file with `N/A`, an error value, merged cells, two sheets) gets "I wasn't able to confirm that worked. No verifier has been configured."; say why nothing ran, using the refusal text.
+  - R2-1: an analysis-only request on a file the cleaning skills would refuse (any file with `N/A`, an error value, merged cells, two sheets) gets "I wasn't able to confirm that worked. No verifier has been configured."; say why nothing ran, using the refusal text. **Closed on `feat/reply-quality` (pending review): the reply is "I can't work on this file:" and the refusal's own text.**
   - R2-2: the NA / error refusal is tested only at row 2 (mutation `cell.row == 2` survives); add rows below and later columns.
   - R2-3: `docs/design/values-only-copy.md` doesn't describe the error / NA refusal or the dimension reset; update it. Option to keep more files cleanable: read with `keep_default_na=False, na_values=[""]` at every pandas read site instead of refusing.
 
 ## 2. An explicit conversation intent, and relaying Think's clarifying question
+
+**Status (writer, `feat/reply-quality`, pending review):** built as `docs/design/reply-quality.md` describes, with no model-written text. Brain has a `conversation` intent (closed vocabulary) that only lets a turn be answered with a greeting when nothing in the message contradicts it; the greeting, the capabilities and the next step are fixed catalog lines chosen by code for Friend or Focus. Think gives a closed reason code (`which_action`, `which_file`, `other`; `failed` set by code), and the reply is the fixed question for it, never Think's words. No analysis runs for a greeting or a pending question. An action request misread as conversation never gets a completion claim (the greeting path is reached only when no file-changing step ran). Also closes **R2-L4** (the question reaches the user; "no file yet" is said). See `docs/reviews/feat-reply-quality-*.md`.
 
 **Problem:**
 - Every turn that doesn't deliver a file gets the factual template, including a greeting. "hi, what can you do?" gets a missing-values report (live-run L-5).
@@ -108,6 +110,8 @@ Open work, in priority order. Each item follows the working method in `CLAUDE.md
 - Live runs: a greeting, a capability question, and one clarification case.
 
 ## 3. "Give me a report" (L-3), and the analyzer doesn't report exact duplicates (L-4)
+
+**Status (writer, `feat/reply-quality`, pending review):** a message that asks for a report (`buddy.actions.mentions_report`) gets the analysis findings on the final file, labelled "Report on the copy:", or a sentence saying why there is no report; on a turn that changed nothing, "Report on your original file:". The analysis is run for a report request even if the file was analysed earlier, and a planner step that only asks for a report is planned as `spreadsheet.analyze`. The analyzer and the Inspector's independent re-derivation report exact duplicate rows with a count ("2 rows repeat an earlier row exactly"), counted the way the dedupe verifier counts, so "It still has 2 duplicate rows" can't sit next to an all-clear. See `docs/reviews/feat-reply-quality-*.md`.
 
 **Problem:**
 - **L-3:** "give me a report" is mapped to `spreadsheet.analyze` and then absorbed by the duplicate-analyze filter, so no step records the user's request. The reply may say "Done" without a report (`docs/reviews/chaining-wip-live-runs.md`).
@@ -232,7 +236,7 @@ Each item has its own acceptance criterion: fixed with a test, or explicitly clo
   - **R2-L1:** the L1 fix redacts the log format string on its own. A call like `log.info("Bearer %s", token)`, `"api_key=%s"` or `"/sessions/%s"` then loses its placeholder and fails to format, and `logging`'s error handler prints the raw argument to stderr. No such call exists today. Fix: redact the formatted message, keep the record's shape only when redacting the string args alone gives the same text, and otherwise collapse. Check with `scripts/review_harness/l1_placeholder_probe.py`.
   - **R2-L2:** a `BaseException` from the finished-record save (`backend/turns.py`, `_save_finished`) leaves the turn `running` and the session busy until a restart. Not reachable from file I/O. Catch `BaseException` there and finish the turn as failed.
   - **R2-L3:** `BuddyState.earlier_deliveries`, a pipeline input the API sets, isn't in `docs/design/backend-api-design.md`. Add it, with its counting rule, to the decisions addendum.
-  - **R2-L4:** `NOTHING_RAN_REPLY` is true but unhelpful in two cases. Before any upload, it doesn't say a file is needed. When Think asks for clarification on a later turn, the question never reaches the user (already so on base).
+  - **R2-L4:** `NOTHING_RAN_REPLY` is true but unhelpful in two cases. Before any upload, it doesn't say a file is needed. When Think asks for clarification on a later turn, the question never reaches the user (already so on base). **Closed on `feat/reply-quality` (pending review).**
   - **Status (writer, round-2 fixes, pending the next review):** R2-L1, R2-L2 and R2-L3 are fixed on `feat/backend-api-core` (`docs/reviews/backend-api-core-fixes2.md`). R2-L4 is open.
   - **Status (reviewer, round 3, commit `7be9949`):** R2-M1, R2-L1, R2-L2 and R2-L3 are confirmed fixed, and each guard's mutation is killed. R2-L4 is still open. Round 1's L9, L10 and L12 are still open.
 - **backend-api-core review (round 3), deferred Lows.** See `docs/reviews/backend-api-core-review.md`, "Review round 3", R3.7.

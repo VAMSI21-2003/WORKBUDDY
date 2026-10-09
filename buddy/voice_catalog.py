@@ -30,6 +30,7 @@ from collections.abc import Callable
 from dataclasses import dataclass
 
 from buddy.outcome import DONE, LEAD_PARTLY_DONE, OutcomeReport
+from buddy.think import CLARIFY_OTHER, CLARIFY_WHICH_ACTION, CLARIFY_WHICH_FILE
 
 OPENER = "opener"
 CLOSER = "closer"
@@ -252,10 +253,132 @@ FALLBACK_INTEGRITY_FAILURE = (
     "uploaded. I've held back every file from this turn."
 )
 
-# The reply for a turn in which nothing ran at all: no step, no output, no
-# error (no file to work on, or nothing to do for this message). It says only
-# that, so it can't read as doubt about a file handed back in an earlier turn.
-NOTHING_RAN_REPLY = "I didn't run anything on a file this turn, so no file was changed."
+# -- Replies for a turn that changed nothing -------------------------------------------------
+#
+# What a reply says when no file-changing step ran. Every sentence is fixed text chosen by
+# code from what the code knows: a greeting, Think's reason code, whether there is a file, the
+# row-cleaning skills' own refusal text, Brain's closed-vocabulary reading. No model writes any
+# of it, none carries a number or a name, and none claims work
+# (``tests/buddy/test_voice_catalog.py`` checks each against ``buddy.voice._COMPLETION_CLAIM``).
+# The one sentence built around data is ``REFUSED_TEMPLATE``: the refusal's own fixed text goes
+# in its blank (``skills.excel.workbook.WorkbookRefused``).
+#
+# ``STYLE_PLAIN`` is ``TemplateSpeaker``; the other two are the personality modes.
+
+STYLE_PLAIN = "plain"
+STYLES = (STYLE_PLAIN, *MODES)
+
+
+def style_for(mode: str | None) -> str:
+    """``STYLE_PLAIN`` for ``None``; else the mode, with anything unknown treated as friend."""
+    if mode is None:
+        return STYLE_PLAIN
+    return mode if mode in MODES else "friend"
+
+
+GREETINGS: dict[str, tuple[str, ...]] = {
+    STYLE_PLAIN: ("Hello.",),
+    "friend": ("Hi there!", "Hey!", "Hello!"),
+    "focus": ("Hi.",),
+}
+
+# What Buddy can do. It names each of ``buddy.actions.ACTIONS`` and the analysis; a test fails
+# if a skill is added without this line.
+CAPABILITIES: dict[str, str] = {
+    STYLE_PLAIN: (
+        "I can remove duplicate rows, remove empty rows, and look a spreadsheet over for "
+        "possible problems."
+    ),
+    "friend": (
+        "I can remove duplicate rows, remove empty rows, and look a spreadsheet over for "
+        "anything that seems off."
+    ),
+    "focus": (
+        "I can remove duplicate rows, remove empty rows, and check a spreadsheet for problems."
+    ),
+}
+
+# After a greeting: what to do next, by whether a file has been uploaded.
+NEXT_STEP_WITH_FILE: dict[str, str] = {
+    STYLE_PLAIN: "Tell me what to do with your file.",
+    "friend": "What would you like me to do with your file?",
+    "focus": "What should I do with the file?",
+}
+NEXT_STEP_WITHOUT_FILE: dict[str, str] = {
+    STYLE_PLAIN: "Upload a spreadsheet and tell me what to do with it.",
+    "friend": "Upload a spreadsheet and tell me what you'd like me to do with it.",
+    "focus": "Upload a spreadsheet and tell me what to do.",
+}
+
+# The question shown when Think asks for clarification, by Think's reason code. The user
+# never sees Think's own words.
+CLARIFICATION_QUESTIONS: dict[str, dict[str, tuple[str, ...]]] = {
+    CLARIFY_WHICH_ACTION: {
+        STYLE_PLAIN: ("Do you want me to remove duplicate rows, remove empty rows, or both?",),
+        "friend": (
+            "Quick question before I touch anything: do you want me to remove duplicate rows, "
+            "remove empty rows, or both?",
+            "Before I start: should I remove duplicate rows, remove empty rows, or both?",
+        ),
+        "focus": ("Duplicate rows, empty rows, or both?",),
+    },
+    CLARIFY_WHICH_FILE: {
+        STYLE_PLAIN: ("Which file should I work on?",),
+        "friend": (
+            "Quick question before I touch anything: which file should I work on?",
+            "Before I start: which file do you mean?",
+        ),
+        "focus": ("Which file?",),
+    },
+    CLARIFY_OTHER: {
+        STYLE_PLAIN: ("What would you like me to do with the file?",),
+        "friend": (
+            "Quick question before I touch anything: what would you like me to do with the file?",
+            "I want to get this right. What would you like me to do with the file?",
+        ),
+        "focus": ("What should I do with the file?",),
+    },
+}
+
+NO_FILE_SENTENCE = "I don't have a file to work on yet. Upload a spreadsheet and ask again."
+REFUSED_TEMPLATE = "I can't work on this file: {reason}."
+NOT_UNDERSTOOD_SENTENCE = "I didn't read that as something I can do."
+UNDERSTANDING_FAILED_SENTENCE = "I couldn't work out what you asked for just now. Please try again."
+
+# A requested report that couldn't be produced (backlog item 3). The reasons are about this
+# turn's data: the analysis didn't complete, or didn't run.
+REPORT_ANALYSIS_FAILED_SENTENCE = (
+    "I couldn't produce the report you asked for: the analysis of your file failed."
+)
+REPORT_NOT_RUN_SENTENCE = "I couldn't produce the report you asked for: I didn't run the analysis."
+REPORT_RECHECK_FAILED_SENTENCE = (
+    "I couldn't produce the report you asked for: I couldn't re-check the final file."
+)
+REPORT_NOT_PRODUCED_SENTENCE = (
+    "I didn't produce the report you asked for, since no file was handed back."
+)
+# Leads the findings of a requested report, by which file they describe.
+REPORT_LEAD_COPY = "Report on the copy: "
+REPORT_LEAD_ORIGINAL = "Report on your original file: "
+
+
+def pick_text(options: tuple[str, ...], seed: str, slot: str) -> str:
+    """One of ``options``, chosen by a stable hash of ``seed``: the same turn, the same text."""
+    digest = hashlib.sha256(f"{seed}|{slot}".encode()).digest()
+    return options[int.from_bytes(digest[:8], "big") % len(options)]
+
+
+def greeting_reply(style: str, *, has_file: bool, seed: str) -> str:
+    """The reply to a greeting or a question about what Buddy can do: three fixed lines."""
+    next_step = (NEXT_STEP_WITH_FILE if has_file else NEXT_STEP_WITHOUT_FILE)[style]
+    return " ".join((pick_text(GREETINGS[style], seed, "greeting"), CAPABILITIES[style], next_step))
+
+
+def clarification_question(reason: str, style: str, seed: str) -> str:
+    """The fixed question for Think's ``reason`` (anything unknown asks the general one)."""
+    by_style = CLARIFICATION_QUESTIONS.get(reason, CLARIFICATION_QUESTIONS[CLARIFY_OTHER])
+    return pick_text(by_style[style], seed, "question")
+
 
 # Added to a delivered reply when the session had already handed back a file in
 # an earlier turn. Every turn works from the original upload, never from a file

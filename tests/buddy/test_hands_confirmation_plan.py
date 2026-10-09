@@ -184,8 +184,8 @@ def test_a_chain_that_cant_finish_asks_nothing_and_runs_no_chain_step() -> None:
     assert result.stopped_at == "spreadsheet.sort"
     assert result.outputs == ()
     assert result.errors[-1] == (
-        "stopped: spreadsheet.sort could not be run; 1 earlier step(s) weren't started "
-        "and 1 later step(s) were skipped and no file was handed back"
+        "stopped: spreadsheet.sort could not be run; 1 earlier step wasn't started "
+        "and 1 later step was skipped and no file was handed back"
     )
 
 
@@ -207,7 +207,7 @@ def test_a_step_the_dispatcher_cant_route_before_any_chain_step_stops_as_before(
         (DEDUPE, "skipped"),
     ]
     assert result.errors[-1] == (
-        "stopped: spreadsheet.sort could not be run; 1 later step(s) were skipped "
+        "stopped: spreadsheet.sort could not be run; 1 later step was skipped "
         "and no file was handed back"
     )
 

@@ -282,14 +282,36 @@ when the moment fits.
 
 **How this is implemented today** (`docs/design/verified-outcome-design.md`):
 on a turn that changed a file, the outcome itself ("Done — removed 2
-duplicate row(s). The copy has 4 row(s), …") is rendered by code from what
-the verifiers measured, never written by a model. "Done" leads only when
+duplicate rows. The copy has 4 rows, with 0 duplicate rows remaining, …") is
+rendered by code from what the verifiers measured, never written by a model.
+Counts use the right plural ("1 row", "2 rows"). "Done" leads only when
 every requested action is confirmed and nothing else ran; "Partly done"
 when part of the request wasn't done, which the reply then states with
 the reason ("I didn't run the empty-row removal, though I read it as part
-of your request. … It still has 1 fully-empty row(s)."). The warmth comes from a reviewed
+of your request. … It still has 1 fully-empty row."). The warmth comes from a reviewed
 catalog of openers and closers (`buddy/voice_catalog.py`), each allowed only
 when the outcome makes it true. Focus mode uses no opener.
+
+**When nothing was changed** (`docs/design/reply-quality.md`), the reply says
+why, in fixed text chosen by code, and never claims work:
+
+- A greeting or "what can you do?" gets a short greeting, what Buddy can do and
+  what to do next, worded for Friend or Focus ("Hi there! I can remove duplicate
+  rows, remove empty rows, and look a spreadsheet over for anything that seems
+  off. What would you like me to do with your file?" / "Hi. I can remove
+  duplicate rows, remove empty rows, and check a spreadsheet for problems. What
+  should I do with the file?"). No analysis is shown.
+- When Think needs to ask, the user sees a fixed question for Think's reason
+  ("Do you want me to remove duplicate rows, remove empty rows, or both?"),
+  never Think's own words.
+- With no file: "I don't have a file to work on yet. Upload a spreadsheet and ask
+  again." With a file the skills refuse: "I can't work on this file:" and the
+  refusal's own text (more than one sheet, merged cells, a header that isn't on
+  the first row, cells such as N/A, password-protected, older .xls).
+- A message that isn't something Buddy does: "I didn't read that as something I
+  can do." and what Buddy can do.
+- A requested report is the analysis findings, labelled ("Report on the copy:
+  …"), or a sentence saying why there isn't one. It is never left out.
 
 ## 15. Progress Update Style
 

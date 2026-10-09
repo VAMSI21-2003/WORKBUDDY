@@ -187,38 +187,38 @@ def test_a_multi_sheet_workbook_is_refused_and_nothing_is_delivered(
 # the file sentence (``_with_values_only_sentence``).
 _MAIN_REPLIES = {
     ("dedupe", "template"): (
-        "Done — removed 1 duplicate row(s). The copy has 4 row(s), 0 duplicate row(s) "
+        "Done — removed 1 duplicate row. The copy has 4 rows, with 0 duplicate rows "
         "remaining. Saved as `report_deduplicated_session-1-task-1.xlsx`. I also noticed: "
-        "name: 1 missing value(s) (25.0%); amount: 1 missing value(s) (25.0%). Want me to "
+        "name: 1 missing value (25.0%); amount: 1 missing value (25.0%). Want me to "
         "tackle any of these?"
     ),
     ("dedupe", "friend"): (
-        "Okay, here's the rundown. Done — removed 1 duplicate row(s). The copy has 4 row(s), "
-        "0 duplicate row(s) remaining. Your cleaned copy of report.xlsx is ready. I also "
-        "noticed: name: 1 missing value(s) (25.0%); amount: 1 missing value(s) (25.0%). Want "
+        "Okay, here's the rundown. Done — removed 1 duplicate row. The copy has 4 rows, "
+        "with 0 duplicate rows remaining. Your cleaned copy of report.xlsx is ready. I also "
+        "noticed: name: 1 missing value (25.0%); amount: 1 missing value (25.0%). Want "
         "me to tackle any of these?"
     ),
     ("dedupe", "focus"): (
-        "Done — removed 1 duplicate row(s). The copy has 4 row(s), 0 duplicate row(s) "
+        "Done — removed 1 duplicate row. The copy has 4 rows, with 0 duplicate rows "
         "remaining. Your cleaned copy of report.xlsx is ready. I also noticed: name: 1 "
-        "missing value(s) (25.0%); amount: 1 missing value(s) (25.0%). Want me to tackle any "
+        "missing value (25.0%); amount: 1 missing value (25.0%). Want me to tackle any "
         "of these?"
     ),
     ("chain", "template"): (
-        "Removed 1 duplicate row(s). Removed 1 fully-empty row(s). The copy has 3 row(s), 0 "
-        "duplicate row(s) and 0 fully-empty row(s) remaining. Saved as "
+        "Removed 1 duplicate row. Removed 1 fully-empty row. The copy has 3 rows, with 0 "
+        "duplicate rows and 0 fully-empty rows remaining. Saved as "
         "`report_deduplicated_session-1-task-1_no_empty_rows_session-1-task-2.xlsx`. None of "
         "the issues I check for were found."
     ),
     ("chain", "friend"): (
-        "Those blank rows were just taking up space. Removed 1 duplicate row(s). Removed 1 "
-        "fully-empty row(s). The copy has 3 row(s), 0 duplicate row(s) and 0 fully-empty "
-        "row(s) remaining. Your cleaned copy of report.xlsx is ready. None of the issues I "
+        "Those blank rows were just taking up space. Removed 1 duplicate row. Removed 1 "
+        "fully-empty row. The copy has 3 rows, with 0 duplicate rows and 0 fully-empty "
+        "rows remaining. Your cleaned copy of report.xlsx is ready. None of the issues I "
         "check for were found."
     ),
     ("chain", "focus"): (
-        "Removed 1 duplicate row(s). Removed 1 fully-empty row(s). The copy has 3 row(s), 0 "
-        "duplicate row(s) and 0 fully-empty row(s) remaining. Your cleaned copy of "
+        "Removed 1 duplicate row. Removed 1 fully-empty row. The copy has 3 rows, with 0 "
+        "duplicate rows and 0 fully-empty rows remaining. Your cleaned copy of "
         "report.xlsx is ready. None of the issues I check for were found."
     ),
 }

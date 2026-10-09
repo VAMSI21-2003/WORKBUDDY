@@ -3,11 +3,12 @@
 import dataclasses
 import logging
 import re
+from collections.abc import Sequence
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Protocol
 
-from buddy.actions import INTENT_CAPABILITIES
+from buddy.actions import INTENT_CAPABILITIES, is_conversation, mentions_report
 from buddy.inspector import FINAL_OUTPUT_CAPABILITY, NO_ANALYSIS_FINDINGS, SKIPPED_FINDING
 from buddy.llm import LLMProvider
 from buddy.models import (
@@ -25,14 +26,30 @@ from buddy.outcome import (
     _is_action_step,
     _step_passed,
     build_outcome_report,
+    not_done_sentences,
     render_outcome,
 )
 from buddy.state import BuddyState, StageFailure
+from buddy.think import CLARIFY_FAILED, Reasoning
 from buddy.voice_catalog import (
+    CAPABILITIES,
     FROM_ORIGINAL_SENTENCE,
-    NOTHING_RAN_REPLY,
+    NO_FILE_SENTENCE,
+    NOT_UNDERSTOOD_SENTENCE,
+    REFUSED_TEMPLATE,
+    REPORT_ANALYSIS_FAILED_SENTENCE,
+    REPORT_LEAD_COPY,
+    REPORT_LEAD_ORIGINAL,
+    REPORT_NOT_PRODUCED_SENTENCE,
+    REPORT_NOT_RUN_SENTENCE,
+    REPORT_RECHECK_FAILED_SENTENCE,
+    STYLE_PLAIN,
+    UNDERSTANDING_FAILED_SENTENCE,
+    clarification_question,
     failure_reply,
+    greeting_reply,
     select_phrases,
+    style_for,
 )
 
 logger = logging.getLogger(__name__)
@@ -211,9 +228,51 @@ def _analysis_describes_final_file(verification_result: VerificationResult | Non
     )
 
 
+NO_CHANGES_FINDINGS_LEAD = "Here's what I noticed when I looked it over: "
 RECHECK_FAILED_SENTENCE = (
     "I couldn't re-check the final file for anything else worth flagging after the changes."
 )
+
+
+def _no_file_changing_step_ran(execution_result: ExecutionResult | None) -> bool:
+    """Whether the turn ran no file-changing step, and nothing in it went wrong.
+
+    True for no execution at all, for read-only steps only (the analysis), and for an empty
+    plan. False as soon as a file-changing step was tried or an error was recorded: those
+    turns have their own replies.
+    """
+    if execution_result is None:
+        return True
+    if execution_result.errors or execution_result.stopped_at is not None:
+        return False
+    if execution_result.outputs:
+        # A file came back: even with no per-step breakdown, something may have changed one.
+        return False
+    return not any(_is_action_step(step) for step in execution_result.steps)
+
+
+def _analysis_findings(
+    request: "SpeakingRequest",
+) -> tuple[tuple[str, ...], tuple[str, ...]] | None:
+    """The original file's analysis as ``(open findings, all-clear notes)``, or ``None``.
+
+    ``None`` unless the analysis ran this turn and passed, so a reply never reports findings
+    of an analysis that failed or didn't run.
+    """
+    verification_result = request.verification_result
+    analysis_ran = _find_step(request.execution_result, _ANALYZE_CAPABILITY) is not None
+    if verification_result is None or not analysis_ran:
+        return None
+    if not any(
+        v.capability == _ANALYZE_CAPABILITY and v.passed and not v.recheck
+        for v in verification_result.steps
+    ):
+        return None
+    open_findings, other_findings = TemplateSpeaker._partition_analysis_findings(
+        verification_result
+    )
+    notes = tuple(_strip_finding_tags(f) for f in other_findings if _is_analysis_finding(f))
+    return open_findings, notes
 
 
 def _verified_delivery(request: "SpeakingRequest") -> bool:
@@ -301,6 +360,14 @@ def _declined_before_any_change(execution_result: ExecutionResult) -> bool:
     return False
 
 
+def _stopped_at_first_action(execution_result: ExecutionResult) -> bool:
+    """Whether the chain stopped at its first file-changing step, so none had run before it."""
+    for step in execution_result.steps:
+        if _is_action_step(step) or step.capability == execution_result.stopped_at:
+            return step.capability == execution_result.stopped_at
+    return False
+
+
 def _chain_stop_sentence(execution_result: ExecutionResult | None) -> str:
     """Say, in plain words, which step stopped the chain and what didn't run.
 
@@ -351,6 +418,17 @@ class SpeakingRequest:
             is then ``buddy.voice_catalog.failure_reply``, nothing else.
         earlier_deliveries: ``BuddyState.earlier_deliveries``: how many
             files the session handed back before this turn.
+        user_message: The user's own message. Only deterministic detectors read
+            it (a greeting, a report request); it is never put in a reply.
+        reasoning: Think's result: whether it asked for clarification and why
+            (a closed code; Think's own words are never shown).
+        has_file: Whether the session has a file to work on. Defaults to ``True``: a
+            caller that doesn't say never makes the reply claim there is none.
+        file_refusal: The row-cleaning skills' own refusal text for this turn's
+            file, when the Planner found one (``BuddyState.file_refusal``).
+        report_requested: The message asks for a report on the file
+            (``buddy.actions.mentions_report``): the reply delivers one or says
+            it isn't available.
     """
 
     understanding: Understanding
@@ -362,6 +440,11 @@ class SpeakingRequest:
     turn_index: int = 0
     failure: StageFailure | None = None
     earlier_deliveries: int = 0
+    user_message: str = ""
+    reasoning: Reasoning | None = None
+    has_file: bool = True
+    file_refusal: str | None = None
+    report_requested: bool = False
 
 
 # Leads the analysis findings on a delivered turn, after the outcome.
@@ -424,6 +507,7 @@ def _verified_delivery_reply(
         order_used=_order_used_sentence(request),
         delivered_file=_delivered_file_name(request),
         open_findings=len(open_findings),
+        report_stated=request.report_requested,
     )
     if any(m.remaining for m in report.residuals):
         # "It still has 2 duplicate row(s)." can't be followed by an
@@ -442,17 +526,56 @@ def _verified_delivery_reply(
     parts = [opener, render_outcome(report, file_style)]
     if request.earlier_deliveries > 0:
         parts.append(FROM_ORIGINAL_SENTENCE)
-    if open_findings:
-        parts.append(DELIVERED_ANALYSIS_LEAD + "; ".join(open_findings) + ". " + ANALYSIS_QUESTION)
-    if analysis_notes:
-        joined = "; ".join(analysis_notes)
-        parts.append(joined[0].upper() + joined[1:] + ".")
-    if _initial_analysis_failed(verification_result):
-        parts.append(INITIAL_ANALYSIS_FAILED_SENTENCE)
-    if _recheck_failed(verification_result):
-        parts.append(RECHECK_FAILED_SENTENCE)
+    report_delivered = request.report_requested and _analysis_describes_final_file(
+        verification_result
+    )
+    if request.report_requested:
+        # A requested report is the analysis findings on the final file, labelled as the
+        # report, or a statement that it isn't available. It is never left out.
+        parts.append(
+            _report_text(open_findings, analysis_notes, REPORT_LEAD_COPY)
+            if report_delivered
+            else _report_unavailable_sentence(request)
+        )
+    else:
+        if open_findings:
+            parts.append(
+                DELIVERED_ANALYSIS_LEAD + "; ".join(open_findings) + ". " + ANALYSIS_QUESTION
+            )
+        if analysis_notes:
+            joined = "; ".join(analysis_notes)
+            parts.append(joined[0].upper() + joined[1:] + ".")
+    if not request.report_requested or report_delivered:
+        if _initial_analysis_failed(verification_result):
+            parts.append(INITIAL_ANALYSIS_FAILED_SENTENCE)
+        if _recheck_failed(verification_result):
+            parts.append(RECHECK_FAILED_SENTENCE)
     parts.append(closer)
     return _plain_words(" ".join(part for part in parts if part))
+
+
+def _report_text(open_findings: Sequence[str], notes: Sequence[str], lead: str) -> str:
+    """A delivered report: the analysis findings (or its all-clear), labelled.
+
+    No "want me to tackle these?": the user asked for a report, and Buddy can't act on most
+    findings.
+
+    Args:
+        open_findings: The analysis findings Buddy could act on or ask about.
+        notes: Findings with no category (the analyzer's all-clear).
+        lead: ``REPORT_LEAD_COPY`` or ``REPORT_LEAD_ORIGINAL``: which file they describe.
+    """
+    return lead + "; ".join((*open_findings, *notes)) + "."
+
+
+def _report_unavailable_sentence(request: "SpeakingRequest") -> str:
+    """Why a requested report isn't in this reply, from what ran this turn."""
+    verification_result = request.verification_result
+    if _recheck_failed(verification_result):
+        return REPORT_RECHECK_FAILED_SENTENCE
+    if _initial_analysis_failed(verification_result):
+        return REPORT_ANALYSIS_FAILED_SENTENCE
+    return REPORT_NOT_RUN_SENTENCE
 
 
 class Speaker(Protocol):
@@ -512,6 +635,22 @@ class TemplateSpeaker:
         Returns:
             The reply text.
         """
+        return self.compose(request, style=STYLE_PLAIN)
+
+    def compose(self, request: SpeakingRequest, *, style: str) -> str:
+        """Compose the factual reply for a turn that delivered no verified file.
+
+        ``style`` (a ``buddy.voice_catalog`` style) only picks the wording of the greeting and
+        of Think's clarification question; every fact in a reply is the same in every style.
+        A verified delivery is rendered by ``_verified_delivery_reply`` instead.
+
+        Args:
+            request: The request to compose a reply for.
+            style: ``STYLE_PLAIN``, ``"friend"`` or ``"focus"``.
+
+        Returns:
+            The reply text.
+        """
         # A stage raised: a fixed reply that claims nothing, whatever the
         # results hold. Voice handles this before calling any speaker; this
         # covers a speaker called directly.
@@ -527,14 +666,15 @@ class TemplateSpeaker:
         # or no verified file came back, no later branch may run — they
         # can say "Done" because an earlier step passed.
         if _nothing_delivered(request):
-            if execution_result is not None and not (
-                execution_result.steps or execution_result.outputs or execution_result.errors
-            ):
-                # Nothing ran at all. Said plainly, and nothing more: no
-                # verifier wording, no order sentence.
-                return NOTHING_RAN_REPLY
             if execution_result is not None and execution_result.stopped_at is not None:
-                reply = self._stopped_message(execution_result, verification_result)
+                reply = self._stopped_message(
+                    execution_result, verification_result, request.report_requested
+                )
+            elif _no_file_changing_step_ran(execution_result):
+                # No file-changing step ran, and nothing went wrong: the reply says why
+                # (a greeting, a question, no file, a file that can't be cleaned, a request
+                # that isn't something Buddy does). No order sentence: no steps ran.
+                return self._no_change_reply(request, style)
             elif verification_result is None:
                 reply = self._nothing_confirmed_message(execution_result)
             else:
@@ -558,8 +698,87 @@ class TemplateSpeaker:
         return _plain_words(reply)
 
     @staticmethod
+    def _no_change_reply(request: SpeakingRequest, style: str) -> str:
+        """The reply for a turn in which no file-changing step ran: the real reason, in fixed text.
+
+        In this order, the first that holds decides the main sentence:
+
+        1. Brain read the message as conversation and nothing in it contradicts that
+           (``buddy.actions.is_conversation``): a greeting, the capabilities, what to do next.
+        2. There is no file: say so.
+        3. The Planner found the file can't be cleaned: the skills' own refusal text.
+        4. Think asked for clarification: the fixed question for its reason code, or, when Think
+           itself failed, that plainly.
+        5. Brain gave no reading at all (its call failed): say so.
+        6. Otherwise the requested actions that didn't run, each by the outcome renderer's own
+           sentence for its reason, and what Buddy can do; or, when nothing was asked that
+           Buddy knows, that the message wasn't read as something it can do.
+
+        Then a requested report (delivered or not available), the analysis findings if the
+        analysis ran and no report was asked for, and, unless the reply is a greeting or a
+        question, that no file was changed. Nothing here claims work.
+        """
+        seed = f"{request.session_id}:{request.turn_index}"
+        understanding = request.understanding
+        if is_conversation(understanding, request.user_message):
+            return greeting_reply(style, has_file=request.has_file, seed=seed)
+        if not request.has_file:
+            return f"{NO_FILE_SENTENCE} {NO_CHANGES_SENTENCE}"
+        if request.file_refusal:
+            reason = REFUSED_TEMPLATE.format(reason=request.file_refusal)
+            return f"{reason} {NO_CHANGES_SENTENCE}"
+        reasoning = request.reasoning
+        parts: list[str] = []
+        if reasoning is not None and reasoning.clarification_required:
+            if reasoning.clarification_reason == CLARIFY_FAILED:
+                parts.append(UNDERSTANDING_FAILED_SENTENCE)
+            else:
+                parts.append(clarification_question(reasoning.clarification_reason, style, seed))
+        elif understanding.intent is None:
+            parts.append(UNDERSTANDING_FAILED_SENTENCE)
+        else:
+            outcome = build_outcome_report(
+                request.execution_result,
+                request.verification_result,
+                understanding,
+                report_stated=request.report_requested,
+            )
+            stated = not_done_sentences(outcome, nothing_done=True)
+            parts.extend(stated)
+            if stated or not request.report_requested:
+                if not stated:
+                    parts.append(NOT_UNDERSTOOD_SENTENCE)
+                parts.append(CAPABILITIES[style])
+        if request.report_requested:
+            parts.append(TemplateSpeaker._report_for_unchanged_file(request))
+        else:
+            findings = _analysis_findings(request)
+            if findings is not None and (findings[0] or findings[1]):
+                open_findings, notes = findings
+                texts = "; ".join((*open_findings, *notes))
+                parts.append(f"{NO_CHANGES_FINDINGS_LEAD}{texts}.")
+                if open_findings:
+                    parts.append(ANALYSIS_QUESTION)
+        if _initial_analysis_failed(request.verification_result) and not request.report_requested:
+            parts.append(INITIAL_ANALYSIS_FAILED_SENTENCE)
+        if not (reasoning is not None and reasoning.clarification_required):
+            parts.append(NO_CHANGES_SENTENCE)
+        return _plain_words(" ".join(parts))
+
+    @staticmethod
+    def _report_for_unchanged_file(request: SpeakingRequest) -> str:
+        """A requested report on the original (nothing was changed), or why there isn't one."""
+        findings = _analysis_findings(request)
+        if findings is None:
+            return _report_unavailable_sentence(request)
+        open_findings, notes = findings
+        return _report_text(open_findings, notes, REPORT_LEAD_ORIGINAL)
+
+    @staticmethod
     def _stopped_message(
-        execution_result: ExecutionResult, verification_result: VerificationResult | None
+        execution_result: ExecutionResult,
+        verification_result: VerificationResult | None,
+        report_requested: bool = False,
     ) -> str:
         """Compose the reply for a chain that stopped: nothing was delivered.
 
@@ -598,11 +817,17 @@ class TemplateSpeaker:
             ]
         sentence = []
         if not _declined_before_any_change(execution_result):
-            sentence.append("I ran into a problem partway through.")
+            sentence.append(
+                "I ran into a problem on the first step."
+                if _stopped_at_first_action(execution_result)
+                else "I ran into a problem partway through."
+            )
         if reasons:
             sentence.append(". ".join(reasons) + ".")
         if sentence:
             parts.append(" ".join(sentence))
+        if report_requested:
+            parts.append(REPORT_NOT_PRODUCED_SENTENCE)
         parts.append(_chain_stop_sentence(execution_result))
         return " ".join(parts)
 
@@ -833,6 +1058,11 @@ class Voice:
             turn_index=state.context.buddy_reply_count(),
             failure=state.failure,
             earlier_deliveries=state.earlier_deliveries,
+            user_message=state.user_message or "",
+            reasoning=state.reasoning,
+            has_file=bool(state.uploaded_files or state.context.active_file),
+            file_refusal=state.file_refusal,
+            report_requested=mentions_report(state.user_message or ""),
         )
 
     @staticmethod
@@ -868,19 +1098,18 @@ class PersonalityVoice:
       file named as a cleaned copy of the original, and an opener and
       closer for ``request.mode`` chosen by code from the reviewed phrase
       catalog (``buddy.voice_catalog``).
-    - Every other turn gets ``TemplateSpeaker``'s factual reply.
+    - Every other turn gets ``TemplateSpeaker``'s factual reply, with the greeting and
+      the clarification question worded for the mode from the same catalog.
 
-    No turn calls the model today. The provider is kept for explicit
-    conversation turns (backlog item 2), the only place model-written
-    wording is planned to return.
+    No turn calls the model: a greeting is catalog lines chosen by code too. The provider
+    is kept only so callers that construct this speaker keep working.
     """
 
     def __init__(self, provider: LLMProvider | None = None) -> None:
         """Initialize the speaker.
 
         Args:
-            provider: Kept for explicit conversation turns (backlog item
-                2); not called by any turn today.
+            provider: Not called by any turn.
         """
         self._provider = provider
 
@@ -899,5 +1128,5 @@ class PersonalityVoice:
                 "PersonalityVoice: no verified file was delivered this turn; "
                 "using the factual reply"
             )
-            return TemplateSpeaker()(request)
+            return TemplateSpeaker().compose(request, style=style_for(request.mode))
         return _verified_delivery_reply(request, file_style=FILE_STYLE_PLAIN, mode=request.mode)

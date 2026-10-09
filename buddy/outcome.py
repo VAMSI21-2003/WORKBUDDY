@@ -30,6 +30,7 @@ from buddy.actions import (
     BRAIN_SOURCES,
     UNSUPPORTED,
     requested_ledger,
+    strip_report_request,
 )
 from buddy.inspector import FINAL_OUTPUT_CAPABILITY
 from buddy.models import (
@@ -44,6 +45,7 @@ from buddy.models import (
     Understanding,
     VerificationResult,
 )
+from buddy.text import count_noun
 
 # -- Which steps count, and which passed ----------------------------------------------
 # Shared with buddy.voice, which imports these; they live here so this module
@@ -267,6 +269,7 @@ def build_outcome_report(
     order_used: str | None = None,
     delivered_file: str | None = None,
     open_findings: int = 0,
+    report_stated: bool = False,
 ) -> OutcomeReport:
     """Build the report for a turn that delivered a verified file.
 
@@ -296,6 +299,9 @@ def build_outcome_report(
         order_used: The order-used sentence, if the order wasn't confirmed.
         delivered_file: The original file's name.
         open_findings: How many analysis findings the reply asks about.
+        report_stated: The reply states a requested report itself, delivered or
+            not available (``buddy.voice``), so the part of an ``unsupported``
+            entry that only asks for a report is not also stated as "can't do".
 
     Returns:
         The ``OutcomeReport``.
@@ -351,7 +357,7 @@ def build_outcome_report(
     said_no_skill: set[str] = set()
     for entry in ledger:
         if entry.action == UNSUPPORTED:
-            outcome = _no_skill_outcome(entry, ledger, passed_capabilities)
+            outcome = _no_skill_outcome(entry, ledger, passed_capabilities, report_stated)
             if outcome is None or outcome.user_phrase.casefold() in said_no_skill:
                 continue
             said_no_skill.add(outcome.user_phrase.casefold())
@@ -434,6 +440,7 @@ def _no_skill_outcome(
     entry: RequestedAction,
     ledger: tuple[RequestedAction, ...],
     passed_capabilities: set[str],
+    report_stated: bool = False,
 ) -> ActionOutcome | None:
     """The ``NO_SKILL`` outcome for an ``unsupported`` entry, or ``None`` to say nothing.
 
@@ -474,6 +481,12 @@ def _no_skill_outcome(
             named_passed = True
         elif all(other.action != action.name for other in ledger):
             named_silent = True
+    if report_stated:
+        # A report request is stated by the reply itself (delivered or not available), so it
+        # is "named" and "done" like an action that passed: what's left decides the sentence.
+        lowered, had_report = strip_report_request(lowered)
+        if had_report:
+            names_action = named_passed = True
     lowered = _LOCATION_PHRASE.sub(" ", lowered, count=1)
     for other in ledger:
         other_action = ACTIONS_BY_NAME.get(other.action)
@@ -603,14 +616,7 @@ def render_outcome(report: OutcomeReport, file_style: str) -> str:
     unrequested = [a for a in report.actions if a.status == DONE_UNREQUESTED]
     for index, action in enumerate(unrequested):
         sentences.append(_unrequested_sentence(action, also=bool(done) or index > 0))
-    not_done = [a for a in report.actions if a.status == NOT_DONE]
-    last_unread = max(
-        (i for i, a in enumerate(not_done) if a.reason == NOT_READ_AS_REQUEST), default=None
-    )
-    for index, action in enumerate(not_done):
-        sentences.append(_not_done_sentence(action))
-        if index == last_unread and report.brain_reading:
-            sentences.append(f"I read your request as: {' and '.join(report.brain_reading)}.")
+    sentences.extend(not_done_sentences(report))
     final_state = _final_state_sentence(report.final_state)
     if final_state:
         sentences.append(final_state)
@@ -627,12 +633,30 @@ def render_outcome(report: OutcomeReport, file_style: str) -> str:
     return " ".join(sentences)
 
 
-def _removed_clause(measurement: StepMeasurement, counted: str) -> str:
-    """ "removed 2 duplicate row(s), including 1 repeated blank row" """
-    clause = f"removed {measurement.removed} {counted}"
+def not_done_sentences(report: OutcomeReport, *, nothing_done: bool = False) -> list[str]:
+    """The sentences for the report's ``NOT_DONE`` actions, with how Brain read the request.
+
+    Also used by a turn that changed nothing, where every action in the ledger is one of
+    these. ``nothing_done`` then says "that" and not "this part" for what Buddy can't do.
+    """
+    not_done = [a for a in report.actions if a.status == NOT_DONE]
+    last_unread = max(
+        (i for i, a in enumerate(not_done) if a.reason == NOT_READ_AS_REQUEST), default=None
+    )
+    sentences = []
+    for index, action in enumerate(not_done):
+        sentences.append(_not_done_sentence(action, nothing_done=nothing_done))
+        if index == last_unread and report.brain_reading:
+            sentences.append(f"I read your request as: {' and '.join(report.brain_reading)}.")
+    return sentences
+
+
+def _removed_clause(measurement: StepMeasurement, row_noun: str) -> str:
+    """ "removed 2 duplicate rows, including 1 repeated blank row" """
+    clause = f"removed {count_noun(measurement.removed or 0, row_noun)}"
     blank = measurement.removed_blank
     if blank:
-        clause += f", including {blank} repeated blank row{'' if blank == 1 else 's'}"
+        clause += f", including {count_noun(blank, 'repeated blank row')}"
     return clause
 
 
@@ -649,7 +673,7 @@ def _action_sentence(action: ActionOutcome) -> str:
         # the sentence can't be read as being about the user's file.
         left = " left" if action.after_earlier_step else ""
         return f"There were no {wording.rows}{left} to remove."
-    clause = _removed_clause(measurement, wording.counted)
+    clause = _removed_clause(measurement, wording.row_noun)
     return clause[0].upper() + clause[1:] + "."
 
 
@@ -673,10 +697,10 @@ def _unrequested_sentence(action: ActionOutcome, *, also: bool) -> str:
             f"{subject} ran the {step}, {_NOT_IN_READING}; "
             f"there were no {wording.rows}{left} to remove."
         )
-    return f"{subject} {_removed_clause(measurement, wording.counted)}, {_NOT_IN_READING}."
+    return f"{subject} {_removed_clause(measurement, wording.row_noun)}, {_NOT_IN_READING}."
 
 
-def _not_done_sentence(action: ActionOutcome) -> str:
+def _not_done_sentence(action: ActionOutcome, *, nothing_done: bool = False) -> str:
     """The sentence for a ``NOT_DONE`` action, from its reason code.
 
     Each one says what Buddy didn't run, never that rows weren't removed:
@@ -684,7 +708,10 @@ def _not_done_sentence(action: ActionOutcome) -> str:
     """
     if action.reason == NO_SKILL:
         if action.user_phrase:
-            return f"I can't do this part yet: “{action.user_phrase}”."
+            what = "that" if nothing_done else "this part"
+            return f"I can't do {what} yet: “{action.user_phrase}”."
+        if nothing_done:
+            return "I read your request as something I can't do yet."
         return "I read part of your request as something I can't do yet."
     wording = ACTIONS_BY_CAPABILITY[action.capability]
     if action.reason == NOT_READ_AS_REQUEST:
@@ -705,7 +732,9 @@ def _residual_sentences(
             continue
         subject = "It" if after_final_state or sentences else "The copy"
         if measurement.remaining:
-            sentences.append(f"{subject} still has {measurement.remaining} {wording.counted}.")
+            sentences.append(
+                f"{subject} still has {count_noun(measurement.remaining, wording.row_noun)}."
+            )
         else:
             sentences.append(f"{subject} has no {wording.rows}.")
     return sentences
@@ -715,11 +744,11 @@ def _final_state_sentence(final_state: tuple[StepMeasurement, ...]) -> str:
     measured = [m for m in final_state if m.target in ACTIONS_BY_TARGET]
     if not measured or len({m.output_rows for m in measured}) != 1:
         return ""
-    remaining = [f"{m.remaining} {ACTIONS_BY_TARGET[m.target].counted}" for m in measured]
+    remaining = [count_noun(m.remaining, ACTIONS_BY_TARGET[m.target].row_noun) for m in measured]
     listed = remaining[-1]
     if len(remaining) > 1:
         listed = ", ".join(remaining[:-1]) + " and " + listed
-    return f"The copy has {measured[0].output_rows} row(s), {listed} remaining."
+    return f"The copy has {count_noun(measured[0].output_rows, 'row')}, with {listed} remaining."
 
 
 # What a delivered copy doesn't keep (``docs/design/values-only-copy.md``, Section 2).
@@ -749,16 +778,31 @@ def _values_only_sentences(original_facts: OriginalFacts | None) -> list[str]:
     if formulas is None:
         sentences.append(FORMULAS_UNCHECKED_SENTENCE)
     elif formulas:
-        sentences.append(
-            f"Your file has {formulas} formula cell(s). The copy has their last saved values, "
-            "not the formulas."
-        )
         unsaved = original_facts.formula_cells_without_value
-        if unsaved:
+        if formulas == 1:
             sentences.append(
-                f"{unsaved} of them had no saved value, so they're empty in the copy, and "
-                "rows were judged with those cells empty."
+                "Your file has 1 formula cell. The copy has its last saved value, not the formula."
             )
+            if unsaved:
+                sentences.append(
+                    "That cell had no saved value, so it's empty in the copy, and rows were "
+                    "judged with it empty."
+                )
+        else:
+            sentences.append(
+                f"Your file has {formulas} formula cells. The copy has their last saved values, "
+                "not the formulas."
+            )
+            if unsaved == 1:
+                sentences.append(
+                    "1 of them had no saved value, so it's empty in the copy, and rows were "
+                    "judged with that cell empty."
+                )
+            elif unsaved:
+                sentences.append(
+                    f"{unsaved} of them had no saved value, so they're empty in the copy, and "
+                    "rows were judged with those cells empty."
+                )
     return sentences
 
 

@@ -8,6 +8,7 @@ from buddy.hands import ConfirmationProvider, Hands, NullConfirmationProvider
 from buddy.inspector import VerificationRequest
 from buddy.models import CapabilityRequest, ExecutionResult, VerificationResult
 from buddy.state import BuddyState
+from buddy.text import count_noun
 from core.dispatcher import Dispatcher
 from skills.base import PermissionTier, Skill, SkillResult, SkillStatus, SkillTask
 from skills.registry import SkillRegistry
@@ -468,7 +469,7 @@ class _FakeStepVerifier:
         assert request.execution_result is not None
         capability = request.execution_result.steps[0].capability
         if capability in self._failing:
-            return VerificationResult(passed=False, findings=("2 row(s) missing",))
+            return VerificationResult(passed=False, findings=("2 rows missing",))
         return VerificationResult(passed=True)
 
 
@@ -573,7 +574,7 @@ def test_hands_stops_the_chain_when_a_steps_output_cant_feed_the_next_step(
     assert (failed.capability, failed.status) == ("cap.a", "failure")
     assert "couldn't be carried forward" in failed.failure_reason
     errors = state.execution_result.errors
-    assert any(e.startswith(f"cap.a produced {len(outputs)} file(s)") for e in errors)
+    assert any(e.startswith(f"cap.a produced {count_noun(len(outputs), 'file')}") for e in errors)
 
 
 def test_hands_stops_when_the_last_chain_steps_output_cant_be_handed_back() -> None:
@@ -681,7 +682,7 @@ def _assert_stopped_at_first_step(state: BuddyState, b: _NamedSkill, reason: str
     assert (result.steps[-1].capability, result.steps[-1].status) == ("cap.b", "skipped")
     sep = "" if reason.startswith("'") else " "
     assert result.errors[-1] == (
-        f"stopped: cap.a{sep}{reason}; 1 later step(s) were skipped and no file was handed back"
+        f"stopped: cap.a{sep}{reason}; 1 later step was skipped and no file was handed back"
     )
     # The step that stopped the chain is always recorded, so Inspector sees it.
     assert result.steps[0].capability == "cap.a"
@@ -787,7 +788,7 @@ def test_hands_records_the_failing_last_step_when_the_chain_cant_finish() -> Non
     ]
     assert a.received_tasks == []
     assert result.errors[-1] == (
-        "stopped: cap.b could not be run; 1 earlier step(s) weren't started "
+        "stopped: cap.b could not be run; 1 earlier step wasn't started "
         "and no file was handed back"
     )
 
@@ -821,7 +822,7 @@ def test_hands_stops_the_chain_when_a_step_fails_verification() -> None:
 
     _assert_stopped_at_first_step(state, b, "failed verification")
     assert state.execution_result is not None
-    assert "cap.a failed verification: 2 row(s) missing" in state.execution_result.errors
+    assert "cap.a failed verification: 2 rows missing" in state.execution_result.errors
 
 
 def test_hands_verifies_each_chain_step_against_its_own_input_before_continuing() -> None:

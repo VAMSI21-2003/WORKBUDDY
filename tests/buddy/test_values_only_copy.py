@@ -111,13 +111,25 @@ def _number(pattern: str, reply: str) -> int | None:
 
 
 def _formulas_sentence(count: int) -> str:
+    if count == 1:
+        return "Your file has 1 formula cell. The copy has its last saved value, not the formula."
     return (
-        f"Your file has {count} formula cell(s). The copy has their last saved values, "
+        f"Your file has {count} formula cells. The copy has their last saved values, "
         "not the formulas."
     )
 
 
-def _unsaved_sentence(count: int) -> str:
+def _unsaved_sentence(count: int, formulas: int = 3) -> str:
+    if formulas == 1:
+        return (
+            "That cell had no saved value, so it's empty in the copy, and rows were judged "
+            "with it empty."
+        )
+    if count == 1:
+        return (
+            "1 of them had no saved value, so it's empty in the copy, and rows were judged "
+            "with that cell empty."
+        )
     return (
         f"{count} of them had no saved value, so they're empty in the copy, and rows were "
         "judged with those cells empty."
@@ -155,10 +167,11 @@ def test_a_delivered_copy_says_what_it_doesnt_keep(
     removed_dupes, removed_empty, copy_rows = _expected(original_path, kind)
     assert _number(r"[Rr]emoved (\d+) duplicate row", reply) == (removed_dupes or None)
     assert _number(r"[Rr]emoved (\d+) fully-empty row", reply) == (removed_empty or None)
-    assert _number(r"The copy has (\d+) row\(s\)", reply) == copy_rows
+    assert _number(r"The copy has (\d+) rows?", reply) == copy_rows
     assert len(_rows(delivered)) == copy_rows
     assert _number(r"Your file has (\d+) formula cell", reply) == (formulas or None)
-    assert _number(r"(\d+) of them had no saved value", reply) == (unsaved or None)
+    if formulas != 1:
+        assert _number(r"(\d+) of them had no saved value", reply) == (unsaved or None)
 
     # The sentences are there, once, in order, right after the file sentence.
     file_sentence = (
@@ -172,7 +185,7 @@ def test_a_delivered_copy_says_what_it_doesnt_keep(
     else:
         assert "formula" not in reply
     if unsaved:
-        assert reply.count(_unsaved_sentence(unsaved)) == 1
+        assert reply.count(_unsaved_sentence(unsaved, formulas)) == 1
     else:
         assert "no saved value" not in reply
 
@@ -209,16 +222,16 @@ def test_a_plain_sheet_reply_is_the_old_reply_plus_the_values_only_sentence(
     assert reply.startswith(
         {
             "template": (
-                "Done — removed 1 duplicate row(s). The copy has 4 row(s), 0 duplicate row(s) "
+                "Done — removed 1 duplicate row. The copy has 4 rows, with 0 duplicate rows "
                 "remaining. Saved as `report_deduplicated_session-1-task-1.xlsx`. "
             ),
             "friend": (
-                "Okay, here's the rundown. Done — removed 1 duplicate row(s). The copy has 4 "
-                "row(s), 0 duplicate row(s) remaining. Your cleaned copy of report.xlsx is "
+                "Okay, here's the rundown. Done — removed 1 duplicate row. The copy has 4 "
+                "rows, with 0 duplicate rows remaining. Your cleaned copy of report.xlsx is "
                 "ready. "
             ),
             "focus": (
-                "Done — removed 1 duplicate row(s). The copy has 4 row(s), 0 duplicate row(s) "
+                "Done — removed 1 duplicate row. The copy has 4 rows, with 0 duplicate rows "
                 "remaining. Your cleaned copy of report.xlsx is ready. "
             ),
         }[speaker_kind]
@@ -351,7 +364,7 @@ def test_a_failed_read_of_the_original_says_it_couldnt_check(
     assert reply is not None
     assert VALUES_ONLY_SENTENCE in reply
     assert FORMULAS_UNCHECKED_SENTENCE in reply
-    assert "formula cell(s)" not in reply
+    assert "(s)" not in reply
     assert "secret" not in reply
     assert _sha256(original_path) == original_hash
 

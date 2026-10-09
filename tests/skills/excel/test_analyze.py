@@ -305,7 +305,7 @@ def test_date_format_analyzer_flags_unparseable_values() -> None:
 
     findings = DateFormatConsistencyAnalyzer()(df)
 
-    assert any("don't match a recognized date format" in finding for finding in findings)
+    assert any("doesn't match a recognized date format" in finding for finding in findings)
 
 
 def test_date_format_analyzer_reports_nothing_for_one_consistent_format() -> None:

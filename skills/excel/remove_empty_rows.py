@@ -126,7 +126,10 @@ class ExcelRemoveEmptyRowsSkill(Skill):
         return SkillResult(
             status=SkillStatus.SUCCESS,
             outputs=[str(output_path)],
-            summary=f"Removed {removed_count} empty row(s) from {Path(input_path).name}.",
+            summary=(
+                f"Removed {removed_count} empty "
+                f"{'row' if removed_count == 1 else 'rows'} from {Path(input_path).name}."
+            ),
             metadata={
                 "removed_count": removed_count,
                 "original_row_count": len(original),

@@ -7,6 +7,7 @@ from typing import Protocol
 
 from buddy.actions import (
     ACTION_VOCABULARY,
+    CONVERSATION,
     UNSUPPORTED,
     brain_ledger,
     find_phrase,
@@ -200,7 +201,7 @@ class Brain:
 # Every intent the classifier may return. Anything else in a reply is
 # recorded as "unclear" rather than passed on as an unknown label.
 INTENT_VOCABULARY = frozenset(
-    {"remove_duplicate_rows", "remove_empty_rows", "multi_step_request", "unclear"}
+    {"remove_duplicate_rows", "remove_empty_rows", "multi_step_request", CONVERSATION, "unclear"}
 )
 
 _SYSTEM_PROMPT = """You are the intent classifier for WorkBuddy, an AI coworker.
@@ -209,6 +210,8 @@ Classify the user's request into exactly one of the following intents:
 - "remove_duplicate_rows": the user wants duplicate rows removed from a spreadsheet.
 - "remove_empty_rows": the user wants empty rows removed from a spreadsheet.
 - "multi_step_request": the request clearly names more than one distinct action, but is not itself ambiguous.
+- "conversation": the user is only greeting you, thanking you, or asking what you can do, and
+  asks for no action on a file.
 - "unclear": the request does not clearly match a known intent, or is too ambiguous to act on.
 
 You are never shown the contents of any uploaded file — only its name — so
@@ -217,7 +220,7 @@ never assume anything about what data a file contains.
 Respond with a single JSON object and nothing else, matching this shape:
 {
   "intent": "remove_duplicate_rows" | "remove_empty_rows" | "multi_step_request"
-            | "unclear",
+            | "conversation" | "unclear",
   "confidence": <number between 0.0 and 1.0>,
   "referenced_files": [<file names the request refers to, if any>],
   "referenced_work_items": [<task or work item identifiers referred to, if any>],

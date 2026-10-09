@@ -19,15 +19,16 @@ import pytest
 from buddy.engine_factory import build_engine
 from buddy.llm import LLMMessage
 from buddy.state import BuddyState
+from buddy.text import count_noun as _n
 from buddy.voice import (
     _COMPLETION_CLAIM,
-    NO_CHANGES_SENTENCE,
     RECHECK_FAILED_SENTENCE,
     PersonalityVoice,
     Speaker,
     SpeakingRequest,
     TemplateSpeaker,
 )
+from buddy.voice_catalog import style_for
 
 
 class _QueuedLLMProvider:
@@ -835,13 +836,13 @@ def test_full_slice_stops_the_chain_when_a_step_fails_verification(
 # -- Review item B1, end to end: the last step can't run after an earlier one passed --
 
 
-_B1_MESSAGE = "remove the duplicate rows and then give me a report"
+_B1_MESSAGE = "remove the duplicate rows and then build me a dashboard"
 
 
 def _b1_replies() -> list[str]:
     return _chain_replies(
         ("spreadsheet.deduplicate", "remove the duplicate rows"),
-        ("spreadsheet.report", "give me a report"),
+        ("spreadsheet.dashboard", "build me a dashboard"),
     )
 
 
@@ -860,7 +861,7 @@ class _RecordingPersonalityVoice(PersonalityVoice):
 def test_full_slice_never_says_done_when_the_last_step_cant_be_run(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    """The exact scenario from the review: the report step has no skill.
+    """The exact scenario from the review: the dashboard step has no skill.
     Nothing is handed back, Inspector sees the failing step, and the reply
     never claims completion. Since PR-3's review M1 the chain, which can't
     finish, doesn't start: dedupe never runs."""
@@ -871,11 +872,11 @@ def test_full_slice_never_says_done_when_the_last_step_cant_be_run(
     result = state.execution_result
     assert result is not None
     assert result.outputs == ()
-    assert result.stopped_at == "spreadsheet.report"
+    assert result.stopped_at == "spreadsheet.dashboard"
     assert [(s.capability, s.status) for s in result.steps] == [
         ("spreadsheet.analyze", "success"),
         ("spreadsheet.deduplicate", "skipped"),
-        ("spreadsheet.report", "failure"),
+        ("spreadsheet.dashboard", "failure"),
     ]
     assert original_path.read_bytes() == original_bytes  # untouched
 
@@ -883,14 +884,14 @@ def test_full_slice_never_says_done_when_the_last_step_cant_be_run(
     assert verification is not None
     assert verification.passed is False
     verdicts = {v.capability: v.passed for v in verification.steps}
-    assert verdicts["spreadsheet.report"] is False
+    assert verdicts["spreadsheet.dashboard"] is False
 
     reply = state.reply
     assert reply is not None
     assert "Done" not in reply
     assert _COMPLETION_CLAIM.search(reply) is None, reply
     assert (
-        "I stopped at the report step, so deduplicate never ran and no file was handed back"
+        "I stopped at the dashboard step, so deduplicate never ran and no file was handed back"
         in reply
     )
     assert "spreadsheet." not in reply
@@ -968,7 +969,7 @@ def test_full_slice_reports_a_failed_re_check_without_failing_the_delivered_file
     # PR-B (review H1): this Brain reply has no requested_actions, so the ledger
     # comes from the mention detector alone. A mention never confirms a request,
     # so both removals are stated but the reply doesn't claim "Done".
-    assert reply.startswith("Removed 1 fully-empty row(s). Removed 1 duplicate row(s).")
+    assert reply.startswith("Removed 1 fully-empty row. Removed 1 duplicate row.")
     assert "Done" not in reply
     assert RECHECK_FAILED_SENTENCE in reply
     assert f"Saved as `{Path(result.outputs[0]).name}`." in reply
@@ -1065,7 +1066,7 @@ def test_full_slice_names_the_delivered_file_when_the_initial_analysis_fails(
     # PR-B (review H1): this Brain reply has no requested_actions, so the ledger
     # comes from the mention detector alone. A mention never confirms a request,
     # so both removals are stated but the reply doesn't claim "Done".
-    assert reply.startswith("Removed 1 fully-empty row(s). Removed 1 duplicate row(s).")
+    assert reply.startswith("Removed 1 fully-empty row. Removed 1 duplicate row.")
     assert "Done" not in reply
     assert f"Saved as `{Path(result.outputs[0]).name}`." in reply
     assert "The initial analysis of your original file couldn't run." in reply
@@ -1090,25 +1091,25 @@ def test_full_slice_personality_voice_never_describes_a_three_step_chain_stopped
     speaker = _RecordingPersonalityVoice(leaked)
     replies = _chain_replies(
         ("spreadsheet.deduplicate", "remove the duplicate rows"),
-        ("spreadsheet.report", "give me a report"),
+        ("spreadsheet.dashboard", "build me a dashboard"),
         ("spreadsheet.remove_empty_rows", "remove the empty rows"),
     )
 
     state, original_path, original_bytes = _run_chain(
         tmp_path,
-        "remove the duplicate rows, then give me a report, then remove the empty rows",
+        "remove the duplicate rows, then build me a dashboard, then remove the empty rows",
         replies,
         speaker,
     )
 
     assert state.execution_result is not None
-    assert state.execution_result.stopped_at == "spreadsheet.report"
+    assert state.execution_result.stopped_at == "spreadsheet.dashboard"
     assert speaker._provider.calls == []  # type: ignore[attr-defined]
     assert state.reply == TemplateSpeaker()(speaker.requests[0])
     assert leaked not in state.reply
     # The chain can't finish, so none of it runs (PR-3 review M1).
     assert (
-        "I stopped at the report step, so deduplicate, remove empty rows never ran"
+        "I stopped at the dashboard step, so deduplicate, remove empty rows never ran"
         in state.reply
     )
     assert original_path.read_bytes() == original_bytes
@@ -1173,10 +1174,10 @@ def test_full_slice_personality_voice_never_phrases_an_unclassified_action_reque
     expected_intent: str | None,
     model_reply: str,
 ) -> None:
-    """F1: only analysis runs and nothing is delivered. Whatever Brain made
-    of the request, the model is never asked to phrase the turn, so none of
-    its replies (including the two that avoid the word list) reaches the
-    user."""
+    """F1: nothing is delivered. Whatever Brain made of the request, the model is
+    never asked to phrase the turn, so none of its replies (including the two that
+    avoid the word list) reaches the user. Think asked for clarification, so the
+    reply is its fixed question and no analysis was spent."""
     monkeypatch.chdir(tmp_path)
     (tmp_path / "uploads").mkdir()
     input_path = Path("uploads") / "report.xlsx"
@@ -1200,13 +1201,14 @@ def test_full_slice_personality_voice_never_phrases_an_unclassified_action_reque
     result = state.execution_result
     assert result is not None
     assert result.outputs == ()
-    assert [s.capability for s in result.steps] == ["spreadsheet.analyze"]
+    assert [s.capability for s in result.steps] == []
     assert (tmp_path / input_path).read_bytes() == original_bytes
 
     assert speaker._provider.calls == []  # type: ignore[attr-defined]
-    assert state.reply == TemplateSpeaker()(speaker.requests[0])
+    request = speaker.requests[0]
+    assert state.reply == TemplateSpeaker().compose(request, style=style_for(request.mode))
     assert model_reply not in state.reply
-    assert state.reply.endswith(NO_CHANGES_SENTENCE)
+    assert state.reply.endswith("?")
     assert _COMPLETION_CLAIM.search(state.reply) is None, state.reply
 
 
@@ -1491,8 +1493,8 @@ def test_n2_end_to_end_says_there_was_nothing_to_remove(
     assert model_reply not in reply
     assert "Done — there were no duplicate rows to remove." in reply
     assert (
-        f"The copy has {len(delivered)} row(s), {int(delivered.duplicated().sum())} "
-        "duplicate row(s) remaining."
+        f"The copy has {_n(len(delivered), 'row')}, with "
+        f"{_n(int(delivered.duplicated().sum()), 'duplicate row')} remaining."
     ) in reply
     output_name = Path(result.outputs[0]).name
     # Every number in the reply is one the independent read confirms.
@@ -1524,8 +1526,8 @@ def test_a_single_step_verified_turn_still_says_done_and_names_the_file(
     reply = state.reply
     assert reply is not None
     block = (
-        f"Done — removed {removed} duplicate row(s). The copy has {len(delivered)} row(s), "
-        f"{int(delivered.duplicated().sum())} duplicate row(s) remaining."
+        f"Done — removed {_n(removed, 'duplicate row')}. The copy has {_n(len(delivered), 'row')}, "
+        f"with {_n(int(delivered.duplicated().sum()), 'duplicate row')} remaining."
     )
     if speaker_kind == "template":
         assert reply.startswith(block)
@@ -1593,14 +1595,14 @@ def test_a_dropped_second_action_never_yields_a_nothing_to_remove_opener(
     assert (
         "Your message mentions empty rows, but I didn't run the empty-row removal." in reply
     )
-    assert "It still has 1 fully-empty row(s)." in reply
+    assert "It still has 1 fully-empty row." in reply
     assert "Done —" not in reply
     # The analysis finding's counts (the empty row's missing cells) match pandas too.
     missing = {int(n) for n in delivered.isna().sum()}
     percent = {round(100 * m / len(delivered)) for m in missing}
     assert {int(n) for n in re.findall(r"\d+", findings)} <= missing | percent | {0}  # "20.0%"
-    assert f"The copy has {len(delivered)} row(s)" in reply
-    assert f"{int(delivered.duplicated().sum())} duplicate row(s) remaining" in reply
+    assert f"The copy has {_n(len(delivered), 'row')}" in reply
+    assert f"{_n(int(delivered.duplicated().sum()), 'duplicate row')} remaining" in reply
     assert (tmp_path / input_path).read_bytes() == original_bytes  # rule 2
 
 
@@ -1675,10 +1677,10 @@ def test_h1_removed_counts_repeated_blank_rows_and_every_number_matches_pandas(
     outcome = reply.partition("I also noticed:")[0]
 
     # The rendered "Removed N ..." sentences add up to rows in minus rows out.
-    removed_sentences = re.findall(r"[Rr]emoved (\d+) ([a-z()-]+ row\(s\))", outcome)
+    removed_sentences = re.findall(r"[Rr]emoved (\d+) ([a-z-]+ rows?)", outcome)
     assert sum(int(n) for n, _ in removed_sentences) == rows_in - rows_out
     duplicate_sentence = re.search(
-        r"(?:Done — )?[Rr]emoved (\d+) duplicate row\(s\)"
+        r"(?:Done — )?[Rr]emoved (\d+) duplicate rows?"
         r"(?:, including (\d+) repeated blank rows?)?\.",
         outcome,
     )
@@ -1689,17 +1691,18 @@ def test_h1_removed_counts_repeated_blank_rows_and_every_number_matches_pandas(
     assert int(duplicate_sentence[2]) == blank_in - 1 == 1
     if chain:
         # The chain's second step removes the one blank row dedupe kept.
-        assert removed_sentences[1] == ("1", "fully-empty row(s)")
+        assert removed_sentences[1] == ("1", "fully-empty row")
         assert (rows_in, rows_out) == (len(rows["name"]), len(rows["name"]) - duplicates_in - 1)
         # PR-B (review H1): Brain gave no reading, so the mention detector alone
         # has both actions and never confirms a request: no "Done".
         assert "Done" not in reply
-        assert f"The copy has {rows_out} row(s), 0 duplicate row(s) and 0 fully-empty" in reply
+        expected = f"The copy has {_n(rows_out, 'row')}, with 0 duplicate rows and 0 fully-empty"
+        assert expected in reply
     else:
         assert len(removed_sentences) == 1
         assert rows_out == rows_in - duplicates_in
         assert reply.count("Done — removed") == 1
-        assert f"The copy has {rows_out} row(s), 0 duplicate row(s) remaining." in reply
+        assert f"The copy has {_n(rows_out, 'row')}, with 0 duplicate rows remaining." in reply
     assert int(delivered.duplicated().sum()) == 0
     assert int(delivered.isna().all(axis=1).sum()) == (0 if chain else 1)
 
@@ -1753,7 +1756,7 @@ def test_h1_an_unconfirmable_count_renders_the_no_count_sentence(
     assert "the duplicate-row removal ran and passed its check." in reply
     assert "Removed" not in reply and "removed" not in reply
     assert "no duplicate rows to remove" not in reply
-    assert f"The copy has {len(delivered)} row(s), 0 duplicate row(s) remaining." in reply
+    assert f"The copy has {_n(len(delivered), 'row')}, with 0 duplicate rows remaining." in reply
     assert original_path.read_bytes() == original_bytes  # rule 2
 
 
@@ -1938,10 +1941,11 @@ def test_n1_misclassified_dedupe_request_says_what_ran_and_what_didnt(
     rows_out, dups_out, empty_out = _counts(state.execution_result.outputs[0])
     assert (rows_in - rows_out, empty_in, empty_out, dups_out) == (1, 1, 0, 2)
     block = (
-        f"Removed {rows_in - rows_out} fully-empty row(s). Your message mentions duplicate "
+        f"Removed {_n(rows_in - rows_out, 'fully-empty row')}. Your message mentions duplicate "
         "rows, but I didn't run the duplicate-row removal. I read your request as: remove empty "
-        f"rows. The copy has {rows_out} row(s), {empty_out} fully-empty row(s) remaining. "
-        f"It still has {dups_out} duplicate row(s)."
+        f"rows. The copy has {_n(rows_out, 'row')}, "
+        f"with {_n(empty_out, 'fully-empty row')} remaining. "
+        f"It still has {_n(dups_out, 'duplicate row')}."
     )
     reply = _check_delivered_reply(
         state, provider, model_reply, original_path, original_bytes, speaker_kind, block,
@@ -1978,10 +1982,10 @@ def test_c1_c2_a_step_the_planner_dropped_is_stated_as_not_run(
     rows_out, dups_out, empty_out = _counts(state.execution_result.outputs[0])
     assert (rows_in - rows_out, dups_in, dups_out, empty_out) == (2, 2, 0, 1)
     block = (
-        f"Partly done — removed {rows_in - rows_out} duplicate row(s). I didn't run the "
+        f"Partly done — removed {_n(rows_in - rows_out, 'duplicate row')}. I didn't run the "
         "empty-row removal, though I read it as part of your request. The copy has "
-        f"{rows_out} row(s), {dups_out} duplicate row(s) remaining. It still has {empty_out} "
-        "fully-empty row(s)."
+        f"{_n(rows_out, 'row')}, with {_n(dups_out, 'duplicate row')} remaining. "
+        f"It still has {_n(empty_out, 'fully-empty row')}."
     )
     reply = _check_delivered_reply(
         state, provider, model_reply, original_path, original_bytes, speaker_kind, block,
@@ -2028,10 +2032,11 @@ def test_c3_a_compound_request_brain_read_as_one_action(
     rows_out, dups_out, empty_out = _counts(state.execution_result.outputs[0])
     assert (rows_in - rows_out, empty_out) == (2, 1)
     block = (
-        f"Removed {rows_in - rows_out} duplicate row(s). Your message mentions empty rows, "
+        f"Removed {_n(rows_in - rows_out, 'duplicate row')}. Your message mentions empty rows, "
         "but I didn't run the empty-row removal. I read your request as: remove duplicate rows. "
-        f"The copy has {rows_out} row(s), {dups_out} duplicate row(s) remaining. It still has "
-        f"{empty_out} fully-empty row(s)."
+        f"The copy has {_n(rows_out, 'row')}, "
+        f"with {_n(dups_out, 'duplicate row')} remaining. It still has "
+        f"{_n(empty_out, 'fully-empty row')}."
     )
     _check_delivered_reply(
         state, provider, model_reply, original_path, original_bytes, speaker_kind, block,
@@ -2065,10 +2070,12 @@ def test_n5_unrequested_work_is_stated_as_such_and_the_request_as_not_run(
     rows_out, dups_out, empty_out = _counts(state.execution_result.outputs[0])
     assert (rows_in - rows_out, empty_out) == (2, 1)
     block = (
-        f"I removed {rows_in - rows_out} duplicate row(s), though I didn't read that as part of "
+        f"I removed {_n(rows_in - rows_out, 'duplicate row')}, "
+        "though I didn't read that as part of "
         "your request. I didn't run the empty-row removal, though I read it as part of your "
-        f"request. The copy has {rows_out} row(s), {dups_out} duplicate row(s) remaining. "
-        f"It still has {empty_out} fully-empty row(s)."
+        f"request. The copy has {_n(rows_out, 'row')}, "
+        f"with {_n(dups_out, 'duplicate row')} remaining. "
+        f"It still has {_n(empty_out, 'fully-empty row')}."
     )
     reply = _check_delivered_reply(
         state, provider, model_reply, original_path, original_bytes, speaker_kind, block,
@@ -2098,10 +2105,10 @@ def test_n5_without_a_brain_ledger_claims_nothing_about_the_request(
     rows_in, _, _ = _counts(original_path)
     rows_out, dups_out, empty_out = _counts(state.execution_result.outputs[0])
     block = (
-        f"Removed {rows_in - rows_out} duplicate row(s). Your message mentions empty rows, "
+        f"Removed {_n(rows_in - rows_out, 'duplicate row')}. Your message mentions empty rows, "
         "but I didn't run the empty-row removal. The copy has "
-        f"{rows_out} row(s), {dups_out} duplicate row(s) remaining. It still has {empty_out} "
-        "fully-empty row(s)."
+        f"{_n(rows_out, 'row')}, with {_n(dups_out, 'duplicate row')} remaining. "
+        f"It still has {_n(empty_out, 'fully-empty row')}."
     )
     reply = _check_delivered_reply(
         state, provider, model_reply, original_path, original_bytes, speaker_kind, block,
@@ -2146,8 +2153,9 @@ def test_dedupe_and_sort_says_the_sort_part_cant_be_done(
     rows_in, _, _ = _counts(original_path)
     rows_out, dups_out, _ = _counts(state.execution_result.outputs[0])
     block = (
-        f"Partly done — removed {rows_in - rows_out} duplicate row(s). {expected_line} The copy "
-        f"has {rows_out} row(s), {dups_out} duplicate row(s) remaining."
+        f"Partly done — removed {_n(rows_in - rows_out, 'duplicate row')}. "
+        f"{expected_line} The copy "
+        f"has {_n(rows_out, 'row')}, with {_n(dups_out, 'duplicate row')} remaining."
     )
     _check_delivered_reply(
         state, provider, model_reply, original_path, original_bytes, speaker_kind, block,
@@ -2214,10 +2222,11 @@ def test_remove_the_empty_rows_but_keep_the_duplicates(
     rows_out, dups_out, empty_out = _counts(state.execution_result.outputs[0])
     assert dups_out == dups_in == 2  # the duplicates were kept
     block = (
-        f"Removed {rows_in - rows_out} fully-empty row(s). Your message mentions duplicate "
+        f"Removed {_n(rows_in - rows_out, 'fully-empty row')}. Your message mentions duplicate "
         "rows, but I didn't run the duplicate-row removal. I read your request as: remove empty "
-        f"rows. The copy has {rows_out} row(s), {empty_out} fully-empty row(s) remaining. "
-        f"It still has {dups_out} duplicate row(s)."
+        f"rows. The copy has {_n(rows_out, 'row')}, "
+        f"with {_n(empty_out, 'fully-empty row')} remaining. "
+        f"It still has {_n(dups_out, 'duplicate row')}."
     )
     reply = _check_delivered_reply(
         state, provider, model_reply, original_path, original_bytes, speaker_kind, block,
@@ -2256,9 +2265,9 @@ def test_a_fully_done_chain_says_done_and_may_close(
     assert reply is not None
     assert provider._replies == ["Both done!"]
     assert (
-        f"Done — removed 2 duplicate row(s). Removed 1 fully-empty row(s). The copy has "
-        f"{rows_out} row(s), {dups_out} duplicate row(s) and {empty_out} fully-empty row(s) "
-        "remaining."
+        f"Done — removed 2 duplicate rows. Removed 1 fully-empty row. The copy has "
+        f"{_n(rows_out, 'row')}, with {_n(dups_out, 'duplicate row')} and "
+        f"{_n(empty_out, 'fully-empty row')} remaining."
     ) in reply
     assert "still has" not in reply and "didn't run" not in reply
     assert original_path.read_bytes() == original_bytes
@@ -2327,9 +2336,9 @@ def test_c2_a_step_the_user_forbade_is_unrequested_and_the_reply_never_says_done
 
     assert _counts(delivered) == (3, 0, 0)
     assert (
-        "I also removed 2 duplicate row(s), though I didn't read that as part of your request."
+        "I also removed 2 duplicate rows, though I didn't read that as part of your request."
     ) in reply
-    assert "Removed 1 fully-empty row(s)." in reply
+    assert "Removed 1 fully-empty row." in reply
     assert "sheet was seeing double" not in reply  # no opener praising the forbidden step
     _no_completion_claim(reply)
 
@@ -2370,7 +2379,7 @@ def test_c3_c7_with_no_reading_from_brain_a_mention_never_says_done(
     )
 
     assert _counts(delivered) == (3, 0, 0)
-    assert "emoved 2 duplicate row(s)" in reply and "emoved 1 fully-empty row(s)" in reply
+    assert "emoved 2 duplicate rows" in reply and "emoved 1 fully-empty row" in reply
     _no_completion_claim(reply)
 
 
@@ -2395,17 +2404,17 @@ def test_c6_nothing_requested_was_done_so_the_reply_says_neither_done_nor_partly
 
     assert _counts(delivered) == (4, 0, 1)
     assert (
-        "I removed 2 duplicate row(s), though I didn't read that as part of your request."
+        "I removed 2 duplicate rows, though I didn't read that as part of your request."
     ) in reply
     assert "I didn't run the empty-row removal, though I read it as part of your request." in reply
-    assert "It still has 1 fully-empty row(s)." in reply
+    assert "It still has 1 fully-empty row." in reply
     assert "Partly done" not in reply
     assert "sheet was seeing double" not in reply
     _no_completion_claim(reply)
 
 
 _DEDUPE_ONLY_BLOCK = (
-    "Done — removed 2 duplicate row(s). The copy has 4 row(s), 0 duplicate row(s) remaining."
+    "Done — removed 2 duplicate rows. The copy has 4 rows, with 0 duplicate rows remaining."
 )
 
 
@@ -2463,9 +2472,9 @@ def test_a1_a_whole_message_phrase_is_never_quoted_as_something_buddy_cant_do(
 
     assert _counts(delivered) == (4, 0, 1)
     assert (
-        "Partly done — removed 2 duplicate row(s). "
+        "Partly done — removed 2 duplicate rows. "
         "I read part of your request as something I can't do yet. "
-        "The copy has 4 row(s), 0 duplicate row(s) remaining."
+        "The copy has 4 rows, with 0 duplicate rows remaining."
     ) in reply, reply
     assert "can't do this part yet" not in reply
     assert "sort by amount”" not in reply
@@ -2486,7 +2495,7 @@ def test_a4_an_unsupported_entry_naming_only_a_done_action_is_dropped(
     )
 
     assert "can't do" not in reply and "Partly done" not in reply, reply
-    assert "emoved 2 duplicate row(s)." in reply
+    assert "emoved 2 duplicate rows." in reply
 
 
 @pytest.mark.parametrize("speaker_kind", _SPEAKERS)
@@ -2510,7 +2519,7 @@ def test_b5_keep_the_duplicates_is_not_something_buddy_cant_do(
     assert _counts(delivered) == (5, 2, 0)
     assert "can't do" not in reply and "keep the duplicates" not in reply, reply
     assert "Partly done" not in reply
-    assert "It still has 2 duplicate row(s)." in reply
+    assert "It still has 2 duplicate rows." in reply
     _no_completion_claim(reply)
 
 
@@ -2541,8 +2550,9 @@ def test_l2_the_same_unsupported_part_is_said_once(
 def test_m1_the_analyzers_all_clear_is_qualified_next_to_a_residual(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch, speaker_kind: str
 ) -> None:
-    """Review M1: "It still has 2 duplicate row(s)." can't be followed by "None of the
-    issues I check for were found." (the analysis doesn't check exact duplicates)."""
+    """Review M1: "It still has 2 duplicate rows." can't be followed by "None of the
+    issues I check for were found." The analysis now reports exact duplicates itself
+    (backlog item 3), with the same count the residual measurement gives."""
     monkeypatch.chdir(tmp_path)
     brain = _brain_ledger_reply("remove_empty_rows", None)
 
@@ -2550,15 +2560,15 @@ def test_m1_the_analyzers_all_clear_is_qualified_next_to_a_residual(
         tmp_path, "remove the duplicate rows please", [brain, _THINK_PROCEEDS], speaker_kind
     )
 
-    assert "It still has 2 duplicate row(s)." in reply
-    assert "None of the other issues I check for were found." in reply
-    assert "None of the issues I check for were found" not in reply
+    assert "It still has 2 duplicate rows." in reply
+    assert "I also noticed: 2 rows repeat an earlier row exactly." in reply
+    assert "none of the" not in reply.lower()
 
 
 # -- Verified outcome (PR-B fixes 2): re-review N1 and N2, end to end ----------------------
 
 _DEDUPE_LEAD_AND_GENERIC = (
-    "Partly done — removed 2 duplicate row(s). "
+    "Partly done — removed 2 duplicate rows. "
     "I read part of your request as something I can't do yet."
 )
 
@@ -2615,7 +2625,7 @@ def test_n1_delete_the_file_alone_is_still_quoted_as_something_buddy_cant_do(
     )
 
     assert "I can't do this part yet: “delete the file”." in reply, reply
-    assert "Partly done — removed 2 duplicate row(s)." in reply, reply
+    assert "Partly done — removed 2 duplicate rows." in reply, reply
 
 
 @pytest.mark.parametrize("session_id", _SEEDS)
@@ -2641,7 +2651,7 @@ def test_n1_a_dropped_entry_needs_only_function_words_left_over(
     )
 
     assert "can't do" not in reply, reply
-    assert "Removed 1 fully-empty row(s)" in reply or "emoved 1 fully-empty row(s)" in reply
+    assert "Removed 1 fully-empty row" in reply or "emoved 1 fully-empty row" in reply
 
 
 @pytest.mark.parametrize("session_id", _SEEDS)
@@ -2663,7 +2673,7 @@ def test_n2_unsupported_entries_alone_are_no_reading_to_compare_a_step_with(
 
     assert _counts(delivered) == (4, 0, 1)
     assert "didn't read that" not in reply, reply
-    assert "emoved 2 duplicate row(s)" in reply, reply
+    assert "emoved 2 duplicate rows" in reply, reply
     assert "I can't do this part yet: “sort by amount”." in reply, reply
     _no_completion_claim(reply)
 
@@ -2741,7 +2751,7 @@ def test_p1_p2_p3_a_flagged_part_is_never_dropped_behind_a_done_lead(
                 ("unsupported", "please remove all duplicates"),
             ],
             (4, 0, 1),
-            "removed 2 duplicate row(s).",
+            "removed 2 duplicate rows.",
         ),
         (  # near-miss action name, rich phrase
             "g27",
@@ -2749,7 +2759,7 @@ def test_p1_p2_p3_a_flagged_part_is_never_dropped_behind_a_done_lead(
             "remove_duplicate_rows",
             [("remove_duplicates", "remove all the duplicate rows from my sheet")],
             (4, 0, 1),
-            "removed 2 duplicate row(s).",
+            "removed 2 duplicate rows.",
         ),
         (
             "g28",
@@ -2760,7 +2770,7 @@ def test_p1_p2_p3_a_flagged_part_is_never_dropped_behind_a_done_lead(
                 ("unsupported", "delete the duplicates"),
             ],
             (4, 0, 1),
-            "removed 2 duplicate row(s).",
+            "removed 2 duplicate rows.",
         ),
         (
             "g29",
@@ -2768,7 +2778,7 @@ def test_p1_p2_p3_a_flagged_part_is_never_dropped_behind_a_done_lead(
             "remove_duplicate_rows",
             [("deduplicate", "can you remove the duplicates")],
             (4, 0, 1),
-            "removed 2 duplicate row(s).",
+            "removed 2 duplicate rows.",
         ),
         (
             "g30",
@@ -2776,7 +2786,7 @@ def test_p1_p2_p3_a_flagged_part_is_never_dropped_behind_a_done_lead(
             "remove_empty_rows",
             [("remove_blank_rows", "remove the empty rows from this sheet")],
             (5, 2, 0),
-            "removed 1 fully-empty row(s).",
+            "removed 1 fully-empty row.",
         ),
     ],
     ids=["g26", "g27", "g28", "g29", "g30"],
@@ -2862,6 +2872,6 @@ def test_r1_a_flagged_workbook_scope_is_partly_done_not_done_on_a_one_sheet_file
     )
 
     assert _counts(delivered) == (4, 0, 1)
-    assert "Partly done — removed 2 duplicate row(s)." in reply, reply
+    assert "Partly done — removed 2 duplicate rows." in reply, reply
     assert "Done —" not in reply, reply
     assert _P_CANT_DO_GENERIC in reply, reply
