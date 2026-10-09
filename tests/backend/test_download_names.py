@@ -64,6 +64,48 @@ def test_the_internal_ids_are_dropped_from_the_download_name(stored: str, shown:
     assert download_name(stored, KEY) == shown
 
 
+@pytest.mark.parametrize(
+    ("stored", "shown"),
+    [
+        # The person's own words are kept, even when they look like a skill's.
+        (
+            f"my_no_empty_rows_data_no_empty_rows_{KEY}-task-1.xlsx",
+            "my_no_empty_rows_data_cleaned.xlsx",
+        ),
+        (
+            f"deduplicated_report_deduplicated_{KEY}-task-1.xlsx",
+            "deduplicated_report_deduplicated.xlsx",
+        ),
+        # An id in a shape no skill writes today is still dropped.
+        (f"report_somethingnew_{KEY}-task-3.xlsx", "report_somethingnew.xlsx"),
+    ],
+)
+def test_only_the_generated_part_of_the_name_is_rewritten(stored: str, shown: str) -> None:
+    assert download_name(stored, KEY) == shown
+
+
+def test_a_long_name_is_cut_in_its_stem_so_the_operation_still_shows() -> None:
+    stem = "x" * 95
+    first = download_name(f"{stem}_deduplicated_{KEY}-task-1.xlsx", KEY)
+    chain = download_name(f"{stem}_deduplicated_{KEY}-task-1_no_empty_rows_{KEY}-task-2.xlsx", KEY)
+
+    assert first.endswith("_deduplicated.xlsx") and len(first) <= 100
+    assert chain.endswith("_deduplicated_cleaned.xlsx") and len(chain) <= 100
+    assert first != chain
+
+
+def test_names_that_differ_only_in_case_are_numbered_too() -> None:
+    files = [
+        _delivered("d1", f"Report_deduplicated_{KEY}-task-1.xlsx"),
+        _delivered("d2", f"report_deduplicated_{KEY}-task-1.xlsx"),
+    ]
+
+    assert display_names(KEY, files) == {
+        "d1": "Report_deduplicated.xlsx",
+        "d2": "report_deduplicated (2).xlsx",
+    }
+
+
 def test_a_name_never_contains_the_session_key_or_a_task_number() -> None:
     for stored in (
         f"a_deduplicated_{KEY}-task-1.xlsx",

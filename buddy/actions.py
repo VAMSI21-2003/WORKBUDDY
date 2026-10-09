@@ -185,14 +185,30 @@ def requested_ledger(understanding: Understanding) -> tuple[RequestedAction, ...
 CONVERSATION = "conversation"
 
 _REPORT_NOUN = (
-    r"(?:reports?|summary|summaries|summari[sz]e|summari[sz]ation|analysis|analy[sz]e|analyse)"
+    r"(?:reports?|summary|summaries|summari[sz]e|summari[sz]ation|analysis|analy[sz]e|analyse|"
+    r"rundown|overview)"
 )
-# "give me a full report", "send me the summary", "analyze it": the request, with the verb and
-# determiners in front of the noun that belong to it.
+# "give me a full report on this file", "send me the summary", "analyze my data": the request,
+# with the verb and determiners in front of the noun, and the thing it is about after it, that
+# belong to it. One pattern for every stage that asks "is this a report request?" (the planner,
+# the mention detector and the outcome renderer), so they can't disagree about a wording.
+_REPORT_ABOUT = (
+    r"(?:\s+(?:(?:of|on|about|for)\s+)?"
+    r"(?:(?:the|this|that|my|our|your|all|any|every|these|those)\s+)*"
+    r"(?:file|sheet|spreadsheet|workbook|data|table|issues?|problems?|duplicates?|rows?|columns?|"
+    r"errors?)\b)?"
+)
 _REPORT_REQUEST = re.compile(
     r"(?:\b(?:give|send|show|make|create|write|produce|generate|prepare|get|run|do|need|want)\s+"
     r"(?:(?:me|us|a|an|the|my|our|your|full|short|brief|quick|detailed|written|data|quality)\s+)*)?"
-    rf"\b{_REPORT_NOUN}\b",
+    rf"\b{_REPORT_NOUN}\b{_REPORT_ABOUT}"
+    # "check the file for problems", "take a look at my data", "what's wrong with the sheet": the
+    # analysis, asked for by what it does.
+    r"|\b(?:check|look\s+(?:at|over)|take\s+a\s+look\s+at|review|inspect)\s+"
+    r"(?:(?:the|this|that|my|our|your)\s+)?(?:file|sheet|spreadsheet|workbook|data|table)\b"
+    r"(?:\s+for\s+(?:any\s+)?(?:issues?|problems?|errors?|mistakes?))?"
+    r"|\bwhat'?s\s+wrong\s+with\s+(?:(?:the|this|that|my|our|your)\s+)?"
+    r"(?:file|sheet|spreadsheet|workbook|data|table)\b",
     re.IGNORECASE,
 )
 _REPORT_NEGATED = re.compile(
@@ -209,7 +225,8 @@ _REPORT_ELSEWHERE = re.compile(
 # Words that may stand around a report request without asking for anything else.
 _REPORT_FILLER = frozenset(
     "a an the please pls and then also just only so but can could would will you i we to "
-    "me us it of on for this that my our your file sheet spreadsheet data".split()
+    "me us it of on for this that my our your file sheet spreadsheet data "
+    "be great thanks thank short brief quick full detailed written tell".split()
 )
 
 

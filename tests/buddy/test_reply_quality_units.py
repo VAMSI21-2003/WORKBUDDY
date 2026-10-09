@@ -407,3 +407,10 @@ def test_the_finding_counts_what_the_dedupe_verifier_counts(tmp_path: Path) -> N
     count = _duplicate_rows(pd.read_excel(path))
     expected = f"[duplicate_rows] {count} rows repeat an earlier row exactly"
     assert expected in _verify(path)
+
+
+def test_the_verifiers_finding_uses_the_singular_for_one_repeated_row(tmp_path: Path) -> None:
+    path = tmp_path / "d.xlsx"
+    pd.DataFrame({"a": [1, 1, 2]}).to_excel(path, index=False)
+
+    assert _verify(path) == ("[duplicate_rows] 1 row repeats an earlier row exactly",)

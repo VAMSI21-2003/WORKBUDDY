@@ -17,26 +17,33 @@ import re
 from collections.abc import Sequence
 
 from backend.sessions import DeliveredFile
-from backend.uploads import sanitize_name
+from backend.uploads import MAX_NAME_CHARS
 
-# The part of a skill's operation name that reads badly to a person.
-_FRIENDLY_OPERATIONS = (("_no_empty_rows", "_cleaned"),)
+# The operation word each skill puts in the name of the file it writes
+# (``skills/excel/*._build_output_path``), and how a person reads it.
+_OPERATION_WORDS = {"deduplicated": "deduplicated", "no_empty_rows": "cleaned"}
 
 
 def download_name(stored_name: str, session_key: str) -> str:
-    """The name a person downloads ``stored_name`` as: the internal task suffixes removed.
+    """The name a person downloads ``stored_name`` as: the internal ids removed.
 
-    Every ``_<session>-task-<n>`` is dropped (a chain's file carries one per step), and
-    the empty-row skill's ``no_empty_rows`` is written ``cleaned``. A name that doesn't have
-    that shape is returned as it is.
+    A skill's file is ``<stem>_<operation>_<session>-task-<n>.xlsx``, and a chain's file carries
+    one ``_<operation>_<session>-task-<n>`` per step. Only those generated parts are changed:
+    each loses its id and the empty-row skill's ``no_empty_rows`` is written ``cleaned``. The
+    stem, the person's own words, is kept (cut, if it must be, to leave room for the operations,
+    so the name still says what was done). A name with ``-task-`` ids in another shape loses them;
+    any other name is returned as it is.
     """
-    suffix = re.compile(rf"_{re.escape(session_key)}-task-\d+")
-    name = suffix.sub("", stored_name)
-    if name == stored_name:
-        return stored_name
-    for internal, friendly in _FRIENDLY_OPERATIONS:
-        name = name.replace(internal, friendly)
-    return sanitize_name(name) or stored_name
+    key = re.escape(session_key)
+    operation = "|".join(map(re.escape, _OPERATION_WORDS))
+    step = rf"_(?:{operation})_{key}-task-\d+"
+    shape = rf"(?P<stem>.*?)(?P<steps>(?:{step})+)(?P<extension>\.[A-Za-z0-9]+)"
+    found = re.fullmatch(shape, stored_name)
+    if found is not None:
+        words = re.findall(rf"_({operation})_{key}-task-\d+", found["steps"])
+        tail = "_" + "_".join(_OPERATION_WORDS[word] for word in words) + found["extension"]
+        return found["stem"][: max(1, MAX_NAME_CHARS - len(tail))] + tail
+    return re.sub(rf"_{key}-task-\d+", "", stored_name)
 
 
 def display_names(session_key: str, delivered: Sequence[DeliveredFile]) -> dict[str, str]:

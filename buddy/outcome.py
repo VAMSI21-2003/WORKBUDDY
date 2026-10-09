@@ -29,6 +29,7 @@ from buddy.actions import (
     ACTIONS_BY_TARGET,
     BRAIN_SOURCES,
     UNSUPPORTED,
+    is_only_a_report_request,
     requested_ledger,
     strip_report_request,
 )
@@ -470,6 +471,10 @@ def _no_skill_outcome(
       as a negation.
     """
     phrase = entry.source_phrase
+    if report_stated and is_only_a_report_request(phrase):
+        # The reply states the report itself (delivered or why not), so a phrase that only asks
+        # for one is not also "something I can't do". The same predicate the planner uses.
+        return None
     lowered = phrase.casefold().replace("\u2019", "'")
     names_action = named_passed = named_silent = False
     for action in ACTIONS_BY_NAME.values():

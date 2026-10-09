@@ -739,11 +739,13 @@ class TemplateSpeaker:
             return f"{reason} {NO_CHANGES_SENTENCE}"
         reasoning = request.reasoning
         parts: list[str] = []
+        asked = False
         if reasoning is not None and reasoning.clarification_required:
             if reasoning.clarification_reason == CLARIFY_FAILED:
                 parts.append(UNDERSTANDING_FAILED_SENTENCE)
             else:
                 parts.append(clarification_question(reasoning.clarification_reason, style, seed))
+                asked = True
         elif understanding.intent is None:
             parts.append(UNDERSTANDING_FAILED_SENTENCE)
         else:
@@ -771,7 +773,7 @@ class TemplateSpeaker:
                     parts.append(ANALYSIS_QUESTION)
         if _initial_analysis_failed(request.verification_result) and not request.report_requested:
             parts.append(INITIAL_ANALYSIS_FAILED_SENTENCE)
-        if not (reasoning is not None and reasoning.clarification_required):
+        if not asked:
             parts.append(NO_CHANGES_SENTENCE)
         return _plain_words(" ".join(parts))
 

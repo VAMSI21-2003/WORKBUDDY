@@ -891,3 +891,187 @@ def test_a_report_to_be_emailed_is_not_given_as_the_report_and_is_stated_as_not_
     assert turn.delivered
     assert "I can't do this part yet: “email me the report”." in turn.reply
     assert REPORT_LEAD_COPY not in turn.reply
+
+
+# Brain's prompt names "a report" as the example of `unsupported`, so any of these can come back
+# as its `source_phrase`. The planner and the outcome renderer must agree that each is a report
+# request, so a delivered report is never also "something I can't do" (review round 1, M1).
+REPORT_WORDINGS = [
+    "give me a report",
+    "give me a report on this file",
+    "give me a report of the file",
+    "give me a report on my data",
+    "give me a full report",
+    "send me a report",
+    "I need a report",
+    "generate a report of all the issues",
+    "write me a report about this spreadsheet",
+    "report on the duplicates",
+    "a report please",
+    "analyze my file",
+    "analyze the file",
+    "analyze this spreadsheet",
+    "analyze it",
+    "analyze my data",
+    "analyse the data",
+    "do an analysis",
+    "run an analysis",
+    "give me an analysis of the file",
+    "analysis please",
+    "summarize my data",
+    "summarize the file",
+    "summarize this",
+    "summarize it for me",
+    "give me a summary of the file",
+    "give me a summary of my data",
+    "show me a summary",
+    "show me a summary of the problems",
+    "a short summary would be great",
+    "give me a rundown",
+    "tell me what's wrong with the file",
+    "check the file for problems",
+    "take a look at the file",
+]
+
+
+@pytest.mark.parametrize("wording", REPORT_WORDINGS)
+def test_every_report_wording_is_one_report_request_for_every_stage(wording: str) -> None:
+    from buddy.actions import is_only_a_report_request, mentions_report
+    from buddy.models import RequestedAction, Understanding
+    from buddy.outcome import build_outcome_report
+
+    assert mentions_report(wording) and is_only_a_report_request(wording)
+    understanding = Understanding(
+        intent="unclear",
+        requested_actions=(RequestedAction("unsupported", wording, "brain"),),
+    )
+
+    report = build_outcome_report(None, None, understanding, report_stated=True)
+
+    assert report.actions == ()  # not also stated as "can't do"
+
+
+@pytest.mark.parametrize("speaker", SPEAKERS)
+@pytest.mark.parametrize(
+    "wording",
+    [
+        "analyze my file",
+        "summarize my data",
+        "give me a summary of the file",
+        "write me a report about this spreadsheet",
+        "a short summary would be great",
+        "tell me what's wrong with the file",
+        "give me a rundown",
+    ],
+)
+def test_a_report_flagged_unsupported_is_delivered_and_not_also_cant_do(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, speaker: str, wording: str
+) -> None:
+    flagged = Routed(brain("unclear", ("unsupported", wording)), think())
+    alone = run_turn(tmp_path / "alone", speaker, wording, flagged, monkeypatch=monkeypatch)
+
+    assert alone.reply.startswith(REPORT_LEAD_ORIGINAL)
+    assert "can't do" not in alone.reply and "something I can't" not in alone.reply
+    _assert_nothing_claimed(alone)
+
+    after = Routed(
+        brain(
+            "remove_duplicate_rows",
+            ("remove_duplicate_rows", "remove the duplicate rows"),
+            ("unsupported", wording),
+        ),
+        think(),
+    )
+    turn = run_turn(
+        tmp_path / "after",
+        speaker,
+        f"remove the duplicate rows and {wording}",
+        after,
+        monkeypatch=monkeypatch,
+    )
+
+    assert turn.delivered
+    assert REPORT_LEAD_COPY in turn.reply
+    assert "can't do" not in turn.reply and "Partly done" not in turn.reply
+    assert "Done —" in turn.reply
+
+
+# -- Guards that had no test (review round 1, L1, L3) -----------------------------------------
+
+
+def _request(**fields: Any) -> Any:
+    from buddy.models import Understanding
+    from buddy.voice import SpeakingRequest
+
+    fields.setdefault("understanding", Understanding(intent="unclear"))
+    fields.setdefault("execution_result", None)
+    fields.setdefault("verification_result", None)
+    fields.setdefault("mode", "friend")
+    return SpeakingRequest(**fields)
+
+
+@pytest.mark.parametrize("speaker", SPEAKERS)
+def test_findings_of_an_analysis_that_did_not_pass_are_never_given_as_the_report(
+    speaker: str,
+) -> None:
+    from buddy.models import ExecutionResult, StepResult, StepVerification, VerificationResult
+    from buddy.voice import TemplateSpeaker
+    from buddy.voice_catalog import REPORT_ANALYSIS_FAILED_SENTENCE, style_for
+
+    step = StepResult(capability="spreadsheet.analyze", skill="excel.analyze", status="success")
+    request = _request(
+        execution_result=ExecutionResult(success=True, steps=(step,)),
+        verification_result=VerificationResult(
+            passed=False,
+            findings=("[spreadsheet.analyze] [missing_values] a figure nobody checked",),
+            steps=(
+                StepVerification(
+                    capability="spreadsheet.analyze",
+                    passed=False,
+                    read_only=True,
+                    findings=("[missing_values] a figure nobody checked",),
+                ),
+            ),
+        ),
+        report_requested=True,
+        mode="focus" if speaker == "focus" else "friend",
+    )
+
+    style = "plain" if speaker == "template" else style_for(request.mode)
+    reply = TemplateSpeaker().compose(request, style=style)
+
+    assert REPORT_ANALYSIS_FAILED_SENTENCE in reply
+    assert "a figure nobody checked" not in reply
+    assert REPORT_LEAD_ORIGINAL not in reply
+
+
+@pytest.mark.parametrize("speaker", SPEAKERS)
+def test_a_report_on_an_unchanged_file_says_when_the_analysis_did_not_run(speaker: str) -> None:
+    from buddy.models import ExecutionResult
+    from buddy.voice import TemplateSpeaker
+    from buddy.voice_catalog import style_for
+
+    request = _request(
+        execution_result=ExecutionResult(success=True, warnings=("nothing to execute",)),
+        report_requested=True,
+        mode="focus" if speaker == "focus" else "friend",
+    )
+
+    style = "plain" if speaker == "template" else style_for(request.mode)
+    reply = TemplateSpeaker().compose(request, style=style)
+
+    assert REPORT_NOT_RUN_SENTENCE in reply
+    assert REPORT_LEAD_ORIGINAL not in reply and NO_CHANGES_SENTENCE in reply
+
+
+@pytest.mark.parametrize("speaker", SPEAKERS)
+def test_a_think_that_failed_still_says_nothing_was_changed(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, speaker: str
+) -> None:
+    provider = Routed(brain("remove_duplicate_rows"), "not json")
+
+    turn = run_turn(
+        tmp_path, speaker, "remove the duplicate rows", provider, monkeypatch=monkeypatch
+    )
+
+    assert turn.reply == f"{UNDERSTANDING_FAILED_SENTENCE} {NO_CHANGES_SENTENCE}"

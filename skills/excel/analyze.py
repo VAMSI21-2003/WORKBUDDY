@@ -205,8 +205,8 @@ class GroupedKeyConflictAnalyzer:
                 example_key = conflicts.index[0]
                 findings.append(
                     f"{len(conflicts)} {'value' if len(conflicts) == 1 else 'values'} of "
-                    f"{key_column!r} {'is' if len(conflicts) == 1 else 'are'} linked to more than one "
-                    f"{other_column!r} (e.g. {key_column}={example_key!r})"
+                    f"{key_column!r} {'is' if len(conflicts) == 1 else 'are'} linked to more "
+                    f"than one {other_column!r} (e.g. {key_column}={example_key!r})"
                 )
         return tuple(findings)
 
