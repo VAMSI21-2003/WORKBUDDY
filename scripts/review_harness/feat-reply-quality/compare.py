@@ -12,7 +12,7 @@ is put in the first class that explains it:
   with …", and the exact-duplicate finding is removed;
 - ``plural + exact-duplicate finding / flow``: equal to the base reply once the new exact-duplicate
   finding, the reworded leads ("I also noticed", "Here's what I noticed when I looked it over"), the
-  "want me to tackle" question, the all-clear and "on the first step" are taken out of both;
+  "want me to tackle" question, the all-clear and "before I could change anything" are taken out of both;
 - the rest, by the feature that explains them (new reason, report, greeting, question, ...), or
   ``other`` (read these by hand).
 
@@ -35,7 +35,7 @@ ARGS = _ap.parse_args()
 
 def key(rec):
     return tuple((k, str(v)) for k, v in sorted(rec.items()) if k in (
-        "name", "speaker", "sid", "fixture", "request", "req", "mode"))
+        "name", "fx", "speaker", "sid", "fixture", "request", "req", "mode"))
 
 
 def norm_base(text):
@@ -56,7 +56,7 @@ _NOISE = [
     re.compile(r"Here's what I noticed when I looked it over:"),
     re.compile(r"Want me to tackle any of these\?"),
     re.compile(r"[Nn]one of the (?:other )?issues I check for were found\.?"),
-    re.compile(r"I ran into a problem (?:on the first step|partway through)\."),
+    re.compile(r"I ran into a problem (?:before I could change anything|partway through)\."),
 ]
 
 

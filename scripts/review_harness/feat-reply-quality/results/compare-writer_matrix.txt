@@ -1,0 +1,14 @@
+/tmp/claude-0/-home-user-WORKBUDDY/25b61d56-0443-587c-bd0d-22d35a8e14fc/scratchpad/out/matrix-new.json: 120 turns, 0 errors in new run, base had 120 turns
+     26  plural + exact-duplicate finding / flow
+     21  greeting
+     18  refusal
+     16  other
+     12  report
+      9  no-file
+      9  plural
+      6  not-understood+greeting
+      3  greeting+cant-do-that
+problems: 3
+    ('delivery differs from base', {'name': 'r2-dedupe-then-report', 'speaker': 'template'}, False, True)
+    ('delivery differs from base', {'name': 'r2-dedupe-then-report', 'speaker': 'friend'}, False, True)
+    ('delivery differs from base', {'name': 'r2-dedupe-then-report', 'speaker': 'focus'}, False, True)

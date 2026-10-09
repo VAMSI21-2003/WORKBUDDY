@@ -1,0 +1,5 @@
+/tmp/claude-0/-home-user-WORKBUDDY/25b61d56-0443-587c-bd0d-22d35a8e14fc/scratchpad/h/harness-new.json: 532 turns, 0 errors in new run, base had 532 turns
+    434  plural
+     84  plural + exact-duplicate finding / flow
+     14  not-understood+greeting
+problems: 0
