@@ -6,7 +6,7 @@
 //   3. the swap guard: drop a fragment for another session, or older than what the page holds;
 //   4. a lost answer to a plan: keep the buttons disabled and ask the server what happened;
 //   5. an ambiguous message POST: ask the server whether it made the turn;
-//   6. reload after the password gate; 7. Enter sends and Shift+Enter adds a line.
+//   6. reload after the password gate; let the New session control replace the session; 7. Enter sends and Shift+Enter adds a line.
 (() => {
   'use strict';
 
@@ -61,7 +61,7 @@
     if (withLink) {
       const link = document.createElement('a');
       link.href = '/';
-      link.textContent = copyText('enter-password-again');
+      link.textContent = copyText('sign-in-again');
       notice.append(' ', link);
     }
   }
@@ -298,7 +298,10 @@
     if (!fragment) return;
     let drop = false;
     const page = pageSessionId();
-    if (page !== '' && fragment.dataset.sessionId !== page) drop = true;
+    // The New session control is the one request that is meant to bring in another session.
+    const requester = evt.detail.requestConfig && evt.detail.requestConfig.elt;
+    const replacing = Boolean(requester && requester.matches && requester.matches('[data-new-session]'));
+    if (!replacing && page !== '' && fragment.dataset.sessionId !== page) drop = true;
     const turnId = fragment.dataset.turnId;
     const version = Number(fragment.dataset.version);
     if (!drop && turnId && Number.isFinite(version)) {

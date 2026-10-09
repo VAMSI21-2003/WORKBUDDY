@@ -1,0 +1,11 @@
+--- /home/user/WORKBUDDY/backend/web/routes.py	2026-10-08 10:27:46.015459715 +0000
++++ backend/web/routes.py	2026-10-08 11:41:11.336639727 +0000
+@@ -146,7 +146,7 @@
+     registry = api.registry_of(request)
+     pointer = request.cookies.get(SESSION_COOKIE)
+     session_id = pointer
+-    if session_id is None and principal is not None:
++    if session_id is None and principal is not None and principal.kind == 'google':
+         session_id = registry.latest_for(principal.owner)
+     conversation: views.ConversationView | None = None
+     if session_id is not None:

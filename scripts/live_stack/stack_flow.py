@@ -6,11 +6,12 @@
     python scripts/live_stack/stack_flow.py show SESSION_ID DELIVERED_FILE_ID
 
 Talks to https://$WORKBUDDY_DOMAIN (from deploy/.env; the stack's own name "localhost" in these
-runs) with the password from deploy/.env, trusting Caddy's own certificate authority, which it
+runs) as the operator (the token from deploy/.env; for a stack from before sign-in with Google, the
+password), trusting Caddy's own certificate authority, which it
 copies out of the Caddy container. Prints, for a turn: the intent, ``clarification_required``, the
 steps, whether a file was delivered, a pandas check of the delivered file against the original, the
 reply, and the original's SHA-256 (the local fixture, the server's recorded one, and the server's
-stored copy read from the data volume) before and after. Never prints the password.
+stored copy read from the data volume) before and after. Never prints the token or the password.
 """
 
 from __future__ import annotations
@@ -69,6 +70,14 @@ def client() -> httpx.Client:
         base_url=f"https://{domain}", verify=str(ca), trust_env=False, timeout=60,
         headers={"Origin": f"https://{domain}"},
     )
+    try:
+        token = env_value("WORKBUDDY_OPERATOR_TOKEN")
+    except SystemExit:
+        token = ""
+    if token:  # a stack with Google sign-in: scripts are the operator (Bearer, no cookie)
+        http.headers["Authorization"] = f"Bearer {token}"
+        http.headers.pop("Origin")
+        return http
     response = http.post("/api/v1/access", data={"password": env_value("WORKBUDDY_DEMO_PASSWORD")})
     if response.status_code != 204:
         raise SystemExit(f"sign-in failed: HTTP {response.status_code}")

@@ -233,7 +233,7 @@ class RetentionSweeper:
 
 
 class MaintenanceLoop:
-    """The background thread: sweeps retention, expired tokens and idle rate-limit buckets.
+    """The background thread: sweeps retention, expired tokens and sign-ins, idle rate limits.
 
     Started at app startup and stopped at shutdown. A sweep that raises is
     logged and the loop goes on, so one bad pass can't end retention silently.
@@ -261,7 +261,7 @@ class MaintenanceLoop:
         except Exception:
             logger.exception("Retention sweep failed")
         try:
-            self._access.tokens.sweep()
+            self._access.sweep()
             self._limiter.prune()
         except Exception:
             logger.exception("Token and rate-limit sweep failed")

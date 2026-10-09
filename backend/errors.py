@@ -98,7 +98,7 @@ MESSAGES: dict[ErrorCode, str] = {
     ErrorCode.SERVER_BUSY: "The server is busy right now. Try again shortly.",
     ErrorCode.FILE_UNAVAILABLE: "That file is no longer available.",
     ErrorCode.INTERNAL_ERROR: "Something went wrong on the server.",
-    ErrorCode.UNAUTHORIZED: "The demo password is missing or wrong.",
+    ErrorCode.UNAUTHORIZED: "You aren't signed in, or your sign-in has ended.",
     ErrorCode.FORBIDDEN_ORIGIN: "This request didn't come from the demo page.",
     ErrorCode.RATE_LIMITED: "Too many requests. Wait a little and try again.",
     ErrorCode.SESSION_QUOTA_EXCEEDED: "This session has reached one of its limits.",

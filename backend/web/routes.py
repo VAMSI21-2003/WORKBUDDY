@@ -35,16 +35,9 @@ from backend.schemas import ConfirmationRequest, CreateTurnRequest, SessionState
 from backend.sessions import SessionRecord, utc_now
 from backend.settings import Settings
 from backend.web import views
+from backend.web.auth import auth_router, gate_context
+from backend.web.common import SESSION_COOKIE, clear_pointer, html, set_pointer
 from backend.web.templating import STATIC_DIR, render, static_version
-
-SESSION_COOKIE = "__Host-wb_session"
-
-# Frontend design 11.2. FE-1 serves its own pages and fragments under this policy, so the page is
-# tested the way it will run; FE-2 adds the rest of the headers and the static-file caching.
-CONTENT_SECURITY_POLICY = (
-    "default-src 'self'; script-src 'self'; style-src 'self'; img-src 'self' data:; "
-    "connect-src 'self'; form-action 'self'; frame-ancestors 'none'; base-uri 'none'"
-)
 
 # The static files' caching (frontend design 11.2). A page links them as ``?v=<version>`` of the
 # file (``static_url``), so a URL whose version is the file's current one never changes meaning
@@ -77,12 +70,6 @@ def now_of(request: Request) -> datetime:
 
 def settings_of(request: Request) -> Settings:
     return api.settings_of(request)
-
-
-def html(content: str, status: int = 200, headers: dict[str, str] | None = None) -> HTMLResponse:
-    response = HTMLResponse(content, status_code=status, headers=headers)
-    response.headers["Content-Security-Policy"] = CONTENT_SECURITY_POLICY
-    return response
 
 
 def versions_of(record: SessionRecord) -> dict[str, int]:
@@ -134,17 +121,6 @@ def turn_response(
     )
 
 
-def clear_pointer(response: Response) -> None:
-    response.delete_cookie(SESSION_COOKIE, path="/", secure=True, httponly=True, samesite="strict")
-
-
-def set_pointer(response: Response, session_id: str) -> None:
-    # A session cookie: no Max-Age or Expires, so it goes when the browser closes (design 6).
-    response.set_cookie(
-        SESSION_COOKIE, session_id, path="/", secure=True, httponly=True, samesite="strict"
-    )
-
-
 # -- The page ------------------------------------------------------------------------------------
 
 
@@ -158,26 +134,36 @@ def index(request: Request) -> Response:
     """The gate without a credential; with one, the workspace for the session pointer.
 
     Creates nothing: the workspace shell makes its own session with ``POST /ui/sessions``, so no
-    GET changes state (backend "Decisions (2026-10-01)", item 2.3).
+    GET changes state (backend "Decisions (2026-10-01)", item 2.3). With no pointer (a browser
+    that has just signed in) the person's most recent session is the page's, and the pointer is
+    set to it. A pointer to a session that isn't this person's reads as one that doesn't exist.
     """
     settings = settings_of(request)
-    if not check_credential(request).valid:
-        return html(render("gate.html", retention_hours=settings.retention_hours))
+    result = check_credential(request)
+    if not result.valid:
+        return html(render("gate.html", **gate_context(settings)))
+    principal = result.principal
+    registry = api.registry_of(request)
     pointer = request.cookies.get(SESSION_COOKIE)
+    session_id = pointer
+    # Only a person (a Google sign-in) has sessions of their own to be taken back to. The shared
+    # principals (the demo password, a dev server, the operator) are one owner for many people or
+    # scripts, so "their latest session" would be somebody else's.
+    if session_id is None and principal is not None and principal.kind == "google":
+        session_id = registry.latest_for(principal.owner)
     conversation: views.ConversationView | None = None
-    gone = False
-    if pointer is not None:
-        record = api.registry_of(request).get(pointer)
+    if session_id is not None:
+        record = registry.get(session_id, principal)
         if record is not None:
             try:
                 with record.lock:
-                    conversation = conversation_of(request, record, pointer)
+                    conversation = conversation_of(request, record, session_id)
             except ApiError as exc:
                 if exc.code is not ErrorCode.SESSION_NOT_FOUND:
                     raise
-        # A pointer to a session the server doesn't have (swept, or lost in a restart): the
-        # page says so exactly once, and the pointer is cleared (design 1.3).
-        gone = conversation is None
+    # A pointer to a session the server doesn't have (swept, lost in a restart, or someone
+    # else's): the page says so exactly once, and the pointer is cleared (design 1.3).
+    gone = pointer is not None and conversation is None
     response = html(
         render(
             "workspace.html",
@@ -185,10 +171,13 @@ def index(request: Request) -> Response:
             notice_gone=gone,
             awaiting=conversation is not None and conversation.awaiting_plan,
             retention_hours=settings.retention_hours,
+            account_email=principal.email if principal is not None else None,
         )
     )
     if gone:
         clear_pointer(response)
+    elif pointer is None and conversation is not None and session_id is not None:
+        set_pointer(response, session_id)
     return response
 
 
@@ -361,5 +350,6 @@ def mount_web(app: FastAPI) -> None:
     """Add the page's routes and static files to ``app``."""
     app.state.web_clock = utc_now
     app.include_router(page_router)
+    app.include_router(auth_router)
     app.include_router(ui_router)
     app.mount("/static", StaticAssets(directory=STATIC_DIR), name="static")

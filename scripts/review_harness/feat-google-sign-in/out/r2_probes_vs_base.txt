@@ -1,0 +1,11 @@
+## ui_probe head vs base (dev mode)
+DIFF ('08_chain_timeout', 'friend') statuses 
+  head: ["running", "awaiting_confirmation", "running", "finished"] 
+  base: ["running", "awaiting_confirmation", "finished"]
+# 75 head rows, 75 base rows, 1 differing fields; original unchanged in 75/75 head rows
+## signed_in_probe head vs ui_probe base
+# 75 head rows, 75 base rows, 0 differing fields; original unchanged in 75/75 head rows
+## signed_in_probe round 2 vs round 1 (both head-of-round)
+# 75 head rows, 75 base rows, 0 differing fields; original unchanged in 75/75 head rows
+## rule checks
+# 225 rows, 0 with problems

@@ -17,6 +17,10 @@ For each request it
    ``Retry-After`` and no charge, if one has no token),
 4. answers ``401`` for a missing or wrong credential, and ``403
    forbidden_origin`` where the Origin check applies,
+4b. for a route with ``{session_id}`` in its path, answers ``404 session_not_found`` unless the
+   request's principal owns that session (``SessionRegistry.authorize``), the same answer as for
+   a session that doesn't exist. It is done here, before the body is read, so a route can't
+   forget it (docs/design/google-sign-in.md, "Ownership"),
 5. runs the app, and takes the tokens that depend on the response (a poll
    that wasn't ``200``, a wrong password) when its status is known.
 
@@ -30,6 +34,7 @@ import logging
 from collections.abc import Callable
 
 from fastapi import FastAPI
+from starlette.concurrency import run_in_threadpool
 from starlette.routing import Match
 from starlette.types import ASGIApp, Message, Receive, Scope, Send
 
@@ -52,9 +57,13 @@ from backend.ratelimit import (
     declared_limits,
     iter_routes,
 )
+from backend.sessions import SessionRegistry
 from backend.settings import Settings
 
 logger = logging.getLogger(__name__)
+
+# The path parameter that names a session. Every route that has it is checked for ownership.
+SESSION_PARAM = "session_id"
 
 
 class RequestGate:
@@ -67,12 +76,14 @@ class RequestGate:
         settings: Settings,
         limiter: RateLimiter,
         access: AccessControl,
+        registry: SessionRegistry,
         routes_of: Callable[[], FastAPI],
     ) -> None:
         self.app = app
         self._settings = settings
         self._limiter = limiter
         self._access = access
+        self._registry = registry
         self._routes_of = routes_of
 
     async def __call__(self, scope: Scope, receive: Receive, send: Send) -> None:
@@ -81,6 +92,8 @@ class RequestGate:
             return
         try:
             refusal, declared, ip, valid = self._admit(scope)
+            if refusal is None:
+                refusal = await self._owned(scope, declared, ip)
         except Exception:  # noqa: BLE001 — fail closed: a gate that errors lets nothing through
             logger.exception("The request gate failed on %s %s", scope.get("method"), scope["path"])
             await error_response(ErrorCode.INTERNAL_ERROR)(scope, receive, send)
@@ -102,6 +115,25 @@ class RequestGate:
 
         await self.app(scope, receive, observing_send)
 
+    async def _owned(
+        self, scope: Scope, declared: RouteLimits | None, ip: str
+    ) -> ASGIApp | None:
+        """A ``404`` unless the principal owns the session the route's path names, else ``None``."""
+        if declared is None or not declared.credential:
+            return None
+        session_id = (scope.get("path_params") or {}).get(SESSION_PARAM)
+        if session_id is None:
+            return None
+        result = scope.get(CREDENTIAL_SCOPE_KEY)
+        principal = result.principal if isinstance(result, CredentialResult) else None
+        found = await run_in_threadpool(self._registry.authorize, str(session_id), principal)
+        if found is not None:
+            return None
+        # A refusal that never reaches the app still costs what the app's answer would have
+        # (a poll that isn't a 200 pays one ``general`` token), so probing ids costs the same.
+        self._limiter.charge_after(ip, after_response(declared, valid=True, status=404))
+        return _refusal(ApiError(ErrorCode.SESSION_NOT_FOUND))
+
     def _admit(
         self, scope: Scope
     ) -> tuple[ASGIApp | None, RouteLimits | None, str, bool]:
@@ -112,8 +144,9 @@ class RequestGate:
         if declared is not None and declared.credential:
             result = self._access.check(scope)
             scope[CREDENTIAL_SCOPE_KEY] = result
+        owner = result.principal.owner if result.valid and result.principal is not None else None
         decision = self._limiter.charge(
-            ip, charges_for(declared, valid=result.valid, path=scope["path"])
+            ip, charges_for(declared, valid=result.valid, path=scope["path"], owner=owner)
         )
         if not decision.allowed:
             logger.info("Rate limit: refusing a request, retry in %d s", decision.retry_after)
@@ -138,9 +171,11 @@ class RequestGate:
         return declared.mutating and scope.get("method") not in ("GET", "HEAD", "OPTIONS")
 
     def _match(self, scope: Scope) -> object | None:
+        """The route the request matches; its path parameters go on ``scope`` for ``_owned``."""
         for route in iter_routes(self._routes_of()):
-            match, _ = route.matches(scope)
+            match, child = route.matches(scope)
             if match == Match.FULL:
+                scope["path_params"] = dict(child.get("path_params", {}))
                 return route
         return None
 

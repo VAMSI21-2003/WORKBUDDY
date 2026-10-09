@@ -75,7 +75,8 @@ jobs:
       - name: The image starts and answers /healthz
         run: |
           docker run --detach --name workbuddy-ci --publish 8000:8000 \
-            --env WORKBUDDY_DEMO_PASSWORD=ci-placeholder-password \
+            --env WORKBUDDY_GOOGLE_CLIENT_ID=ci-placeholder.apps.test \
+            --env WORKBUDDY_GOOGLE_CLIENT_SECRET=ci-placeholder-secret \
             --env WORKBUDDY_PUBLIC_ORIGIN=https://ci.example \
             workbuddy:ci
           for attempt in $(seq 1 30); do

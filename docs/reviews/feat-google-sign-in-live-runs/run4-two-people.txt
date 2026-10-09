@@ -1,0 +1,118 @@
+== Two people sign in (a fake Google, behind Caddy, over HTTPS)
+  alice: GET / 200, header says 'Signed in as alice@example.test'
+  bob: GET / 200, header says 'Signed in as bob@example.test'
+  anonymous: GET / shows Continue with Google: True
+
+== Alice runs a real turn
+[alice] session made, uploaded report.xlsx 45f300dd1801ec0a…, mode focus
+  plan shown: [('spreadsheet.deduplicate', 'Remove duplicate rows from report.xlsx.')]
+  message: 'remove duplicate rows'
+  intent: remove_duplicate_rows   clarification_required: False   stopped_at: None
+  step: {'capability': 'spreadsheet.analyze', 'permission_tier': 'read', 'status': 'success', 'verified': True, 'recheck': False, 'input_name': 'report.xlsx', 'output_names': []}
+  step: {'capability': 'spreadsheet.deduplicate', 'permission_tier': 'write', 'status': 'success', 'verified': True, 'recheck': False, 'input_name': 'report.xlsx', 'output_names': ['report_deduplicated_e8203b1b3dd88b2c34f30719e1a9614c-task-1.xlsx']}
+  step: {'capability': 'spreadsheet.analyze', 'permission_tier': 'read', 'status': 'success', 'verified': True, 'recheck': True, 'input_name': 'report_deduplicated_e8203b1b3dd88b2c34f30719e1a9614c-task-1.xlsx', 'output_names': []}
+  outcome: delivered   files delivered: 1
+  independent check (pandas): original 6 rows -> delivered 4 rows; expected 4; contents equal: True; duplicates left: 0
+  download hash 0188a068457d7668… == recorded 0188a068457d7668…: True
+  reply: Done — removed 2 duplicate row(s). The copy has 4 row(s), 0 duplicate row(s) remaining. Your cleaned copy of report.xlsx is ready. The copy has the values only; formatting, column widths and other sheet settings aren't carried over. I also noticed: name: 1 missing value(s) (25.0%); amount: 1 missing value(s) (25.0%). Want me to tackle any of these?
+  original SHA-256: local before 45f300dd1801ec0a…, local after 45f300dd1801ec0a…, server recorded 45f300dd1801ec0a…, server's stored copy after 45f300dd1801ec0a…
+  RESULT: checks passed (reply judged by hand)
+
+== Bob runs a real turn
+[bob] session made, uploaded report.xlsx 45f300dd1801ec0a…, mode friend
+  plan shown: [('spreadsheet.deduplicate', 'Remove duplicate rows from report.xlsx.'), ('spreadsheet.remove_empty_rows', 'Then remove empty rows from the result of step 1.')]
+  message: 'remove duplicate rows, then remove empty rows'
+  intent: multi_step_request   clarification_required: False   stopped_at: None
+  step: {'capability': 'spreadsheet.analyze', 'permission_tier': 'read', 'status': 'success', 'verified': True, 'recheck': False, 'input_name': 'report.xlsx', 'output_names': []}
+  step: {'capability': 'spreadsheet.deduplicate', 'permission_tier': 'write', 'status': 'success', 'verified': True, 'recheck': False, 'input_name': 'report.xlsx', 'output_names': ['report_deduplicated_cdf23bd5c73bac2c44a93a489a786647-task-1.xlsx']}
+  step: {'capability': 'spreadsheet.remove_empty_rows', 'permission_tier': 'write', 'status': 'success', 'verified': True, 'recheck': False, 'input_name': 'report_deduplicated_cdf23bd5c73bac2c44a93a489a786647-task-1.xlsx', 'output_names': ['report_deduplicated_cdf23bd5c73bac2c44a93a489a786647-task-1_no_empty_rows_cdf23bd5c73bac2c44a93a489a786647-task-2.xlsx']}
+  step: {'capability': 'spreadsheet.analyze', 'permission_tier': 'read', 'status': 'success', 'verified': True, 'recheck': True, 'input_name': 'report_deduplicated_cdf23bd5c73bac2c44a93a489a786647-task-1_no_empty_rows_cdf23bd5c73bac2c44a93a489a786647-task-2.xlsx', 'output_names': []}
+  outcome: delivered   files delivered: 1
+  independent check (pandas): original 6 rows -> delivered 3 rows; expected 3; contents equal: True; duplicates left: 0
+  download hash fe92d7708c439bf6… == recorded fe92d7708c439bf6…: True
+  reply: That sheet was seeing double. Removed 2 duplicate row(s). Removed 1 fully-empty row(s). The copy has 3 row(s), 0 duplicate row(s) and 0 fully-empty row(s) remaining. I couldn't tell for sure from your message what order you wanted, so the steps ran in this order: deduplicate, then remove empty rows. Your cleaned copy of report.xlsx is ready. The copy has the values only; formatting, column widths and other sheet settings aren't carried over. None of the issues I check for were found.
+  original SHA-256: local before 45f300dd1801ec0a…, local after 45f300dd1801ec0a…, server recorded 45f300dd1801ec0a…, server's stored copy after 45f300dd1801ec0a…
+  RESULT: checks passed (reply judged by hand)
+
+== Each is refused the other's session, files, turns, plan answers and downloads
+  bob       GET  /api/v1/sessions/s_…                                                   404  same as a missing session: True  ok
+  bob       GET  /api/v1/sessions/s_…/files                                             404  same as a missing session: True  ok
+  bob       POST /api/v1/sessions/s_…/files                                             404  same as a missing session: True  ok
+  bob       POST /api/v1/sessions/s_…/turns                                             404  same as a missing session: True  ok
+  bob       GET  /api/v1/sessions/s_…/turns/t0001                                       404  same as a missing session: True  ok
+  bob       POST /api/v1/sessions/s_…/turns/t0001/confirmation                          404  same as a missing session: True  ok
+  bob       GET  /api/v1/sessions/s_…/files/d_t0001_1/download                          404  same as a missing session: True  ok
+  bob       GET  /api/v1/sessions/s_…/files/f_4yVhAIdCMt4hfL6i/download                 404  same as a missing session: True  ok
+  bob       GET  /ui/s/s_…/transcript                                                   404  same as a missing session: True  ok
+  bob       POST /ui/s/s_…/files                                                        404  same as a missing session: True  ok
+  bob       POST /ui/s/s_…/turns                                                        404  same as a missing session: True  ok
+  bob       GET  /ui/s/s_…/turns/t0001/poll                                             404  same as a missing session: True  ok
+  bob       POST /ui/s/s_…/turns/t0001/confirmation                                     404  same as a missing session: True  ok
+  alice     GET  /api/v1/sessions/s_…                                                   404  same as a missing session: True  ok
+  alice     GET  /api/v1/sessions/s_…/files                                             404  same as a missing session: True  ok
+  alice     POST /api/v1/sessions/s_…/files                                             404  same as a missing session: True  ok
+  alice     POST /api/v1/sessions/s_…/turns                                             404  same as a missing session: True  ok
+  alice     GET  /api/v1/sessions/s_…/turns/t0001                                       404  same as a missing session: True  ok
+  alice     POST /api/v1/sessions/s_…/turns/t0001/confirmation                          404  same as a missing session: True  ok
+  alice     GET  /api/v1/sessions/s_…/files/d_t0001_1/download                          404  same as a missing session: True  ok
+  alice     GET  /api/v1/sessions/s_…/files/f_iPZnHYluBS68tBhO/download                 404  same as a missing session: True  ok
+  alice     GET  /ui/s/s_…/transcript                                                   404  same as a missing session: True  ok
+  alice     POST /ui/s/s_…/files                                                        404  same as a missing session: True  ok
+  alice     POST /ui/s/s_…/turns                                                        404  same as a missing session: True  ok
+  alice     GET  /ui/s/s_…/turns/t0001/poll                                             404  same as a missing session: True  ok
+  alice     POST /ui/s/s_…/turns/t0001/confirmation                                     404  same as a missing session: True  ok
+  -- the operator token (reaches only its own sessions):
+  operator  GET  /api/v1/sessions/s_…                                                   404  same as a missing session: True  ok
+  operator  GET  /api/v1/sessions/s_…/files                                             404  same as a missing session: True  ok
+  operator  POST /api/v1/sessions/s_…/files                                             404  same as a missing session: True  ok
+  operator  POST /api/v1/sessions/s_…/turns                                             404  same as a missing session: True  ok
+  operator  GET  /api/v1/sessions/s_…/turns/t0001                                       404  same as a missing session: True  ok
+  operator  POST /api/v1/sessions/s_…/turns/t0001/confirmation                          404  same as a missing session: True  ok
+  operator  GET  /api/v1/sessions/s_…/files/d_t0001_1/download                          404  same as a missing session: True  ok
+  operator  GET  /api/v1/sessions/s_…/files/f_4yVhAIdCMt4hfL6i/download                 404  same as a missing session: True  ok
+  operator  GET  /ui/s/s_…/transcript                                                   404  same as a missing session: True  ok
+  operator  POST /ui/s/s_…/files                                                        404  same as a missing session: True  ok
+  operator  POST /ui/s/s_…/turns                                                        404  same as a missing session: True  ok
+  operator  GET  /ui/s/s_…/turns/t0001/poll                                             404  same as a missing session: True  ok
+  operator  POST /ui/s/s_…/turns/t0001/confirmation                                     404  same as a missing session: True  ok
+  -- no credential:
+  anonymous GET  /api/v1/sessions/s_…                                                   401  same as a missing session: True  ok
+  anonymous GET  /api/v1/sessions/s_…/files                                             401  same as a missing session: True  ok
+  anonymous POST /api/v1/sessions/s_…/files                                             401  same as a missing session: True  ok
+  anonymous POST /api/v1/sessions/s_…/turns                                             401  same as a missing session: True  ok
+  anonymous GET  /api/v1/sessions/s_…/turns/t0001                                       401  same as a missing session: True  ok
+  anonymous POST /api/v1/sessions/s_…/turns/t0001/confirmation                          401  same as a missing session: True  ok
+  anonymous GET  /api/v1/sessions/s_…/files/d_t0001_1/download                          401  same as a missing session: True  ok
+  anonymous GET  /api/v1/sessions/s_…/files/f_4yVhAIdCMt4hfL6i/download                 401  same as a missing session: True  ok
+  anonymous GET  /ui/s/s_…/transcript                                                   401  same as a missing session: True  ok
+  anonymous POST /ui/s/s_…/files                                                        401  same as a missing session: True  ok
+  anonymous POST /ui/s/s_…/turns                                                        401  same as a missing session: True  ok
+  anonymous GET  /ui/s/s_…/turns/t0001/poll                                             401  same as a missing session: True  ok
+  anonymous POST /ui/s/s_…/turns/t0001/confirmation                                     401  same as a missing session: True  ok
+  control: Alice reads her own session: 200
+  control: Alice downloads her own file: 200, 0188a068457d7668…
+
+== Bob answering Alice's waiting plan
+  bob approve: 404 session_not_found
+  bob reject: 404 session_not_found
+  Alice's turn is still awaiting_confirmation with her plan: True
+  Alice rejects her own plan: 200
+
+== Landing, sign-out, and a restart of the server
+  Alice on a new browser lands in a session of hers: True
+  Bob's page does not contain Alice's session: True
+  sign-out (the page's request): 204 HX-Redirect /
+  the same browser afterwards: 401 (401 = signed out)
+  after restarting the app container, Alice (same cookie) reads her session: 200
+  after the restart, Bob reads Alice's: 404
+
+== The app's log
+  operator token in the log: 0
+  client secret in the log: 0
+  a token (eyJ…) in the log: 0
+  Alice's email in the log: 0
+  Bob's email in the log: 0
+  a session id in the log: 0
+  an access cookie value in the log: 0
+
+RESULT: all checks passed

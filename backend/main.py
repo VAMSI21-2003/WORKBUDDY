@@ -17,6 +17,7 @@ from collections.abc import AsyncIterator, Callable
 from contextlib import asynccontextmanager
 from typing import Any
 
+import httpx
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.openapi.utils import get_openapi
@@ -26,12 +27,13 @@ from backend.errors import file_too_large_message, install_error_handlers
 from backend.gate import RequestGate
 from backend.logging_filter import install_log_redaction
 from backend.middleware import RequestGuardMiddleware, SecurityHeadersMiddleware
+from backend.oidc import OidcClient
 from backend.ratelimit import RateLimiter, check_route_declarations
 from backend.retention import MaintenanceLoop, RetentionSweeper, StorageMeter
 from backend.routes import access_router, health_router, router
 from backend.schemas import ErrorBody
 from backend.sessions import SessionRegistry
-from backend.settings import ENV_PRODUCTION, Settings
+from backend.settings import ENV_PRODUCTION, GOOGLE_ISSUER, Settings
 from backend.store import SessionStore
 from backend.turns import EngineFactory, TurnRunner
 from backend.web import mount_web
@@ -90,6 +92,7 @@ def create_app(
     llm_configured: bool | None = None,
     clock: Callable[[], float] = time.monotonic,
     wall_clock: Callable[[], float] = time.time,
+    oidc_http: httpx.Client | None = None,
 ) -> FastAPI:
     """Build the API.
 
@@ -104,7 +107,10 @@ def create_app(
         clock: A monotonic clock, in seconds: the rate-limit buckets, the
             access tokens' expiry and the storage meter's cache. Tests pass
             one they advance.
-        wall_clock: Epoch seconds, for session idleness (retention).
+        wall_clock: Epoch seconds, for session idleness (retention) and for how long a
+            sign-in lasts (it is kept across a restart, so a monotonic clock won't do).
+        oidc_http: The HTTP client for calls to the identity provider. Tests pass one backed by a
+            fake provider.
 
     Returns:
         The app. Serve it with one worker: sessions live in this process.
@@ -125,6 +131,12 @@ def create_app(
         configured = llm_configured
 
     install_log_redaction()
+    if settings.oidc_issuer != GOOGLE_ISSUER:
+        logger.warning(
+            "WORKBUDDY_OIDC_ISSUER is not Google's: people are signed in by %s. That is for "
+            "tests and trial runs only",
+            settings.oidc_issuer,
+        )
     if settings.auto_approve:
         logger.warning(
             "auto_approve (a test setting) is on: every file-changing step is approved "
@@ -161,7 +173,8 @@ def create_app(
     registry = SessionRegistry(settings, SessionStore(settings), wall_clock)
     app.state.registry = registry
     app.state.runner = TurnRunner(settings, engine_factory, registry)
-    app.state.access = AccessControl(settings, clock)
+    app.state.access = AccessControl(settings, clock, wall_clock)
+    app.state.oidc = OidcClient(settings, http=oidc_http, clock=clock)
     app.state.limiter = RateLimiter(settings.rate_limits, clock)
     app.state.meter = StorageMeter(settings, clock)
     app.state.maintenance = MaintenanceLoop(
@@ -191,6 +204,7 @@ def create_app(
         settings=settings,
         limiter=app.state.limiter,
         access=app.state.access,
+        registry=registry,
         routes_of=lambda: app,
     )
     app.add_middleware(SecurityHeadersMiddleware, hsts=settings.env == ENV_PRODUCTION)

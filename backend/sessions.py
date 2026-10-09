@@ -5,20 +5,28 @@ A ``SessionRecord`` holds the session's committed ``BuddyState`` (whose
 and a lock. Every read or change of a record happens under that lock.
 
 **Ids.** The server generates every id. A session id is 128 random bits
-(``secrets.token_urlsafe``) and is the session's only credential, so it is
-never written to disk, never put in a path, never logged and never given to
-the pipeline. Everything server-side uses the session's *key* instead: the
-first 128 bits of the id's SHA-256. The key names the session's folders and
+(``secrets.token_urlsafe``). It is never put in a path, never logged and never
+given to the pipeline. Everything server-side uses the session's *key* instead:
+the first 128 bits of the id's SHA-256. The key names the session's folders and
 is the pipeline's session and workspace id, so it is what ends up in output
 file names (``{stem}_deduplicated_{key}-task-1.xlsx``), in the paths the
 model sees, and in the logs. Knowing a key doesn't give access: requests
 are looked up by id, and the id can't be recovered from the key.
+
+**Owners.** Every session belongs to one principal (``backend.identity``), and
+``SessionRegistry.authorize`` is the one check that a request's principal owns the id
+it names: ``get`` needs a principal, so no code path gets a record from an id alone.
+The owner and the id are kept in ``owner.json`` (docs/design/google-sign-in.md): the id is
+written to disk now, so that a person signing in again is taken to their most recent
+session. It is no longer the only credential, so that is safe: a request needs the owner too.
 """
 
 from __future__ import annotations
 
 import hashlib
+import hmac
 import logging
+import os
 import re
 import secrets
 import threading
@@ -30,6 +38,7 @@ from pathlib import Path
 from typing import Any
 
 from backend.confirmation import ConfirmationOutcome, PendingPlan
+from backend.identity import GOOGLE_OWNER_PREFIX, Principal
 from backend.settings import Settings
 from buddy.state import BuddyState
 
@@ -139,6 +148,9 @@ class SessionRecord:
     key: str
     created_at: datetime
     state: BuddyState
+    # Who the session belongs to (an owner id, ``backend.identity``), and its id. ``None``: nobody.
+    owner: str | None = None
+    session_id: str | None = field(default=None, repr=False)
     files: dict[str, UploadRecord] = field(default_factory=dict)
     turns: list[TurnRecord] = field(default_factory=list)
     active_file_id: str | None = None
@@ -197,9 +209,17 @@ class SessionRegistry:
         # Keys the retention sweep is deleting: not served, not restored.
         self._deleting: set[str] = set()
         self._lock = threading.Lock()
+        # owner id -> {key: session id}, for the sessions that have an owner. Built from the
+        # owner files once, then kept up to date by create and by deletion.
+        self._by_owner: dict[str, dict[str, str]] = {}
+        if store is not None:
+            store.migrate_ownership()
+            for key, found in store.owners():
+                assert found.owner is not None and found.session_id is not None
+                self._by_owner.setdefault(found.owner, {})[key] = found.session_id
 
-    def create(self, mode: str) -> tuple[str, SessionRecord]:
-        """A new, empty session. Returns ``(session_id, record)``."""
+    def create(self, mode: str, owner: str) -> tuple[str, SessionRecord]:
+        """A new, empty session owned by ``owner``. Returns ``(session_id, record)``."""
         session_id = new_session_id()
         key = session_key(session_id)
         state = BuddyState.new(session_id=key, workspace_id=key)
@@ -207,6 +227,8 @@ class SessionRegistry:
         now = self._clock()
         record = SessionRecord(
             key=key,
+            owner=owner,
+            session_id=session_id,
             created_at=state.context.created_at,
             state=state,
             last_active=now,
@@ -223,6 +245,8 @@ class SessionRegistry:
                 with self._lock:
                     self._sessions.pop(key, None)
                 raise
+        with self._lock:
+            self._by_owner.setdefault(owner, {})[key] = session_id
         logger.info("Created session %s", key)
         return session_id, record
 
@@ -243,18 +267,49 @@ class SessionRegistry:
         if self._store is not None:
             self._store.save_session(record)
 
-    def get(self, session_id: str) -> SessionRecord | None:
-        """The session for ``session_id``, or ``None`` if there isn't one.
+    def authorize(self, session_id: str, principal: Principal | None) -> str | None:
+        """THE ownership check: the session's key if ``principal`` owns it, else ``None``.
 
-        An id that isn't shaped like one the server generates is never
-        looked up. A session from an earlier run of the server is restored
-        from disk on first access.
+        ``None`` for someone else's session, for one that doesn't exist, for one being deleted,
+        for an id that isn't shaped like one the server generates, for a session nobody owns
+        (saved before sign-in, or whose owner file is missing or unreadable), and for no
+        principal. Every one is the same answer, so a caller can't tell them apart.
         """
-        if not valid_id(session_id):
+        if principal is None or not valid_id(session_id):
             return None
         key = session_key(session_id)
         with self._lock:
-            if key in self._deleting:
+            return self._authorize_locked(key, session_id, principal)
+
+    def _authorize_locked(self, key: str, session_id: str, principal: Principal) -> str | None:
+        if key in self._deleting:
+            return None
+        record = self._sessions.get(key)
+        if record is not None:
+            owner, stored_id = record.owner, record.session_id
+        else:
+            found = self._store.read_owner(key) if self._store is not None else None
+            owner, stored_id = (None, None) if found is None else (found.owner, found.session_id)
+        if owner is None or stored_id is None:
+            return None
+        # Constant-time on both, so neither the owner nor the id is learned by timing.
+        owns = hmac.compare_digest(owner.encode("utf-8"), principal.owner.encode("utf-8"))
+        same = hmac.compare_digest(stored_id.encode("utf-8"), session_id.encode("utf-8"))
+        return key if owns and same else None
+
+    def get(self, session_id: str, principal: Principal | None) -> SessionRecord | None:
+        """The session for ``session_id`` if ``principal`` owns it, else ``None``.
+
+        An id that isn't shaped like one the server generates is never
+        looked up. A session from an earlier run of the server is restored
+        from disk on first access, and only after the ownership check: a session that isn't
+        the principal's is not even loaded.
+        """
+        if principal is None or not valid_id(session_id):
+            return None
+        key = session_key(session_id)
+        with self._lock:
+            if self._authorize_locked(key, session_id, principal) is None:
                 return None
             record = self._sessions.get(key)
             if record is None and self._store is not None:
@@ -264,6 +319,37 @@ class SessionRegistry:
             if record is not None:
                 self._touch(record)
         return record
+
+    def latest_for(self, owner: str) -> str | None:
+        """The id of a person's most recently used session that still exists, or ``None``.
+
+        Only for a person (``google:<subject>``). The shared owners (``demo``, ``dev``,
+        ``operator``) stand for many people or scripts, so there is no "their" session to go
+        back to: ``None``, whatever sessions they own.
+        """
+        if not owner.startswith(GOOGLE_OWNER_PREFIX):
+            return None
+        with self._lock:
+            candidates = dict(self._by_owner.get(owner, {}))
+            best: tuple[float, str] | None = None
+            for key, session_id in candidates.items():
+                if key in self._deleting:
+                    continue
+                record = self._sessions.get(key)
+                if record is not None:
+                    used = record.last_active
+                else:
+                    try:
+                        used = os.stat(self._settings.sessions_dir / key / "session.json").st_mtime
+                    except OSError:
+                        continue
+                if best is None or used > best[0]:
+                    best = (used, session_id)
+        return best[1] if best is not None else None
+
+    def _forget_owner(self, key: str) -> None:
+        for sessions in self._by_owner.values():
+            sessions.pop(key, None)
 
     def _touch(self, record: SessionRecord) -> None:
         """Note that ``record`` was just used; the caller holds the registry lock.
@@ -303,6 +389,7 @@ class SessionRegistry:
                     return False
                 del self._sessions[key]
                 self._deleting.add(key)
+                self._forget_owner(key)
                 return True
             finally:
                 record.lock.release()
@@ -313,6 +400,7 @@ class SessionRegistry:
             if key in self._sessions or key in self._deleting:
                 return False
             self._deleting.add(key)
+            self._forget_owner(key)
             return True
 
     def release(self, key: str) -> None:

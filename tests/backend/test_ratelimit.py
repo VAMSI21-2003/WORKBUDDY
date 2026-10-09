@@ -429,10 +429,13 @@ def test_4_the_11th_turn_in_an_hour_and_the_6th_upload_in_a_burst_are_429(rig: R
 
 def test_a_body_over_the_cap_is_refused_413_and_still_charged(tmp_path: Path) -> None:
     rig = Rig(tmp_path, max_upload_bytes=1000)
+    sid = rig.client.post("/api/v1/sessions", json={"mode": "friend"}, headers=BEARER).json()[
+        "session_id"
+    ]
     before = rig.snapshot()
 
     response = rig.client.post(
-        "/api/v1/sessions/s_x/files",
+        f"/api/v1/sessions/{sid}/files",
         content=b"x" * 70_000,
         headers={**BEARER, "Content-Type": "multipart/form-data; boundary=b"},
     )
@@ -679,6 +682,9 @@ def test_the_defaults_are_the_designs_numbers(tmp_path: Path) -> None:
         "access": BucketSpec(10, 20),
         "healthz": BucketSpec(10, 3600),
         "page": BucketSpec(30, 3600),
+        "signin": BucketSpec(10, 60),
+        "user_turns": BucketSpec(10, 10),
+        "user_uploads": BucketSpec(5, 20),
     }
 
 

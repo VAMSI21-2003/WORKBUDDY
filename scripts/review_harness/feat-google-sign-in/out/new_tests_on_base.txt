@@ -1,0 +1,41 @@
+      1 FAILED tests/web/test_signin_page.py::test_the_script_lets_new_session_replace_the_session_and_nothing_else
+      1 FAILED tests/web/test_signin_page.py::test_the_header_has_the_email_sign_out_and_new_session
+      1 FAILED tests/web/test_signin_page.py::test_the_gate_is_a_google_button_and_no_password_field
+      1 FAILED tests/web/test_signin_page.py::test_the_gate_and_header_say_nothing_about_a_users_file
+      1 FAILED tests/web/test_signin_page.py::test_the_dev_server_has_new_session_but_no_account_controls
+      1 FAILED tests/web/test_signin_page.py::test_the_401_notice_offers_to_sign_in_again_not_to_enter_a_password
+      1 FAILED tests/web/test_signin_page.py::test_new_session_makes_a_session_that_is_the_pages_and_the_persons
+      1 FAILED tests/web/test_signin_page.py::test_an_email_is_shown_as_text_and_never_as_markup
+      1 FAILED tests/web/test_signin_page.py::test_after_signing_in_the_browser_is_sent_on_by_the_page_not_by_a_redirect
+      1 FAILED tests/web/test_signin_page.py::test_a_second_browser_signed_in_as_the_same_person_sees_the_same_sessions
+      1 FAILED tests/web/test_signin_page.py::test_a_refused_sign_in_shows_one_notice_on_the_gate
+      1 FAILED tests/e2e/test_signin_browser.py::test_two_people_in_two_browsers_never_see_each_other[chromium]
+      1 FAILED tests/e2e/test_signin_browser.py::test_signing_in_again_lands_in_the_most_recent_session[chromium]
+      1 FAILED tests/e2e/test_signin_browser.py::test_sign_in_shows_who_you_are_and_sign_out_returns_to_the_gate[chromium]
+      1 FAILED tests/e2e/test_signin_browser.py::test_new_session_starts_an_empty_session_and_keeps_the_old_one[chromium]
+      1 FAILED tests/e2e/test_signin_browser.py::test_a_restart_of_the_server_does_not_sign_anyone_out[chromium]
+      1 FAILED tests/e2e/test_signin_browser.py::test_a_person_who_is_not_on_the_list_is_told_so_at_the_gate[chromium]
+      1 FAILED tests/deploy/test_smoke_auth.py::test_smoke_says_what_is_wrong_when_the_token_is_refused_and_there_is_no_password
+      1 FAILED tests/deploy/test_smoke_auth.py::test_smoke_needs_the_operator_token_in_env
+      1 FAILED tests/deploy/test_smoke_auth.py::test_smoke_falls_back_to_the_password_only_for_a_release_from_before_sign_in
+      1 FAILED tests/deploy/test_smoke_auth.py::test_smoke_does_not_use_a_password_the_new_app_would_ignore
+      1 FAILED tests/deploy/test_smoke_auth.py::test_smoke_authenticates_with_the_operator_token
+      1 FAILED tests/deploy/test_saved_data_survives.py::test_what_the_server_writes_today_has_the_shape_of_the_newest_fixture
+      1 FAILED tests/deploy/test_saved_data_survives.py::test_a_session_saved_before_sign_in_still_parses[data-v1]
+      1 FAILED tests/deploy/test_saved_data_survives.py::test_a_session_saved_before_sign_in_is_deleted_by_the_ordinary_sweep[data-v1]
+      1 FAILED tests/deploy/test_saved_data_survives.py::test_a_session_saved_before_sign_in_belongs_to_nobody[data-v1]
+      1 FAILED tests/backend/test_signin_settings.py::test_the_secrets_are_not_in_the_settings_repr
+      1 FAILED tests/backend/test_signin_settings.py::test_the_operator_token_must_differ_from_the_password
+      1 FAILED tests/backend/test_signin_settings.py::test_the_operator_token_must_be_long_and_plain[xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\n]
+      1 FAILED tests/backend/test_signin_settings.py::test_the_operator_token_must_be_long_and_plain[xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx]
+      1 FAILED tests/backend/test_signin_settings.py::test_the_operator_token_must_be_long_and_plain[xxxxxxxxxxxxxxxxxxxx xxxxxxxxxxxxxxxxxxxx]
+      1 FAILED tests/backend/test_signin_settings.py::test_the_operator_token_must_be_long_and_plain[short]
+      1 FAILED tests/backend/test_signin_settings.py::test_the_operator_token_must_be_long_and_plain[\xe9\xe9\xe9\xe9\xe9\xe9\xe9\xe9\xe9\xe9\xe9\xe9\xe9\xe9\xe9\xe9\xe9\xe9\xe9\xe9\xe9\xe9\xe9\xe9\xe9\xe9\xe9\xe9\xe9\xe9\xe9\xe9\xe9\xe9\xe9\xe9\xe9\xe9\xe9\xe9]
+      1 FAILED tests/backend/test_signin_settings.py::test_the_operator_token_must_be_long_and_plain[ xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx]
+      1 FAILED tests/backend/test_signin_settings.py::test_the_issuer_is_an_https_origin_in_production
+      1 FAILED tests/backend/test_signin_settings.py::test_the_client_id_and_secret_go_together[WORKBUDDY_GOOGLE_CLIENT_SECRET]
+      1 FAILED tests/backend/test_signin_settings.py::test_the_client_id_and_secret_go_together[WORKBUDDY_GOOGLE_CLIENT_ID]
+      1 FAILED tests/backend/test_signin_settings.py::test_the_allowed_emails_are_a_lower_case_list[alice@example.test,BOB@EXAMPLE.TEST]
+      1 FAILED tests/backend/test_signin_settings.py::test_the_allowed_emails_are_a_lower_case_list[ Alice@Example.test , bob@example.test ,, ]
+      1 FAILED tests/backend/test_signin_settings.py::test_production_without_google_refuses_to_start_and_names_the_setting
+58 failed, 3 passed, 8 errors in 4.96s

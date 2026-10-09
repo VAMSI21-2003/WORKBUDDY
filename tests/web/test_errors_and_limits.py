@@ -130,7 +130,9 @@ def test_every_html_route_refuses_a_request_with_no_credential_the_same_way(
         ("post", "/ui/s/s_x/turns/t0001/confirmation"),
     ):
         response = getattr(client, method)(path)
-        assert_api_error(response, 401, "unauthorized", "The demo password is missing or wrong.")
+        assert_api_error(
+            response, 401, "unauthorized", "You aren't signed in, or your sign-in has ended."
+        )
         assert response.headers["www-authenticate"] == 'Bearer realm="workbuddy-demo"'
 
 

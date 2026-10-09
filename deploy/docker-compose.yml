@@ -1,6 +1,7 @@
 # WorkBuddy on one Ubuntu VM: the app, and Caddy in front for automatic HTTPS.
 # Run it through ./compose.sh (it adds the settings files); release it with ./release.sh <commit>.
-# Nothing here is a secret: the password and the key come from .env, which only the VM holds.
+# Nothing here is a secret: the Google client secret, the operator token and the key come from .env,
+# which only the VM holds.
 name: workbuddy
 
 services:
@@ -13,6 +14,14 @@ services:
       # in one rate-limit bucket (Caddy's address); 2 or more would let a caller pick their own.
       WORKBUDDY_TRUSTED_PROXY_HOPS: "1"
       WORKBUDDY_PUBLIC_ORIGIN: "https://${WORKBUDDY_DOMAIN:?set WORKBUDDY_DOMAIN in .env}"
+      # Sign in with Google (docs/deploy.md, Section 7, step 6). The redirect address that is
+      # registered with Google is WORKBUDDY_PUBLIC_ORIGIN + /auth/google/callback.
+      WORKBUDDY_GOOGLE_CLIENT_ID: "${WORKBUDDY_GOOGLE_CLIENT_ID:?set WORKBUDDY_GOOGLE_CLIENT_ID in .env}"
+      WORKBUDDY_GOOGLE_CLIENT_SECRET: "${WORKBUDDY_GOOGLE_CLIENT_SECRET:?set WORKBUDDY_GOOGLE_CLIENT_SECRET in .env}"
+      # For scripts and smoke.sh; it reaches only the sessions it creates.
+      WORKBUDDY_OPERATOR_TOKEN: "${WORKBUDDY_OPERATOR_TOKEN:?set WORKBUDDY_OPERATOR_TOKEN in .env}"
+      # Empty: any verified Google email may sign in.
+      WORKBUDDY_ALLOWED_EMAILS: "${WORKBUDDY_ALLOWED_EMAILS:-}"
     # No "ports": the app can't be reached from outside this machine, only through Caddy.
     expose:
       - "8000"

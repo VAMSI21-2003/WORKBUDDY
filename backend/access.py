@@ -12,20 +12,24 @@ a real sign-in can replace the demo password by changing ``AccessControl``
 only: how a credential is checked (``AccessControl.check``) and how one is
 obtained (``AccessControl.exchange``).
 
-**The credential today** is either
+**The credential** is either
 
-- the access cookie ``__Host-wb_access`` (the browser's), a random 256-bit
-  token that ``POST /api/v1/access`` hands out in exchange for the demo
-  password and that the server holds only as its SHA-256, with an absolute
-  expiry; or
-- ``Authorization: Bearer <demo password>``, kept for scripts and tests.
+- the access cookie ``__Host-wb_access`` (the browser's), a random 256-bit token that the server
+  holds only as its SHA-256, with an absolute expiry. It is handed out by the Google sign-in
+  (``backend.web.auth``; the sign-in survives a restart, ``backend.signin_store``) or, outside
+  production, in exchange for the demo password at ``POST /api/v1/access``; or
+- ``Authorization: Bearer <token>``, for scripts and ``deploy/smoke.sh``: the operator token
+  (``WORKBUDDY_OPERATOR_TOKEN``), or, outside production, the demo password.
+
+Whichever it is, a valid credential answers with a ``Principal`` (``backend.identity``): who the
+request is from. Sessions belong to a principal (``SessionRegistry.authorize``).
 
 If an ``Authorization`` header is present only it is checked and the cookie
 is ignored, so a wrong Bearer is a ``401`` even beside a valid cookie. Every
 failure (no credential, a wrong Bearer, an unknown or expired cookie, another
-scheme) is the same ``401``: nobody learns why. With no demo password set
-(``WORKBUDDY_ENV=dev`` only) every request is let through and ``kind`` is
-``None``.
+scheme) is the same ``401``: nobody learns why. With nothing configured
+(``WORKBUDDY_ENV=dev`` only) every request is let through, as the ``dev`` principal and with
+``kind`` ``None``. In production the demo password is not a credential at all.
 
 **CSRF.** A cookie authenticates requests the browser sends by itself, so a
 request that the cookie authenticates, and that isn't ``GET``, ``HEAD`` or
@@ -42,6 +46,7 @@ import hmac
 import logging
 import secrets
 import threading
+import time
 from collections.abc import Callable
 from dataclasses import dataclass
 from typing import Annotated, Literal
@@ -52,11 +57,16 @@ from fastapi.security import APIKeyCookie, HTTPAuthorizationCredentials, HTTPBea
 from starlette.types import Scope
 
 from backend.errors import ApiError, ErrorCode
-from backend.settings import ENV_DEV, Settings
+from backend.identity import DEMO, DEV, OPERATOR, Principal
+from backend.settings import ENV_DEV, ENV_PRODUCTION, Settings
+from backend.signin_store import SignInStore
 
 logger = logging.getLogger(__name__)
 
 COOKIE_NAME = "__Host-wb_access"
+# The cookie that binds a started sign-in to the browser that started it. SameSite=Lax, because
+# Google sends the browser back to us from another site and Strict would not be sent then.
+LOGIN_COOKIE = "__Host-wb_login"
 REALM = 'Bearer realm="workbuddy-demo"'
 CREDENTIAL_SCOPE_KEY = "workbuddy.credential"
 _MAX_TOKEN_CHARS = 256
@@ -69,11 +79,13 @@ class CredentialResult:
     """Whether a request carries a valid credential, and which kind.
 
     ``kind`` is ``None`` when the request is invalid, and also when there is
-    nothing to check (no demo password, ``dev`` only): then ``valid`` is true.
+    nothing to check (``dev`` only): then ``valid`` is true. ``principal`` is who the request is
+    from, always set when ``valid``.
     """
 
     valid: bool
     kind: Kind | None = None
+    principal: Principal | None = None
 
 
 class TokenStore:
@@ -118,6 +130,13 @@ class TokenStore:
                 return False
             return True
 
+    def revoke(self, token: str) -> None:
+        """Forget ``token`` (sign-out)."""
+        if not token or len(token) > _MAX_TOKEN_CHARS:
+            return
+        with self._lock:
+            self._expiry.pop(_digest(token), None)
+
     def sweep(self) -> int:
         """Drop every expired token. Returns how many."""
         with self._lock:
@@ -139,71 +158,135 @@ def _digest(token: str) -> str:
 
 
 class AccessControl:
-    """The demo-password access scheme. Replace this class to replace the sign-in.
+    """The access scheme: who a request is from (``check``), and how a cookie is obtained.
 
-    ``check`` decides a request's credential; ``exchange`` turns what a
-    sign-in form sends into a cookie token (or ``None``). Nothing else in
+    ``check`` decides a request's credential. A cookie is obtained by ``sign_in`` (Google has
+    vouched for a person) or, outside production, ``exchange`` (the demo password). Nothing else in
     the app knows how either works.
     """
 
-    def __init__(self, settings: Settings, clock: Callable[[], float]) -> None:
+    def __init__(
+        self,
+        settings: Settings,
+        clock: Callable[[], float],
+        wall_clock: Callable[[], float] = time.time,
+    ) -> None:
+        production = settings.env == ENV_PRODUCTION
+        # In production the demo password is not a credential (docs/design/google-sign-in.md).
         self._password = (
-            settings.demo_password.encode("utf-8") if settings.demo_password is not None else None
+            settings.demo_password.encode("utf-8")
+            if settings.demo_password is not None and not production
+            else None
         )
-        self._open = self._password is None and settings.env == ENV_DEV
-        self.tokens = TokenStore(
-            ttl_s=settings.access_ttl_hours * 3600.0,
-            max_tokens=settings.access_max_tokens,
-            clock=clock,
+        self._operator = (
+            hashlib.sha256(settings.operator_token.encode("utf-8")).digest()
+            if settings.operator_token is not None
+            else None
+        )
+        self._allowed = frozenset(settings.allowed_emails)
+        self._open = (
+            settings.env == ENV_DEV
+            and self._password is None
+            and self._operator is None
+            and not settings.google_enabled
+        )
+        ttl_s = settings.access_ttl_hours * 3600.0
+        self.tokens = TokenStore(ttl_s=ttl_s, max_tokens=settings.access_max_tokens, clock=clock)
+        self.signins = SignInStore(
+            settings.data_dir / "auth" / "signins",
+            ttl_s=ttl_s,
+            max_signins=settings.access_max_tokens,
+            wall_clock=wall_clock,
         )
 
     @property
     def open(self) -> bool:
-        """True when there is no password to check (``dev`` only): every request is let through."""
+        """True when there is nothing to check (``dev`` only): every request is let through."""
         return self._open
 
     def check(self, request: Request | Scope) -> CredentialResult:
         """Decide ``request``'s credential. If ``Authorization`` is present, only it counts."""
         if self._open:
-            return CredentialResult(True, None)
+            return CredentialResult(True, None, DEV)
         headers = request.headers if isinstance(request, Request) else Request(request).headers
         authorization = headers.getlist("authorization")
         if authorization:
-            if len(authorization) == 1 and self._bearer_valid(authorization[0]):
-                return CredentialResult(True, "bearer")
+            if len(authorization) == 1:
+                principal = self._bearer_principal(authorization[0])
+                if principal is not None:
+                    return CredentialResult(True, "bearer", principal)
             return CredentialResult(False, None)
         cookies = request.cookies if isinstance(request, Request) else Request(request).cookies
         token = cookies.get(COOKIE_NAME)
-        if token is not None and self.tokens.valid(token):
-            return CredentialResult(True, "cookie")
+        if token is None:
+            return CredentialResult(False, None)
+        signin = self.signins.lookup(token)
+        if signin is not None:
+            # With an allowed list, a sign-in is good only while its email is on it: removing a
+            # person from the list ends their access at their next request.
+            if self._allowed and signin.email.lower() not in self._allowed:
+                return CredentialResult(False, None)
+            return CredentialResult(True, "cookie", signin.principal)
+        if self.tokens.valid(token):
+            return CredentialResult(True, "cookie", DEMO)
         return CredentialResult(False, None)
 
     def exchange(self, password: str | None) -> str | None:
         """A new access token for ``password``, or ``None`` if it's wrong or missing.
 
-        With no demo password set (``dev``), nothing is checked.
+        ``None`` always in production. With nothing configured (``dev``), nothing is checked.
         """
         if self._open:
             return self.tokens.issue()
-        if password is None:
+        if password is None or self._password is None:
             return None
         if not self._password_matches(password.encode("utf-8", "surrogatepass")):
             return None
         return self.tokens.issue()
 
-    def _bearer_valid(self, header: str) -> bool:
+    def sign_in(self, subject: str, email: str) -> str:
+        """A new sign-in for a person Google has vouched for: the token for their cookie."""
+        return self.signins.issue(subject, email)
+
+    def sign_out(self, request: Request) -> None:
+        """End the sign-in the request's cookie names, if any. Never raises for a bad cookie."""
+        token = request.cookies.get(COOKIE_NAME)
+        if token:
+            self.signins.revoke(token)
+            self.tokens.revoke(token)
+
+    def email_allowed(self, email: str) -> bool:
+        """Whether ``email`` may sign in: always, unless ``WORKBUDDY_ALLOWED_EMAILS`` is set."""
+        return not self._allowed or email.lower() in self._allowed
+
+    def sweep(self) -> int:
+        """Drop expired tokens and sign-ins. Returns how many."""
+        return self.tokens.sweep() + self.signins.sweep()
+
+    def _bearer_principal(self, header: str) -> Principal | None:
         # ``Bearer`` and one space, then the credential exactly as sent: a
         # password may contain spaces, so nothing after the first one is trimmed.
         scheme, space, credential = header.partition(" ")
         if not space or scheme.lower() != "bearer":
-            return False
+            return None
         # ASGI hands header text over as latin-1: re-encoding gives back the
         # bytes the client sent, which are compared as UTF-8 with the password.
-        return self._password_matches(credential.encode("latin-1", "replace"))
+        candidate = credential.encode("latin-1", "replace")
+        if self._operator is not None and hmac.compare_digest(
+            hashlib.sha256(candidate).digest(), self._operator
+        ):
+            return OPERATOR
+        if self._password is not None and self._password_matches(candidate):
+            return DEMO
+        return None
 
     def _password_matches(self, candidate: bytes) -> bool:
         assert self._password is not None
         return hmac.compare_digest(candidate, self._password)
+
+
+def access_cookie_header(token: str) -> str:
+    return f"{COOKIE_NAME}={token}; Path=/; Secure; HttpOnly; SameSite=Strict"
 
 
 def access_of(request: Request | Scope) -> AccessControl:
@@ -305,5 +388,5 @@ async def exchange_password(request: Request) -> Response:
         raise unauthorized()
     return Response(
         status_code=204,
-        headers={"Set-Cookie": f"{COOKIE_NAME}={token}; Path=/; Secure; HttpOnly; SameSite=Strict"},
+        headers={"Set-Cookie": access_cookie_header(token)},
     )

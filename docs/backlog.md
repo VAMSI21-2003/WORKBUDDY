@@ -156,7 +156,7 @@ Open work, in priority order. Each item follows the working method in `CLAUDE.md
 **Status (2026-10-07):** FE-1 (`feat/frontend-demo`) is merged. FE-2 (`feat/frontend-deploy`, not merged, under independent review: `docs/reviews/frontend-deploy-impl.md`, `docs/deploy.md`) carries the Dockerfile, the static caching, `Referrer-Policy`, the deploy notes and the FE-1 review's M1, M2, L3, L4 and L9 (marked below). FE-1 implements the page of `docs/design/frontend-design.md` Section 13.1: the gate with the access cookie, upload, the composer with the mode choice, polling with `429` handling, the plan card, the reply shown verbatim, download links only when delivered, error messages verbatim, page notices kept out of the reply slot, and session-scoped state with the reset on `404`. It also fixes the PR-4 review's L5 (the dev origin follows `--port` and accepts `localhost`). How it was built, and where it differs from the design: `docs/reviews/frontend-demo-impl.md`. For the owner: the spike (design 3.4) found that htmx 2.0.5 and later write one `sessionStorage` key at load that no setting turns off, so FE-1 pins 2.0.4 (impl notes, Section 1).
 
 Deferred from FE-1 (`frontend-demo-impl.md`, Section 7; the design's own Section 16 list stands as well):
-- A "New session" control. A quota message says "Start a new session.", and today the only ways are the `404` reset and clearing the cookie.
+- ~~A "New session" control.~~ Done on `feat/google-sign-in` (header button, `POST /ui/sessions`; browser test `tests/e2e/test_signin_browser.py`). This also closes FE-1 review L6.
 - ~~Versioned static file names and long caching (FE-2); static files are `no-store` for now.~~ Done on `feat/frontend-deploy`: `?v=<hash>` URLs, cached for a year under the current version.
 - A collapsible Files panel on a phone (design 8 asks for a `<details>`); on a narrow screen the conversation comes first and the Files panel follows it.
 - The download link's label is the API's `name`, but the download route saves it under the upload rules (at most 100 characters), so a long delivered name is saved shortened. Show the saved name, or lift the cap.
@@ -172,7 +172,7 @@ Deferred by the FE-1 review, round 1 (`docs/reviews/frontend-demo-review.md`; pr
 - **(Fixed on `feat/frontend-deploy`, not merged.) L3:** a plan step with a long unbroken file name overflows at 360 px. `overflow-wrap: anywhere` on `.plan-steps li` and the message.
 - **(Fixed on `feat/frontend-deploy`, not merged.) L4:** guard-test gaps (surviving mutations m08, m22, m23, m24): the Files panel's exclusion of a turn shown running, the lost answer keeping its buttons off, a 5xx on the message POST running the ambiguous-POST check (never a resend), and the `409` refetch.
 - **L5:** `scripts/frontend_spike/run_spike.py` has 8 E501 (outside `buddy tests`).
-- **L6:** a quota refusal says "Start a new session." and the page has no such control (with the "New session" item above).
+- **(Fixed on `feat/google-sign-in`, not merged.) L6:** a quota refusal says "Start a new session." and the page has no such control (with the "New session" item above).
 - **L7:** the copy snapshot doesn't cover the strings `backend/web/views.py` builds ("… up to 2 MB", size units).
 - **L8 (backend download route):** with a long upload name the 100-character cap can cut the whole `_deduplicated_…` part, so the cleaned copy is saved under exactly the original's file name (with the download-name item above).
 - **(Fixed on `feat/frontend-deploy`, not merged.) L9:** design 11.2's `Referrer-Policy: no-referrer` isn't sent (backend or FE-2).
@@ -313,6 +313,22 @@ Each item has its own acceptance criterion: fixed with a test, or explicitly clo
   - R2-L4: `export NAME=`, `NAME: value` and indented `  NAME=` lines are read by compose but not by `env_value`, so the scripts say "has no value for: NAME". Refuse those forms in `check_env_syntax`, by line number.
   - R2-L5: two guards are untested: `test_the_pre_restore_backup_holds_what_was_there` passes without the "The data from before is in" message (backup.sh's own line, tee'd to stderr, carries the path), and no test makes an uncommitted edit under `deploy/` (a `git diff HEAD <commit>` mutant passes). Assert on the message; add the uncommitted-edit test.
   - R2-L6: the rest of round-1 M5: an automatic rollback, and the documented by-hand rollback that ends with `git checkout main`, run the older image under the newer checkout's `deploy/` files. Have the by-hand rollback stay on the older commit until the next `git pull`, and have `rollback()` say which `deploy/` it used when the release changed `deploy/`.
+- **feat-google-sign-in review round 1, deferred LOWs** (`docs/reviews/feat-google-sign-in-review.md`, "Deferred"):
+  - L1 (fixed in `docs/reviews/feat-google-sign-in-fixes1.md`): new ruff errors: 2 in `tests/deploy` (the CI baseline job fails) and 5 E501 in `backend/`.
+  - L2 (fixed in fixes1): guard-test gaps, where mutations survived `tests/backend` + `tests/web`:
+    - The pending login isn't single use: assert that a replayed callback makes no `POST /token`.
+    - The callback doesn't clear the pointer: assert that the callback deletes `__Host-wb_session`.
+    - `latest_for` ignores the owner: add a two-person landing test.
+    - The discovery document's issuer isn't checked: add a test that refuses one with another issuer.
+    - The email isn't lower-cased: add a test with an upper-case email from the provider.
+  - L3 (fixed in fixes1): `backend/web/auth.py` `_refused` clears `__Host-wb_login` on `no_pending_login` too. Two "Continue with Google" starts in one browser, or a stray callback link, make both sign-ins fail. Keep the cookie on `no_pending_login`.
+  - L4 (`stack_flow.py` fixed in fixes1; the other three still open): `scripts/live_api_runs.py`, `live_frontend_runs.py`, `measure_container.py` and `scripts/live_stack/stack_flow.py` sign in with the demo password, which production no longer accepts. Switch them to the operator token.
+  - L5 (fixed in fixes1: the note is corrected, and the server warns at start when the issuer isn't Google's): the design note says sign-out is a plain form POST (it's htmx) and that `WORKBUDDY_OIDC_ISSUER` is for tests only (production accepts any https issuer). Correct the note, or refuse a non-Google issuer in production.
+- **feat-google-sign-in review round 2, deferred LOWs** (`docs/reviews/feat-google-sign-in-review.md`, "Review round 2"). Round 2 confirmed L1, L2 and L3 above as fixed. L4 stays open for the three scripts. L5 is half fixed (R2-L1).
+  - (Fixed in `docs/reviews/feat-google-sign-in-fixes2.md`.) R2-L1: "The page" in `docs/design/google-sign-in.md` still calls Sign out "(a plain form `POST`)" one sentence before saying it's htmx. Delete the parenthesis.
+  - (Fixed in fixes2.) R2-L2: no test pins clearing `__Host-wb_login` on a refusal after the pending login was taken (mutation N07 survives). Assert `Max-Age=0` for it on a `provider_error` refusal.
+  - (Fixed in fixes2.) R2-L3: the start-up warning for a non-Google `WORKBUDDY_OIDC_ISSUER` is untested (mutation N08 survives). Add a `caplog` test: logged once for a non-Google issuer, never for Google's.
+  - R2-L4: owner ids are `google:<sub>` whatever the issuer. A production server started with a fake issuer on a volume holding real people's sessions would let that issuer's subjects own those sessions. Only someone who sets the environment can reach this. Refuse a non-Google issuer in production without an explicit live-run flag, or put an issuer hash in non-Google owner ids.
 
 ## 6. Decide the supported Python version
 

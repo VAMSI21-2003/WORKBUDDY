@@ -29,11 +29,15 @@ from tests.backend.helpers import (
     cookie_value,
     exchange,
     locked_settings,
+    production_settings,
     with_cookie,
 )
 
 UNAUTHORIZED_BODY = {
-    "error": {"code": "unauthorized", "message": "The demo password is missing or wrong."}
+    "error": {
+        "code": "unauthorized",
+        "message": "You aren't signed in, or your sign-in has ended.",
+    }
 }
 REALM = 'Bearer realm="workbuddy-demo"'
 FORM = "application/x-www-form-urlencoded"
@@ -602,6 +606,12 @@ def test_neither_the_password_nor_a_token_reaches_a_response_body_or_a_log(
         (f"Set-Cookie: {COOKIE_NAME}=tok3n_abc-123; Path=/; Secure", "tok3n_abc-123"),
         ("Authorization: Bearer hunter2-hunter2", "hunter2-hunter2"),
         ("form body: password=hunter2&x=1", "hunter2"),
+        ('GET /auth/google/callback?code=4%2F0AbCd-eF&state=Zx9_k HTTP/1.1', "4%2F0AbCd-eF"),
+        ('GET /auth/google/callback?code=4%2F0AbCd-eF&state=Zx9_k HTTP/1.1', "Zx9_k"),
+        ("GET /ui/s/s_AbCdEfGhIjKlMnOpQrStUv/transcript", "s_AbCdEfGhIjKlMnOpQrStUv"),
+        (f"Cookie: __Host-wb_login={'b' * 43}", "b" * 43),
+        ("id token eyJhbGciOiJSUzI1NiJ9.eyJzdWIiOiIxIn0.c2ln here", "eyJzdWIiOiIxIn0"),
+        ("client secret GOCSPX-abc_DEF-123 here", "GOCSPX-abc_DEF-123"),
     ],
 )
 def test_the_log_filter_redacts_the_cookie_the_bearer_and_a_password(raw: str, gone: str) -> None:
@@ -617,9 +627,17 @@ def test_the_log_filter_redacts_the_cookie_the_bearer_and_a_password(raw: str, g
 
 
 def test_a_server_with_no_password_refuses_to_start_unless_it_says_dev(tmp_path: Path) -> None:
-    for env in ({}, {"WORKBUDDY_ENV": "production", "WORKBUDDY_PUBLIC_ORIGIN": PUBLIC_ORIGIN}):
-        with pytest.raises(SettingsError, match="WORKBUDDY_DEMO_PASSWORD"):
-            Settings.from_env({"WORKBUDDY_DATA_DIR": str(tmp_path), **env})
+    with pytest.raises(SettingsError, match="WORKBUDDY_DEMO_PASSWORD"):
+        Settings.from_env({"WORKBUDDY_DATA_DIR": str(tmp_path)})
+    # In production the way in is Google, not the password.
+    with pytest.raises(SettingsError, match="WORKBUDDY_GOOGLE_CLIENT_ID"):
+        Settings.from_env(
+            {
+                "WORKBUDDY_DATA_DIR": str(tmp_path),
+                "WORKBUDDY_ENV": "production",
+                "WORKBUDDY_PUBLIC_ORIGIN": PUBLIC_ORIGIN,
+            }
+        )
     dev = Settings.from_env({"WORKBUDDY_DATA_DIR": str(tmp_path), "WORKBUDDY_ENV": "dev"})
     assert dev.demo_password is None and dev.env == "dev"
 
@@ -658,7 +676,7 @@ def test_production_needs_an_https_public_origin(
     tmp_path: Path, overrides: dict[str, str], message: str
 ) -> None:
     with pytest.raises(SettingsError, match=message):
-        locked_settings(tmp_path, **overrides)
+        production_settings(tmp_path, **overrides)
 
 
 def test_the_public_origin_is_normalized_and_defaults_in_dev(tmp_path: Path) -> None:
@@ -692,7 +710,10 @@ def test_the_access_class_is_the_only_place_that_knows_the_password(tmp_path: Pa
     sources = [
         path.read_text()
         for path in Path("backend").glob("*.py")
-        if path.name not in ("access.py", "settings.py", "logging_filter.py")
+        # (sessions.py and oidc.py compare an owner, an id, a nonce and a binder in constant
+        # time; none of them reads a credential from a request.)
+        if path.name
+        not in ("access.py", "settings.py", "logging_filter.py", "sessions.py", "oidc.py")
     ]
     assert not any("demo_password" in source for source in sources)
     assert not any("compare_digest" in source for source in sources)

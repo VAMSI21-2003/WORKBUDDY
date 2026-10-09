@@ -102,12 +102,12 @@ def test_restored_context_keeps_analyzed_files(settings: Settings) -> None:
     assert record.state.context.analyzed_files == frozenset(data["context"]["analyzed_files"])
 
 
-def test_the_session_id_never_reaches_the_disk(settings: Settings) -> None:
+def test_the_session_id_reaches_the_disk_only_in_owner_json(settings: Settings) -> None:
     session_id, _, _ = _delivered_session(settings)
 
     for path in settings.data_dir.rglob("*"):
         assert session_id not in str(path)
-        if path.is_file():
+        if path.is_file() and path.name != "owner.json":
             assert session_id.encode() not in path.read_bytes()
 
 

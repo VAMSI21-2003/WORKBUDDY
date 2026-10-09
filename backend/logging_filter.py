@@ -30,6 +30,19 @@ _PATTERNS = (
     (re.compile(r"(?i)__Host-wb_access\s*=\s*[^\s'\",;]+"), REDACTED),
     (re.compile(r"(?i)\bpassword\s*[=:]\s*['\"]?[^\s'\",;&]+"), REDACTED),
     (re.compile(r"(/sessions/)[A-Za-z0-9_\-%.]+"), r"\1" + REDACTED),
+    (re.compile(r"(/ui/s/)[A-Za-z0-9_\-%.]+"), r"\1" + REDACTED),
+    # Sign in with Google: the query of the callback address (the code, the state), the login
+    # cookie, a token (three base64url parts) and the client secret.
+    (
+        re.compile(
+            r"(?i)([?&](?:code|state|id_token|access_token|client_secret|code_verifier)=)"
+            r"[^\s&'\",;]+"
+        ),
+        r"\1" + REDACTED,
+    ),
+    (re.compile(r"(?i)__Host-wb_login\s*=\s*[^\s'\",;]+"), REDACTED),
+    (re.compile(r"eyJ[A-Za-z0-9_\-]+\.[A-Za-z0-9_\-]+\.[A-Za-z0-9_\-]*"), REDACTED),
+    (re.compile(r"GOCSPX-[A-Za-z0-9_\-]+"), REDACTED),
 )
 
 _lock = threading.Lock()

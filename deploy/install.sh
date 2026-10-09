@@ -118,6 +118,7 @@ cat <<'NEXT'
 
 Done. Next:
   1. Log out and back in (so docker works without sudo).
-  2. Edit deploy/.env: nano deploy/.env   (the name, the password, the key)
+  2. Edit deploy/.env: nano deploy/.env   (the name, the Google client, the operator token, the key;
+     docs/deploy.md, Section 7, step 6 says how to create the Google client)
   3. From the repository folder:  ./deploy/release.sh <commit>
 NEXT

@@ -1,0 +1,4 @@
+{"case": "c18_demo_password_mode_latest", "ok": true, "second_person_sees_first_persons": {"file_name": false, "reply": false, "session_id": false}, "pointer_set_for_p2": false, "note": "base: GET / without a pointer renders an empty workspace and the page makes a new session"}
+{"case": "c06_restart_and_disk_paths", "ok": true, "bob_before_load": 404, "bob_download": 404, "alice": 200, "alice_download": 200, "alice_lands_in_her_session_after_restart": true, "original_unchanged": true, "delivered_rows": {"rows": 4, "empty": 1, "duplicates": 0}, "reply": "Here's where things landed. Done \u2014 removed 2 duplicate row(s). The copy has 4 row(s), 0 duplicate row(s) remaining
+{"case": "c23_latest_after_sweep", "ok": true, "lands_first": "new", "after_sweep_status": 200, "after_sweep_mentions_any": false}
+{"case": "c20_switch_person_same_browser", "ok": true, "bob_sees_alice_without_signout": false, "bob_sees_alice_after_signout": false, "header": true}

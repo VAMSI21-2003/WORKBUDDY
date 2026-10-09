@@ -74,7 +74,8 @@ def test_production_never_accepts_localhost(tmp_path: Path) -> None:
     settings = Settings(
         data_dir=tmp_path / "d",
         env="production",
-        demo_password=PASSWORD,
+        google_client_id="client.apps.test",
+        google_client_secret="secret",
         public_origin="https://demo.example",
         port=8123,
     )

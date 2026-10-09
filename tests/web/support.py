@@ -13,6 +13,7 @@ from typing import Any
 from fastapi import FastAPI
 from fastapi.testclient import TestClient
 
+from backend.identity import DEV
 from backend.main import create_app
 from backend.settings import Settings
 from tests.backend.helpers import RELAXED_LIMITS, xlsx_bytes
@@ -83,7 +84,7 @@ class Ui:
         )
 
     def version(self, sid: str, tid: str) -> int:
-        record = self.app.state.registry.get(sid)
+        record = self.app.state.registry.get(sid, DEV)
         turn = record.turn(tid)
         return int(turn.version)
 

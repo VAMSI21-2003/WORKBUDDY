@@ -1,11 +1,16 @@
 #!/usr/bin/env bash
-# The health check, then one real turn through the API, the way the page does it: sign in, upload,
-# send a message, approve the plan, download the file, and check its hash.
+# The health check, then one real turn through the API, the way a script does it: authenticate with
+# the operator token, upload, send a message, approve the plan, download the file, check its hash.
 #     ./smoke.sh                 # against https://$WORKBUDDY_DOMAIN, from deploy/.env
 #     ./smoke.sh https://host    # against another address
-# It uses the real LLM, so it needs the key to work. It reads the password from deploy/.env and
-# never prints it. One run uses 1 sign-in, 1 upload and 1 turn from the per-address rate limits
-# (10, 5 and 10 an hour), so a handful of runs an hour is fine.
+# It uses the real LLM, so it needs the key to work. It reads the operator token from deploy/.env,
+# sends it as "Authorization: Bearer ..." from a file (never on the command line) and never prints
+# it. The operator reaches only the sessions it creates, so the turn runs in a session of its own.
+# One run uses 1 upload and 1 turn from the per-address and per-person rate limits (5 and 10 an
+# hour), so a handful of runs an hour is fine.
+# When the app answers 401 to the operator token it is a release from before sign-in with Google
+# (a rollback to it), which only knows the demo password: then, and only then, if deploy/.env still
+# has WORKBUDDY_DEMO_PASSWORD, it signs in with that, the old way.
 # On this machine's own stack the request goes to 127.0.0.1 whatever DNS says, keeping the name for
 # the certificate check (SMOKE_RESOLVE_LOCAL=0 turns that off). A stack named "localhost" (a trial on
 # one machine) has a certificate from Caddy's own authority, which smoke.sh fetches from the Caddy
@@ -18,8 +23,9 @@ need curl jq sha256sum docker
 check_env_syntax
 ENV_FILE="$DEPLOY_DIR/.env"
 domain="$(env_value "$ENV_FILE" WORKBUDDY_DOMAIN)"
-password="$(env_value "$ENV_FILE" WORKBUDDY_DEMO_PASSWORD)"
-[ -n "$domain" ] && [ -n "$password" ] || die "deploy/.env needs WORKBUDDY_DOMAIN and WORKBUDDY_DEMO_PASSWORD"
+token="$(env_value "$ENV_FILE" WORKBUDDY_OPERATOR_TOKEN)"
+password="$(env_value "$ENV_FILE" WORKBUDDY_DEMO_PASSWORD)"  # only for a rollback to the old release
+[ -n "$domain" ] && [ -n "$token" ] || die "deploy/.env needs WORKBUDDY_DOMAIN and WORKBUDDY_OPERATOR_TOKEN"
 base="${1:-https://$domain}"
 origin="https://$domain"
 fixture="$DEPLOY_DIR/smoke.xlsx"
@@ -59,12 +65,23 @@ health="$(api GET /healthz)"
 [ "$(jq -r .llm_configured <<<"$health")" = "true" ] || fail "health" "no LLM key is configured"
 say "ok: /healthz answers, an LLM key is set"
 
-step "2. sign in"
-# The password goes in through a file, not the command line, where other users could see it.
-( umask 077; printf '%s' "$password" > "$work/password" )
-api POST /api/v1/access --data-urlencode "password@$work/password" >/dev/null
-grep -q "__Host-wb_access" "$jar" || fail "sign in" "no access cookie came back"
-say "ok: the password was exchanged for the access cookie"
+step "2. authenticate"
+# The token goes in through a header file, not the command line, where other users could see it.
+( umask 077; printf 'Authorization: Bearer %s\n' "$token" > "$work/auth" )
+probe="$(curl "${curl_args[@]}" --header "@$work/auth" --output /dev/null --write-out '%{http_code}' \
+  "$base/api/v1/sessions/s_smoke_probe_does_not_exist")" || fail "authenticate" "no answer from $base"
+if [ "$probe" = "404" ]; then  # signed in as the operator, and "no such session" is the right answer
+  curl_args+=(--header "@$work/auth")
+  say "ok: the operator token is accepted"
+elif [ "$probe" = "401" ] && [ -n "$password" ]; then
+  say "the operator token was refused: this is a release from before sign-in with Google; using the demo password"
+  ( umask 077; printf '%s' "$password" > "$work/password" )
+  api POST /api/v1/access --data-urlencode "password@$work/password" >/dev/null
+  grep -q "__Host-wb_access" "$jar" || fail "authenticate" "no access cookie came back"
+  say "ok: the password was exchanged for the access cookie"
+else
+  fail "authenticate" "HTTP $probe for the operator token (is WORKBUDDY_OPERATOR_TOKEN in deploy/.env the one the app has?)"
+fi
 
 step "3. upload"
 before="$(sha256sum "$fixture" | cut -d' ' -f1)"

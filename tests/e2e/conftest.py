@@ -68,9 +68,7 @@ class LiveApp:
         return sorted(p for p in self.settings.uploads_dir.rglob("*.xlsx"))
 
 
-def _serve(
-    settings: Settings, factory: Any
-) -> tuple[Any, uvicorn.Server, threading.Thread]:
+def _serve(settings: Settings, factory: Any) -> tuple[Any, uvicorn.Server, threading.Thread]:
     app = create_app(settings, factory)
     server = uvicorn.Server(
         uvicorn.Config(app, host="127.0.0.1", port=settings.port, log_level="warning")
@@ -110,7 +108,7 @@ def live_app(tmp_path: Path) -> Iterator[Callable[..., LiveApp]]:
         settings = Settings(**values)
         engine = factory if factory is not None else PipelineFactory(QueuedProvider(replies or []))
         app, server, thread = _serve(settings, engine)
-        live = LiveApp(f"http://127.0.0.1:{port}", app, settings, engine, server, thread)
+        live = LiveApp(f"http://127.0.0.1:{settings.port}", app, settings, engine, server, thread)
         started.append(live)
         return live
 

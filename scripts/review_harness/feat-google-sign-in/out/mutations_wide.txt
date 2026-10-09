@@ -1,0 +1,8 @@
+M00 PASSED unmutated copy | 927 passed, 1 deselected, 16 warnings in 190.15s (0:03:10)
+M08 SURVIVED pending login not single-use | 927 passed, 1 deselected, 16 warnings in 190.55s (0:03:10)
+M12 SURVIVED callback keeps the last person's pointer | 927 passed, 1 deselected, 16 warnings in 191.57s (0:03:11)
+M19 SURVIVED latest_for ignores the owner | 927 passed, 1 deselected, 16 warnings in 190.54s (0:03:10)
+M26 SURVIVED discovery issuer not checked | 927 passed, 1 deselected, 16 warnings in 196.35s (0:03:16)
+M30 SURVIVED email not lower-cased | 927 passed, 1 deselected, 16 warnings in 197.79s (0:03:17)
+M32 KILLED authorize serves a session being deleted | E       AssertionError: assert SessionRecord(key='7ed03f0f18313fc63b9c9e61be61b2aa', created_at=datetime.datetime(2026, 10, 8, 11, 39, 8, 862349, tzi...turns=[], active_file_id=None, next_seq=1, running_turn_id=None, last_active=1800010800.0, last_persisted=1800010800.0) is N
+M35 SURVIVED PROTOTYPE FIX for H1 (not a mutation): latest_for only for google principals; suite must still pass | 927 passed, 1 deselected, 16 warnings in 195.87s (0:03:15)

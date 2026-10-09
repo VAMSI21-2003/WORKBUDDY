@@ -20,6 +20,7 @@ import pytest
 from fastapi.testclient import TestClient
 
 from backend.__main__ import choose_host, is_loopback
+from backend.identity import DEV
 from backend.main import create_app
 from backend.retention import (
     MaintenanceLoop,
@@ -32,10 +33,12 @@ from backend.sessions import session_key
 from backend.settings import Settings, SettingsError
 from tests.backend.factories import BlockingFactory, PipelineFactory, QueuedProvider, single
 from tests.backend.helpers import (
+    OPERATOR_TOKEN,
     RELAXED_LIMITS,
     FakeClock,
     locked_settings,
     new_session,
+    production_settings,
     start_turn,
     upload,
     wait_finished,
@@ -414,11 +417,11 @@ def test_the_sweep_takes_the_session_out_of_service_before_deleting(rig: Rig) ->
     rig.wall.advance(3 * HOUR)
     assert registry.claim_idle(key, rig.wall.now - 2 * HOUR)
 
-    assert registry.get(sid) is None  # not in memory, and not restored from the disk copy
+    assert registry.get(sid, DEV) is None  # not in memory, and not restored from the disk copy
     assert rig.client.get(f"/api/v1/sessions/{sid}").status_code == 404
     assert not registry.claim_unloaded(key)  # nobody else claims it either
     registry.release(key)
-    assert registry.get(sid) is not None  # (it was never deleted here)
+    assert registry.get(sid, DEV) is not None  # (it was never deleted here)
 
 
 def test_a_failed_removal_is_reported_leaves_the_record_and_is_retried(
@@ -722,7 +725,7 @@ def test_the_default_cap_is_in_bytes_and_set_by_its_variable(tmp_path: Path) -> 
 
 
 def test_the_server_binds_every_interface_only_in_production(tmp_path: Path) -> None:
-    assert locked_settings(tmp_path).bind_host == "0.0.0.0"
+    assert production_settings(tmp_path).bind_host == "0.0.0.0"
     assert Settings(data_dir=tmp_path, env="dev").bind_host == "127.0.0.1"
     assert Settings(data_dir=tmp_path, demo_password="x").bind_host == "127.0.0.1"
 
@@ -731,7 +734,7 @@ def test_a_public_address_is_refused_outside_production_and_loopback_is_always_f
     tmp_path: Path,
 ) -> None:
     dev = Settings(data_dir=tmp_path, env="dev")
-    prod = locked_settings(tmp_path)
+    prod = production_settings(tmp_path)
 
     assert choose_host(dev, None) == "127.0.0.1"
     assert choose_host(dev, "localhost") == "localhost"
@@ -826,15 +829,18 @@ def test_the_docs_and_the_schema_are_not_served_in_any_environment(
 ) -> None:
     from tests.backend.helpers import BEARER
 
-    settings = Settings(
-        data_dir=tmp_path / env,
-        env=env,
-        demo_password="x" if env != "dev" else None,
-        public_origin="https://demo.example" if env == "production" else "",
-        rate_limits=RELAXED_LIMITS,
-    )
+    if env == "production":
+        settings = production_settings(tmp_path / env, rate_limits=RELAXED_LIMITS)
+        headers = {"Authorization": f"Bearer {OPERATOR_TOKEN}"}
+    else:
+        settings = Settings(
+            data_dir=tmp_path / env,
+            env=env,
+            demo_password="x" if env != "dev" else None,
+            rate_limits=RELAXED_LIMITS,
+        )
+        headers = {"Authorization": "Bearer x"} if env != "dev" else BEARER
     client = TestClient(create_app(settings, lambda p: None))
-    headers = {"Authorization": "Bearer x"} if env != "dev" else BEARER
 
     for path in ("/docs", "/redoc", "/openapi.json", "/docs/oauth2-redirect"):
         assert client.get(path, headers=headers).status_code == 404, path
@@ -843,7 +849,7 @@ def test_the_docs_and_the_schema_are_not_served_in_any_environment(
 def test_hsts_is_sent_in_production_only_and_clickjacking_protection_always(
     tmp_path: Path,
 ) -> None:
-    prod = TestClient(create_app(locked_settings(tmp_path), lambda p: None))
+    prod = TestClient(create_app(production_settings(tmp_path), lambda p: None))
     dev = TestClient(
         create_app(
             Settings(data_dir=tmp_path / "d", env="dev", rate_limits=RELAXED_LIMITS), lambda p: None

@@ -43,3 +43,8 @@ httpx>=0.27
 # --- The web page (backend/web/ — see docs/design/frontend-design.md) ---
 # Server-rendered with Jinja; htmx itself is vendored in backend/web/static (no Node, no CDN).
 jinja2>=3.1,<4
+
+# --- Sign in with Google (backend/oidc.py — see docs/design/google-sign-in.md) ---
+# Verifies the ID token's signature, expiry, issuer and audience. cryptography (the "crypto" extra)
+# does the RSA check; httpx (above) makes the calls to Google.
+pyjwt[crypto]>=2.8,<3

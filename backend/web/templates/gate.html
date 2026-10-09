@@ -4,12 +4,17 @@
 <main class="gate">
   <h1>{{ copy.site_title() }}</h1>
   <p class="demo-notice">{{ copy.demo_notice() }}{% if retention_hours is not none %} {{ copy.retention_notice(retention_hours) }}{% endif %}</p>
-  <div id="page-notices" class="notices" role="region" aria-label="{{ copy.notices_label() }}"></div>
+  <div id="page-notices" class="notices" role="region" aria-label="{{ copy.notices_label() }}">{% if notice == "problem" %}<p class="notice" role="alert">{{ copy.signin_problem() }}</p>{% elif notice == "not_allowed" %}<p class="notice" role="alert">{{ copy.signin_not_allowed() }}</p>{% endif %}</div>
+  {% if google_enabled %}
+  <p class="gate-google"><a id="google-signin" class="btn btn-primary" href="/auth/google/start">{{ copy.google_button() }}</a></p>
+  {% endif %}
+  {% if password_login %}
   <form id="gate-form" class="gate-form" method="post" action="/api/v1/access" hx-post="/api/v1/access" hx-swap="none" data-error-slot="gate-error" data-gate>
     <label for="password">{{ copy.gate_label() }}</label>
-    <input id="password" name="password" type="password" autocomplete="current-password" required autofocus aria-describedby="gate-error">
-    <button type="submit" class="btn btn-primary">{{ copy.gate_button() }}</button>
+    <input id="password" name="password" type="password" autocomplete="current-password" required{% if not google_enabled %} autofocus{% endif %} aria-describedby="gate-error">
+    <button type="submit" class="btn{% if not google_enabled %} btn-primary{% endif %}">{{ copy.gate_button() }}</button>
     <p id="gate-error" class="error-slot" role="alert"></p>
   </form>
+  {% endif %}
 </main>
 {% endblock %}

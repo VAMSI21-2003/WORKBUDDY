@@ -7,6 +7,8 @@
 - The demo password is **exchanged once for an HttpOnly, Secure, SameSite=Strict cookie**, as the review recommends. For the browser this replaces `Authorization: Bearer`.
 - The goal is a working demo soon, so the frontend is **two PRs** (review Section 3.6), not four.
 
+**Changed by sign-in with Google (2026-10-08, `docs/design/google-sign-in.md`):** in production the gate (1.2) is a **Continue with Google** link, not a password form (the password form stays outside production, beside the button when Google is on). The access cookie is now handed out by the Google callback, and the page moves on from there by itself (a 200 page with a meta refresh), because a redirect from Google's site would stop the SameSite=Strict cookie being sent. The header shows "Signed in as <email>", a **Sign out** button and a **New session** button (the deferred item below). Sign-out is an htmx request: a plain form POST would send `Origin: null` under `Referrer-Policy: no-referrer` and be refused. The `401` notice's link says "Sign in again". After signing in, `GET /` takes the person to their most recent session. A session pointer to somebody else's session reads as one that doesn't exist. Section 4 is unchanged: every new string is a label or a sign-in notice, and `tests/web/ui_copy_snapshot.txt` was regenerated.
+
 **Depends on:** `docs/design/backend-api-design.md` on `design/backend-api` (not merged), and in particular three of its sections:
 - "Decisions (2026-09-30)": public demo, shared password, once-per-turn plan confirmation, Python 3.11+, `.xlsx` and `.xls`.
 - "Decisions (2026-09-30, part 2)": the poll-aware rate limit, the answers to this design's asks, the 5 MB upload cap.

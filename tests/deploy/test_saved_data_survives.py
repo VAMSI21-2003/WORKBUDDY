@@ -10,6 +10,7 @@ format changed and no new fixture was added.
 
 from __future__ import annotations
 
+import hashlib
 import json
 import shutil
 from pathlib import Path
@@ -19,10 +20,19 @@ import pytest
 from fastapi.testclient import TestClient
 
 from backend.main import create_app
+from backend.retention import MaintenanceLoop
+from backend.sessions import session_key
 from backend.settings import Settings
-from backend.store import FORMAT_VERSION
+from backend.store import FORMAT_VERSION, SessionStore
 from tests.backend.factories import PipelineFactory, QueuedProvider, single
-from tests.backend.helpers import RELAXED_LIMITS, start_turn, wait_finished
+from tests.backend.helpers import (
+    OPERATOR_TOKEN,
+    RELAXED_LIMITS,
+    production_settings,
+    start_turn,
+    wait_finished,
+)
+from tests.backend.signin_helpers import ACCESS_COOKIE, ALICE, BOB, browser, make_idp, signed_in
 from tests.deploy import data_scenario as scenario
 
 FIXTURE_DIRS = sorted(scenario.FIXTURES.glob("data-v*"), key=lambda p: int(p.name[6:]))
@@ -32,23 +42,82 @@ def _manifest(fixture: Path) -> dict[str, Any]:
     return dict(json.loads((fixture / "manifest.json").read_text(encoding="utf-8")))
 
 
-@pytest.fixture(params=FIXTURE_DIRS, ids=[p.name for p in FIXTURE_DIRS])
-def opened(request: pytest.FixtureRequest, tmp_path: Path) -> tuple[TestClient, Settings, Any]:
-    """A copy of one fixture's data folder, served by the server as it is today."""
-    fixture: Path = request.param
+def _copy(fixture: Path, tmp_path: Path) -> tuple[Path, dict[str, Any]]:
     manifest = _manifest(fixture)
     data = tmp_path / "data"
     shutil.copytree(fixture / "data", data)
     scenario.relocate(data, manifest["data_dir_when_written"], str(data))
-    settings = Settings(data_dir=data, rate_limits=RELAXED_LIMITS)
+    return data, manifest
+
+
+def _owned(fixture: Path) -> bool:
+    """Whether the fixture was written by a server that had session owners (data-v2 on)."""
+    return "owner" in _manifest(fixture)
+
+
+OWNED_DIRS = [d for d in FIXTURE_DIRS if _owned(d)]
+LEGACY_DIRS = [d for d in FIXTURE_DIRS if not _owned(d)]
+
+
+@pytest.fixture(params=OWNED_DIRS, ids=[p.name for p in OWNED_DIRS])
+def opened(request: pytest.FixtureRequest, tmp_path: Path) -> tuple[TestClient, Settings, Any]:
+    """A copy of one fixture's data folder, served by the server as it is today, to the person
+    who owns the session (their sign-in survived the "restart": it is read from the data)."""
+    data, manifest = _copy(request.param, tmp_path)
+    settings = production_settings(tmp_path, data_dir=data, rate_limits=RELAXED_LIMITS)
     factory = PipelineFactory(QueuedProvider(single("remove_duplicate_rows")), speaker="friend")
-    client = TestClient(create_app(settings, factory))
+    app = create_app(
+        settings,
+        factory,
+        oidc_http=make_idp().client(),
+        wall_clock=lambda: manifest["signed_in_at"] + 3600,
+    )
+    client = browser(app)
+    client.headers["Cookie"] = f"{ACCESS_COOKIE}={manifest['cookie_token']}"
     return client, settings, manifest
 
 
 def test_there_is_a_fixture() -> None:
     assert FIXTURE_DIRS, "tests/deploy/fixtures has no data-vN folder"
     assert (FIXTURE_DIRS[0] / "manifest.json").is_file()
+    assert OWNED_DIRS, "no fixture holds an owned session (data-v2 or later)"
+
+
+def test_the_signed_in_owner_is_who_the_fixture_says(
+    opened: tuple[TestClient, Settings, Any],
+) -> None:
+    """The sign-in written by an earlier version still signs its person in, after a restart."""
+    client, _, manifest = opened
+
+    assert client.get("/").status_code == 200
+    assert manifest["email"] in client.get("/").text
+    # ...and the page, with no pointer, takes them to the session they had.
+    assert manifest["session_id"] in client.get("/").text
+
+
+def test_nobody_else_can_open_the_saved_session(
+    opened: tuple[TestClient, Settings, Any],
+) -> None:
+    client, settings, manifest = opened
+    session_id = manifest["session_id"]
+    other_app = create_app(
+        production_settings(Path(settings.data_dir).parent, data_dir=settings.data_dir),
+        PipelineFactory(QueuedProvider([])),
+        oidc_http=(idp := make_idp()).client(),
+    )
+    bob = signed_in(browser(other_app), idp, BOB)
+    operator = {"Authorization": f"Bearer {OPERATOR_TOKEN}"}
+    first_turn = manifest["turns"][0]["turn_id"]
+    delivered = manifest["turns"][0]["delivered_files"][0]["file_id"]
+
+    for path in (
+        f"/api/v1/sessions/{session_id}",
+        f"/api/v1/sessions/{session_id}/files",
+        f"/api/v1/sessions/{session_id}/turns/{first_turn}",
+        f"/api/v1/sessions/{session_id}/files/{delivered}/download",
+    ):
+        assert bob.get(path).status_code == 404, path
+        assert browser(other_app).get(path, headers=operator).status_code == 404, path
 
 
 def test_the_saved_session_opens_and_lists_its_files_and_turns(
@@ -150,6 +219,96 @@ def test_the_saved_session_still_takes_a_new_turn(
     assert len(state["turns"]) == len(manifest["turns"]) + 1
 
 
+# -- Sessions saved before sign-in existed -----------------------------------------------------
+
+
+@pytest.fixture(params=LEGACY_DIRS, ids=[p.name for p in LEGACY_DIRS])
+def legacy(request: pytest.FixtureRequest, tmp_path: Path) -> tuple[Path, dict[str, Any]]:
+    return _copy(request.param, tmp_path)
+
+
+def _tree_hashes(folder: Path, skip: str = "owner.json") -> dict[str, str]:
+    return {
+        str(p.relative_to(folder)): hashlib.sha256(p.read_bytes()).hexdigest()
+        for p in sorted(folder.rglob("*"))
+        if p.is_file() and p.name != skip and p.relative_to(folder).parts[0] != "auth"
+    }
+
+
+def test_a_session_saved_before_sign_in_still_parses(legacy: tuple[Path, dict[str, Any]]) -> None:
+    """The format an earlier server wrote still opens (the store reads it); it just has no owner."""
+    data, manifest = legacy
+    settings = Settings(data_dir=data, rate_limits=RELAXED_LIMITS)
+    key = session_key(manifest["session_id"])
+
+    record = SessionStore(settings).load_session(key)
+
+    assert record is not None
+    assert [t.turn_id for t in record.turns] == [t["turn_id"] for t in manifest["turns"]]
+    assert record.owner is None
+
+
+def test_a_session_saved_before_sign_in_belongs_to_nobody(
+    legacy: tuple[Path, dict[str, Any]],
+) -> None:
+    """The decision in docs/design/google-sign-in.md: never readable by anyone, never changed."""
+    data, manifest = legacy
+    before = _tree_hashes(data)
+    settings = production_settings(data.parent, data_dir=data, rate_limits=RELAXED_LIMITS)
+    idp = make_idp()
+    app = create_app(settings, PipelineFactory(QueuedProvider([])), oidc_http=idp.client())
+    session_id = manifest["session_id"]
+    key = session_key(session_id)
+    delivered = manifest["turns"][0]["delivered_files"][0]["file_id"]
+    operator = {"Authorization": f"Bearer {OPERATOR_TOKEN}"}
+
+    # The migration marked it, explicitly, and touched nothing else.
+    marker = json.loads((data / "sessions" / key / "owner.json").read_text())
+    assert marker == {"version": 1, "owner": None, "session_id": None}
+    assert _tree_hashes(data) == before
+
+    people = {
+        "alice": signed_in(browser(app), idp, ALICE),
+        "bob": signed_in(browser(app), idp, BOB),
+    }
+    for path in (
+        f"/api/v1/sessions/{session_id}",
+        f"/api/v1/sessions/{session_id}/files",
+        f"/api/v1/sessions/{session_id}/turns/t0001",
+        f"/api/v1/sessions/{session_id}/files/{delivered}/download",
+        f"/ui/s/{session_id}/transcript",
+    ):
+        for name, client in people.items():
+            assert client.get(path).status_code == 404, (name, path)
+        assert browser(app).get(path, headers=operator).status_code == 404, path
+    for client in people.values():  # a pointer cookie to it is a pointer to nothing
+        client.cookies.set("__Host-wb_session", session_id)
+        assert "no longer exists" in client.get("/").text
+    assert _tree_hashes(data) == before  # opening nothing changed nothing
+
+
+def test_a_session_saved_before_sign_in_is_deleted_by_the_ordinary_sweep(
+    legacy: tuple[Path, dict[str, Any]],
+) -> None:
+    data, manifest = legacy
+    settings = production_settings(data.parent, data_dir=data, rate_limits=RELAXED_LIMITS)
+    day_later = __import__("time").time() + (settings.session_ttl_hours + 1) * 3600
+    app = create_app(
+        settings,
+        PipelineFactory(QueuedProvider([])),
+        oidc_http=make_idp().client(),
+        wall_clock=lambda: day_later,
+    )
+    key = session_key(manifest["session_id"])
+    assert (data / "sessions" / key).is_dir() and (data / "uploads" / key).is_dir()
+
+    maintenance: MaintenanceLoop = app.state.maintenance
+    assert maintenance.run_once().removed == (key,)
+
+    for folder in ("sessions", "uploads", "outputs"):
+        assert not (data / folder / key).exists()
+
+
 def test_a_fixtures_session_files_hold_no_path_outside_session_json() -> None:
     """``relocate`` rewrites session.json only; a path anywhere else would go unnoticed."""
     for fixture in FIXTURE_DIRS:
@@ -171,9 +330,13 @@ def test_what_the_server_writes_today_has_the_shape_of_the_newest_fixture(
     def records(folder: Path) -> dict[str, Any]:
         session = next((folder / "sessions").glob("*/session.json"))
         turns = sorted((session.parent / "turns").glob("t*.json"))
+        owner = session.parent / "owner.json"
+        (signin,) = (folder / "auth" / "signins").glob("*.json")
         return {
             "session": scenario.shape(json.loads(session.read_text(encoding="utf-8"))),
             "turns": [scenario.shape(json.loads(t.read_text(encoding="utf-8"))) for t in turns],
+            "owner": scenario.shape(json.loads(owner.read_text(encoding="utf-8"))),
+            "signin": scenario.shape(json.loads(signin.read_text(encoding="utf-8"))),
         }
 
     hint = (
@@ -182,6 +345,7 @@ def test_what_the_server_writes_today_has_the_shape_of_the_newest_fixture(
         f"{int(newest.name[6:]) + 1}"
     )
     assert FORMAT_VERSION == _manifest(newest)["format_version"], hint
+    assert _owned(newest), hint
     assert records(fresh) == records(newest / "data"), hint
     assert scenario.layout(fresh) == scenario.layout(newest / "data"), hint
 

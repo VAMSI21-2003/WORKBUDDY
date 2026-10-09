@@ -1,0 +1,24 @@
+# round 2: default test set
+M00 PASSED unmutated copy | 415 passed, 16 warnings in 73.30s (0:01:13)
+M08 KILLED pending login not single-use | E       AssertionError: assert Pending(nonce='EsWuG93jTJ5aaNKt7QJMOlsi342b9n4f2AkZI2zlNAU', verifier='bMwU8F0j7vy31Uxofh8UaTH60Y9VLBcSYoq6q_2HeTu7JNdFF4OQ3nZSlCB25BP_') is None | tests/backend/test_signin.py:336: AssertionError | FAILED tests/backend/test_signin.py::test_a_pending_login_can_be_taken_once_even_with_the_right_binder
+M12 KILLED callback keeps the last person's pointer | E       ValueError: not enough values to unpack (expected 1, got 0) | tests/backend/test_signin.py:137: ValueError | FAILED tests/backend/test_signin.py::test_the_callback_clears_the_last_persons_session_pointer
+M19 KILLED latest_for ignores the owner | tests/backend/test_ownership.py:382: AssertionError | FAILED tests/backend/test_ownership.py::test_a_person_lands_in_their_most_recent_session | 1 failed, 82 passed, 16 warnings in 20.28s
+M26 KILLED discovery issuer not checked | tests/backend/test_signin.py:149: AssertionError | FAILED tests/backend/test_signin.py::test_a_discovery_document_for_another_issuer_is_refused | 1 failed, 5 passed in 3.34s
+M30 KILLED email not lower-cased | E       AssertionError: assert 'Mixed.Case@Example.Test' == 'mixed.case@example.test' | tests/backend/test_signin.py:162: AssertionError | FAILED tests/backend/test_signin.py::test_an_email_is_stored_and_shown_in_lower_case
+N01 KILLED H1: latest_for's person-only guard removed (index guard kept) | E           AssertionError: assert 's_cNXrflxMisPWQenHbnNmow' is None | tests/web/test_shared_principals.py:100: AssertionError | FAILED tests/web/test_shared_principals.py::test_the_registry_has_no_latest_session_for_a_shared_owner
+N02 SURVIVED H1: index's kind guard removed (latest_for guard kept): expected equivalent | 415 passed, 16 warnings in 76.08s (0:01:16)
+N03 KILLED H1: both guards removed (round-1 code) | tests/web/test_shared_principals.py:53: AssertionError | FAILED tests/web/test_shared_principals.py::test_a_second_holder_of_the_demo_password_is_not_put_in_the_first_ones_session | 1 failed, 411 passed, 16 warnings in 75.93s (0:01:15)
+N04 KILLED H1: operator left out of both guards | E             <form id="upload-form" class="upload" method="post" action="/ui/s/s_e5pBT48yfctVV3U0tynG3A/files" enctype="multipart/form-data" hx-post="/ui/s/s_e5pBT48yfctVV3U0tynG3A/files" hx-encoding="multipart/form-data" hx-target="#files" hx-swap="outerHTML" hx-disabled-elt="find button" data-error-slot="upload-error"> | tests/web/test_shared_principals.py:89: AssertionError | FAILED tests/web/test_shared_principals.py::test_a_script_with_the_operator_token_is_not_put_in_an_earlier_scripts_session
+N05 KILLED H1: only demo guarded (dev and operator land) | tests/web/test_shared_principals.py:70: AssertionError | FAILED tests/web/test_shared_principals.py::test_two_browsers_on_a_dev_server_do_not_share_a_session | 1 failed, 412 passed, 16 warnings in 72.91s (0:01:12)
+N06 KILLED L3: binder cleared on no_pending_login again | tests/backend/test_signin.py:177: AssertionError | FAILED tests/backend/test_signin.py::test_a_stale_callback_does_not_break_a_sign_in_still_going_on | 1 failed, 7 passed in 3.70s
+N07 SURVIVED L3 overreach: binder never cleared on any refusal | 415 passed, 16 warnings in 74.66s (0:01:14)
+N08 SURVIVED issuer warning never logged | 415 passed, 16 warnings in 76.27s (0:01:16)
+N09 KILLED binder not cleared after a successful sign-in | tests/backend/test_signin.py:125: AssertionError | FAILED tests/backend/test_signin.py::test_the_access_cookie_is_the_existing_one_with_the_same_attributes | 1 failed, 3 passed in 2.98s
+done
+
+# round 2: --wide (tests/backend, tests/web, tests/e2e, saved-data)
+M00 PASSED unmutated copy | 970 passed, 1 deselected, 16 warnings in 364.13s (0:06:04)
+N02 SURVIVED H1: index's kind guard removed (latest_for guard kept): expected equivalent | 970 passed, 1 deselected, 16 warnings in 363.80s (0:06:03)
+N07 SURVIVED L3 overreach: binder never cleared on any refusal | 970 passed, 1 deselected, 16 warnings in 363.73s (0:06:03)
+N08 SURVIVED issuer warning never logged | 970 passed, 1 deselected, 16 warnings in 348.23s (0:05:48)
+done

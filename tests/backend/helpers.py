@@ -200,14 +200,39 @@ class FakeClock:
 
 
 def locked_settings(tmp_path: Any, **overrides: Any) -> Any:
-    """Production-like settings: a password, an https public origin, the real buckets."""
+    """Settings that need a credential: the demo password, an https public origin, the real
+    buckets. Not production (there the password is not a credential: ``production_settings``)."""
+    from backend.settings import Settings
+
+    values: dict[str, Any] = {
+        "data_dir": tmp_path / "data",
+        "env": "",
+        "demo_password": PASSWORD,
+        "public_origin": PUBLIC_ORIGIN,
+    }
+    values.update(overrides)
+    return Settings(**values)
+
+
+OPERATOR_TOKEN = "operator-token-for-tests-0123456789abcdef"
+GOOGLE_CLIENT_ID = "workbuddy-client.apps.test"
+GOOGLE_CLIENT_SECRET = "fake-client-secret-for-tests"
+IDP_ISSUER = "https://idp.test"
+
+
+def production_settings(tmp_path: Any, **overrides: Any) -> Any:
+    """Production: Google sign-in (against the fake provider), an operator token, an https origin,
+    the real buckets, and no demo password."""
     from backend.settings import Settings
 
     values: dict[str, Any] = {
         "data_dir": tmp_path / "data",
         "env": "production",
-        "demo_password": PASSWORD,
         "public_origin": PUBLIC_ORIGIN,
+        "google_client_id": GOOGLE_CLIENT_ID,
+        "google_client_secret": GOOGLE_CLIENT_SECRET,
+        "oidc_issuer": IDP_ISSUER,
+        "operator_token": OPERATOR_TOKEN,
     }
     values.update(overrides)
     return Settings(**values)

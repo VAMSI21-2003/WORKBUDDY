@@ -32,7 +32,7 @@ env_value() {
 
 # docker compose reads .env with its own rules (it expands $name, strips quotes, drops " #..."
 # comments and trailing spaces), while the scripts read it literally. A value where the two
-# readings differ would make the app's password differ from the one smoke.sh signs in with, and
+# readings differ would make the app's token or secret differ from the one smoke.sh uses, and
 # compose prints the part after a $ as an unset variable. So such a value is refused, by the
 # setting's name; its content is never printed.
 check_env_syntax() {
@@ -55,7 +55,8 @@ require_settings() {
   local file="$DEPLOY_DIR/.env" name missing=()
   [ -f "$file" ] || die "deploy/.env doesn't exist. Run: cp deploy/.env.example deploy/.env  and fill it in"
   check_env_syntax
-  for name in WORKBUDDY_DOMAIN WORKBUDDY_DEMO_PASSWORD GROQ_API_KEY; do
+  for name in WORKBUDDY_DOMAIN WORKBUDDY_GOOGLE_CLIENT_ID WORKBUDDY_GOOGLE_CLIENT_SECRET \
+    WORKBUDDY_OPERATOR_TOKEN GROQ_API_KEY; do
     [ -n "$(env_value "$file" "$name")" ] || missing+=("$name")
   done
   [ "${#missing[@]}" -eq 0 ] || die "deploy/.env has no value for: ${missing[*]}"

@@ -12,8 +12,19 @@ Sessions and their files are deleted once a session has been idle for {{ hours }
 {%- macro session_gone() -%}That session no longer exists on the server, so this is a new one.{%- endmacro -%}
 
 {#- the gate -#}
+{%- macro google_button() -%}Continue with Google{%- endmacro -%}
 {%- macro gate_label() -%}Demo password{%- endmacro -%}
 {%- macro gate_button() -%}Continue{%- endmacro -%}
+{%- macro signin_problem() -%}Sign-in didn't work. Try again.{%- endmacro -%}
+{%- macro signin_not_allowed() -%}That Google account isn't on the list of people who may use this demo.{%- endmacro -%}
+{%- macro signed_in_moving() -%}Taking you to the page…{%- endmacro -%}
+{%- macro signed_in_link() -%}Continue{%- endmacro -%}
+
+{#- the header -#}
+{%- macro account_label() -%}Account{%- endmacro -%}
+{%- macro signed_in_as(email) -%}Signed in as {{ email }}{%- endmacro -%}
+{%- macro signout_button() -%}Sign out{%- endmacro -%}
+{%- macro new_session_button() -%}New session{%- endmacro -%}
 
 {#- files -#}
 {%- macro files_heading() -%}Files{%- endmacro -%}
@@ -57,5 +68,5 @@ Sessions and their files are deleted once a session has been idle for {{ hours }
 <template data-copy="lost-contact">This page lost contact with the server before the turn finished, so its result isn't shown. Reload the page to check.</template>
 <template data-copy="cant-reach">This page can't reach the server.</template>
 <template data-copy="not-confirmed">The server didn't confirm receiving that message.</template>
-<template data-copy="enter-password-again">Enter the password again</template>
+<template data-copy="sign-in-again">Sign in again</template>
 {%- endmacro -%}

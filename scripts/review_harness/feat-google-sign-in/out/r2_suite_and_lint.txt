@@ -1,0 +1,6 @@
+1 failed, 2828 passed, 25 warnings in 529.42s (0:08:49)
+## ruff check buddy tests: per file and rule, base vs head (diff empty = no new)
+(no difference)
+ruff: no errors beyond the baseline (22 known).
+## ruff check backend scripts/live_stack
+All checks passed!

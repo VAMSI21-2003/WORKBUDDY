@@ -303,7 +303,9 @@ def test_a_wrong_password_shows_the_apis_message_clears_the_field_and_keeps_focu
     page.fill("#password", "not the password")
     page.click("#gate-form button[type=submit]")
 
-    expect(page.locator("#gate-error")).to_have_text("The demo password is missing or wrong.")
+    expect(page.locator("#gate-error")).to_have_text(
+        "You aren't signed in, or your sign-in has ended."
+    )
     assert page.input_value("#password") == ""
     assert page.evaluate("document.activeElement.id") == "password"
     assert page.locator("#workspace").count() == 0

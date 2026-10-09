@@ -1,0 +1,41 @@
+Releasing dbdd6cb9e238 (live now: 4b7dec29e75d)
+
+== 1/5 build the image
+built workbuddy:dbdd6cb9e238
+
+== 2/5 backup
+backup: /root/vm/deploy/backups/workbuddy-data-20261008-122651.tar.gz (12K, 18 files)
+
+== 3/5 start it
+ Container workbuddy-caddy-1 Running 
+ Container workbuddy-app-1 Recreate 
+ Container workbuddy-app-1 Recreated 
+ Container workbuddy-app-1 Starting 
+ Container workbuddy-app-1 Started 
+ Container workbuddy-app-1 Waiting 
+ Container workbuddy-app-1 Healthy 
+
+== 4/5 wait until it's healthy
+healthy
+
+== 5/5 smoke test (a real turn)
+
+== 1. health
+ok: /healthz answers, an LLM key is set
+
+== 2. authenticate
+ok: the operator token is accepted
+
+== 3. upload
+ok: uploaded smoke.xlsx; the server's hash matches (45f300dd1801ec0aeb0a4b23e4e47e0cf649c8556dd0e6329681dfb8c9df2e82)
+
+== 4. a message, and the plan
+ok: the plan was shown: ["spreadsheet.deduplicate"]
+ok: the turn finished, outcome delivered
+
+== 5. download and hash
+ok: the download's hash matches what the server recorded (e344b2f25666f253ef25f51c5674b7df8ebacc7dc43cfbd3506af5f637e9ee91), and it's different from the original's
+
+SMOKE OK: https://localhost
+
+RELEASED dbdd6cb9e238. Roll back by hand with: ./release.sh 4b7dec29e75d

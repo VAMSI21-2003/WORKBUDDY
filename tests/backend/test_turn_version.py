@@ -12,6 +12,7 @@ from typing import Any
 
 from fastapi.testclient import TestClient
 
+from backend.identity import DEV
 from backend.main import create_app
 from backend.settings import Settings
 from tests.backend.factories import (
@@ -39,7 +40,7 @@ def _run(tmp_path: Path, replies: list[str], message: str, decision: str | None)
     assert upload(client, session_id, xlsx_bytes()).status_code == 201
     turn = start_turn(client, session_id, message).json()
     body = wait_finished(client, session_id, turn["turn_id"], decision=decision)
-    record = app.state.registry.get(session_id)
+    record = app.state.registry.get(session_id, DEV)
     assert record is not None
     stored = record.turn(turn["turn_id"])
     assert stored is not None
