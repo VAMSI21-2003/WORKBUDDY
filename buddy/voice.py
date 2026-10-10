@@ -27,6 +27,7 @@ from buddy.outcome import (
     _step_passed,
     build_outcome_report,
     not_done_sentences,
+    only_the_report_was_done,
     render_outcome,
 )
 from buddy.state import BuddyState, StageFailure
@@ -739,6 +740,7 @@ class TemplateSpeaker:
             return f"{reason} {NO_CHANGES_SENTENCE}"
         reasoning = request.reasoning
         parts: list[str] = []
+        after_report: list[str] = []
         asked = False
         if reasoning is not None and reasoning.clarification_required:
             if reasoning.clarification_reason == CLARIFY_FAILED:
@@ -756,13 +758,19 @@ class TemplateSpeaker:
                 report_stated=request.report_requested,
             )
             stated = not_done_sentences(outcome, nothing_done=True)
-            parts.extend(stated)
-            if stated or not request.report_requested:
-                if not stated:
-                    parts.append(NOT_UNDERSTOOD_SENTENCE)
-                parts.append(CAPABILITIES[style])
+            if request.report_requested and stated and only_the_report_was_done(outcome):
+                # The phrase asked for the report and more words: the report comes first, then
+                # the one sentence about the rest, and no list of what Buddy can do.
+                after_report = stated
+            else:
+                parts.extend(stated)
+                if stated or not request.report_requested:
+                    if not stated:
+                        parts.append(NOT_UNDERSTOOD_SENTENCE)
+                    parts.append(CAPABILITIES[style])
         if request.report_requested:
             parts.append(TemplateSpeaker._report_for_unchanged_file(request))
+            parts.extend(after_report)
         else:
             findings = _analysis_findings(request)
             if findings is not None and (findings[0] or findings[1]):

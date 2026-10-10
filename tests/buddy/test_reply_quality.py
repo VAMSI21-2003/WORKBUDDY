@@ -1077,10 +1077,255 @@ def test_a_think_that_failed_still_says_nothing_was_changed(
     assert turn.reply == f"{UNDERSTANDING_FAILED_SENTENCE} {NO_CHANGES_SENTENCE}"
 
 
-# Wordings the first fix was not fitted to (the round-2 reviewer's), as Brain's `unsupported`
-# `source_phrase`. A list of the words a report phrase may contain cannot be finished, so the rule
-# is the other way round: a phrase that asks for a report is only a report unless it names work
-# Buddy can't do (review round 2, M1).
+# -- 3b. A phrase that asks for a report -----------------------------------------------------
+#
+# Brain's `unsupported` entry is often the report itself ("a report" is its own example). The
+# decision for such a phrase never rests on a list of words (review rounds 1 to 3, each of which
+# found a list wrong in one direction): a phrase that is only a report request, in nouns, is
+# silent; a phrase with a report request AND any other word gets one fixed sentence that is true
+# however the other words are read ("I did nothing beyond the report for that part of your
+# request") and no "Done" or "Partly done"; a phrase without a report request is the ordinary
+# "I can't do that yet".
+
+# A report request and one more thing, in the words a person would use (the round-3
+# reviewer's, plus round 2's nine).
+REPORT_PLUS_AN_EXTRA = [
+    "send the report to my boss",
+    "send the summary to Bob",
+    "send my manager the report",
+    "send Bob a summary of the file",
+    "give my boss a report on this file",
+    "show my team a summary of the data",
+    "message me the report when it is ready",
+    "text me the report",
+    "whatsapp the summary to my team",
+    "drop the report in the shared folder",
+    "put the report on the drive",
+    "give me a report in pdf",
+    "give me a report as a pdf",
+    "give me a report in a word doc",
+    "give me the report as a csv",
+    "give me a report in a powerpoint slide",
+    "give me a report in French",
+    "give me a report in Spanish",
+    "give me a report as a table in a new sheet",
+    "put the report in a new sheet",
+    "write the report to a new tab",
+    "include the report in the file",
+    "append the summary to the sheet",
+    "put the summary at the top of the file",
+    "give me a report as an image",
+    "give me a report with conditional formatting",
+    "analyze my file and tell me which customer spent the most",
+    "give me a report and calculate the total of the amount column",
+    "analyze my file and sum the amount column",
+    "give me a summary with the average amount",
+    "report on the file and count the unique names",
+    "summarize the file and group it by name",
+    "analyze my data and compare it to last month",
+    "give me a report and combine it with the other file",
+    "analyze the file and join it with sheet2",
+    "give me a report and update the totals",
+    "analyze my file and predict next month",
+    "give me a report and find the outliers",
+    "analyze my file and tell me what to do next",
+    "give me a report and move column B",
+    "analyze my file and copy it to a new file",
+    "give me a report and lock the header row",
+    "summarize the file and shorten the names",
+    "give me a report and make the header bold",
+    "analyze my file and fix the typos",
+    "give me a report and normalise the dates",
+    "analyze the file and standardise the names",
+    "give me a report and clean up the formatting",
+    "analyze my file and tidy it up",
+    "report on the file and also sort out the blanks",
+    "give me a report and sort it by amount",
+    "analyze my file and make a chart",
+    "report on the file and email it to Bob",
+    "analyze the data and highlight the duplicates",
+    "give me a report then delete column B",
+    "summarize the file and translate it",
+    "a report on the file and send it to my boss",
+    "analyze my data and fix the formatting",
+    "report and add a total column",
+    "give me a report and email it to Bob",
+]
+
+# A plain report request that mentions work as the thing it is ABOUT (round-3 reviewer's).
+REPORT_ABOUT_WORK = [
+    "give me a report on which rows to remove",
+    "analyze my file and tell me what needs to be fixed",
+    "give me a report on what needs cleaning",
+    "give me a summary of what you cleaned",
+    "give me a summary of the rows you removed",
+    "report on the duplicates that were removed",
+    "give me a report on how clean the data is",
+    "analyze the data and show me what I should clean up",
+    "give me a report on any errors that need fixing",
+    "summarize the problems I should correct",
+    "report on the rows I could delete",
+    "analyze my file so I know what to fix",
+    "give me a report so I can decide what to drop",
+    "report on which columns I should add",
+    "summary of the problems before I save it",
+    "analyze my file before I clean it",
+    "report on trailing spaces to trim",
+    "report on cells that were replaced",
+    "give me a summary of everything that was dropped",
+    "analysis of what needs to be removed",
+    "give me a report on what you fixed",
+    "report of the changes you made and what you removed",
+    "give me a quick report on rows that could be deleted",
+    "summary of what to correct",
+    "analyze my file and list the issues to fix",
+    "report on the data I can safely remove",
+    "summarize which rows were added",
+    "report on the pasted rows",
+    "give me a report on the colour of the cells",
+    "give me a report on the dashboard sheet",
+    "analyze the forecast sheet",
+    "give me a summary of the schedule column",
+    "give me a report on the hidden rows",
+    "give me a report on the merged cells",
+    "report on the split names",
+    "summarize the converted dates",
+    "give me a report on the printed rows",
+    "give me a report on the filtered rows",
+    "report on the sorted order of the file",
+    "analyze the shared sheet",
+    "report on the frozen panes",
+    "give me a report on the bold headers",
+]
+
+# Everyday spreadsheet words that are the names of a column or sheet.
+EVERYDAY_COLUMNS = [
+    "email",
+    "Email Address",
+    "mail",
+    "share",
+    "Market Share",
+    "post code",
+    "post",
+    "plot",
+    "plot number",
+    "color",
+    "colour",
+    "schedule",
+    "Schedule",
+    "filter",
+    "print",
+    "forecast",
+    "dashboard",
+    "trim",
+    "split",
+    "total",
+    "bold",
+    "date",
+    "address",
+    "Description",
+    "Notes",
+    "Price",
+    "hide",
+    "drop",
+    "add",
+    "save",
+    "download",
+    "attach",
+    "publish",
+    "rotate",
+]
+
+# Not a request for a report, but the bare noun is read as one (backlog RQ-L2).
+NOT_A_REPORT_REQUEST = [
+    "rewrite the summary",
+    "update the summary",
+    "make the summary shorter",
+    "proofread the report",
+    "finalize the report",
+    "approve the report",
+    "improve the analysis",
+    "polish the summary",
+    "move the summary to the top",
+    "number the summary lines",
+    "fix the summary",
+    "sort the summary",
+    "delete the summary",
+]
+
+# A report asked for, with a promise not to change anything.
+CAUTIOUS_REPORT_REQUESTS = [
+    "just analyze my file, don't delete anything",
+    "give me a report but don't remove anything",
+    "give me a report first, don't clean anything yet",
+    "analyze my file without fixing anything",
+    "give me a summary but don't change or delete the data",
+    "give me a report, no need to remove anything",
+    "I only want a report, please don't drop any rows",
+    "report on the file but leave everything as it is",
+    "give me a report and don't save anything",
+    "analyze my file but do not add anything",
+]
+
+# Genuine report requests that hold a guard word ("myself", "I can", "don't forget").
+REQUESTS_WITH_A_GUARD_WORD = [
+    "give me a summary so I can review it",
+    "give me a report so I can check it",
+    "analyze my file so I can look at the problems",
+    "summarize the data so I can check the numbers",
+    "give me a report on this file, then I can decide what to do",
+    "I can't tell what's wrong with my file, can you analyze it",
+    "I can't read this spreadsheet, give me a summary",
+    "I can't find the problem myself, check my file",
+    "I built this file myself, can you analyze it",
+    "I made this spreadsheet myself. Give me a report on it",
+    "I'm new to this myself, give me a summary of the file",
+    "I'll upload a new version later; for now give me a report",
+    "I'll be away tomorrow, so please analyze my data now",
+    "I'll need a full report on the file",
+    "I will review it later, give me a summary now",
+    "I can send it to my boss after you analyze my file",
+    "please don't forget to include a summary of the problems",
+    "don't forget to give me a report on the file",
+    "don't worry about the formatting, just analyze my file",
+    "don't hesitate to give me a report on everything you find",
+    "never mind the duplicates, give me a summary of the file",
+    "no need to be fancy, just give me a report on the data",
+    "no need to wait, analyze my spreadsheet",
+    "won't take long: give me a summary of this file",
+    "never used this before, can you analyze my data",
+    "I can't wait to see the report on my file",
+    "can you check my data? I don't have time to do it myself",
+    "I can use a summary of the data",
+    "don't take too long, a summary of the file please",
+    "check my data and tell me what you find, I'm too busy to look myself",
+]
+
+# Messages that decline a report, or will do it themselves.
+GENUINE_DECLINES = [
+    "I won't check the file, just remove the empty rows",
+    "never look at my data",
+    "I'll summarize it myself",
+    "I can analyze it myself",
+    "let me check the data myself",
+    "I won't look at the file again",
+    "don't give me a report",
+    "no report please",
+    "don't analyze my file",
+    "I don't want a summary",
+    "no need to check my file",
+    "no need to give me a report",
+    "I'll check the file myself",
+    "I will review the data myself",
+    "I can look at the file myself",
+    "don't send me a summary, just remove the duplicates",
+    "skip the report",
+    "without a report",
+    "remove the duplicate rows but don't look at my data",
+    "email me the report",
+]
+
+
 FRESH_WORDINGS = [
     "analyze my spreadsheet",
     "give me a summary of this file",
@@ -1156,37 +1401,146 @@ def _stated_but_not_done(phrase: str) -> tuple[Any, ...]:
     from buddy.outcome import build_outcome_report
 
     understanding = Understanding(
-        intent="unclear", requested_actions=(RequestedAction("unsupported", phrase, "brain"),)
+        intent="unclear",
+        requested_actions=(RequestedAction("unsupported", phrase, "brain", phrase_found=True),),
     )
     return build_outcome_report(None, None, understanding, report_stated=True).actions
 
 
-@pytest.mark.parametrize("phrase", FRESH_WORDINGS + GENERATED_WORDINGS)
-def test_a_phrase_that_asks_for_a_report_and_nothing_else_is_never_cant_do(phrase: str) -> None:
-    from buddy.actions import mentions_report
+REPORT_ONLY = "report_only"
+NOTHING_BEYOND_THE_REPORT = "I did nothing beyond the report for that part of your request."
 
-    assert mentions_report(phrase), phrase
+# Plain wordings made of a report request and nouns about the file: nothing else is asked.
+SILENT_WORDINGS = [
+    "give me a report",
+    "provide a report",
+    "report",
+    "Generate a report",
+    "analyze my spreadsheet",
+    "give me a summary of this file",
+    "give me a quick summary",
+    "analyze the data for me",
+    "report on everything",
+    "analyze the first sheet",
+    "report on the empty rows",
+    "give me a summary of the missing values",
+    "check my file for duplicates",
+    "give me a report on the duplicate rows",
+    "what is wrong with my file",
+]
+
+
+def _outcome_actions(phrase: str) -> tuple[Any, ...]:
+    return _stated_but_not_done(phrase)
+
+
+@pytest.mark.parametrize("phrase", SILENT_WORDINGS)
+def test_a_phrase_that_is_only_a_report_request_is_silent(phrase: str) -> None:
+    from buddy.actions import is_only_a_report_request, mentions_report
+
+    assert mentions_report(phrase) and is_only_a_report_request(phrase), phrase
     assert _stated_but_not_done(phrase) == ()
 
 
 @pytest.mark.parametrize(
     "phrase",
-    [
-        "give me a report and sort it by amount",
-        "analyze my file and make a chart",
-        "report on the file and email it to Bob",
-        "analyze the data and highlight the duplicates",
-        "give me a report then delete column B",
-        "summarize the file and translate it",
-        "a report on the file and send it to my boss",
-        "analyze my data and fix the formatting",
-        "report and add a total column",
-    ],
+    FRESH_WORDINGS
+    + GENERATED_WORDINGS
+    + REPORT_ABOUT_WORK
+    + CAUTIOUS_REPORT_REQUESTS
+    + [f"{head} the {c} column" for c in EVERYDAY_COLUMNS for head in ("analyze", "report on")],
 )
-def test_a_report_phrase_that_also_asks_for_work_buddy_cant_do_still_says_so(phrase: str) -> None:
+def test_a_report_request_is_never_also_cant_do(phrase: str) -> None:
+    from buddy.actions import mentions_report
+
+    assert mentions_report(phrase), phrase
+    actions = _stated_but_not_done(phrase)
+    assert [a.reason for a in actions] in ([], [REPORT_ONLY]), phrase
+    assert all(a.source == "" and a.user_phrase == "" for a in actions)
+
+
+@pytest.mark.parametrize("phrase", REPORT_PLUS_AN_EXTRA + NOT_A_REPORT_REQUEST)
+def test_a_report_request_with_anything_else_is_never_silent(phrase: str) -> None:
+    """Whatever the extra is, a listed verb or not, the reply cannot read as complete."""
     (action,) = _stated_but_not_done(phrase)
 
-    assert action.reason == "no_skill"
+    assert action.reason == REPORT_ONLY and action.source == ""
+
+
+@pytest.mark.parametrize(
+    "phrase",
+    [
+        "sort by amount",
+        "make a chart of the amounts",
+        "email the file to Bob",
+        "highlight the empty cells",
+        "translate the names to French",
+    ],
+)
+def test_a_phrase_with_no_report_request_still_says_cant_do_and_quotes_it(phrase: str) -> None:
+    (action,) = _stated_but_not_done(phrase)
+
+    assert action.reason == "no_skill" and action.user_phrase == phrase
+
+
+@pytest.mark.parametrize("speaker", SPEAKERS)
+@pytest.mark.parametrize(
+    "extra",
+    [
+        "send the report to my boss",
+        "give me a report in pdf",
+        "put the report in a new sheet",
+        "analyze the email column",
+        "update the summary",
+        "finalize the report",
+        "analyze my file and tell me what needs to be fixed",
+    ],
+)
+def test_a_delivery_with_a_report_and_an_unnamed_extra_never_says_done(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, speaker: str, extra: str
+) -> None:
+    """Review round 3, H1/M1: flat is allowed; reading as complete, or as 'can't', is not."""
+    provider = Routed(
+        brain(
+            "remove_duplicate_rows",
+            ("remove_duplicate_rows", "remove the duplicate rows"),
+            ("unsupported", extra),
+        ),
+        think(),
+    )
+    message = f"remove the duplicate rows and {extra}"
+    turn = run_turn(tmp_path, speaker, message, provider, monkeypatch=monkeypatch)
+
+    assert turn.delivered and REPORT_LEAD_COPY in turn.reply, turn.reply
+    assert NOTHING_BEYOND_THE_REPORT in turn.reply
+    for text in ("Done", "Partly done", "can't do", "mentions", "didn't run"):
+        assert text not in turn.reply, turn.reply
+    assert turn.original_unchanged
+
+
+@pytest.mark.parametrize("speaker", SPEAKERS)
+@pytest.mark.parametrize(
+    "message",
+    [
+        "analyze the email column",
+        "give me a report on which rows to remove",
+        "give me a report but don't remove anything",
+        "report on everything and put it in a pdf",
+    ],
+)
+def test_a_report_request_with_more_words_gets_the_report_first_and_one_flat_sentence(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, speaker: str, message: str
+) -> None:
+    provider = Routed(brain("unclear", ("unsupported", message)), think())
+    turn = run_turn(tmp_path, speaker, message, provider, monkeypatch=monkeypatch)
+
+    assert turn.reply.startswith(REPORT_LEAD_ORIGINAL), turn.reply
+    assert turn.reply.count(NOTHING_BEYOND_THE_REPORT) == 1
+    assert turn.reply.index(NOTHING_BEYOND_THE_REPORT) > turn.reply.index(REPORT_LEAD_ORIGINAL)
+    for text in ("can't do", "mentions", "Done", "Partly done"):
+        assert text not in turn.reply, turn.reply
+    assert CAPABILITIES[STYLE[speaker]] not in turn.reply
+    _assert_nothing_claimed(turn)
 
 
 @pytest.mark.parametrize("speaker", SPEAKERS)
@@ -1230,3 +1584,45 @@ def test_ordinary_report_requests_flagged_unsupported_are_delivered_with_no_cont
     assert turn.delivered and REPORT_LEAD_COPY in turn.reply
     for text in ("can't do", "Partly done"):
         assert text not in turn.reply, turn.reply
+
+
+# -- 3c. The guards on a report request (review round 3, M2) ----------------------------------
+
+
+@pytest.mark.parametrize("message", REQUESTS_WITH_A_GUARD_WORD)
+def test_a_report_request_is_not_vetoed_by_a_word_that_only_looks_like_a_guard(
+    message: str,
+) -> None:
+    from buddy.actions import mentions_report
+
+    assert mentions_report(message), message
+
+
+@pytest.mark.parametrize("message", GENUINE_DECLINES)
+def test_a_message_that_declines_a_report_is_still_not_one(message: str) -> None:
+    from buddy.actions import mentions_report
+
+    assert not mentions_report(message), message
+
+
+@pytest.mark.parametrize("speaker", SPEAKERS)
+@pytest.mark.parametrize("intent", ["unclear", "conversation"])
+@pytest.mark.parametrize(
+    "message",
+    [
+        "give me a summary so I can review it",
+        "I built this file myself, can you analyze it",
+        "don't hesitate to give me a report on everything you find",
+        "I'm new to this myself, give me a summary of the file",
+    ],
+)
+def test_a_genuine_report_request_with_a_guard_word_gets_the_report_in_every_reading(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, speaker: str, intent: str, message: str
+) -> None:
+    """Brain may say 'unclear', 'conversation' or nothing useful: the report is still delivered."""
+    provider = Routed(brain(intent), think())
+    turn = run_turn(tmp_path, speaker, message, provider, monkeypatch=monkeypatch)
+
+    assert turn.reply.startswith(REPORT_LEAD_ORIGINAL), turn.reply
+    assert not any(g in turn.reply for g in GREETINGS[STYLE[speaker]])
+    _assert_nothing_claimed(turn)

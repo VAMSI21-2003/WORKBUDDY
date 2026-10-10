@@ -134,6 +134,10 @@ DONE_UNREQUESTED = "done_unrequested"
 NOT_PLANNED = "not_planned"  # Brain's reading has it; no step for its capability ran
 NOT_READ_AS_REQUEST = "not_read_as_request"  # only the mention detector has it; no step ran
 NO_SKILL = "no_skill"  # Brain listed it as "unsupported": no capability exists
+# Brain listed it as "unsupported", the phrase holds a report request and other words: the reply
+# states the report itself, and for the rest of the phrase only that nothing beyond it was done.
+# It never says what the other words ask for, because no word list can tell (review rounds 1-3).
+REPORT_ONLY = "report_only"
 # A step for it ran but didn't pass. Not reachable through a verified delivery
 # from build_engine (a failing file-changing step fails the turn); kept so the
 # sentence is never "didn't run" for a step that did run.
@@ -435,23 +439,6 @@ _LOCATION_PHRASE = re.compile(
     r"(?:sheet|file|spreadsheet|table|data)\b"
 )
 _TWO_REQUESTS = re.compile(r"\b(?:and|then|also|plus)\b|[,;&+]")
-# What a phrase that asks for a report may ALSO ask for that Buddy can't do. Closed on purpose,
-# and the opposite of a filler list: it holds only verbs of work Buddy has no skill for (or does as
-# another step), none of them a word a report is described with ("missing values", "first sheet",
-# "everything", "I'd like", "provide"). A report phrase with none of these is the report and nothing
-# else, and is not also "something I can't do". A phrase with one keeps the sentence that says so.
-# Review rounds 1 and 2 (M1): a list of the words a pure report phrase MAY contain cannot be
-# finished, and every word missing from it was a false "can't do" about a report just delivered.
-_OTHER_REQUEST_WORDS = re.compile(
-    r"\b(?:sort|filter|chart|graph|plot|highlight|colou?r|merge|split|rename|translate|convert|"
-    r"e-?mail|mail|print|upload|share|export|pivot|delete|drop|insert|replace|capitali[sz]e|trim|"
-    r"rotate|freeze|hide|unhide|dashboard|forecast|predict|schedule|attach|forward|save|download|"
-    r"paint|bold|italic|underline|resize|reorder|rearrange|transpose|reformat|fix|correct|remove|"
-    r"add|clean|dedupe|deduplicate|post|publish)(?:s|d|ed|ing)?\b"
-    r"|\bsend(?:s|ing)?\s+(?:it|them|this|that|to)\b",
-)
-
-
 def _no_skill_outcome(
     entry: RequestedAction,
     ledger: tuple[RequestedAction, ...],
@@ -482,6 +469,14 @@ def _no_skill_outcome(
 
     - A done action's phrase with no joiner that contains an unsupported verb
       (Brain gives "delete the file" as the dedupe phrase) is still dropped.
+
+    When the reply states the report itself (``report_stated``), a phrase that is *only* a
+    report request (``is_only_a_report_request``) is dropped: the report has its own sentence.
+    A phrase with a report request **and** other words left over gets the ``REPORT_ONLY``
+    outcome, whatever the other words are: nothing here decides whether they ask for work
+    Buddy can't do or only describe the report ("the email column", "what needs to be fixed"),
+    because every word list that tried was wrong in one direction (review rounds 1 to 3).
+    The outcome has no source, so it never lets the lead word say "Done" or "Partly done".
     - A double negation in a paraphrase ("don't keep the empty rows") counts
       as a negation.
     """
@@ -501,15 +496,13 @@ def _no_skill_outcome(
             named_passed = True
         elif all(other.action != action.name for other in ledger):
             named_silent = True
+    had_report = False
     if report_stated:
         # A report request is stated by the reply itself (delivered or not available), so it
         # is "named" and "done" like an action that passed: what's left decides the sentence.
         lowered, had_report = strip_report_request(lowered)
         if had_report:
             names_action = named_passed = True
-            if not _OTHER_REQUEST_WORDS.search(lowered):
-                # The report, and nothing Buddy can't do: the reply states the report itself.
-                return None
     lowered = _LOCATION_PHRASE.sub(" ", lowered, count=1)
     for other in ledger:
         other_action = ACTIONS_BY_NAME.get(other.action)
@@ -526,6 +519,11 @@ def _no_skill_outcome(
         return ActionOutcome("", NOT_DONE, reason=NO_SKILL, source=entry.source, user_phrase=quoted)
     words = re.findall(r"[\w']+", lowered)
     negated = any(w in _NEGATION_WORDS for w in words)
+    if had_report and any(w not in _FILLER_WORDS for w in words):
+        # The phrase asks for the report and has other words. They may be work Buddy can't do
+        # ("... and send it to my boss") or only describe the report ("the email column"); the
+        # one sentence that is true of both is that nothing beyond the report was done.
+        return ActionOutcome("", NOT_DONE, reason=REPORT_ONLY)
     if (
         any(w not in _FILLER_WORDS for w in words)
         or (negated and named_passed)
@@ -656,6 +654,16 @@ def render_outcome(report: OutcomeReport, file_style: str) -> str:
     return " ".join(sentences)
 
 
+def only_the_report_was_done(report: OutcomeReport) -> bool:
+    """Whether every ``NOT_DONE`` action is ``REPORT_ONLY`` (and there is one).
+
+    The phrase asked for the report and more words; the reply states the report and the one
+    sentence about the rest, and has no other not-done action to explain.
+    """
+    not_done = [a for a in report.actions if a.status == NOT_DONE]
+    return bool(not_done) and all(a.reason == REPORT_ONLY for a in not_done)
+
+
 def not_done_sentences(report: OutcomeReport, *, nothing_done: bool = False) -> list[str]:
     """The sentences for the report's ``NOT_DONE`` actions, with how Brain read the request.
 
@@ -736,6 +744,8 @@ def _not_done_sentence(action: ActionOutcome, *, nothing_done: bool = False) -> 
         if nothing_done:
             return "I read your request as something I can't do yet."
         return "I read part of your request as something I can't do yet."
+    if action.reason == REPORT_ONLY:
+        return "I did nothing beyond the report for that part of your request."
     wording = ACTIONS_BY_CAPABILITY[action.capability]
     if action.reason == NOT_READ_AS_REQUEST:
         return f"Your message mentions {wording.object}, but I didn't run the {wording.step}."

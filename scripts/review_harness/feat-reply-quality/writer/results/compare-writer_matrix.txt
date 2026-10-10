@@ -1,4 +1,4 @@
-/tmp/claude-0/-home-user-WORKBUDDY/25b61d56-0443-587c-bd0d-22d35a8e14fc/scratchpad/out/matrix-new.json: 120 turns, 0 errors in new run, base had 120 turns
+/tmp/claude-0/-home-user-WORKBUDDY/25b61d56-0443-587c-bd0d-22d35a8e14fc/scratchpad/h4/writer_matrix-new.json: 120 turns, 0 errors in new run, base had 120 turns
      26  plural + exact-duplicate finding / flow
      21  greeting
      18  refusal
@@ -12,3 +12,91 @@ problems: 3
     ('delivery differs from base', {'name': 'r2-dedupe-then-report', 'speaker': 'template'}, False, True)
     ('delivery differs from base', {'name': 'r2-dedupe-then-report', 'speaker': 'friend'}, False, True)
     ('delivery differs from base', {'name': 'r2-dedupe-then-report', 'speaker': 'focus'}, False, True)
+
+=== no-file (9)
+  key: {'name': 'n1-nofile-action', 'speaker': 'template'}
+  base: I didn't run anything on a file this turn, so no file was changed.
+  new:  I don't have a file to work on yet. Upload a spreadsheet and ask again. No changes were made to any file this turn.
+  key: {'name': 'n1-nofile-action', 'speaker': 'friend'}
+  base: I didn't run anything on a file this turn, so no file was changed.
+  new:  I don't have a file to work on yet. Upload a spreadsheet and ask again. No changes were made to any file this turn.
+  key: {'name': 'n1-nofile-action', 'speaker': 'focus'}
+  base: I didn't run anything on a file this turn, so no file was changed.
+  new:  I don't have a file to work on yet. Upload a spreadsheet and ask again. No changes were made to any file this turn.
+
+=== not-understood+greeting (6)
+  key: {'name': 'n2-unclear', 'speaker': 'template'}
+  base: Before anything else, here's what I noticed: name: 1 missing value(s) (16.7%); amount: 1 missing value(s) (16.7%). Want me to tackle any of these? No changes were made to any file this turn.
+  new:  I didn't read that as something I can do. I can remove duplicate rows, remove empty rows, and look a spreadsheet over for possible problems. Here's what I noticed when I looked it over: 2 rows repeat an earlier row exactly; name: 1 missing value (16.7%); amount: 1 missing value (16.7%). Want me to tackle any of these? No changes were made to any file this turn.
+  key: {'name': 'n2-unclear', 'speaker': 'friend'}
+  base: Before anything else, here's what I noticed: name: 1 missing value(s) (16.7%); amount: 1 missing value(s) (16.7%). Want me to tackle any of these? No changes were made to any file this turn.
+  new:  I didn't read that as something I can do. I can remove duplicate rows, remove empty rows, and look a spreadsheet over for anything that seems off. Here's what I noticed when I looked it over: 2 rows repeat an earlier row exactly; name: 1 missing value (16.7%); amount: 1 missing value (16.7%). Want me to tackle any of these? No changes were made to any file this turn.
+  key: {'name': 'n2-unclear', 'speaker': 'focus'}
+  base: Before anything else, here's what I noticed: name: 1 missing value(s) (16.7%); amount: 1 missing value(s) (16.7%). Want me to tackle any of these? No changes were made to any file this turn.
+  new:  I didn't read that as something I can do. I can remove duplicate rows, remove empty rows, and check a spreadsheet for problems. Here's what I noticed when I looked it over: 2 rows repeat an earlier row exactly; name: 1 missing value (16.7%); amount: 1 missing value (16.7%). Want me to tackle any of these? No changes were made to any file this turn.
+
+=== greeting+cant-do-that (3)
+  key: {'name': 'n4-sort-unsupported', 'speaker': 'template'}
+  base: Before anything else, here's what I noticed: name: 1 missing value(s) (16.7%); amount: 1 missing value(s) (16.7%). Want me to tackle any of these? No changes were made to any file this turn.
+  new:  I can't do that yet: “sort by amount”. I can remove duplicate rows, remove empty rows, and look a spreadsheet over for possible problems. Here's what I noticed when I looked it over: 2 rows repeat an earlier row exactly; name: 1 missing value (16.7%); amount: 1 missing value (16.7%). Want me to tackle any of these? No changes were made to any file this turn.
+  key: {'name': 'n4-sort-unsupported', 'speaker': 'friend'}
+  base: Before anything else, here's what I noticed: name: 1 missing value(s) (16.7%); amount: 1 missing value(s) (16.7%). Want me to tackle any of these? No changes were made to any file this turn.
+  new:  I can't do that yet: “sort by amount”. I can remove duplicate rows, remove empty rows, and look a spreadsheet over for anything that seems off. Here's what I noticed when I looked it over: 2 rows repeat an earlier row exactly; name: 1 missing value (16.7%); amount: 1 missing value (16.7%). Want me to tackle any of these? No changes were made to any file this turn.
+  key: {'name': 'n4-sort-unsupported', 'speaker': 'focus'}
+  base: Before anything else, here's what I noticed: name: 1 missing value(s) (16.7%); amount: 1 missing value(s) (16.7%). Want me to tackle any of these? No changes were made to any file this turn.
+  new:  I can't do that yet: “sort by amount”. I can remove duplicate rows, remove empty rows, and check a spreadsheet for problems. Here's what I noticed when I looked it over: 2 rows repeat an earlier row exactly; name: 1 missing value (16.7%); amount: 1 missing value (16.7%). Want me to tackle any of these? No changes were made to any file this turn.
+
+=== plural + exact-duplicate finding / flow (26)
+  key: {'name': 'n5-multi-refused', 'speaker': 'template'}
+  base: I ran into a problem partway through. The deduplicate step: the workbook has 2 sheets, and only single-sheet workbooks are supported for now. I stopped at the deduplicate step and no file was handed back; your original file is unchanged.
+  new:  I ran into a problem before I could change anything. The deduplicate step: the workbook has 2 sheets, and only single-sheet workbooks are supported for now. I stopped at the deduplicate step and no file was handed back; your original file is unchanged.
+  key: {'name': 'n5-multi-refused', 'speaker': 'friend'}
+  base: I ran into a problem partway through. The deduplicate step: the workbook has 2 sheets, and only single-sheet workbooks are supported for now. I stopped at the deduplicate step and no file was handed back; your original file is unchanged.
+  new:  I ran into a problem before I could change anything. The deduplicate step: the workbook has 2 sheets, and only single-sheet workbooks are supported for now. I stopped at the deduplicate step and no file was handed back; your original file is unchanged.
+  key: {'name': 'n5-multi-refused', 'speaker': 'focus'}
+  base: I ran into a problem partway through. The deduplicate step: the workbook has 2 sheets, and only single-sheet workbooks are supported for now. I stopped at the deduplicate step and no file was handed back; your original file is unchanged.
+  new:  I ran into a problem before I could change anything. The deduplicate step: the workbook has 2 sheets, and only single-sheet workbooks are supported for now. I stopped at the deduplicate step and no file was handed back; your original file is unchanged.
+
+=== refusal (18)
+  key: {'name': 'n11-unclear-multi', 'speaker': 'template'}
+  base: I didn't run anything on a file this turn, so no file was changed.
+  new:  I can't work on this file: the workbook has 2 sheets, and only single-sheet workbooks are supported for now. No changes were made to any file this turn.
+  key: {'name': 'n11-unclear-multi', 'speaker': 'friend'}
+  base: I didn't run anything on a file this turn, so no file was changed.
+  new:  I can't work on this file: the workbook has 2 sheets, and only single-sheet workbooks are supported for now. No changes were made to any file this turn.
+  key: {'name': 'n11-unclear-multi', 'speaker': 'focus'}
+  base: I didn't run anything on a file this turn, so no file was changed.
+  new:  I can't work on this file: the workbook has 2 sheets, and only single-sheet workbooks are supported for now. No changes were made to any file this turn.
+
+=== greeting (21)
+  key: {'name': 'g1-hi', 'speaker': 'template'}
+  base: Before anything else, here's what I noticed: name: 1 missing value(s) (16.7%); amount: 1 missing value(s) (16.7%). Want me to tackle any of these? No changes were made to any file this turn.
+  new:  Hello. I can remove duplicate rows, remove empty rows, and look a spreadsheet over for possible problems. Tell me what to do with your file.
+  key: {'name': 'g1-hi', 'speaker': 'friend'}
+  base: Before anything else, here's what I noticed: name: 1 missing value(s) (16.7%); amount: 1 missing value(s) (16.7%). Want me to tackle any of these? No changes were made to any file this turn.
+  new:  Hi there! I can remove duplicate rows, remove empty rows, and look a spreadsheet over for anything that seems off. What would you like me to do with your file?
+  key: {'name': 'g1-hi', 'speaker': 'focus'}
+  base: Before anything else, here's what I noticed: name: 1 missing value(s) (16.7%); amount: 1 missing value(s) (16.7%). Want me to tackle any of these? No changes were made to any file this turn.
+  new:  Hi. I can remove duplicate rows, remove empty rows, and check a spreadsheet for problems. What should I do with the file?
+
+=== other (16)
+  key: {'name': 'c1-think-clarify', 'speaker': 'template'}
+  base: Before anything else, here's what I noticed: name: 1 missing value(s) (16.7%); amount: 1 missing value(s) (16.7%). Want me to tackle any of these? No changes were made to any file this turn.
+  new:  What would you like me to do with the file?
+  key: {'name': 'c1-think-clarify', 'speaker': 'friend'}
+  base: Before anything else, here's what I noticed: name: 1 missing value(s) (16.7%); amount: 1 missing value(s) (16.7%). Want me to tackle any of these? No changes were made to any file this turn.
+  new:  Quick question before I touch anything: what would you like me to do with the file?
+  key: {'name': 'c1-think-clarify', 'speaker': 'focus'}
+  base: Before anything else, here's what I noticed: name: 1 missing value(s) (16.7%); amount: 1 missing value(s) (16.7%). Want me to tackle any of these? No changes were made to any file this turn.
+  new:  What should I do with the file?
+
+=== report (12)
+  key: {'name': 'r1-report-only', 'speaker': 'template'}
+  base: Before anything else, here's what I noticed: name: 1 missing value(s) (16.7%); amount: 1 missing value(s) (16.7%). Want me to tackle any of these? No changes were made to any file this turn.
+  new:  Report on your original file: 2 rows repeat an earlier row exactly; name: 1 missing value (16.7%); amount: 1 missing value (16.7%). No changes were made to any file this turn.
+  key: {'name': 'r1-report-only', 'speaker': 'friend'}
+  base: Before anything else, here's what I noticed: name: 1 missing value(s) (16.7%); amount: 1 missing value(s) (16.7%). Want me to tackle any of these? No changes were made to any file this turn.
+  new:  Report on your original file: 2 rows repeat an earlier row exactly; name: 1 missing value (16.7%); amount: 1 missing value (16.7%). No changes were made to any file this turn.
+  key: {'name': 'r1-report-only', 'speaker': 'focus'}
+  base: Before anything else, here's what I noticed: name: 1 missing value(s) (16.7%); amount: 1 missing value(s) (16.7%). Want me to tackle any of these? No changes were made to any file this turn.
+  new:  Report on your original file: 2 rows repeat an earlier row exactly; name: 1 missing value (16.7%); amount: 1 missing value (16.7%). No changes were made to any file this turn.

@@ -207,11 +207,18 @@ _REPORT_NOUN = rf"(?:{_REPORT_NOMINAL}|{_REPORT_VERBAL})"
 # with the verb and determiners in front of the noun, and the thing it is about after it, that
 # belong to it. One pattern for every stage that asks "is this a report request?" (the planner,
 # the mention detector and the outcome renderer), so they can't disagree about a wording.
+# Nouns only: nothing here can be a request for work, so a phrase that is a report request and
+# these words is only a report. Any other word left in a phrase is not decided by a list (see
+# ``buddy.outcome.REPORT_ONLY``).
+_ABOUT_DETERMINERS = r"(?:(?:the|this|that|my|our|your|all|any|every|these|those)\s+)*"
+_ABOUT_NOUN = (
+    r"(?:(?:first|second|1st|2nd|main|only)\s+)?"
+    r"(?:file|sheet|tab|spreadsheet|workbook|data|table|issues?|problems?|duplicates?|rows?|"
+    r"columns?|errors?|everything|(?:missing|empty|blank)\s+(?:values?|data|cells?|rows?|fields?))"
+)
 _REPORT_ABOUT = (
-    r"(?:\s+(?:(?:of|on|about|for)\s+)?"
-    r"(?:(?:the|this|that|my|our|your|all|any|every|these|those)\s+)*"
-    r"(?:file|sheet|spreadsheet|workbook|data|table|issues?|problems?|duplicates?|rows?|columns?|"
-    r"errors?)\b)?"
+    rf"(?:\s+(?:(?:of|on|about|for)\s+)?{_ABOUT_DETERMINERS}{_ABOUT_NOUN}"
+    rf"(?:\s+(?:and\s+)?{_ABOUT_DETERMINERS}{_ABOUT_NOUN})*\b)?"
 )
 # "an overview of what you can do" is a question about Buddy, and "the Summary sheet" or "the
 # Analysis column" names part of the file: neither asks for a report on the file.
@@ -220,30 +227,57 @@ _ABOUT_BUDDY = (
     r"(?:what\s+you\s+(?:can\s+do|do|are\s+able\s+to\s+do|offer)\b|your\b|yourself\b))"
 )
 _A_PART_OF_THE_FILE = r"(?!\s+(?:sheet|tab|worksheet|columns?|page)\b)"
-_REPORT_REQUEST = re.compile(
-    r"(?:\b(?:give|send|show|make|create|write|produce|generate|prepare|get|run|do|need|want)\s+"
+# The request by name: a noun or a verb that IS a report ("a summary", "analyze my data").
+_REPORT_BY_NAME = re.compile(
+    r"(?:\b(?:give|send|show|make|create|write|produce|generate|prepare|get|run|do|need|want|"
+    r"provide|compile|deliver|return|output|see|view|have|tell|like|love)\s+"
     r"(?:(?:me|us|a|an|the|my|our|your|full|short|brief|quick|detailed|written|data|quality)\s+)*)?"
-    rf"\b(?:{_REPORT_NOMINAL}{_A_PART_OF_THE_FILE}|{_REPORT_VERBAL})\b{_ABOUT_BUDDY}{_REPORT_ABOUT}"
-    # "check the file for problems", "take a look at my data", "what's wrong with the sheet": the
-    # analysis, asked for by what it does.
-    r"|\b(?:check|look\s+(?:at|over)|take\s+a\s+look\s+at|review|inspect)\s+"
+    rf"\b(?:{_REPORT_NOMINAL}{_A_PART_OF_THE_FILE}|{_REPORT_VERBAL})\b{_ABOUT_BUDDY}{_REPORT_ABOUT}",
+    re.IGNORECASE,
+)
+# The request by what it does, with no report word in it: "check the file for problems", "take a
+# look at my data", "what's wrong with the sheet".
+_REPORT_BY_ACTION = re.compile(
+    r"\b(?:check|look\s+(?:at|over)|take\s+a\s+look\s+at|review|inspect)\s+"
     r"(?:(?:the|this|that|my|our|your)\s+)?(?:file|sheet|spreadsheet|workbook|data|table)\b"
-    r"(?:\s+for\s+(?:any\s+)?(?:issues?|problems?|errors?|mistakes?|duplicates?|duplicate\s+rows?))?"
+    r"(?:\s+for\s+(?:any\s+)?(?:issues?|problems?|errors?|mistakes?|duplicates?|duplicate\s+rows?|"
+    r"(?:empty|blank)\s+rows?|blanks?|missing\s+(?:values?|data)))?"
     r"|\bwhat(?:'?s|\s+is|\s+are)\s+wrong\s+with\s+(?:(?:the|this|that|my|our|your)\s+)?"
     r"(?:file|sheet|spreadsheet|workbook|data|table)\b",
     re.IGNORECASE,
 )
+# Every wording a report is asked for in: what the planner, the mention detector and the outcome
+# renderer cut out of a phrase.
+_REPORT_REQUEST = re.compile(
+    _REPORT_BY_NAME.pattern + "|" + _REPORT_BY_ACTION.pattern, re.IGNORECASE
+)
+# "don't forget to", "don't hesitate to": a request made politely, not a refusal.
+_NOT_A_REFUSAL = r"(?!\s+(?:forget|hesitate|worry|be\s+(?:afraid|shy)))"
 # "no report please", "don't give me a report", "don't look at my data": the opposite request.
 _REPORT_NEGATED = re.compile(
-    rf"\b(?:no|not|without|skip|never|don't|dont|do\s+not)\b[^.;,!?]{{0,24}}\b{_REPORT_NOMINAL}\b"
-    r"|\b(?:don't|dont|do\s+not|won't|never|no\s+need\s+to)\s+(?:\w+\s+){0,2}"
+    rf"\b(?:no|not|without|skip|never|don't|dont|do\s+not)\b{_NOT_A_REFUSAL}"
+    rf"[^.;,!?]{{0,24}}\b{_REPORT_NOMINAL}\b"
+    r"|\b(?:don't|dont|do\s+not|won't|never|no\s+need\s+to)\b"
+    rf"{_NOT_A_REFUSAL}\s+(?:\w+\s+){{0,2}}"
     r"(?:check|look|review|inspect|analy[sz]e|summari[sz]e|give|send|show)\b",
     re.IGNORECASE,
 )
-# "I'll check the file myself": the person will do it, not ask Buddy to.
+# "I'll summarize it myself": the person will do it, not ask Buddy to. The first-person marker,
+# the verb and "myself" must all be in one clause, so "I built it myself, can you analyze it?" and
+# "give me a summary so I can review it" stay requests (review round 3, M2).
 _REPORT_BY_THE_PERSON = re.compile(
-    r"\bmyself\b|\b(?:i'll|i\s+will|i'm\s+going\s+to|i\s+can)\s+(?:\w+\s+){0,3}"
-    r"(?:check|look|review|inspect|analy[sz]e|summari[sz]e)\b",
+    r"\b(?:i'll|i\s+will|i'm\s+going\s+to|i\s+can|let\s+me)\s+(?:\w+\s+){0,3}"
+    r"(?:check|look|review|inspect|analy[sz]e|summari[sz]e)\b[^.;,!?]{0,40}\bmyself\b",
+    re.IGNORECASE,
+)
+# The same, for a request with no report word in it. Only these can be taken for the person's own
+# plan: "I'll check the file", "I will look at the data now", "check the file myself".
+_REPORT_BY_ACTION_BY_THE_PERSON = re.compile(
+    r"\b(?:check|look(?:\s+(?:at|over))?|review|inspect)\s+(?:(?:the|this|that|my|our|your)\s+)?"
+    r"(?:file|sheet|spreadsheet|workbook|data|table)\b[^.;,!?]{0,30}\bmyself\b"
+    r"|\b(?:i'll|i\s+will|i'm\s+going\s+to|i\s+can)\s+(?:\w+\s+){0,3}"
+    r"(?:check|look(?:\s+(?:at|over))?|review|inspect)\s+(?:(?:the|this|that|my|our|your)\s+)?"
+    r"(?:file|sheet|spreadsheet|workbook|data|table)\b",
     re.IGNORECASE,
 )
 # "email me the report", "print the summary": a report to be sent somewhere else. Buddy can't do
@@ -257,7 +291,8 @@ _REPORT_ELSEWHERE = re.compile(
 _REPORT_FILLER = frozenset(
     "a an the please pls and then also just only so but can could would will you i we to "
     "me us it of on for this that my our your file sheet spreadsheet data "
-    "be great thanks thank short brief quick full detailed written tell".split()
+    "be great thanks thank short brief quick full detailed written tell i'd i'll i'm like love "
+    "let lets let's want wants need needs".split()
 )
 
 
@@ -269,11 +304,17 @@ def mentions_report(message: str) -> bool:
     only way to a report nobody wanted, which states findings and claims nothing else.
     A report to be sent elsewhere ("email me the report") isn't one: Buddy can't send it.
     """
+    if _REPORT_NEGATED.search(message) or _REPORT_ELSEWHERE.search(message):
+        return False
+    if _REPORT_BY_THE_PERSON.search(message):
+        return False
+    if _REPORT_BY_NAME.search(message):
+        # A report asked for by name is a request even when the person gives a reason or says
+        # something about themselves ("so I can review it", "I built it myself").
+        return True
     return (
-        _REPORT_REQUEST.search(message) is not None
-        and _REPORT_NEGATED.search(message) is None
-        and _REPORT_BY_THE_PERSON.search(message) is None
-        and _REPORT_ELSEWHERE.search(message) is None
+        _REPORT_BY_ACTION.search(message) is not None
+        and _REPORT_BY_ACTION_BY_THE_PERSON.search(message) is None
     )
 
 

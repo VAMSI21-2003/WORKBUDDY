@@ -445,6 +445,8 @@ def test_what_a_report_is_about_is_not_a_request_to_remove_it() -> None:
     from buddy.actions import mentioned_actions
 
     assert mentioned_actions("give me a report on the duplicate rows") == ()
+    assert mentioned_actions("report on the empty rows") == ()
+    assert mentioned_actions("check my file for blank rows") == ()
     assert [
         a.name for a, _ in mentioned_actions("remove the duplicate rows and give me a report")
     ] == ["remove_duplicate_rows"]
