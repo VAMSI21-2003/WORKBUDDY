@@ -81,3 +81,6 @@ deploy/.env
 deploy/backups/
 deploy/releases.log
 deploy/docker-compose.override.yml
+
+# Raw reviewer and probe output (docs/process/review-loop.md): summaries go in the review files
+scripts/review_harness/**/out/
