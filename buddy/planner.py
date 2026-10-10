@@ -4,14 +4,15 @@ import json
 import logging
 import os
 import re
+from collections.abc import Sequence
 from dataclasses import dataclass, replace
 from typing import Protocol
 
 from buddy.actions import (
     INTENT_CAPABILITIES,
+    asks_for_report,
     is_conversation,
-    is_only_a_report_request,
-    mentions_report,
+    report_phrases,
 )
 from buddy.llm import LLMMessage, LLMProvider
 from buddy.models import PlanningStep, Understanding
@@ -382,6 +383,12 @@ def _normalize_connector(text: str) -> str:
     return " ".join(_PUNCTUATION.sub(" ", text.lower()).split())
 
 
+def _same_words(phrase: str, others: Sequence[str]) -> bool:
+    """Whether ``phrase`` is, ignoring case and spacing, one of ``others``. Nothing is read."""
+    key = " ".join(phrase.casefold().split())
+    return bool(key) and any(key == " ".join(other.casefold().split()) for other in others)
+
+
 def _quotes_nothing(raw_step: object) -> bool:
     """Whether a model step's ``source_phrase`` is present but empty.
 
@@ -584,7 +591,9 @@ class Planner:
             message asks for a report on it. Never when the turn is only
             conversation or waits for the user's answer to a question: nobody
             asked for the file to be looked at, and the findings would be used
-            up (a file is analysed once) before the user's real request.
+            up (a file is analysed once) before the user's real request. A
+            report is asked for only when Brain's reading has it
+            (``asks_for_report``); no word of the message is read here.
         """
         target_file = state.context.active_file or (
             state.uploaded_files[-1] if state.uploaded_files else None
@@ -593,10 +602,10 @@ class Planner:
             return (), None
         if not target_file.lower().endswith(_SUPPORTED_ANALYSIS_EXTENSIONS):
             return (), None
-        report_asked = mentions_report(state.user_message or "")
+        understanding = state.understanding or Understanding()
+        report_asked = asks_for_report(understanding)
         if target_file in state.context.analyzed_files and not report_asked:
             return (), None
-        understanding = state.understanding or Understanding()
         if not report_asked and (
             is_conversation(understanding, state.user_message or "")
             or (state.reasoning is not None and state.reasoning.clarification_required)
@@ -643,10 +652,11 @@ skill able to perform them. Prefer those exact capability strings when a
 step matches one. If a requested action does not match any capability in
 that list, still include the step — name the most sensible capability
 string for what's being asked, following the same dot-separated
-domain.action pattern already in use (e.g. "spreadsheet.report",
-"spreadsheet.dashboard"). Never omit a requested action just because no
-matching capability is listed; the system already handles telling the
-user a capability isn't supported yet.
+domain.action pattern already in use (e.g. "spreadsheet.sort",
+"spreadsheet.dashboard"). A request for a report, summary, analysis or overview
+of the file is the capability "spreadsheet.analyze". Never omit a requested action
+just because no matching capability is listed; the system already handles telling
+the user a capability isn't supported yet.
 
 Respond with a single JSON object and nothing else, matching this shape:
 {
@@ -751,7 +761,9 @@ class ClaudePlanner:
         except Exception:
             logger.exception("ClaudePlanner: LLM call failed")
             return ()
-        return self._parse_reply(raw_reply, request.user_message)
+        return self._parse_reply(
+            raw_reply, request.user_message, report_phrases(request.understanding)
+        )
 
     def _build_user_prompt(self, request: PlanningRequest, target_file: str) -> str:
         """Build the user-turn prompt from ``request``.
@@ -787,7 +799,9 @@ class ClaudePlanner:
         return "\n".join(lines)
 
     @staticmethod
-    def _parse_reply(raw_reply: str, user_message: str) -> tuple[PlanningStep, ...]:
+    def _parse_reply(
+        raw_reply: str, user_message: str, report_phrases: Sequence[str] = ()
+    ) -> tuple[PlanningStep, ...]:
         """Parse the model's raw JSON reply into an ordered step sequence.
 
         Steps are put in the order the user stated them whenever that can
@@ -798,6 +812,9 @@ class ClaudePlanner:
             raw_reply: The model's raw text reply.
             user_message: The user's own message, to check the order
                 against.
+            report_phrases: The words Brain gave to the report (``buddy.actions
+                .report_phrases``). A step that quotes exactly one of them, under a
+                capability no skill has, is the report: its analysis. Compared as text.
 
         Returns:
             The parsed steps, or ``()`` if ``raw_reply`` is not valid
@@ -859,12 +876,14 @@ class ClaudePlanner:
                     and position_of[number] < index
                 )
                 capability = str(raw_step["capability"])
-                if capability != _ANALYZE_CAPABILITY and is_only_a_report_request(
-                    str(raw_step.get("source_phrase") or "")
+                if (
+                    capability != _ANALYZE_CAPABILITY
+                    and capability not in INTENT_CAPABILITIES.values()
+                    and _same_words(str(raw_step.get("source_phrase") or ""), report_phrases)
                 ):
-                    # The user asked for a report and Buddy has one: its analysis. A model's
-                    # own name for it ("spreadsheet.report") must not stop the chain as a step
-                    # no skill can run.
+                    # Brain read this phrase as the report and Buddy has one: its analysis. A
+                    # model's own name for it ("spreadsheet.report") must not stop the chain as
+                    # a step no skill can run.
                     capability = _ANALYZE_CAPABILITY
                 steps.append(
                     PlanningStep(

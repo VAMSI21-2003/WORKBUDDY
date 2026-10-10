@@ -17,9 +17,10 @@ import pytest
 from buddy import voice_catalog as catalog
 from buddy.actions import (
     CONVERSATION,
+    REPORT_ON_FILE,
+    asks_for_report,
     is_conversation,
-    is_only_a_report_request,
-    mentions_report,
+    mentioned_actions,
 )
 from buddy.brain import INTENT_VOCABULARY, ClaudeInterpreter
 from buddy.inspector import (
@@ -66,60 +67,50 @@ def test_count_noun_uses_the_singular_only_for_exactly_one() -> None:
     "message",
     [
         "give me a report",
-        "remove the duplicate rows and then give me a report",
-        "Send me the summary, please",
-        "can I get a full report on this?",
-        "analyze my file",
-        "I need an analysis",
-    ],
-)
-def test_a_message_that_asks_for_a_report_is_detected(message: str) -> None:
-    assert mentions_report(message) is True
-
-
-@pytest.mark.parametrize(
-    "message",
-    [
-        "hi",
-        "remove the duplicate rows",
         "no report please",
-        "don't give me a report",
-        "sort it",
-        # A question about Buddy, a part of the file's name, or something the person will do
-        # themselves is not a request for a report on the file.
-        "give me an overview of what you can do",
-        "give me a rundown of your features",
-        "can you give me a summary of what you do?",
-        "remove the duplicate rows but don't look at my data",
         "I'll check the file myself",
-        "thanks, I'll review the data now",
-        "remove the duplicate rows from the overview sheet",
-        "remove duplicates by the Analysis column",
-        # A report to be sent somewhere Buddy can't send it is not a request for the report.
         "email me the report",
-        "remove duplicates and print the summary",
+        "an overview of what you can do",
+        "sort by the Analysis column",
+        "thanks for the summary!",
+        "what is wrong with my file",
+        "hi",
     ],
 )
-def test_a_message_that_does_not_ask_for_a_report_is_not(message: str) -> None:
-    assert mentions_report(message) is False
+def test_no_wording_of_a_message_is_read_as_a_report_request(message: str) -> None:
+    """The message is never read for a report: only Brain's reading puts one in the ledger."""
+    assert mentioned_actions(message) == ()
+    assert not asks_for_report(Understanding(intent="unclear"))
+    assert not asks_for_report(
+        Understanding(
+            intent="unclear", requested_actions=(RequestedAction("unsupported", message, "brain"),)
+        )
+    )
 
 
-def test_only_a_pure_report_request_counts_as_one() -> None:
-    assert is_only_a_report_request("give me a report")
-    assert is_only_a_report_request("and then give me the summary, please")
-    assert not is_only_a_report_request("remove duplicates and give me a report")
-    assert not is_only_a_report_request("sort by amount")
-    assert not is_only_a_report_request("don't give me a report")
-    assert not is_only_a_report_request("email me the report")
+def test_a_report_is_asked_for_by_brains_action_or_intent() -> None:
+    assert asks_for_report(Understanding(intent=REPORT_ON_FILE))
+    assert asks_for_report(
+        Understanding(
+            intent="multi_step_request",
+            requested_actions=(RequestedAction(REPORT_ON_FILE, "a report", "brain", True),),
+        )
+    )
 
 
 def test_conversation_needs_brains_intent_and_nothing_that_contradicts_it() -> None:
     chat = Understanding(intent=CONVERSATION)
     assert is_conversation(chat, "hi")
     assert not is_conversation(Understanding(intent="unclear"), "hi")
-    # A message that mentions an action, asks for a report, or has any ledger entry is not chat.
+    # A message that mentions an action, or has any ledger entry (the report included), is not
+    # chat. The words of a report request are never read: Brain's reading is.
     assert not is_conversation(chat, "hi, remove the duplicate rows")
-    assert not is_conversation(chat, "hi, send me a report")
+    assert is_conversation(chat, "hi, send me a report")
+    reading_a_report = Understanding(
+        intent=CONVERSATION,
+        requested_actions=(RequestedAction(REPORT_ON_FILE, "a report", LEDGER_FROM_BRAIN, True),),
+    )
+    assert not is_conversation(reading_a_report, "hi")
     listed = Understanding(
         intent=CONVERSATION,
         requested_actions=(RequestedAction("unsupported", "sort", LEDGER_FROM_BRAIN),),
@@ -140,6 +131,35 @@ def test_brain_knows_the_conversation_intent_and_still_closes_the_vocabulary() -
     assert understanding.intent == CONVERSATION
     other = ClaudeInterpreter._parse_reply(json.dumps({"intent": "chitchat", "confidence": 0.9}))
     assert other.intent == "unclear"
+
+
+def test_brain_accepts_the_report_as_an_intent_and_as_a_requested_action() -> None:
+    understanding = ClaudeInterpreter._parse_reply(
+        json.dumps(
+            {
+                "intent": "report_on_file",
+                "confidence": 0.9,
+                "requested_actions": [
+                    {"action": " Report_On_File ", "source_phrase": "give me a report"}
+                ],
+            }
+        ),
+        "please give me a report",
+    )
+
+    assert REPORT_ON_FILE in INTENT_VOCABULARY
+    assert understanding.intent == REPORT_ON_FILE
+    (entry,) = understanding.requested_actions
+    assert (entry.action, entry.phrase_found) == (REPORT_ON_FILE, True)
+    assert asks_for_report(understanding)
+
+
+def test_brains_prompt_names_the_report_action_and_does_not_file_a_report_as_unsupported() -> None:
+    from buddy.brain import _SYSTEM_PROMPT
+
+    assert '"report_on_file"' in _SYSTEM_PROMPT
+    unsupported_line = _SYSTEM_PROMPT.split('Use "unsupported"', 1)[1].split("\n")[0:2]
+    assert "report" not in " ".join(unsupported_line).replace("report_on_file", "")
 
 
 # -- Think's reason code ---------------------------------------------------------------------
@@ -239,40 +259,70 @@ def test_no_analysis_is_planned_for_conversation_or_a_pending_question(tmp_path:
     assert Planner._build_request(state).unanalyzed_spreadsheet_files == ()
 
 
-def test_a_report_request_analyses_even_a_file_analysed_before_but_nothing_else_does(
+def test_a_report_in_brains_reading_analyses_even_a_file_analysed_before_but_nothing_else_does(
     tmp_path: Path,
 ) -> None:
     state, path = _state(tmp_path, message="send me a report")
     state.context.mark_analyzed(path)
+    state.understanding = Understanding(intent=REPORT_ON_FILE)
     assert Planner._build_request(state).unanalyzed_spreadsheet_files == (path,)
 
-    state.user_message = "make it nicer"
+    # Brain did not read a report (the words are the same): no analysis for a file analysed before.
+    state.understanding = Understanding(intent="unclear")
     assert Planner._build_request(state).unanalyzed_spreadsheet_files == ()
 
 
-def test_a_report_request_still_analyses_when_the_intent_is_conversation(tmp_path: Path) -> None:
+def test_a_report_in_brains_reading_still_analyses_when_the_intent_is_conversation(
+    tmp_path: Path,
+) -> None:
     state, path = _state(tmp_path, message="hi, send me a report")
-    state.understanding = Understanding(intent=CONVERSATION)
+    state.understanding = Understanding(
+        intent=CONVERSATION,
+        requested_actions=(RequestedAction(REPORT_ON_FILE, "send me a report", "brain", True),),
+    )
     assert Planner._build_request(state).unanalyzed_spreadsheet_files == (path,)
 
 
+def test_the_report_intent_runs_no_step_of_its_own() -> None:
+    from buddy.planner import PlanningRequest, RuleBasedPlanner
+
+    request = PlanningRequest(
+        understanding=Understanding(intent=REPORT_ON_FILE),
+        reasoning=Reasoning(),
+        uploaded_files=("a.xlsx",),
+        active_file="a.xlsx",
+        user_message="a report",
+    )
+
+    assert RuleBasedPlanner()(request) == ()
+
+
 @pytest.mark.parametrize(
-    ("capability", "phrase", "expected"),
+    ("capability", "phrase", "reported", "expected"),
     [
-        ("spreadsheet.report", "give me a report", "spreadsheet.analyze"),
-        ("spreadsheet.summary", "send me the summary", "spreadsheet.analyze"),
-        ("spreadsheet.report", "sort by amount", "spreadsheet.report"),
+        ("spreadsheet.report", "give me a report", ("give me a report",), "spreadsheet.analyze"),
+        (
+            "spreadsheet.summary",
+            "Send Me The  Summary",
+            ("send me the summary",),
+            "spreadsheet.analyze",
+        ),
+        # Brain did not give this phrase to the report: the step keeps its name and, with no
+        # skill, stops the chain as before.
+        ("spreadsheet.report", "give me a report", (), "spreadsheet.report"),
+        ("spreadsheet.report", "sort by amount", ("give me a report",), "spreadsheet.report"),
+        # A real capability is never renamed.
         (
             "spreadsheet.deduplicate",
-            "remove duplicates and give me a report",
+            "give me a report",
+            ("give me a report",),
             "spreadsheet.deduplicate",
         ),
     ],
 )
-def test_a_step_that_only_asks_for_a_report_is_planned_as_the_analysis(
-    capability: str, phrase: str, expected: str
+def test_a_step_quoting_the_phrase_brain_gave_to_the_report_is_planned_as_the_analysis(
+    capability: str, phrase: str, reported: tuple[str, ...], expected: str
 ) -> None:
-    message = f"{phrase}"
     reply = json.dumps(
         {
             "steps": [
@@ -286,7 +336,7 @@ def test_a_step_that_only_asks_for_a_report_is_planned_as_the_analysis(
         }
     )
 
-    (step,) = ClaudePlanner._parse_reply(reply, message)
+    (step,) = ClaudePlanner._parse_reply(reply, phrase, reported)
 
     assert step.capability == expected
 
@@ -426,33 +476,12 @@ def test_the_verifiers_finding_uses_the_singular_for_one_repeated_row(tmp_path: 
     assert _verify(path) == ("[duplicate_rows] 1 row repeats an earlier row exactly",)
 
 
-@pytest.mark.parametrize(
-    "message",
-    [
-        "Send me a summary of what you find",
-        "I don't know what's wrong, can you analyze it?",
-        "what is wrong with my file",
-        "run a quality check on the file",
-        "check my file for duplicates",
-        "give me an overview of the file",
-    ],
-)
-def test_requests_that_look_like_the_guarded_ones_but_are_requests(message: str) -> None:
-    assert mentions_report(message)
+def test_what_a_report_is_about_is_not_a_request_when_brain_gave_it_the_phrase() -> None:
+    message = "remove the duplicate rows and give me a report on the empty rows"
 
-
-def test_what_a_report_is_about_is_not_a_request_to_remove_it() -> None:
-    from buddy.actions import mentioned_actions
-
-    assert mentioned_actions("give me a report on the duplicate rows") == ()
-    assert mentioned_actions("report on the empty rows") == ()
-    assert mentioned_actions("check my file for blank rows") == ()
-    assert [
-        a.name for a, _ in mentioned_actions("remove the duplicate rows and give me a report")
-    ] == ["remove_duplicate_rows"]
-    assert [
-        a.name
-        for a, _ in mentioned_actions(
-            "give me a report on the duplicate rows and remove the duplicate rows"
-        )
-    ] == ["remove_duplicate_rows"]
+    assert [a.name for a, _ in mentioned_actions(message)] == [
+        "remove_duplicate_rows",
+        "remove_empty_rows",
+    ]
+    inside = mentioned_actions(message, except_inside=["give me a report on the empty rows"])
+    assert [a.name for a, _ in inside] == ["remove_duplicate_rows"]

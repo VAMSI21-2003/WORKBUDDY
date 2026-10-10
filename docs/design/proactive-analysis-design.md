@@ -791,7 +791,7 @@ No implementation has been done against this document.
 
 Section 1.2 says the analysis runs "regardless of what the user asked, or whether they asked for anything at all". Two exceptions, decided with `docs/design/reply-quality.md`:
 
-- **A conversation turn** (Brain's `conversation` intent, with nothing in the message that contradicts it) and **a turn that waits for the user's answer to Think's question** run no analysis. A file is analysed once (`Context.analyzed_files`), so analysing it for a greeting would use the findings up before the user's real request, and the reply doesn't show them.
-- **A message that asks for a report** (`buddy.actions.mentions_report`) analyses the file even if it was analysed earlier in the session, so the report can be delivered. A step the planner names for it (`spreadsheet.report`) is planned as `spreadsheet.analyze`.
+- **A conversation turn** (Brain's `conversation` intent, with no action in Brain's reading and no file-changing action named in the message) and **a turn that waits for the user's answer to Think's question** run no analysis. A file is analysed once (`Context.analyzed_files`), so analysing it for a greeting would use the findings up before the user's real request, and the reply doesn't show them.
+- **A message whose report Brain read** (Brain's `report_on_file` action, `buddy.actions.asks_for_report`; no word of the message is read) analyses the file even if it was analysed earlier in the session, so the report can be delivered. A step the planner names for it (`spreadsheet.report`) is planned as `spreadsheet.analyze` when it quotes the phrase Brain gave to the report.
 
 The analysis also reports **exact duplicate rows**, with a count (`ExactDuplicateRowAnalyzer`, and the Inspector's independent `_independent_duplicate_row_findings`): `N rows repeat an earlier row exactly`, counted the way the deduplication verifier counts them.

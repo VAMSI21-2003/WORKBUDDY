@@ -1,1687 +1,0 @@
-  0%|          | 0/2 [00:00<?, ?it/s]100%|██████████| 2/2 [00:00<00:00, 47127.01it/s]
-  0%|          | 0/2 [00:00<?, ?it/s]100%|██████████| 2/2 [00:00<00:00, 609.99it/s]
-  0%|          | 0/2 [00:00<?, ?it/s]100%|██████████| 2/2 [00:00<00:00, 64035.18it/s]
-  0%|          | 0/2 [00:00<?, ?it/s]100%|██████████| 2/2 [00:00<00:00, 618.22it/s]
-  0%|          | 0/2 [00:00<?, ?it/s]100%|██████████| 2/2 [00:00<00:00, 530.69it/s]
-  0%|          | 0/2 [00:00<?, ?it/s]100%|██████████| 2/2 [00:00<00:00, 12069.94it/s]
-  0%|          | 0/2 [00:00<?, ?it/s]100%|██████████| 2/2 [00:00<00:00, 50533.78it/s]
-  0%|          | 0/2 [00:00<?, ?it/s]100%|██████████| 2/2 [00:00<00:00, 65027.97it/s]
-  0%|          | 0/2 [00:00<?, ?it/s]100%|██████████| 2/2 [00:00<00:00, 339.17it/s]
-  0%|          | 0/2 [00:00<?, ?it/s]100%|██████████| 2/2 [00:00<00:00, 382.64it/s]
-  0%|          | 0/2 [00:00<?, ?it/s]100%|██████████| 2/2 [00:00<00:00, 66052.03it/s]
-  0%|          | 0/2 [00:00<?, ?it/s]100%|██████████| 2/2 [00:00<00:00, 590.08it/s]
-  0%|          | 0/2 [00:00<?, ?it/s]100%|██████████| 2/2 [00:00<00:00, 46863.73it/s]
-  0%|          | 0/2 [00:00<?, ?it/s]100%|██████████| 2/2 [00:00<00:00, 399.19it/s]
-  0%|          | 0/2 [00:00<?, ?it/s]100%|██████████| 2/2 [00:00<00:00, 1174.55it/s]
-  0%|          | 0/2 [00:00<?, ?it/s]100%|██████████| 2/2 [00:00<00:00, 61230.72it/s]
-  0%|          | 0/2 [00:00<?, ?it/s]100%|██████████| 2/2 [00:00<00:00, 627.33it/s]
-  0%|          | 0/2 [00:00<?, ?it/s]100%|██████████| 2/2 [00:00<00:00, 61230.72it/s]
-  0%|          | 0/2 [00:00<?, ?it/s]100%|██████████| 2/2 [00:00<00:00, 57852.47it/s]
-  0%|          | 0/2 [00:00<?, ?it/s]100%|██████████| 2/2 [00:00<00:00, 321.28it/s]
-  0%|          | 0/2 [00:00<?, ?it/s]100%|██████████| 2/2 [00:00<00:00, 40721.40it/s]
-  0%|          | 0/2 [00:00<?, ?it/s]100%|██████████| 2/2 [00:00<00:00, 561.30it/s]
-  0%|          | 0/2 [00:00<?, ?it/s]100%|██████████| 2/2 [00:00<00:00, 64035.18it/s]
-  0%|          | 0/2 [00:00<?, ?it/s]100%|██████████| 2/2 [00:00<00:00, 616.04it/s]
-  0%|          | 0/2 [00:00<?, ?it/s]100%|██████████| 2/2 [00:00<00:00, 830.39it/s]
-  0%|          | 0/2 [00:00<?, ?it/s]100%|██████████| 2/2 [00:00<00:00, 31895.85it/s]
-  0%|          | 0/2 [00:00<?, ?it/s]100%|██████████| 2/2 [00:00<00:00, 2402.92it/s]
-  0%|          | 0/2 [00:00<?, ?it/s]100%|██████████| 2/2 [00:00<00:00, 57456.22it/s]
-  0%|          | 0/2 [00:00<?, ?it/s]100%|██████████| 2/2 [00:00<00:00, 481.27it/s]
-  0%|          | 0/2 [00:00<?, ?it/s]100%|██████████| 2/2 [00:00<00:00, 66052.03it/s]
-  0%|          | 0/2 [00:00<?, ?it/s]100%|██████████| 2/2 [00:00<00:00, 176.05it/s]
-  0%|          | 0/2 [00:00<?, ?it/s]100%|██████████| 2/2 [00:00<00:00, 24105.20it/s]
-  0%|          | 0/2 [00:00<?, ?it/s]100%|██████████| 2/2 [00:00<00:00, 299.57it/s]
-  0%|          | 0/2 [00:00<?, ?it/s]100%|██████████| 2/2 [00:00<00:00, 2489.20it/s]
-  0%|          | 0/2 [00:00<?, ?it/s]100%|██████████| 2/2 [00:00<00:00, 544.64it/s]
-  0%|          | 0/2 [00:00<?, ?it/s]100%|██████████| 2/2 [00:00<00:00, 40920.04it/s]
-  0%|          | 0/2 [00:00<?, ?it/s]100%|██████████| 2/2 [00:00<00:00, 66576.25it/s]
-  0%|          | 0/2 [00:00<?, ?it/s]100%|██████████| 2/2 [00:00<00:00, 237.66it/s]
-  0%|          | 0/2 [00:00<?, ?it/s]100%|██████████| 2/2 [00:00<00:00, 228.24it/s]
-  0%|          | 0/2 [00:00<?, ?it/s]100%|██████████| 2/2 [00:00<00:00, 63072.24it/s]
-  0%|          | 0/2 [00:00<?, ?it/s]100%|██████████| 2/2 [00:00<00:00, 447.54it/s]
-  0%|          | 0/2 [00:00<?, ?it/s]100%|██████████| 2/2 [00:00<00:00, 44858.87it/s]
-  0%|          | 0/2 [00:00<?, ?it/s]100%|██████████| 2/2 [00:00<00:00, 53773.13it/s]
-  0%|          | 0/2 [00:00<?, ?it/s]100%|██████████| 2/2 [00:00<00:00, 181.27it/s]
-  0%|          | 0/2 [00:00<?, ?it/s]100%|██████████| 2/2 [00:00<00:00, 151.27it/s]
-  0%|          | 0/2 [00:00<?, ?it/s]100%|██████████| 2/2 [00:00<00:00, 213.34it/s]
-  0%|          | 0/2 [00:00<?, ?it/s]100%|██████████| 2/2 [00:00<00:00, 25115.59it/s]
-  0%|          | 0/2 [00:00<?, ?it/s]100%|██████████| 2/2 [00:00<00:00, 276.46it/s]
-  0%|          | 0/2 [00:00<?, ?it/s]100%|██████████| 2/2 [00:00<00:00, 65027.97it/s]
-  0%|          | 0/2 [00:00<?, ?it/s]100%|██████████| 2/2 [00:00<00:00, 44858.87it/s]
-  0%|          | 0/2 [00:00<?, ?it/s]100%|██████████| 2/2 [00:00<00:00, 492.84it/s]
-  0%|          | 0/2 [00:00<?, ?it/s]100%|██████████| 2/2 [00:00<00:00, 781.79it/s]
-  0%|          | 0/2 [00:00<?, ?it/s]100%|██████████| 2/2 [00:00<00:00, 1062.39it/s]
-  0%|          | 0/2 [00:00<?, ?it/s]100%|██████████| 2/2 [00:00<00:00, 54827.50it/s]
-  0%|          | 0/2 [00:00<?, ?it/s]100%|██████████| 2/2 [00:00<00:00, 351.41it/s]
-  0%|          | 0/2 [00:00<?, ?it/s]100%|██████████| 2/2 [00:00<00:00, 981.01it/s]
-  0%|          | 0/2 [00:00<?, ?it/s]100%|██████████| 2/2 [00:00<00:00, 1221.94it/s]
-  0%|          | 0/2 [00:00<?, ?it/s]100%|██████████| 2/2 [00:00<00:00, 316.30it/s]
-  0%|          | 0/2 [00:00<?, ?it/s]100%|██████████| 2/2 [00:00<00:00, 65536.00it/s]
-  0%|          | 0/2 [00:00<?, ?it/s]100%|██████████| 2/2 [00:00<00:00, 65536.00it/s]
-could not read the sheet names of 'uploads/report.xlsx'
-Traceback (most recent call last):
-  File "/home/user/WORKBUDDY/skills/excel/workbook.py", line 195, in sheet_names
-    return _zip_sheet_names(handle)
-  File "/home/user/WORKBUDDY/skills/excel/workbook.py", line 216, in _zip_sheet_names
-    book = openpyxl.load_workbook(handle, read_only=True)
-  File "/usr/local/lib/python3.13/dist-packages/openpyxl/reader/excel.py", line 348, in load_workbook
-    reader.read()
-    ~~~~~~~~~~~^^
-  File "/usr/local/lib/python3.13/dist-packages/openpyxl/reader/excel.py", line 303, in read
-    self.read_worksheets()
-    ~~~~~~~~~~~~~~~~~~~~^^
-  File "/usr/local/lib/python3.13/dist-packages/openpyxl/reader/excel.py", line 219, in read_worksheets
-    self.read_chartsheet(sheet, rel)
-    ~~~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^
-  File "/usr/local/lib/python3.13/dist-packages/openpyxl/reader/excel.py", line 205, in read_chartsheet
-    drawings = rels.find(SpreadsheetDrawing._rel_type)
-               ^^^^^^^^^
-AttributeError: 'list' object has no attribute 'find'
-could not read the sheet names of 'uploads/report.xlsx'
-Traceback (most recent call last):
-  File "/home/user/WORKBUDDY/skills/excel/workbook.py", line 195, in sheet_names
-    return _zip_sheet_names(handle)
-  File "/home/user/WORKBUDDY/skills/excel/workbook.py", line 216, in _zip_sheet_names
-    book = openpyxl.load_workbook(handle, read_only=True)
-  File "/usr/local/lib/python3.13/dist-packages/openpyxl/reader/excel.py", line 348, in load_workbook
-    reader.read()
-    ~~~~~~~~~~~^^
-  File "/usr/local/lib/python3.13/dist-packages/openpyxl/reader/excel.py", line 303, in read
-    self.read_worksheets()
-    ~~~~~~~~~~~~~~~~~~~~^^
-  File "/usr/local/lib/python3.13/dist-packages/openpyxl/reader/excel.py", line 219, in read_worksheets
-    self.read_chartsheet(sheet, rel)
-    ~~~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^
-  File "/usr/local/lib/python3.13/dist-packages/openpyxl/reader/excel.py", line 205, in read_chartsheet
-    drawings = rels.find(SpreadsheetDrawing._rel_type)
-               ^^^^^^^^^
-AttributeError: 'list' object has no attribute 'find'
-could not read the sheet names of 'uploads/report.xlsx'
-Traceback (most recent call last):
-  File "/home/user/WORKBUDDY/skills/excel/workbook.py", line 195, in sheet_names
-    return _zip_sheet_names(handle)
-  File "/home/user/WORKBUDDY/skills/excel/workbook.py", line 216, in _zip_sheet_names
-    book = openpyxl.load_workbook(handle, read_only=True)
-  File "/usr/local/lib/python3.13/dist-packages/openpyxl/reader/excel.py", line 348, in load_workbook
-    reader.read()
-    ~~~~~~~~~~~^^
-  File "/usr/local/lib/python3.13/dist-packages/openpyxl/reader/excel.py", line 303, in read
-    self.read_worksheets()
-    ~~~~~~~~~~~~~~~~~~~~^^
-  File "/usr/local/lib/python3.13/dist-packages/openpyxl/reader/excel.py", line 219, in read_worksheets
-    self.read_chartsheet(sheet, rel)
-    ~~~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^
-  File "/usr/local/lib/python3.13/dist-packages/openpyxl/reader/excel.py", line 205, in read_chartsheet
-    drawings = rels.find(SpreadsheetDrawing._rel_type)
-               ^^^^^^^^^
-AttributeError: 'list' object has no attribute 'find'
-could not read the sheet names of 'uploads/report.xlsx'
-Traceback (most recent call last):
-  File "/home/user/WORKBUDDY/skills/excel/workbook.py", line 195, in sheet_names
-    return _zip_sheet_names(handle)
-  File "/home/user/WORKBUDDY/skills/excel/workbook.py", line 216, in _zip_sheet_names
-    book = openpyxl.load_workbook(handle, read_only=True)
-  File "/usr/local/lib/python3.13/dist-packages/openpyxl/reader/excel.py", line 348, in load_workbook
-    reader.read()
-    ~~~~~~~~~~~^^
-  File "/usr/local/lib/python3.13/dist-packages/openpyxl/reader/excel.py", line 303, in read
-    self.read_worksheets()
-    ~~~~~~~~~~~~~~~~~~~~^^
-  File "/usr/local/lib/python3.13/dist-packages/openpyxl/reader/excel.py", line 219, in read_worksheets
-    self.read_chartsheet(sheet, rel)
-    ~~~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^
-  File "/usr/local/lib/python3.13/dist-packages/openpyxl/reader/excel.py", line 205, in read_chartsheet
-    drawings = rels.find(SpreadsheetDrawing._rel_type)
-               ^^^^^^^^^
-AttributeError: 'list' object has no attribute 'find'
-could not read the sheet names of 'uploads/report.xlsx'
-Traceback (most recent call last):
-  File "/home/user/WORKBUDDY/skills/excel/workbook.py", line 195, in sheet_names
-    return _zip_sheet_names(handle)
-  File "/home/user/WORKBUDDY/skills/excel/workbook.py", line 216, in _zip_sheet_names
-    book = openpyxl.load_workbook(handle, read_only=True)
-  File "/usr/local/lib/python3.13/dist-packages/openpyxl/reader/excel.py", line 348, in load_workbook
-    reader.read()
-    ~~~~~~~~~~~^^
-  File "/usr/local/lib/python3.13/dist-packages/openpyxl/reader/excel.py", line 303, in read
-    self.read_worksheets()
-    ~~~~~~~~~~~~~~~~~~~~^^
-  File "/usr/local/lib/python3.13/dist-packages/openpyxl/reader/excel.py", line 219, in read_worksheets
-    self.read_chartsheet(sheet, rel)
-    ~~~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^
-  File "/usr/local/lib/python3.13/dist-packages/openpyxl/reader/excel.py", line 205, in read_chartsheet
-    drawings = rels.find(SpreadsheetDrawing._rel_type)
-               ^^^^^^^^^
-AttributeError: 'list' object has no attribute 'find'
-could not read the sheet names of 'uploads/report.xlsx'
-Traceback (most recent call last):
-  File "/home/user/WORKBUDDY/skills/excel/workbook.py", line 195, in sheet_names
-    return _zip_sheet_names(handle)
-  File "/home/user/WORKBUDDY/skills/excel/workbook.py", line 216, in _zip_sheet_names
-    book = openpyxl.load_workbook(handle, read_only=True)
-  File "/usr/local/lib/python3.13/dist-packages/openpyxl/reader/excel.py", line 348, in load_workbook
-    reader.read()
-    ~~~~~~~~~~~^^
-  File "/usr/local/lib/python3.13/dist-packages/openpyxl/reader/excel.py", line 303, in read
-    self.read_worksheets()
-    ~~~~~~~~~~~~~~~~~~~~^^
-  File "/usr/local/lib/python3.13/dist-packages/openpyxl/reader/excel.py", line 219, in read_worksheets
-    self.read_chartsheet(sheet, rel)
-    ~~~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^
-  File "/usr/local/lib/python3.13/dist-packages/openpyxl/reader/excel.py", line 205, in read_chartsheet
-    drawings = rels.find(SpreadsheetDrawing._rel_type)
-               ^^^^^^^^^
-AttributeError: 'list' object has no attribute 'find'
-could not read the sheet names of 'uploads/report.xlsx'
-Traceback (most recent call last):
-  File "/home/user/WORKBUDDY/skills/excel/workbook.py", line 195, in sheet_names
-    return _zip_sheet_names(handle)
-  File "/home/user/WORKBUDDY/skills/excel/workbook.py", line 216, in _zip_sheet_names
-    book = openpyxl.load_workbook(handle, read_only=True)
-  File "/usr/local/lib/python3.13/dist-packages/openpyxl/reader/excel.py", line 348, in load_workbook
-    reader.read()
-    ~~~~~~~~~~~^^
-  File "/usr/local/lib/python3.13/dist-packages/openpyxl/reader/excel.py", line 303, in read
-    self.read_worksheets()
-    ~~~~~~~~~~~~~~~~~~~~^^
-  File "/usr/local/lib/python3.13/dist-packages/openpyxl/reader/excel.py", line 219, in read_worksheets
-    self.read_chartsheet(sheet, rel)
-    ~~~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^
-  File "/usr/local/lib/python3.13/dist-packages/openpyxl/reader/excel.py", line 205, in read_chartsheet
-    drawings = rels.find(SpreadsheetDrawing._rel_type)
-               ^^^^^^^^^
-AttributeError: 'list' object has no attribute 'find'
-could not read the sheet names of 'uploads/report.xlsx'
-Traceback (most recent call last):
-  File "/home/user/WORKBUDDY/skills/excel/workbook.py", line 195, in sheet_names
-    return _zip_sheet_names(handle)
-  File "/home/user/WORKBUDDY/skills/excel/workbook.py", line 216, in _zip_sheet_names
-    book = openpyxl.load_workbook(handle, read_only=True)
-  File "/usr/local/lib/python3.13/dist-packages/openpyxl/reader/excel.py", line 348, in load_workbook
-    reader.read()
-    ~~~~~~~~~~~^^
-  File "/usr/local/lib/python3.13/dist-packages/openpyxl/reader/excel.py", line 303, in read
-    self.read_worksheets()
-    ~~~~~~~~~~~~~~~~~~~~^^
-  File "/usr/local/lib/python3.13/dist-packages/openpyxl/reader/excel.py", line 219, in read_worksheets
-    self.read_chartsheet(sheet, rel)
-    ~~~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^
-  File "/usr/local/lib/python3.13/dist-packages/openpyxl/reader/excel.py", line 205, in read_chartsheet
-    drawings = rels.find(SpreadsheetDrawing._rel_type)
-               ^^^^^^^^^
-AttributeError: 'list' object has no attribute 'find'
-could not read the sheet names of 'uploads/report.xlsx'
-Traceback (most recent call last):
-  File "/home/user/WORKBUDDY/skills/excel/workbook.py", line 195, in sheet_names
-    return _zip_sheet_names(handle)
-  File "/home/user/WORKBUDDY/skills/excel/workbook.py", line 216, in _zip_sheet_names
-    book = openpyxl.load_workbook(handle, read_only=True)
-  File "/usr/local/lib/python3.13/dist-packages/openpyxl/reader/excel.py", line 348, in load_workbook
-    reader.read()
-    ~~~~~~~~~~~^^
-  File "/usr/local/lib/python3.13/dist-packages/openpyxl/reader/excel.py", line 303, in read
-    self.read_worksheets()
-    ~~~~~~~~~~~~~~~~~~~~^^
-  File "/usr/local/lib/python3.13/dist-packages/openpyxl/reader/excel.py", line 219, in read_worksheets
-    self.read_chartsheet(sheet, rel)
-    ~~~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^
-  File "/usr/local/lib/python3.13/dist-packages/openpyxl/reader/excel.py", line 205, in read_chartsheet
-    drawings = rels.find(SpreadsheetDrawing._rel_type)
-               ^^^^^^^^^
-AttributeError: 'list' object has no attribute 'find'
-could not read the sheet names of 'uploads/report.xlsx'
-Traceback (most recent call last):
-  File "/home/user/WORKBUDDY/skills/excel/workbook.py", line 195, in sheet_names
-    return _zip_sheet_names(handle)
-  File "/home/user/WORKBUDDY/skills/excel/workbook.py", line 216, in _zip_sheet_names
-    book = openpyxl.load_workbook(handle, read_only=True)
-  File "/usr/local/lib/python3.13/dist-packages/openpyxl/reader/excel.py", line 348, in load_workbook
-    reader.read()
-    ~~~~~~~~~~~^^
-  File "/usr/local/lib/python3.13/dist-packages/openpyxl/reader/excel.py", line 303, in read
-    self.read_worksheets()
-    ~~~~~~~~~~~~~~~~~~~~^^
-  File "/usr/local/lib/python3.13/dist-packages/openpyxl/reader/excel.py", line 219, in read_worksheets
-    self.read_chartsheet(sheet, rel)
-    ~~~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^
-  File "/usr/local/lib/python3.13/dist-packages/openpyxl/reader/excel.py", line 205, in read_chartsheet
-    drawings = rels.find(SpreadsheetDrawing._rel_type)
-               ^^^^^^^^^
-AttributeError: 'list' object has no attribute 'find'
-could not read the sheet names of 'uploads/report.xlsx'
-Traceback (most recent call last):
-  File "/home/user/WORKBUDDY/skills/excel/workbook.py", line 195, in sheet_names
-    return _zip_sheet_names(handle)
-  File "/home/user/WORKBUDDY/skills/excel/workbook.py", line 216, in _zip_sheet_names
-    book = openpyxl.load_workbook(handle, read_only=True)
-  File "/usr/local/lib/python3.13/dist-packages/openpyxl/reader/excel.py", line 348, in load_workbook
-    reader.read()
-    ~~~~~~~~~~~^^
-  File "/usr/local/lib/python3.13/dist-packages/openpyxl/reader/excel.py", line 303, in read
-    self.read_worksheets()
-    ~~~~~~~~~~~~~~~~~~~~^^
-  File "/usr/local/lib/python3.13/dist-packages/openpyxl/reader/excel.py", line 219, in read_worksheets
-    self.read_chartsheet(sheet, rel)
-    ~~~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^
-  File "/usr/local/lib/python3.13/dist-packages/openpyxl/reader/excel.py", line 205, in read_chartsheet
-    drawings = rels.find(SpreadsheetDrawing._rel_type)
-               ^^^^^^^^^
-AttributeError: 'list' object has no attribute 'find'
-could not read the sheet names of 'uploads/report.xlsx'
-Traceback (most recent call last):
-  File "/home/user/WORKBUDDY/skills/excel/workbook.py", line 195, in sheet_names
-    return _zip_sheet_names(handle)
-  File "/home/user/WORKBUDDY/skills/excel/workbook.py", line 216, in _zip_sheet_names
-    book = openpyxl.load_workbook(handle, read_only=True)
-  File "/usr/local/lib/python3.13/dist-packages/openpyxl/reader/excel.py", line 348, in load_workbook
-    reader.read()
-    ~~~~~~~~~~~^^
-  File "/usr/local/lib/python3.13/dist-packages/openpyxl/reader/excel.py", line 303, in read
-    self.read_worksheets()
-    ~~~~~~~~~~~~~~~~~~~~^^
-  File "/usr/local/lib/python3.13/dist-packages/openpyxl/reader/excel.py", line 219, in read_worksheets
-    self.read_chartsheet(sheet, rel)
-    ~~~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^
-  File "/usr/local/lib/python3.13/dist-packages/openpyxl/reader/excel.py", line 205, in read_chartsheet
-    drawings = rels.find(SpreadsheetDrawing._rel_type)
-               ^^^^^^^^^
-AttributeError: 'list' object has no attribute 'find'
-  0%|          | 0/2 [00:00<?, ?it/s]100%|██████████| 2/2 [00:00<00:00, 245.83it/s]
-  0%|          | 0/2 [00:00<?, ?it/s]100%|██████████| 2/2 [00:00<00:00, 59074.70it/s]
-  0%|          | 0/2 [00:00<?, ?it/s]100%|██████████| 2/2 [00:00<00:00, 59493.67it/s]
-  0%|          | 0/2 [00:00<?, ?it/s]100%|██████████| 2/2 [00:00<00:00, 609.68it/s]
-  0%|          | 0/2 [00:00<?, ?it/s]100%|██████████| 2/2 [00:00<00:00, 11259.88it/s]
-  0%|          | 0/2 [00:00<?, ?it/s]100%|██████████| 2/2 [00:00<00:00, 64527.75it/s]
-  0%|          | 0/2 [00:00<?, ?it/s]100%|██████████| 2/2 [00:00<00:00, 221.78it/s]
-  0%|          | 0/2 [00:00<?, ?it/s]100%|██████████| 2/2 [00:00<00:00, 355.09it/s]
-  0%|          | 0/2 [00:00<?, ?it/s]100%|██████████| 2/2 [00:00<00:00, 845.97it/s]
-  0%|          | 0/2 [00:00<?, ?it/s]100%|██████████| 2/2 [00:00<00:00, 172.57it/s]
-  0%|          | 0/2 [00:00<?, ?it/s]100%|██████████| 2/2 [00:00<00:00, 64527.75it/s]
-  0%|          | 0/2 [00:00<?, ?it/s]100%|██████████| 2/2 [00:00<00:00, 4665.52it/s]
-  0%|          | 0/2 [00:00<?, ?it/s]100%|██████████| 2/2 [00:00<00:00, 62601.55it/s]
-ExcelDeduplicateSkill: failed to write PosixPath('workspace/outputs/w/report_deduplicated_session-1-task-1.xlsx')
-Traceback (most recent call last):
-  File "/home/user/WORKBUDDY/skills/excel/dedupe.py", line 116, in execute
-    deduped.to_excel(output_path, index=False, sheet_name=sheet_name)
-    ~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-  File "/usr/local/lib/python3.13/dist-packages/pandas/util/_decorators.py", line 333, in wrapper
-    return func(*args, **kwargs)
-  File "/usr/local/lib/python3.13/dist-packages/pandas/core/generic.py", line 2439, in to_excel
-    formatter.write(
-    ~~~~~~~~~~~~~~~^
-        excel_writer,
-        ^^^^^^^^^^^^^
-    ...<6 lines>...
-        engine_kwargs=engine_kwargs,
-        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-    )
-    ^
-  File "/usr/local/lib/python3.13/dist-packages/pandas/io/formats/excel.py", line 952, in write
-    writer._write_cells(
-    ~~~~~~~~~~~~~~~~~~~^
-        formatted_cells,
-        ^^^^^^^^^^^^^^^^
-    ...<3 lines>...
-        freeze_panes=freeze_panes,
-        ^^^^^^^^^^^^^^^^^^^^^^^^^^
-    )
-    ^
-  File "/usr/local/lib/python3.13/dist-packages/pandas/io/excel/_xlsxwriter.py", line 254, in _write_cells
-    wks = self.book.add_worksheet(sheet_name)
-  File "/usr/local/lib/python3.13/dist-packages/xlsxwriter/workbook.py", line 204, in add_worksheet
-    return self._add_sheet(name, worksheet_class=worksheet_class)
-           ~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-  File "/usr/local/lib/python3.13/dist-packages/xlsxwriter/workbook.py", line 851, in _add_sheet
-    name = self._check_sheetname(name, isinstance(worksheet, Chartsheet))
-  File "/usr/local/lib/python3.13/dist-packages/xlsxwriter/workbook.py", line 903, in _check_sheetname
-    raise InvalidWorksheetName(
-        f"Excel worksheet name '{sheetname}' must be <= 31 chars."
-    )
-xlsxwriter.exceptions.InvalidWorksheetName: Excel worksheet name 'SSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSS' must be <= 31 chars.
-  0%|          | 0/2 [00:00<?, ?it/s]100%|██████████| 2/2 [00:00<00:00, 498.64it/s]
-ExcelDeduplicateSkill: failed to write PosixPath('workspace/outputs/w/report_deduplicated_s1-task-1.xlsx')
-Traceback (most recent call last):
-  File "/home/user/WORKBUDDY/skills/excel/dedupe.py", line 116, in execute
-    deduped.to_excel(output_path, index=False, sheet_name=sheet_name)
-    ~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-  File "/usr/local/lib/python3.13/dist-packages/pandas/util/_decorators.py", line 333, in wrapper
-    return func(*args, **kwargs)
-  File "/usr/local/lib/python3.13/dist-packages/pandas/core/generic.py", line 2439, in to_excel
-    formatter.write(
-    ~~~~~~~~~~~~~~~^
-        excel_writer,
-        ^^^^^^^^^^^^^
-    ...<6 lines>...
-        engine_kwargs=engine_kwargs,
-        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-    )
-    ^
-  File "/usr/local/lib/python3.13/dist-packages/pandas/io/formats/excel.py", line 952, in write
-    writer._write_cells(
-    ~~~~~~~~~~~~~~~~~~~^
-        formatted_cells,
-        ^^^^^^^^^^^^^^^^
-    ...<3 lines>...
-        freeze_panes=freeze_panes,
-        ^^^^^^^^^^^^^^^^^^^^^^^^^^
-    )
-    ^
-  File "/usr/local/lib/python3.13/dist-packages/pandas/io/excel/_xlsxwriter.py", line 254, in _write_cells
-    wks = self.book.add_worksheet(sheet_name)
-  File "/usr/local/lib/python3.13/dist-packages/xlsxwriter/workbook.py", line 204, in add_worksheet
-    return self._add_sheet(name, worksheet_class=worksheet_class)
-           ~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-  File "/usr/local/lib/python3.13/dist-packages/xlsxwriter/workbook.py", line 851, in _add_sheet
-    name = self._check_sheetname(name, isinstance(worksheet, Chartsheet))
-  File "/usr/local/lib/python3.13/dist-packages/xlsxwriter/workbook.py", line 903, in _check_sheetname
-    raise InvalidWorksheetName(
-        f"Excel worksheet name '{sheetname}' must be <= 31 chars."
-    )
-xlsxwriter.exceptions.InvalidWorksheetName: Excel worksheet name 'SSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSS' must be <= 31 chars.
-  0%|          | 0/2 [00:00<?, ?it/s]100%|██████████| 2/2 [00:00<00:00, 320.02it/s]
-ExcelDeduplicateSkill: failed to write PosixPath('workspace/outputs/w/report_deduplicated_s2-task-1.xlsx')
-Traceback (most recent call last):
-  File "/home/user/WORKBUDDY/skills/excel/dedupe.py", line 116, in execute
-    deduped.to_excel(output_path, index=False, sheet_name=sheet_name)
-    ~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-  File "/usr/local/lib/python3.13/dist-packages/pandas/util/_decorators.py", line 333, in wrapper
-    return func(*args, **kwargs)
-  File "/usr/local/lib/python3.13/dist-packages/pandas/core/generic.py", line 2439, in to_excel
-    formatter.write(
-    ~~~~~~~~~~~~~~~^
-        excel_writer,
-        ^^^^^^^^^^^^^
-    ...<6 lines>...
-        engine_kwargs=engine_kwargs,
-        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-    )
-    ^
-  File "/usr/local/lib/python3.13/dist-packages/pandas/io/formats/excel.py", line 952, in write
-    writer._write_cells(
-    ~~~~~~~~~~~~~~~~~~~^
-        formatted_cells,
-        ^^^^^^^^^^^^^^^^
-    ...<3 lines>...
-        freeze_panes=freeze_panes,
-        ^^^^^^^^^^^^^^^^^^^^^^^^^^
-    )
-    ^
-  File "/usr/local/lib/python3.13/dist-packages/pandas/io/excel/_xlsxwriter.py", line 254, in _write_cells
-    wks = self.book.add_worksheet(sheet_name)
-  File "/usr/local/lib/python3.13/dist-packages/xlsxwriter/workbook.py", line 204, in add_worksheet
-    return self._add_sheet(name, worksheet_class=worksheet_class)
-           ~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-  File "/usr/local/lib/python3.13/dist-packages/xlsxwriter/workbook.py", line 851, in _add_sheet
-    name = self._check_sheetname(name, isinstance(worksheet, Chartsheet))
-  File "/usr/local/lib/python3.13/dist-packages/xlsxwriter/workbook.py", line 903, in _check_sheetname
-    raise InvalidWorksheetName(
-        f"Excel worksheet name '{sheetname}' must be <= 31 chars."
-    )
-xlsxwriter.exceptions.InvalidWorksheetName: Excel worksheet name 'SSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSS' must be <= 31 chars.
-  0%|          | 0/2 [00:00<?, ?it/s]100%|██████████| 2/2 [00:00<00:00, 397.19it/s]
-ExcelDeduplicateSkill: failed to write PosixPath('workspace/outputs/w/report_deduplicated_s3-task-1.xlsx')
-Traceback (most recent call last):
-  File "/home/user/WORKBUDDY/skills/excel/dedupe.py", line 116, in execute
-    deduped.to_excel(output_path, index=False, sheet_name=sheet_name)
-    ~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-  File "/usr/local/lib/python3.13/dist-packages/pandas/util/_decorators.py", line 333, in wrapper
-    return func(*args, **kwargs)
-  File "/usr/local/lib/python3.13/dist-packages/pandas/core/generic.py", line 2439, in to_excel
-    formatter.write(
-    ~~~~~~~~~~~~~~~^
-        excel_writer,
-        ^^^^^^^^^^^^^
-    ...<6 lines>...
-        engine_kwargs=engine_kwargs,
-        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-    )
-    ^
-  File "/usr/local/lib/python3.13/dist-packages/pandas/io/formats/excel.py", line 952, in write
-    writer._write_cells(
-    ~~~~~~~~~~~~~~~~~~~^
-        formatted_cells,
-        ^^^^^^^^^^^^^^^^
-    ...<3 lines>...
-        freeze_panes=freeze_panes,
-        ^^^^^^^^^^^^^^^^^^^^^^^^^^
-    )
-    ^
-  File "/usr/local/lib/python3.13/dist-packages/pandas/io/excel/_xlsxwriter.py", line 254, in _write_cells
-    wks = self.book.add_worksheet(sheet_name)
-  File "/usr/local/lib/python3.13/dist-packages/xlsxwriter/workbook.py", line 204, in add_worksheet
-    return self._add_sheet(name, worksheet_class=worksheet_class)
-           ~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-  File "/usr/local/lib/python3.13/dist-packages/xlsxwriter/workbook.py", line 851, in _add_sheet
-    name = self._check_sheetname(name, isinstance(worksheet, Chartsheet))
-  File "/usr/local/lib/python3.13/dist-packages/xlsxwriter/workbook.py", line 903, in _check_sheetname
-    raise InvalidWorksheetName(
-        f"Excel worksheet name '{sheetname}' must be <= 31 chars."
-    )
-xlsxwriter.exceptions.InvalidWorksheetName: Excel worksheet name 'SSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSS' must be <= 31 chars.
-  0%|          | 0/2 [00:00<?, ?it/s]100%|██████████| 2/2 [00:00<00:00, 29433.71it/s]
-ExcelDeduplicateSkill: failed to write PosixPath('workspace/outputs/w/report_deduplicated_s4-task-1.xlsx')
-Traceback (most recent call last):
-  File "/home/user/WORKBUDDY/skills/excel/dedupe.py", line 116, in execute
-    deduped.to_excel(output_path, index=False, sheet_name=sheet_name)
-    ~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-  File "/usr/local/lib/python3.13/dist-packages/pandas/util/_decorators.py", line 333, in wrapper
-    return func(*args, **kwargs)
-  File "/usr/local/lib/python3.13/dist-packages/pandas/core/generic.py", line 2439, in to_excel
-    formatter.write(
-    ~~~~~~~~~~~~~~~^
-        excel_writer,
-        ^^^^^^^^^^^^^
-    ...<6 lines>...
-        engine_kwargs=engine_kwargs,
-        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-    )
-    ^
-  File "/usr/local/lib/python3.13/dist-packages/pandas/io/formats/excel.py", line 952, in write
-    writer._write_cells(
-    ~~~~~~~~~~~~~~~~~~~^
-        formatted_cells,
-        ^^^^^^^^^^^^^^^^
-    ...<3 lines>...
-        freeze_panes=freeze_panes,
-        ^^^^^^^^^^^^^^^^^^^^^^^^^^
-    )
-    ^
-  File "/usr/local/lib/python3.13/dist-packages/pandas/io/excel/_xlsxwriter.py", line 254, in _write_cells
-    wks = self.book.add_worksheet(sheet_name)
-  File "/usr/local/lib/python3.13/dist-packages/xlsxwriter/workbook.py", line 204, in add_worksheet
-    return self._add_sheet(name, worksheet_class=worksheet_class)
-           ~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-  File "/usr/local/lib/python3.13/dist-packages/xlsxwriter/workbook.py", line 851, in _add_sheet
-    name = self._check_sheetname(name, isinstance(worksheet, Chartsheet))
-  File "/usr/local/lib/python3.13/dist-packages/xlsxwriter/workbook.py", line 903, in _check_sheetname
-    raise InvalidWorksheetName(
-        f"Excel worksheet name '{sheetname}' must be <= 31 chars."
-    )
-xlsxwriter.exceptions.InvalidWorksheetName: Excel worksheet name 'SSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSS' must be <= 31 chars.
-  0%|          | 0/2 [00:00<?, ?it/s]100%|██████████| 2/2 [00:00<00:00, 65027.97it/s]
-ExcelDeduplicateSkill: failed to write PosixPath('workspace/outputs/w/report_deduplicated_session-1-task-1.xlsx')
-Traceback (most recent call last):
-  File "/home/user/WORKBUDDY/skills/excel/dedupe.py", line 116, in execute
-    deduped.to_excel(output_path, index=False, sheet_name=sheet_name)
-    ~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-  File "/usr/local/lib/python3.13/dist-packages/pandas/util/_decorators.py", line 333, in wrapper
-    return func(*args, **kwargs)
-  File "/usr/local/lib/python3.13/dist-packages/pandas/core/generic.py", line 2439, in to_excel
-    formatter.write(
-    ~~~~~~~~~~~~~~~^
-        excel_writer,
-        ^^^^^^^^^^^^^
-    ...<6 lines>...
-        engine_kwargs=engine_kwargs,
-        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-    )
-    ^
-  File "/usr/local/lib/python3.13/dist-packages/pandas/io/formats/excel.py", line 952, in write
-    writer._write_cells(
-    ~~~~~~~~~~~~~~~~~~~^
-        formatted_cells,
-        ^^^^^^^^^^^^^^^^
-    ...<3 lines>...
-        freeze_panes=freeze_panes,
-        ^^^^^^^^^^^^^^^^^^^^^^^^^^
-    )
-    ^
-  File "/usr/local/lib/python3.13/dist-packages/pandas/io/excel/_xlsxwriter.py", line 254, in _write_cells
-    wks = self.book.add_worksheet(sheet_name)
-  File "/usr/local/lib/python3.13/dist-packages/xlsxwriter/workbook.py", line 204, in add_worksheet
-    return self._add_sheet(name, worksheet_class=worksheet_class)
-           ~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-  File "/usr/local/lib/python3.13/dist-packages/xlsxwriter/workbook.py", line 851, in _add_sheet
-    name = self._check_sheetname(name, isinstance(worksheet, Chartsheet))
-  File "/usr/local/lib/python3.13/dist-packages/xlsxwriter/workbook.py", line 903, in _check_sheetname
-    raise InvalidWorksheetName(
-        f"Excel worksheet name '{sheetname}' must be <= 31 chars."
-    )
-xlsxwriter.exceptions.InvalidWorksheetName: Excel worksheet name 'SSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSS' must be <= 31 chars.
-  0%|          | 0/2 [00:00<?, ?it/s]100%|██████████| 2/2 [00:00<00:00, 119.67it/s]
-  0%|          | 0/2 [00:00<?, ?it/s]100%|██████████| 2/2 [00:00<00:00, 640.69it/s]
-  0%|          | 0/2 [00:00<?, ?it/s]100%|██████████| 2/2 [00:00<00:00, 501.80it/s]
-  0%|          | 0/2 [00:00<?, ?it/s]100%|██████████| 2/2 [00:00<00:00, 59074.70it/s]
-  0%|          | 0/2 [00:00<?, ?it/s]100%|██████████| 2/2 [00:00<00:00, 4382.76it/s]
-  0%|          | 0/2 [00:00<?, ?it/s]100%|██████████| 2/2 [00:00<00:00, 315.88it/s]
-  0%|          | 0/2 [00:00<?, ?it/s]100%|██████████| 2/2 [00:00<00:00, 26379.27it/s]
-  0%|          | 0/2 [00:00<?, ?it/s]100%|██████████| 2/2 [00:00<00:00, 344.71it/s]
-  0%|          | 0/2 [00:00<?, ?it/s]100%|██████████| 2/2 [00:00<00:00, 26800.66it/s]
-  0%|          | 0/2 [00:00<?, ?it/s]100%|██████████| 2/2 [00:00<00:00, 826.22it/s]
-  0%|          | 0/2 [00:00<?, ?it/s]100%|██████████| 2/2 [00:00<00:00, 56679.78it/s]
-  0%|          | 0/2 [00:00<?, ?it/s]100%|██████████| 2/2 [00:00<00:00, 59493.67it/s]
-could not read the sheet names of 'uploads/report.xlsx'
-Traceback (most recent call last):
-  File "/home/user/WORKBUDDY/skills/excel/workbook.py", line 195, in sheet_names
-    return _zip_sheet_names(handle)
-  File "/home/user/WORKBUDDY/skills/excel/workbook.py", line 209, in _zip_sheet_names
-    with zipfile.ZipFile(handle) as archive:
-         ~~~~~~~~~~~~~~~^^^^^^^^
-  File "/usr/lib/python3.13/zipfile/__init__.py", line 1432, in __init__
-    self._RealGetContents()
-    ~~~~~~~~~~~~~~~~~~~~~^^
-  File "/usr/lib/python3.13/zipfile/__init__.py", line 1499, in _RealGetContents
-    raise BadZipFile("File is not a zip file")
-zipfile.BadZipFile: File is not a zip file
-could not read the sheet names of 'uploads/report.xlsx'
-Traceback (most recent call last):
-  File "/home/user/WORKBUDDY/skills/excel/workbook.py", line 195, in sheet_names
-    return _zip_sheet_names(handle)
-  File "/home/user/WORKBUDDY/skills/excel/workbook.py", line 209, in _zip_sheet_names
-    with zipfile.ZipFile(handle) as archive:
-         ~~~~~~~~~~~~~~~^^^^^^^^
-  File "/usr/lib/python3.13/zipfile/__init__.py", line 1432, in __init__
-    self._RealGetContents()
-    ~~~~~~~~~~~~~~~~~~~~~^^
-  File "/usr/lib/python3.13/zipfile/__init__.py", line 1499, in _RealGetContents
-    raise BadZipFile("File is not a zip file")
-zipfile.BadZipFile: File is not a zip file
-could not read the sheet names of 'uploads/report.xlsx'
-Traceback (most recent call last):
-  File "/home/user/WORKBUDDY/skills/excel/workbook.py", line 195, in sheet_names
-    return _zip_sheet_names(handle)
-  File "/home/user/WORKBUDDY/skills/excel/workbook.py", line 209, in _zip_sheet_names
-    with zipfile.ZipFile(handle) as archive:
-         ~~~~~~~~~~~~~~~^^^^^^^^
-  File "/usr/lib/python3.13/zipfile/__init__.py", line 1432, in __init__
-    self._RealGetContents()
-    ~~~~~~~~~~~~~~~~~~~~~^^
-  File "/usr/lib/python3.13/zipfile/__init__.py", line 1499, in _RealGetContents
-    raise BadZipFile("File is not a zip file")
-zipfile.BadZipFile: File is not a zip file
-could not read the sheet names of 'uploads/report.xlsx'
-Traceback (most recent call last):
-  File "/home/user/WORKBUDDY/skills/excel/workbook.py", line 195, in sheet_names
-    return _zip_sheet_names(handle)
-  File "/home/user/WORKBUDDY/skills/excel/workbook.py", line 209, in _zip_sheet_names
-    with zipfile.ZipFile(handle) as archive:
-         ~~~~~~~~~~~~~~~^^^^^^^^
-  File "/usr/lib/python3.13/zipfile/__init__.py", line 1432, in __init__
-    self._RealGetContents()
-    ~~~~~~~~~~~~~~~~~~~~~^^
-  File "/usr/lib/python3.13/zipfile/__init__.py", line 1499, in _RealGetContents
-    raise BadZipFile("File is not a zip file")
-zipfile.BadZipFile: File is not a zip file
-could not read the sheet names of 'uploads/report.xlsx'
-Traceback (most recent call last):
-  File "/home/user/WORKBUDDY/skills/excel/workbook.py", line 195, in sheet_names
-    return _zip_sheet_names(handle)
-  File "/home/user/WORKBUDDY/skills/excel/workbook.py", line 209, in _zip_sheet_names
-    with zipfile.ZipFile(handle) as archive:
-         ~~~~~~~~~~~~~~~^^^^^^^^
-  File "/usr/lib/python3.13/zipfile/__init__.py", line 1432, in __init__
-    self._RealGetContents()
-    ~~~~~~~~~~~~~~~~~~~~~^^
-  File "/usr/lib/python3.13/zipfile/__init__.py", line 1499, in _RealGetContents
-    raise BadZipFile("File is not a zip file")
-zipfile.BadZipFile: File is not a zip file
-could not read the sheet names of 'uploads/report.xlsx'
-Traceback (most recent call last):
-  File "/home/user/WORKBUDDY/skills/excel/workbook.py", line 195, in sheet_names
-    return _zip_sheet_names(handle)
-  File "/home/user/WORKBUDDY/skills/excel/workbook.py", line 209, in _zip_sheet_names
-    with zipfile.ZipFile(handle) as archive:
-         ~~~~~~~~~~~~~~~^^^^^^^^
-  File "/usr/lib/python3.13/zipfile/__init__.py", line 1432, in __init__
-    self._RealGetContents()
-    ~~~~~~~~~~~~~~~~~~~~~^^
-  File "/usr/lib/python3.13/zipfile/__init__.py", line 1499, in _RealGetContents
-    raise BadZipFile("File is not a zip file")
-zipfile.BadZipFile: File is not a zip file
-could not read the sheet names of 'uploads/report.xlsx'
-Traceback (most recent call last):
-  File "/home/user/WORKBUDDY/skills/excel/workbook.py", line 195, in sheet_names
-    return _zip_sheet_names(handle)
-  File "/home/user/WORKBUDDY/skills/excel/workbook.py", line 209, in _zip_sheet_names
-    with zipfile.ZipFile(handle) as archive:
-         ~~~~~~~~~~~~~~~^^^^^^^^
-  File "/usr/lib/python3.13/zipfile/__init__.py", line 1432, in __init__
-    self._RealGetContents()
-    ~~~~~~~~~~~~~~~~~~~~~^^
-  File "/usr/lib/python3.13/zipfile/__init__.py", line 1499, in _RealGetContents
-    raise BadZipFile("File is not a zip file")
-zipfile.BadZipFile: File is not a zip file
-could not read the sheet names of 'uploads/report.xlsx'
-Traceback (most recent call last):
-  File "/home/user/WORKBUDDY/skills/excel/workbook.py", line 195, in sheet_names
-    return _zip_sheet_names(handle)
-  File "/home/user/WORKBUDDY/skills/excel/workbook.py", line 209, in _zip_sheet_names
-    with zipfile.ZipFile(handle) as archive:
-         ~~~~~~~~~~~~~~~^^^^^^^^
-  File "/usr/lib/python3.13/zipfile/__init__.py", line 1432, in __init__
-    self._RealGetContents()
-    ~~~~~~~~~~~~~~~~~~~~~^^
-  File "/usr/lib/python3.13/zipfile/__init__.py", line 1499, in _RealGetContents
-    raise BadZipFile("File is not a zip file")
-zipfile.BadZipFile: File is not a zip file
-could not read the sheet names of 'uploads/report.xlsx'
-Traceback (most recent call last):
-  File "/home/user/WORKBUDDY/skills/excel/workbook.py", line 195, in sheet_names
-    return _zip_sheet_names(handle)
-  File "/home/user/WORKBUDDY/skills/excel/workbook.py", line 209, in _zip_sheet_names
-    with zipfile.ZipFile(handle) as archive:
-         ~~~~~~~~~~~~~~~^^^^^^^^
-  File "/usr/lib/python3.13/zipfile/__init__.py", line 1432, in __init__
-    self._RealGetContents()
-    ~~~~~~~~~~~~~~~~~~~~~^^
-  File "/usr/lib/python3.13/zipfile/__init__.py", line 1499, in _RealGetContents
-    raise BadZipFile("File is not a zip file")
-zipfile.BadZipFile: File is not a zip file
-could not read the sheet names of 'uploads/report.xlsx'
-Traceback (most recent call last):
-  File "/home/user/WORKBUDDY/skills/excel/workbook.py", line 195, in sheet_names
-    return _zip_sheet_names(handle)
-  File "/home/user/WORKBUDDY/skills/excel/workbook.py", line 209, in _zip_sheet_names
-    with zipfile.ZipFile(handle) as archive:
-         ~~~~~~~~~~~~~~~^^^^^^^^
-  File "/usr/lib/python3.13/zipfile/__init__.py", line 1432, in __init__
-    self._RealGetContents()
-    ~~~~~~~~~~~~~~~~~~~~~^^
-  File "/usr/lib/python3.13/zipfile/__init__.py", line 1499, in _RealGetContents
-    raise BadZipFile("File is not a zip file")
-zipfile.BadZipFile: File is not a zip file
-could not read the sheet names of 'uploads/report.xlsx'
-Traceback (most recent call last):
-  File "/home/user/WORKBUDDY/skills/excel/workbook.py", line 195, in sheet_names
-    return _zip_sheet_names(handle)
-  File "/home/user/WORKBUDDY/skills/excel/workbook.py", line 209, in _zip_sheet_names
-    with zipfile.ZipFile(handle) as archive:
-         ~~~~~~~~~~~~~~~^^^^^^^^
-  File "/usr/lib/python3.13/zipfile/__init__.py", line 1432, in __init__
-    self._RealGetContents()
-    ~~~~~~~~~~~~~~~~~~~~~^^
-  File "/usr/lib/python3.13/zipfile/__init__.py", line 1499, in _RealGetContents
-    raise BadZipFile("File is not a zip file")
-zipfile.BadZipFile: File is not a zip file
-could not read the sheet names of 'uploads/report.xlsx'
-Traceback (most recent call last):
-  File "/home/user/WORKBUDDY/skills/excel/workbook.py", line 195, in sheet_names
-    return _zip_sheet_names(handle)
-  File "/home/user/WORKBUDDY/skills/excel/workbook.py", line 209, in _zip_sheet_names
-    with zipfile.ZipFile(handle) as archive:
-         ~~~~~~~~~~~~~~~^^^^^^^^
-  File "/usr/lib/python3.13/zipfile/__init__.py", line 1432, in __init__
-    self._RealGetContents()
-    ~~~~~~~~~~~~~~~~~~~~~^^
-  File "/usr/lib/python3.13/zipfile/__init__.py", line 1499, in _RealGetContents
-    raise BadZipFile("File is not a zip file")
-zipfile.BadZipFile: File is not a zip file
-SpreadsheetAnalysisSkill: missing_and_distribution analyzer failed
-Traceback (most recent call last):
-  File "/home/user/WORKBUDDY/skills/excel/analyze.py", line 392, in execute
-    findings = analyzer(df)
-  File "/home/user/WORKBUDDY/skills/excel/analyze.py", line 81, in __call__
-    report = ProfileReport(df, minimal=True, progress_bar=False)
-  File "/usr/local/lib/python3.13/dist-packages/ydata_profiling/profile_report.py", line 109, in __init__
-    self.__validate_inputs(df, minimal, tsmode, config_file, lazy)
-    ~~~~~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-  File "/usr/local/lib/python3.13/dist-packages/ydata_profiling/profile_report.py", line 183, in __validate_inputs
-    raise ValueError(
-        "DataFrame is empty. Please" "provide a non-empty DataFrame."
-    )
-ValueError: DataFrame is empty. Pleaseprovide a non-empty DataFrame.
-SpreadsheetAnalysisSkill: missing_and_distribution analyzer failed
-Traceback (most recent call last):
-  File "/home/user/WORKBUDDY/skills/excel/analyze.py", line 392, in execute
-    findings = analyzer(df)
-  File "/home/user/WORKBUDDY/skills/excel/analyze.py", line 81, in __call__
-    report = ProfileReport(df, minimal=True, progress_bar=False)
-  File "/usr/local/lib/python3.13/dist-packages/ydata_profiling/profile_report.py", line 109, in __init__
-    self.__validate_inputs(df, minimal, tsmode, config_file, lazy)
-    ~~~~~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-  File "/usr/local/lib/python3.13/dist-packages/ydata_profiling/profile_report.py", line 183, in __validate_inputs
-    raise ValueError(
-        "DataFrame is empty. Please" "provide a non-empty DataFrame."
-    )
-ValueError: DataFrame is empty. Pleaseprovide a non-empty DataFrame.
-SpreadsheetAnalysisSkill: missing_and_distribution analyzer failed
-Traceback (most recent call last):
-  File "/home/user/WORKBUDDY/skills/excel/analyze.py", line 392, in execute
-    findings = analyzer(df)
-  File "/home/user/WORKBUDDY/skills/excel/analyze.py", line 81, in __call__
-    report = ProfileReport(df, minimal=True, progress_bar=False)
-  File "/usr/local/lib/python3.13/dist-packages/ydata_profiling/profile_report.py", line 109, in __init__
-    self.__validate_inputs(df, minimal, tsmode, config_file, lazy)
-    ~~~~~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-  File "/usr/local/lib/python3.13/dist-packages/ydata_profiling/profile_report.py", line 183, in __validate_inputs
-    raise ValueError(
-        "DataFrame is empty. Please" "provide a non-empty DataFrame."
-    )
-ValueError: DataFrame is empty. Pleaseprovide a non-empty DataFrame.
-SpreadsheetAnalysisSkill: missing_and_distribution analyzer failed
-Traceback (most recent call last):
-  File "/home/user/WORKBUDDY/skills/excel/analyze.py", line 392, in execute
-    findings = analyzer(df)
-  File "/home/user/WORKBUDDY/skills/excel/analyze.py", line 81, in __call__
-    report = ProfileReport(df, minimal=True, progress_bar=False)
-  File "/usr/local/lib/python3.13/dist-packages/ydata_profiling/profile_report.py", line 109, in __init__
-    self.__validate_inputs(df, minimal, tsmode, config_file, lazy)
-    ~~~~~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-  File "/usr/local/lib/python3.13/dist-packages/ydata_profiling/profile_report.py", line 183, in __validate_inputs
-    raise ValueError(
-        "DataFrame is empty. Please" "provide a non-empty DataFrame."
-    )
-ValueError: DataFrame is empty. Pleaseprovide a non-empty DataFrame.
-SpreadsheetAnalysisSkill: missing_and_distribution analyzer failed
-Traceback (most recent call last):
-  File "/home/user/WORKBUDDY/skills/excel/analyze.py", line 392, in execute
-    findings = analyzer(df)
-  File "/home/user/WORKBUDDY/skills/excel/analyze.py", line 81, in __call__
-    report = ProfileReport(df, minimal=True, progress_bar=False)
-  File "/usr/local/lib/python3.13/dist-packages/ydata_profiling/profile_report.py", line 109, in __init__
-    self.__validate_inputs(df, minimal, tsmode, config_file, lazy)
-    ~~~~~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-  File "/usr/local/lib/python3.13/dist-packages/ydata_profiling/profile_report.py", line 183, in __validate_inputs
-    raise ValueError(
-        "DataFrame is empty. Please" "provide a non-empty DataFrame."
-    )
-ValueError: DataFrame is empty. Pleaseprovide a non-empty DataFrame.
-SpreadsheetAnalysisSkill: missing_and_distribution analyzer failed
-Traceback (most recent call last):
-  File "/home/user/WORKBUDDY/skills/excel/analyze.py", line 392, in execute
-    findings = analyzer(df)
-  File "/home/user/WORKBUDDY/skills/excel/analyze.py", line 81, in __call__
-    report = ProfileReport(df, minimal=True, progress_bar=False)
-  File "/usr/local/lib/python3.13/dist-packages/ydata_profiling/profile_report.py", line 109, in __init__
-    self.__validate_inputs(df, minimal, tsmode, config_file, lazy)
-    ~~~~~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-  File "/usr/local/lib/python3.13/dist-packages/ydata_profiling/profile_report.py", line 183, in __validate_inputs
-    raise ValueError(
-        "DataFrame is empty. Please" "provide a non-empty DataFrame."
-    )
-ValueError: DataFrame is empty. Pleaseprovide a non-empty DataFrame.
-SpreadsheetAnalysisSkill: missing_and_distribution analyzer failed
-Traceback (most recent call last):
-  File "/home/user/WORKBUDDY/skills/excel/analyze.py", line 392, in execute
-    findings = analyzer(df)
-  File "/home/user/WORKBUDDY/skills/excel/analyze.py", line 81, in __call__
-    report = ProfileReport(df, minimal=True, progress_bar=False)
-  File "/usr/local/lib/python3.13/dist-packages/ydata_profiling/profile_report.py", line 109, in __init__
-    self.__validate_inputs(df, minimal, tsmode, config_file, lazy)
-    ~~~~~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-  File "/usr/local/lib/python3.13/dist-packages/ydata_profiling/profile_report.py", line 183, in __validate_inputs
-    raise ValueError(
-        "DataFrame is empty. Please" "provide a non-empty DataFrame."
-    )
-ValueError: DataFrame is empty. Pleaseprovide a non-empty DataFrame.
-SpreadsheetAnalysisSkill: missing_and_distribution analyzer failed
-Traceback (most recent call last):
-  File "/home/user/WORKBUDDY/skills/excel/analyze.py", line 392, in execute
-    findings = analyzer(df)
-  File "/home/user/WORKBUDDY/skills/excel/analyze.py", line 81, in __call__
-    report = ProfileReport(df, minimal=True, progress_bar=False)
-  File "/usr/local/lib/python3.13/dist-packages/ydata_profiling/profile_report.py", line 109, in __init__
-    self.__validate_inputs(df, minimal, tsmode, config_file, lazy)
-    ~~~~~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-  File "/usr/local/lib/python3.13/dist-packages/ydata_profiling/profile_report.py", line 183, in __validate_inputs
-    raise ValueError(
-        "DataFrame is empty. Please" "provide a non-empty DataFrame."
-    )
-ValueError: DataFrame is empty. Pleaseprovide a non-empty DataFrame.
-SpreadsheetAnalysisSkill: missing_and_distribution analyzer failed
-Traceback (most recent call last):
-  File "/home/user/WORKBUDDY/skills/excel/analyze.py", line 392, in execute
-    findings = analyzer(df)
-  File "/home/user/WORKBUDDY/skills/excel/analyze.py", line 81, in __call__
-    report = ProfileReport(df, minimal=True, progress_bar=False)
-  File "/usr/local/lib/python3.13/dist-packages/ydata_profiling/profile_report.py", line 109, in __init__
-    self.__validate_inputs(df, minimal, tsmode, config_file, lazy)
-    ~~~~~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-  File "/usr/local/lib/python3.13/dist-packages/ydata_profiling/profile_report.py", line 183, in __validate_inputs
-    raise ValueError(
-        "DataFrame is empty. Please" "provide a non-empty DataFrame."
-    )
-ValueError: DataFrame is empty. Pleaseprovide a non-empty DataFrame.
-SpreadsheetAnalysisSkill: missing_and_distribution analyzer failed
-Traceback (most recent call last):
-  File "/home/user/WORKBUDDY/skills/excel/analyze.py", line 392, in execute
-    findings = analyzer(df)
-  File "/home/user/WORKBUDDY/skills/excel/analyze.py", line 81, in __call__
-    report = ProfileReport(df, minimal=True, progress_bar=False)
-  File "/usr/local/lib/python3.13/dist-packages/ydata_profiling/profile_report.py", line 109, in __init__
-    self.__validate_inputs(df, minimal, tsmode, config_file, lazy)
-    ~~~~~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-  File "/usr/local/lib/python3.13/dist-packages/ydata_profiling/profile_report.py", line 183, in __validate_inputs
-    raise ValueError(
-        "DataFrame is empty. Please" "provide a non-empty DataFrame."
-    )
-ValueError: DataFrame is empty. Pleaseprovide a non-empty DataFrame.
-SpreadsheetAnalysisSkill: missing_and_distribution analyzer failed
-Traceback (most recent call last):
-  File "/home/user/WORKBUDDY/skills/excel/analyze.py", line 392, in execute
-    findings = analyzer(df)
-  File "/home/user/WORKBUDDY/skills/excel/analyze.py", line 81, in __call__
-    report = ProfileReport(df, minimal=True, progress_bar=False)
-  File "/usr/local/lib/python3.13/dist-packages/ydata_profiling/profile_report.py", line 109, in __init__
-    self.__validate_inputs(df, minimal, tsmode, config_file, lazy)
-    ~~~~~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-  File "/usr/local/lib/python3.13/dist-packages/ydata_profiling/profile_report.py", line 183, in __validate_inputs
-    raise ValueError(
-        "DataFrame is empty. Please" "provide a non-empty DataFrame."
-    )
-ValueError: DataFrame is empty. Pleaseprovide a non-empty DataFrame.
-SpreadsheetAnalysisSkill: missing_and_distribution analyzer failed
-Traceback (most recent call last):
-  File "/home/user/WORKBUDDY/skills/excel/analyze.py", line 392, in execute
-    findings = analyzer(df)
-  File "/home/user/WORKBUDDY/skills/excel/analyze.py", line 81, in __call__
-    report = ProfileReport(df, minimal=True, progress_bar=False)
-  File "/usr/local/lib/python3.13/dist-packages/ydata_profiling/profile_report.py", line 109, in __init__
-    self.__validate_inputs(df, minimal, tsmode, config_file, lazy)
-    ~~~~~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-  File "/usr/local/lib/python3.13/dist-packages/ydata_profiling/profile_report.py", line 183, in __validate_inputs
-    raise ValueError(
-        "DataFrame is empty. Please" "provide a non-empty DataFrame."
-    )
-ValueError: DataFrame is empty. Pleaseprovide a non-empty DataFrame.
-  0%|          | 0/2 [00:00<?, ?it/s]100%|██████████| 2/2 [00:00<00:00, 513.63it/s]
-/usr/local/lib/python3.13/dist-packages/numpy/_core/_methods.py:222: RuntimeWarning: Degrees of freedom <= 0 for slice
-  ret = _var(a, axis=axis, dtype=dtype, out=out, ddof=ddof,
-/usr/local/lib/python3.13/dist-packages/numpy/_core/_methods.py:214: RuntimeWarning: invalid value encountered in scalar divide
-  ret = ret.dtype.type(ret / rcount)
-/usr/local/lib/python3.13/dist-packages/numpy/_core/fromnumeric.py:4268: RuntimeWarning: Degrees of freedom <= 0 for slice
-  return _methods._var(a, axis=axis, dtype=dtype, out=out, ddof=ddof,
-  0%|          | 0/2 [00:00<?, ?it/s]100%|██████████| 2/2 [00:00<00:00, 508.71it/s]
-  0%|          | 0/2 [00:00<?, ?it/s]100%|██████████| 2/2 [00:00<00:00, 62601.55it/s]
-  0%|          | 0/2 [00:00<?, ?it/s]/usr/local/lib/python3.13/dist-packages/numpy/_core/_methods.py:222: RuntimeWarning: Degrees of freedom <= 0 for slice
-  ret = _var(a, axis=axis, dtype=dtype, out=out, ddof=ddof,
-/usr/local/lib/python3.13/dist-packages/numpy/_core/_methods.py:214: RuntimeWarning: invalid value encountered in scalar divide
-  ret = ret.dtype.type(ret / rcount)
-/usr/local/lib/python3.13/dist-packages/numpy/_core/fromnumeric.py:4268: RuntimeWarning: Degrees of freedom <= 0 for slice
-  return _methods._var(a, axis=axis, dtype=dtype, out=out, ddof=ddof,
-100%|██████████| 2/2 [00:00<00:00, 341.95it/s]
-  0%|          | 0/2 [00:00<?, ?it/s]100%|██████████| 2/2 [00:00<00:00, 2375.70it/s]
-/usr/local/lib/python3.13/dist-packages/numpy/_core/_methods.py:222: RuntimeWarning: Degrees of freedom <= 0 for slice
-  ret = _var(a, axis=axis, dtype=dtype, out=out, ddof=ddof,
-/usr/local/lib/python3.13/dist-packages/numpy/_core/_methods.py:214: RuntimeWarning: invalid value encountered in scalar divide
-  ret = ret.dtype.type(ret / rcount)
-/usr/local/lib/python3.13/dist-packages/numpy/_core/fromnumeric.py:4268: RuntimeWarning: Degrees of freedom <= 0 for slice
-  return _methods._var(a, axis=axis, dtype=dtype, out=out, ddof=ddof,
-  0%|          | 0/2 [00:00<?, ?it/s]100%|██████████| 2/2 [00:00<00:00, 66576.25it/s]
-  0%|          | 0/2 [00:00<?, ?it/s]100%|██████████| 2/2 [00:00<00:00, 547.20it/s]
-/usr/local/lib/python3.13/dist-packages/numpy/_core/_methods.py:222: RuntimeWarning: Degrees of freedom <= 0 for slice
-  ret = _var(a, axis=axis, dtype=dtype, out=out, ddof=ddof,
-/usr/local/lib/python3.13/dist-packages/numpy/_core/_methods.py:214: RuntimeWarning: invalid value encountered in scalar divide
-  ret = ret.dtype.type(ret / rcount)
-/usr/local/lib/python3.13/dist-packages/numpy/_core/fromnumeric.py:4268: RuntimeWarning: Degrees of freedom <= 0 for slice
-  return _methods._var(a, axis=axis, dtype=dtype, out=out, ddof=ddof,
-  0%|          | 0/2 [00:00<?, ?it/s]100%|██████████| 2/2 [00:00<00:00, 67108.86it/s]
-  0%|          | 0/2 [00:00<?, ?it/s]100%|██████████| 2/2 [00:00<00:00, 58254.22it/s]
-/usr/local/lib/python3.13/dist-packages/numpy/_core/_methods.py:222: RuntimeWarning: Degrees of freedom <= 0 for slice
-  ret = _var(a, axis=axis, dtype=dtype, out=out, ddof=ddof,
-/usr/local/lib/python3.13/dist-packages/numpy/_core/_methods.py:214: RuntimeWarning: invalid value encountered in scalar divide
-  ret = ret.dtype.type(ret / rcount)
-/usr/local/lib/python3.13/dist-packages/numpy/_core/fromnumeric.py:4268: RuntimeWarning: Degrees of freedom <= 0 for slice
-  return _methods._var(a, axis=axis, dtype=dtype, out=out, ddof=ddof,
-  0%|          | 0/2 [00:00<?, ?it/s]100%|██████████| 2/2 [00:00<00:00, 2345.81it/s]
-  0%|          | 0/2 [00:00<?, ?it/s]100%|██████████| 2/2 [00:00<00:00, 293.95it/s]
-/usr/local/lib/python3.13/dist-packages/numpy/_core/_methods.py:222: RuntimeWarning: Degrees of freedom <= 0 for slice
-  ret = _var(a, axis=axis, dtype=dtype, out=out, ddof=ddof,
-/usr/local/lib/python3.13/dist-packages/numpy/_core/_methods.py:214: RuntimeWarning: invalid value encountered in scalar divide
-  ret = ret.dtype.type(ret / rcount)
-/usr/local/lib/python3.13/dist-packages/numpy/_core/fromnumeric.py:4268: RuntimeWarning: Degrees of freedom <= 0 for slice
-  return _methods._var(a, axis=axis, dtype=dtype, out=out, ddof=ddof,
-  0%|          | 0/2 [00:00<?, ?it/s]100%|██████████| 2/2 [00:00<00:00, 29537.35it/s]
-  0%|          | 0/2 [00:00<?, ?it/s]100%|██████████| 2/2 [00:00<00:00, 279.75it/s]
-  0%|          | 0/2 [00:00<?, ?it/s]100%|██████████| 2/2 [00:00<00:00, 9927.35it/s]
-  0%|          | 0/2 [00:00<?, ?it/s]100%|██████████| 2/2 [00:00<00:00, 394.50it/s]
-  0%|          | 0/2 [00:00<?, ?it/s]100%|██████████| 2/2 [00:00<00:00, 65027.97it/s]
-  0%|          | 0/2 [00:00<?, ?it/s]100%|██████████| 2/2 [00:00<00:00, 632.15it/s]
-  0%|          | 0/2 [00:00<?, ?it/s]100%|██████████| 2/2 [00:00<00:00, 59074.70it/s]
-  0%|          | 0/2 [00:00<?, ?it/s]100%|██████████| 2/2 [00:00<00:00, 60349.70it/s]
-  0%|          | 0/2 [00:00<?, ?it/s]100%|██████████| 2/2 [00:00<00:00, 591.83it/s]
-  0%|          | 0/2 [00:00<?, ?it/s]100%|██████████| 2/2 [00:00<00:00, 365.72it/s]
-  0%|          | 0/2 [00:00<?, ?it/s]100%|██████████| 2/2 [00:00<00:00, 61680.94it/s]
-  0%|          | 0/2 [00:00<?, ?it/s]100%|██████████| 2/2 [00:00<00:00, 609.99it/s]
-  0%|          | 0/2 [00:00<?, ?it/s]100%|██████████| 2/2 [00:00<00:00, 213.60it/s]
-Stage 'boom' failed for session 'session-1'
-Traceback (most recent call last):
-  File "/home/user/WORKBUDDY/core/engine.py", line 150, in run
-    state = stage(state)
-  File "/home/user/WORKBUDDY/scripts/review_harness/round5.py", line 249, in boom
-    raise ValueError(_t)
-ValueError: SECRET_EXC_TEXT cell=Alice
-Stage 'boom' failed for session 's1'
-Traceback (most recent call last):
-  File "/home/user/WORKBUDDY/core/engine.py", line 150, in run
-    state = stage(state)
-  File "/home/user/WORKBUDDY/scripts/review_harness/round5.py", line 249, in boom
-    raise ValueError(_t)
-ValueError: SECRET_EXC_TEXT cell=Alice
-Stage 'boom' failed for session 's2'
-Traceback (most recent call last):
-  File "/home/user/WORKBUDDY/core/engine.py", line 150, in run
-    state = stage(state)
-  File "/home/user/WORKBUDDY/scripts/review_harness/round5.py", line 249, in boom
-    raise ValueError(_t)
-ValueError: SECRET_EXC_TEXT cell=Alice
-Stage 'boom' failed for session 's3'
-Traceback (most recent call last):
-  File "/home/user/WORKBUDDY/core/engine.py", line 150, in run
-    state = stage(state)
-  File "/home/user/WORKBUDDY/scripts/review_harness/round5.py", line 249, in boom
-    raise ValueError(_t)
-ValueError: SECRET_EXC_TEXT cell=Alice
-Stage 'boom' failed for session 's4'
-Traceback (most recent call last):
-  File "/home/user/WORKBUDDY/core/engine.py", line 150, in run
-    state = stage(state)
-  File "/home/user/WORKBUDDY/scripts/review_harness/round5.py", line 249, in boom
-    raise ValueError(_t)
-ValueError: SECRET_EXC_TEXT cell=Alice
-Stage 'boom' failed for session 'session-1'
-Traceback (most recent call last):
-  File "/home/user/WORKBUDDY/core/engine.py", line 150, in run
-    state = stage(state)
-  File "/home/user/WORKBUDDY/scripts/review_harness/round5.py", line 249, in boom
-    raise ValueError(_t)
-ValueError: SECRET_EXC_TEXT cell=Alice
-Stage 'boom' failed for session 'session-1'
-Traceback (most recent call last):
-  File "/home/user/WORKBUDDY/core/engine.py", line 150, in run
-    state = stage(state)
-  File "/home/user/WORKBUDDY/scripts/review_harness/round5.py", line 249, in boom
-    raise ValueError(_t)
-ValueError: SECRET_EXC_TEXT cell=Alice
-Stage 'boom' failed for session 's1'
-Traceback (most recent call last):
-  File "/home/user/WORKBUDDY/core/engine.py", line 150, in run
-    state = stage(state)
-  File "/home/user/WORKBUDDY/scripts/review_harness/round5.py", line 249, in boom
-    raise ValueError(_t)
-ValueError: SECRET_EXC_TEXT cell=Alice
-Stage 'boom' failed for session 's2'
-Traceback (most recent call last):
-  File "/home/user/WORKBUDDY/core/engine.py", line 150, in run
-    state = stage(state)
-  File "/home/user/WORKBUDDY/scripts/review_harness/round5.py", line 249, in boom
-    raise ValueError(_t)
-ValueError: SECRET_EXC_TEXT cell=Alice
-Stage 'boom' failed for session 's3'
-Traceback (most recent call last):
-  File "/home/user/WORKBUDDY/core/engine.py", line 150, in run
-    state = stage(state)
-  File "/home/user/WORKBUDDY/scripts/review_harness/round5.py", line 249, in boom
-    raise ValueError(_t)
-ValueError: SECRET_EXC_TEXT cell=Alice
-Stage 'boom' failed for session 's4'
-Traceback (most recent call last):
-  File "/home/user/WORKBUDDY/core/engine.py", line 150, in run
-    state = stage(state)
-  File "/home/user/WORKBUDDY/scripts/review_harness/round5.py", line 249, in boom
-    raise ValueError(_t)
-ValueError: SECRET_EXC_TEXT cell=Alice
-Stage 'boom' failed for session 'session-1'
-Traceback (most recent call last):
-  File "/home/user/WORKBUDDY/core/engine.py", line 150, in run
-    state = stage(state)
-  File "/home/user/WORKBUDDY/scripts/review_harness/round5.py", line 249, in boom
-    raise ValueError(_t)
-ValueError: SECRET_EXC_TEXT cell=Alice
-Stage 'boom' failed for session 'session-1'
-Traceback (most recent call last):
-  File "/home/user/WORKBUDDY/core/engine.py", line 150, in run
-    state = stage(state)
-  File "/home/user/WORKBUDDY/scripts/review_harness/round5.py", line 249, in boom
-    raise ValueError(_t)
-ValueError: SECRET_EXC_TEXT cell=Alice
-Stage 'boom' failed for session 's1'
-Traceback (most recent call last):
-  File "/home/user/WORKBUDDY/core/engine.py", line 150, in run
-    state = stage(state)
-  File "/home/user/WORKBUDDY/scripts/review_harness/round5.py", line 249, in boom
-    raise ValueError(_t)
-ValueError: SECRET_EXC_TEXT cell=Alice
-Stage 'boom' failed for session 's2'
-Traceback (most recent call last):
-  File "/home/user/WORKBUDDY/core/engine.py", line 150, in run
-    state = stage(state)
-  File "/home/user/WORKBUDDY/scripts/review_harness/round5.py", line 249, in boom
-    raise ValueError(_t)
-ValueError: SECRET_EXC_TEXT cell=Alice
-Stage 'boom' failed for session 's3'
-Traceback (most recent call last):
-  File "/home/user/WORKBUDDY/core/engine.py", line 150, in run
-    state = stage(state)
-  File "/home/user/WORKBUDDY/scripts/review_harness/round5.py", line 249, in boom
-    raise ValueError(_t)
-ValueError: SECRET_EXC_TEXT cell=Alice
-Stage 'boom' failed for session 's4'
-Traceback (most recent call last):
-  File "/home/user/WORKBUDDY/core/engine.py", line 150, in run
-    state = stage(state)
-  File "/home/user/WORKBUDDY/scripts/review_harness/round5.py", line 249, in boom
-    raise ValueError(_t)
-ValueError: SECRET_EXC_TEXT cell=Alice
-Stage 'boom' failed for session 'session-1'
-Traceback (most recent call last):
-  File "/home/user/WORKBUDDY/core/engine.py", line 150, in run
-    state = stage(state)
-  File "/home/user/WORKBUDDY/scripts/review_harness/round5.py", line 249, in boom
-    raise ValueError(_t)
-ValueError: SECRET_EXC_TEXT cell=Alice
-Stage 'boom' failed for session 'session-1'
-Traceback (most recent call last):
-  File "/home/user/WORKBUDDY/core/engine.py", line 150, in run
-    state = stage(state)
-  File "/home/user/WORKBUDDY/scripts/review_harness/round5.py", line 249, in boom
-    raise ValueError(_t)
-ValueError: SECRET_EXC_TEXT cell=Alice
-Stage 'boom' failed for session 's1'
-Traceback (most recent call last):
-  File "/home/user/WORKBUDDY/core/engine.py", line 150, in run
-    state = stage(state)
-  File "/home/user/WORKBUDDY/scripts/review_harness/round5.py", line 249, in boom
-    raise ValueError(_t)
-ValueError: SECRET_EXC_TEXT cell=Alice
-Stage 'boom' failed for session 's2'
-Traceback (most recent call last):
-  File "/home/user/WORKBUDDY/core/engine.py", line 150, in run
-    state = stage(state)
-  File "/home/user/WORKBUDDY/scripts/review_harness/round5.py", line 249, in boom
-    raise ValueError(_t)
-ValueError: SECRET_EXC_TEXT cell=Alice
-Stage 'boom' failed for session 's3'
-Traceback (most recent call last):
-  File "/home/user/WORKBUDDY/core/engine.py", line 150, in run
-    state = stage(state)
-  File "/home/user/WORKBUDDY/scripts/review_harness/round5.py", line 249, in boom
-    raise ValueError(_t)
-ValueError: SECRET_EXC_TEXT cell=Alice
-Stage 'boom' failed for session 's4'
-Traceback (most recent call last):
-  File "/home/user/WORKBUDDY/core/engine.py", line 150, in run
-    state = stage(state)
-  File "/home/user/WORKBUDDY/scripts/review_harness/round5.py", line 249, in boom
-    raise ValueError(_t)
-ValueError: SECRET_EXC_TEXT cell=Alice
-Stage 'boom' failed for session 'session-1'
-Traceback (most recent call last):
-  File "/home/user/WORKBUDDY/core/engine.py", line 150, in run
-    state = stage(state)
-  File "/home/user/WORKBUDDY/scripts/review_harness/round5.py", line 249, in boom
-    raise ValueError(_t)
-ValueError: SECRET_EXC_TEXT cell=Alice
-Stage 'boom' failed for session 'session-1'
-Traceback (most recent call last):
-  File "/home/user/WORKBUDDY/core/engine.py", line 150, in run
-    state = stage(state)
-  File "/home/user/WORKBUDDY/scripts/review_harness/round5.py", line 249, in boom
-    raise ValueError(_t)
-ValueError: SECRET_EXC_TEXT cell=Alice
-Stage 'boom' failed for session 's1'
-Traceback (most recent call last):
-  File "/home/user/WORKBUDDY/core/engine.py", line 150, in run
-    state = stage(state)
-  File "/home/user/WORKBUDDY/scripts/review_harness/round5.py", line 249, in boom
-    raise ValueError(_t)
-ValueError: SECRET_EXC_TEXT cell=Alice
-Stage 'boom' failed for session 's2'
-Traceback (most recent call last):
-  File "/home/user/WORKBUDDY/core/engine.py", line 150, in run
-    state = stage(state)
-  File "/home/user/WORKBUDDY/scripts/review_harness/round5.py", line 249, in boom
-    raise ValueError(_t)
-ValueError: SECRET_EXC_TEXT cell=Alice
-Stage 'boom' failed for session 's3'
-Traceback (most recent call last):
-  File "/home/user/WORKBUDDY/core/engine.py", line 150, in run
-    state = stage(state)
-  File "/home/user/WORKBUDDY/scripts/review_harness/round5.py", line 249, in boom
-    raise ValueError(_t)
-ValueError: SECRET_EXC_TEXT cell=Alice
-Stage 'boom' failed for session 's4'
-Traceback (most recent call last):
-  File "/home/user/WORKBUDDY/core/engine.py", line 150, in run
-    state = stage(state)
-  File "/home/user/WORKBUDDY/scripts/review_harness/round5.py", line 249, in boom
-    raise ValueError(_t)
-ValueError: SECRET_EXC_TEXT cell=Alice
-Stage 'boom' failed for session 'session-1'
-Traceback (most recent call last):
-  File "/home/user/WORKBUDDY/core/engine.py", line 150, in run
-    state = stage(state)
-  File "/home/user/WORKBUDDY/scripts/review_harness/round5.py", line 249, in boom
-    raise ValueError(_t)
-ValueError: SECRET_EXC_TEXT cell=Alice
-Stage 'boom' failed for session 'session-1'
-Traceback (most recent call last):
-  File "/home/user/WORKBUDDY/core/engine.py", line 150, in run
-    state = stage(state)
-  File "/home/user/WORKBUDDY/scripts/review_harness/round5.py", line 249, in boom
-    raise ValueError(_t)
-ValueError: SECRET_EXC_TEXT cell=Alice
-Stage 'boom' failed for session 's1'
-Traceback (most recent call last):
-  File "/home/user/WORKBUDDY/core/engine.py", line 150, in run
-    state = stage(state)
-  File "/home/user/WORKBUDDY/scripts/review_harness/round5.py", line 249, in boom
-    raise ValueError(_t)
-ValueError: SECRET_EXC_TEXT cell=Alice
-Stage 'boom' failed for session 's2'
-Traceback (most recent call last):
-  File "/home/user/WORKBUDDY/core/engine.py", line 150, in run
-    state = stage(state)
-  File "/home/user/WORKBUDDY/scripts/review_harness/round5.py", line 249, in boom
-    raise ValueError(_t)
-ValueError: SECRET_EXC_TEXT cell=Alice
-Stage 'boom' failed for session 's3'
-Traceback (most recent call last):
-  File "/home/user/WORKBUDDY/core/engine.py", line 150, in run
-    state = stage(state)
-  File "/home/user/WORKBUDDY/scripts/review_harness/round5.py", line 249, in boom
-    raise ValueError(_t)
-ValueError: SECRET_EXC_TEXT cell=Alice
-Stage 'boom' failed for session 's4'
-Traceback (most recent call last):
-  File "/home/user/WORKBUDDY/core/engine.py", line 150, in run
-    state = stage(state)
-  File "/home/user/WORKBUDDY/scripts/review_harness/round5.py", line 249, in boom
-    raise ValueError(_t)
-ValueError: SECRET_EXC_TEXT cell=Alice
-Stage 'boom' failed for session 'session-1'
-Traceback (most recent call last):
-  File "/home/user/WORKBUDDY/core/engine.py", line 150, in run
-    state = stage(state)
-  File "/home/user/WORKBUDDY/scripts/review_harness/round5.py", line 249, in boom
-    raise ValueError(_t)
-ValueError: SECRET_EXC_TEXT cell=Alice
-  0%|          | 0/2 [00:00<?, ?it/s]100%|██████████| 2/2 [00:00<00:00, 53430.62it/s]
-  0%|          | 0/2 [00:00<?, ?it/s]100%|██████████| 2/2 [00:00<00:00, 61680.94it/s]
-Stage 'boom' failed for session 'session-1'
-Traceback (most recent call last):
-  File "/home/user/WORKBUDDY/core/engine.py", line 150, in run
-    state = stage(state)
-  File "/home/user/WORKBUDDY/scripts/review_harness/round5.py", line 249, in boom
-    raise ValueError(_t)
-ValueError: SECRET_EXC_TEXT cell=Alice
-  0%|          | 0/2 [00:00<?, ?it/s]100%|██████████| 2/2 [00:00<00:00, 283.03it/s]
-  0%|          | 0/2 [00:00<?, ?it/s]100%|██████████| 2/2 [00:00<00:00, 738.37it/s]
-Stage 'boom' failed for session 's1'
-Traceback (most recent call last):
-  File "/home/user/WORKBUDDY/core/engine.py", line 150, in run
-    state = stage(state)
-  File "/home/user/WORKBUDDY/scripts/review_harness/round5.py", line 249, in boom
-    raise ValueError(_t)
-ValueError: SECRET_EXC_TEXT cell=Alice
-  0%|          | 0/2 [00:00<?, ?it/s]100%|██████████| 2/2 [00:00<00:00, 593.13it/s]
-  0%|          | 0/2 [00:00<?, ?it/s]100%|██████████| 2/2 [00:00<00:00, 758.46it/s]
-Stage 'boom' failed for session 's2'
-Traceback (most recent call last):
-  File "/home/user/WORKBUDDY/core/engine.py", line 150, in run
-    state = stage(state)
-  File "/home/user/WORKBUDDY/scripts/review_harness/round5.py", line 249, in boom
-    raise ValueError(_t)
-ValueError: SECRET_EXC_TEXT cell=Alice
-  0%|          | 0/2 [00:00<?, ?it/s]100%|██████████| 2/2 [00:00<00:00, 407.35it/s]
-  0%|          | 0/2 [00:00<?, ?it/s]100%|██████████| 2/2 [00:00<00:00, 363.95it/s]
-Stage 'boom' failed for session 's3'
-Traceback (most recent call last):
-  File "/home/user/WORKBUDDY/core/engine.py", line 150, in run
-    state = stage(state)
-  File "/home/user/WORKBUDDY/scripts/review_harness/round5.py", line 249, in boom
-    raise ValueError(_t)
-ValueError: SECRET_EXC_TEXT cell=Alice
-  0%|          | 0/2 [00:00<?, ?it/s]100%|██████████| 2/2 [00:00<00:00, 484.97it/s]
-  0%|          | 0/2 [00:00<?, ?it/s]100%|██████████| 2/2 [00:00<00:00, 44858.87it/s]
-Stage 'boom' failed for session 's4'
-Traceback (most recent call last):
-  File "/home/user/WORKBUDDY/core/engine.py", line 150, in run
-    state = stage(state)
-  File "/home/user/WORKBUDDY/scripts/review_harness/round5.py", line 249, in boom
-    raise ValueError(_t)
-ValueError: SECRET_EXC_TEXT cell=Alice
-  0%|          | 0/2 [00:00<?, ?it/s]100%|██████████| 2/2 [00:00<00:00, 62601.55it/s]
-  0%|          | 0/2 [00:00<?, ?it/s]100%|██████████| 2/2 [00:00<00:00, 851.81it/s]
-Stage 'boom' failed for session 'session-1'
-Traceback (most recent call last):
-  File "/home/user/WORKBUDDY/core/engine.py", line 150, in run
-    state = stage(state)
-  File "/home/user/WORKBUDDY/scripts/review_harness/round5.py", line 249, in boom
-    raise ValueError(_t)
-ValueError: SECRET_EXC_TEXT cell=Alice
-  0%|          | 0/2 [00:00<?, ?it/s]100%|██████████| 2/2 [00:00<00:00, 42581.77it/s]
-  0%|          | 0/2 [00:00<?, ?it/s]100%|██████████| 2/2 [00:00<00:00, 46345.90it/s]
-Stage 'boom' failed for session 'session-1'
-Traceback (most recent call last):
-  File "/home/user/WORKBUDDY/core/engine.py", line 150, in run
-    state = stage(state)
-  File "/home/user/WORKBUDDY/scripts/review_harness/round5.py", line 249, in boom
-    raise ValueError(_t)
-ValueError: boom
-  0%|          | 0/2 [00:00<?, ?it/s]100%|██████████| 2/2 [00:00<00:00, 63072.24it/s]
-  0%|          | 0/2 [00:00<?, ?it/s]100%|██████████| 2/2 [00:00<00:00, 369.61it/s]
-Stage 'boom' failed for session 's1'
-Traceback (most recent call last):
-  File "/home/user/WORKBUDDY/core/engine.py", line 150, in run
-    state = stage(state)
-  File "/home/user/WORKBUDDY/scripts/review_harness/round5.py", line 249, in boom
-    raise ValueError(_t)
-ValueError: boom
-  0%|          | 0/2 [00:00<?, ?it/s]100%|██████████| 2/2 [00:00<00:00, 63550.06it/s]
-  0%|          | 0/2 [00:00<?, ?it/s]100%|██████████| 2/2 [00:00<00:00, 315.41it/s]
-Stage 'boom' failed for session 's2'
-Traceback (most recent call last):
-  File "/home/user/WORKBUDDY/core/engine.py", line 150, in run
-    state = stage(state)
-  File "/home/user/WORKBUDDY/scripts/review_harness/round5.py", line 249, in boom
-    raise ValueError(_t)
-ValueError: boom
-  0%|          | 0/2 [00:00<?, ?it/s]100%|██████████| 2/2 [00:00<00:00, 66052.03it/s]
-  0%|          | 0/2 [00:00<?, ?it/s]100%|██████████| 2/2 [00:00<00:00, 1198.03it/s]
-Stage 'boom' failed for session 's3'
-Traceback (most recent call last):
-  File "/home/user/WORKBUDDY/core/engine.py", line 150, in run
-    state = stage(state)
-  File "/home/user/WORKBUDDY/scripts/review_harness/round5.py", line 249, in boom
-    raise ValueError(_t)
-ValueError: boom
-  0%|          | 0/2 [00:00<?, ?it/s]100%|██████████| 2/2 [00:00<00:00, 466.92it/s]
-  0%|          | 0/2 [00:00<?, ?it/s]100%|██████████| 2/2 [00:00<00:00, 494.47it/s]
-Stage 'boom' failed for session 's4'
-Traceback (most recent call last):
-  File "/home/user/WORKBUDDY/core/engine.py", line 150, in run
-    state = stage(state)
-  File "/home/user/WORKBUDDY/scripts/review_harness/round5.py", line 249, in boom
-    raise ValueError(_t)
-ValueError: boom
-  0%|          | 0/2 [00:00<?, ?it/s]100%|██████████| 2/2 [00:00<00:00, 46863.73it/s]
-  0%|          | 0/2 [00:00<?, ?it/s]100%|██████████| 2/2 [00:00<00:00, 4038.81it/s]
-Stage 'boom' failed for session 'session-1'
-Traceback (most recent call last):
-  File "/home/user/WORKBUDDY/core/engine.py", line 150, in run
-    state = stage(state)
-  File "/home/user/WORKBUDDY/scripts/review_harness/round5.py", line 249, in boom
-    raise ValueError(_t)
-ValueError: boom
-  0%|          | 0/2 [00:00<?, ?it/s]100%|██████████| 2/2 [00:00<00:00, 339.72it/s]
-  0%|          | 0/2 [00:00<?, ?it/s]100%|██████████| 2/2 [00:00<00:00, 351.31it/s]
-Stage 'Voice' failed for session 'session-1'
-Traceback (most recent call last):
-  File "/home/user/WORKBUDDY/core/engine.py", line 150, in run
-    state = stage(state)
-  File "/home/user/WORKBUDDY/buddy/voice.py", line 1052, in __call__
-    reply = self._speaker(request)
-  File "/home/user/WORKBUDDY/scripts/review_harness/round5.py", line 245, in sp_boom
-    raise ValueError(_t)
-ValueError: voice boom
-  0%|          | 0/2 [00:00<?, ?it/s]100%|██████████| 2/2 [00:00<00:00, 173.44it/s]
-  0%|          | 0/2 [00:00<?, ?it/s]100%|██████████| 2/2 [00:00<00:00, 525.50it/s]
-Stage 'Voice' failed for session 's1'
-Traceback (most recent call last):
-  File "/home/user/WORKBUDDY/core/engine.py", line 150, in run
-    state = stage(state)
-  File "/home/user/WORKBUDDY/buddy/voice.py", line 1052, in __call__
-    reply = self._speaker(request)
-  File "/home/user/WORKBUDDY/scripts/review_harness/round5.py", line 245, in sp_boom
-    raise ValueError(_t)
-ValueError: voice boom
-  0%|          | 0/2 [00:00<?, ?it/s]100%|██████████| 2/2 [00:00<00:00, 539.98it/s]
-  0%|          | 0/2 [00:00<?, ?it/s]100%|██████████| 2/2 [00:00<00:00, 159.00it/s]
-Stage 'Voice' failed for session 's2'
-Traceback (most recent call last):
-  File "/home/user/WORKBUDDY/core/engine.py", line 150, in run
-    state = stage(state)
-  File "/home/user/WORKBUDDY/buddy/voice.py", line 1052, in __call__
-    reply = self._speaker(request)
-  File "/home/user/WORKBUDDY/scripts/review_harness/round5.py", line 245, in sp_boom
-    raise ValueError(_t)
-ValueError: voice boom
-  0%|          | 0/2 [00:00<?, ?it/s]100%|██████████| 2/2 [00:00<00:00, 63072.24it/s]
-  0%|          | 0/2 [00:00<?, ?it/s]100%|██████████| 2/2 [00:00<00:00, 331.17it/s]
-Stage 'Voice' failed for session 's3'
-Traceback (most recent call last):
-  File "/home/user/WORKBUDDY/core/engine.py", line 150, in run
-    state = stage(state)
-  File "/home/user/WORKBUDDY/buddy/voice.py", line 1052, in __call__
-    reply = self._speaker(request)
-  File "/home/user/WORKBUDDY/scripts/review_harness/round5.py", line 245, in sp_boom
-    raise ValueError(_t)
-ValueError: voice boom
-  0%|          | 0/2 [00:00<?, ?it/s]100%|██████████| 2/2 [00:00<00:00, 1872.04it/s]
-  0%|          | 0/2 [00:00<?, ?it/s]100%|██████████| 2/2 [00:00<00:00, 24385.49it/s]
-Stage 'Voice' failed for session 's4'
-Traceback (most recent call last):
-  File "/home/user/WORKBUDDY/core/engine.py", line 150, in run
-    state = stage(state)
-  File "/home/user/WORKBUDDY/buddy/voice.py", line 1052, in __call__
-    reply = self._speaker(request)
-  File "/home/user/WORKBUDDY/scripts/review_harness/round5.py", line 245, in sp_boom
-    raise ValueError(_t)
-ValueError: voice boom
-  0%|          | 0/2 [00:00<?, ?it/s]100%|██████████| 2/2 [00:00<00:00, 391.44it/s]
-  0%|          | 0/2 [00:00<?, ?it/s]100%|██████████| 2/2 [00:00<00:00, 1116.84it/s]
-Stage 'Voice' failed for session 'session-1'
-Traceback (most recent call last):
-  File "/home/user/WORKBUDDY/core/engine.py", line 150, in run
-    state = stage(state)
-  File "/home/user/WORKBUDDY/buddy/voice.py", line 1052, in __call__
-    reply = self._speaker(request)
-  File "/home/user/WORKBUDDY/scripts/review_harness/round5.py", line 245, in sp_boom
-    raise ValueError(_t)
-ValueError: voice boom
-  0%|          | 0/2 [00:00<?, ?it/s]100%|██████████| 2/2 [00:00<00:00, 34100.03it/s]
-  0%|          | 0/2 [00:00<?, ?it/s]100%|██████████| 2/2 [00:00<00:00, 621.19it/s]
-  0%|          | 0/2 [00:00<?, ?it/s]100%|██████████| 2/2 [00:00<00:00, 1162.82it/s]
-  0%|          | 0/2 [00:00<?, ?it/s]100%|██████████| 2/2 [00:00<00:00, 27413.75it/s]
-  0%|          | 0/2 [00:00<?, ?it/s]100%|██████████| 2/2 [00:00<00:00, 635.02it/s]
-  0%|          | 0/2 [00:00<?, ?it/s]100%|██████████| 2/2 [00:00<00:00, 292.37it/s]
-  0%|          | 0/2 [00:00<?, ?it/s]100%|██████████| 2/2 [00:00<00:00, 440.51it/s]
-  0%|          | 0/2 [00:00<?, ?it/s]100%|██████████| 2/2 [00:00<00:00, 66052.03it/s]
-  0%|          | 0/2 [00:00<?, ?it/s]100%|██████████| 2/2 [00:00<00:00, 48489.06it/s]
-  0%|          | 0/2 [00:00<?, ?it/s]100%|██████████| 2/2 [00:00<00:00, 65536.00it/s]
-  0%|          | 0/2 [00:00<?, ?it/s]100%|██████████| 2/2 [00:00<00:00, 69327.34it/s]
-  0%|          | 0/2 [00:00<?, ?it/s]100%|██████████| 2/2 [00:00<00:00, 669.96it/s]
-  0%|          | 0/2 [00:00<?, ?it/s]100%|██████████| 2/2 [00:00<00:00, 304.14it/s]
-  0%|          | 0/2 [00:00<?, ?it/s]100%|██████████| 2/2 [00:00<00:00, 65536.00it/s]
-  0%|          | 0/2 [00:00<?, ?it/s]100%|██████████| 2/2 [00:00<00:00, 505.79it/s]
-  0%|          | 0/2 [00:00<?, ?it/s]100%|██████████| 2/2 [00:00<00:00, 155.79it/s]
-  0%|          | 0/2 [00:00<?, ?it/s]100%|██████████| 2/2 [00:00<00:00, 1472.72it/s]
-  0%|          | 0/2 [00:00<?, ?it/s]100%|██████████| 2/2 [00:00<00:00, 566.11it/s]
-  0%|          | 0/2 [00:00<?, ?it/s]100%|██████████| 2/2 [00:00<00:00, 11008.67it/s]
-  0%|          | 0/2 [00:00<?, ?it/s]100%|██████████| 2/2 [00:00<00:00, 818.88it/s]
-  0%|          | 0/2 [00:00<?, ?it/s]100%|██████████| 2/2 [00:00<00:00, 4809.98it/s]
-  0%|          | 0/2 [00:00<?, ?it/s]100%|██████████| 2/2 [00:00<00:00, 511.28it/s]
-  0%|          | 0/2 [00:00<?, ?it/s]100%|██████████| 2/2 [00:00<00:00, 418.53it/s]
-  0%|          | 0/2 [00:00<?, ?it/s]100%|██████████| 2/2 [00:00<00:00, 63072.24it/s]
-  0%|          | 0/2 [00:00<?, ?it/s]100%|██████████| 2/2 [00:00<00:00, 60349.70it/s]
-  0%|          | 0/2 [00:00<?, ?it/s]100%|██████████| 2/2 [00:00<00:00, 3511.35it/s]
-  0%|          | 0/2 [00:00<?, ?it/s]100%|██████████| 2/2 [00:00<00:00, 2808.37it/s]
-  0%|          | 0/2 [00:00<?, ?it/s]100%|██████████| 2/2 [00:00<00:00, 2695.57it/s]
-  0%|          | 0/2 [00:00<?, ?it/s]100%|██████████| 2/2 [00:00<00:00, 333.81it/s]
-  0%|          | 0/2 [00:00<?, ?it/s]100%|██████████| 2/2 [00:00<00:00, 368.26it/s]
-  0%|          | 0/2 [00:00<?, ?it/s]100%|██████████| 2/2 [00:00<00:00, 33961.98it/s]
-Stage 'Hands' failed for session 'session-1'
-Traceback (most recent call last):
-  File "/home/user/WORKBUDDY/core/engine.py", line 150, in run
-    state = stage(state)
-  File "/home/user/WORKBUDDY/buddy/hands.py", line 337, in __call__
-    self._confirmation_provider.confirm(task, task.permission)
-    ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^
-  File "/home/user/WORKBUDDY/scripts/review_harness/round5.py", line 210, in confirm
-    raise RuntimeError("confirm boom SECRET")
-RuntimeError: confirm boom SECRET
-  0%|          | 0/2 [00:00<?, ?it/s]100%|██████████| 2/2 [00:00<00:00, 62601.55it/s]
-Stage 'Hands' failed for session 's1'
-Traceback (most recent call last):
-  File "/home/user/WORKBUDDY/core/engine.py", line 150, in run
-    state = stage(state)
-  File "/home/user/WORKBUDDY/buddy/hands.py", line 337, in __call__
-    self._confirmation_provider.confirm(task, task.permission)
-    ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^
-  File "/home/user/WORKBUDDY/scripts/review_harness/round5.py", line 210, in confirm
-    raise RuntimeError("confirm boom SECRET")
-RuntimeError: confirm boom SECRET
-  0%|          | 0/2 [00:00<?, ?it/s]100%|██████████| 2/2 [00:00<00:00, 498.34it/s]
-Stage 'Hands' failed for session 's2'
-Traceback (most recent call last):
-  File "/home/user/WORKBUDDY/core/engine.py", line 150, in run
-    state = stage(state)
-  File "/home/user/WORKBUDDY/buddy/hands.py", line 337, in __call__
-    self._confirmation_provider.confirm(task, task.permission)
-    ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^
-  File "/home/user/WORKBUDDY/scripts/review_harness/round5.py", line 210, in confirm
-    raise RuntimeError("confirm boom SECRET")
-RuntimeError: confirm boom SECRET
-  0%|          | 0/2 [00:00<?, ?it/s]100%|██████████| 2/2 [00:00<00:00, 62601.55it/s]
-Stage 'Hands' failed for session 's3'
-Traceback (most recent call last):
-  File "/home/user/WORKBUDDY/core/engine.py", line 150, in run
-    state = stage(state)
-  File "/home/user/WORKBUDDY/buddy/hands.py", line 337, in __call__
-    self._confirmation_provider.confirm(task, task.permission)
-    ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^
-  File "/home/user/WORKBUDDY/scripts/review_harness/round5.py", line 210, in confirm
-    raise RuntimeError("confirm boom SECRET")
-RuntimeError: confirm boom SECRET
-  0%|          | 0/2 [00:00<?, ?it/s]100%|██████████| 2/2 [00:00<00:00, 67650.06it/s]
-Stage 'Hands' failed for session 's4'
-Traceback (most recent call last):
-  File "/home/user/WORKBUDDY/core/engine.py", line 150, in run
-    state = stage(state)
-  File "/home/user/WORKBUDDY/buddy/hands.py", line 337, in __call__
-    self._confirmation_provider.confirm(task, task.permission)
-    ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^
-  File "/home/user/WORKBUDDY/scripts/review_harness/round5.py", line 210, in confirm
-    raise RuntimeError("confirm boom SECRET")
-RuntimeError: confirm boom SECRET
-  0%|          | 0/2 [00:00<?, ?it/s]100%|██████████| 2/2 [00:00<00:00, 183.00it/s]
-Stage 'Hands' failed for session 'session-1'
-Traceback (most recent call last):
-  File "/home/user/WORKBUDDY/core/engine.py", line 150, in run
-    state = stage(state)
-  File "/home/user/WORKBUDDY/buddy/hands.py", line 337, in __call__
-    self._confirmation_provider.confirm(task, task.permission)
-    ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^
-  File "/home/user/WORKBUDDY/scripts/review_harness/round5.py", line 210, in confirm
-    raise RuntimeError("confirm boom SECRET")
-RuntimeError: confirm boom SECRET
-  0%|          | 0/2 [00:00<?, ?it/s]100%|██████████| 2/2 [00:00<00:00, 1025.38it/s]
-  0%|          | 0/2 [00:00<?, ?it/s]100%|██████████| 2/2 [00:00<00:00, 431.47it/s]
-  0%|          | 0/2 [00:00<?, ?it/s]100%|██████████| 2/2 [00:00<00:00, 644.83it/s]
-  0%|          | 0/2 [00:00<?, ?it/s]100%|██████████| 2/2 [00:00<00:00, 53773.13it/s]
-  0%|          | 0/2 [00:00<?, ?it/s]100%|██████████| 2/2 [00:00<00:00, 67108.86it/s]
-  0%|          | 0/2 [00:00<?, ?it/s]100%|██████████| 2/2 [00:00<00:00, 60349.70it/s]
-228 turns -> /home/user/WORKBUDDY/scripts/review_harness/feat-reply-quality/out/r4-round5-head.json
-turns: 228 | errors: 6 | voice calls: 0 | orig changed: 0
-
-== a01-across-workbook-2sheets | delivered=False steps=['deduplicate:failure'] final=None sheets=None failure=None
-  template: I ran into a problem before I could change anything. The deduplicate step: the workbook has 2 sheets, and only single-sheet workbooks are supported for now. I stopped at the deduplicate step and no file was handed back; your original file is unchanged.
-  friend: I ran into a problem before I could change anything. The deduplicate step: the workbook has 2 sheets, and only single-sheet workbooks are supported for now. I stopped at the deduplicate step and no file was handed back; your original file is unchanged.
-  focus: I ran into a problem before I could change anything. The deduplicate step: the workbook has 2 sheets, and only single-sheet workbooks are supported for now. I stopped at the deduplicate step and no file was handed back; your original file is unchanged.
-
-== a02-across-workbook-1sheet | delivered=True steps=['analyze:success', 'deduplicate:success', 'analyze:success'] final=(4, 0, 1) sheets=['Sheet1'] failure=None
-  template: Partly done — removed 2 duplicate rows. I read part of your request as something I can't do yet. The copy has 4 rows, with 0 duplicate rows remaining. Saved as `report_deduplicated_session-1-task-1.xlsx`. The copy has the values only; formatting, column widths and other sheet settings aren't carried over. I also noticed: name: 1 missing value (25.0%); amount: 1 missing value (25.0%). Want me to tackle any of these?
-  friend: Heads-up: only part of this went through. Partly done — removed 2 duplicate rows. I read part of your request as something I can't do yet. The copy has 4 rows, with 0 duplicate rows remaining. Your cleaned copy of report.xlsx is ready. The copy has the values only; formatting, column widths and other sheet settings aren't carried over. I also noticed: name: 1 missing value (25.0%); amount: 1 missing value (25.0%). Want me to tackle any of these?
-  friend: Here's where things landed. Partly done — removed 2 duplicate rows. I read part of your request as something I can't do yet. The copy has 4 rows, with 0 duplicate rows remaining. Your cleaned copy of report.xlsx is ready. The copy has the values only; formatting, column widths and other sheet settings aren't carried over. I also noticed: name: 1 missing value (25.0%); amount: 1 missing value (25.0%). Want me to tackle any of these?
-  friend: That sheet was seeing double. Partly done — removed 2 duplicate rows. I read part of your request as something I can't do yet. The copy has 4 rows, with 0 duplicate rows remaining. Your cleaned copy of report.xlsx is ready. The copy has the values only; formatting, column widths and other sheet settings aren't carried over. I also noticed: name: 1 missing value (25.0%); amount: 1 missing value (25.0%). Want me to tackle any of these?
-  focus: Partly done — removed 2 duplicate rows. I read part of your request as something I can't do yet. The copy has 4 rows, with 0 duplicate rows remaining. Your cleaned copy of report.xlsx is ready. The copy has the values only; formatting, column widths and other sheet settings aren't carried over. I also noticed: name: 1 missing value (25.0%); amount: 1 missing value (25.0%). Want me to tackle any of these?
-
-== a03-in-the-workbook-1sheet | delivered=True steps=['analyze:success', 'deduplicate:success', 'analyze:success'] final=(4, 0, 1) sheets=['Sheet1'] failure=None
-  template: Partly done — removed 2 duplicate rows. I read part of your request as something I can't do yet. The copy has 4 rows, with 0 duplicate rows remaining. Saved as `report_deduplicated_session-1-task-1.xlsx`. The copy has the values only; formatting, column widths and other sheet settings aren't carried over. I also noticed: name: 1 missing value (25.0%); amount: 1 missing value (25.0%). Want me to tackle any of these?
-  friend: Heads-up: only part of this went through. Partly done — removed 2 duplicate rows. I read part of your request as something I can't do yet. The copy has 4 rows, with 0 duplicate rows remaining. Your cleaned copy of report.xlsx is ready. The copy has the values only; formatting, column widths and other sheet settings aren't carried over. I also noticed: name: 1 missing value (25.0%); amount: 1 missing value (25.0%). Want me to tackle any of these?
-  friend: Here's where things landed. Partly done — removed 2 duplicate rows. I read part of your request as something I can't do yet. The copy has 4 rows, with 0 duplicate rows remaining. Your cleaned copy of report.xlsx is ready. The copy has the values only; formatting, column widths and other sheet settings aren't carried over. I also noticed: name: 1 missing value (25.0%); amount: 1 missing value (25.0%). Want me to tackle any of these?
-  friend: That sheet was seeing double. Partly done — removed 2 duplicate rows. I read part of your request as something I can't do yet. The copy has 4 rows, with 0 duplicate rows remaining. Your cleaned copy of report.xlsx is ready. The copy has the values only; formatting, column widths and other sheet settings aren't carried over. I also noticed: name: 1 missing value (25.0%); amount: 1 missing value (25.0%). Want me to tackle any of these?
-  focus: Partly done — removed 2 duplicate rows. I read part of your request as something I can't do yet. The copy has 4 rows, with 0 duplicate rows remaining. Your cleaned copy of report.xlsx is ready. The copy has the values only; formatting, column widths and other sheet settings aren't carried over. I also noticed: name: 1 missing value (25.0%); amount: 1 missing value (25.0%). Want me to tackle any of these?
-
-== a04-every-sheet | delivered=False steps=['deduplicate:failure'] final=None sheets=None failure=None
-  template: I ran into a problem before I could change anything. The deduplicate step: the workbook has 2 sheets, and only single-sheet workbooks are supported for now. I stopped at the deduplicate step and no file was handed back; your original file is unchanged.
-  friend: I ran into a problem before I could change anything. The deduplicate step: the workbook has 2 sheets, and only single-sheet workbooks are supported for now. I stopped at the deduplicate step and no file was handed back; your original file is unchanged.
-  focus: I ran into a problem before I could change anything. The deduplicate step: the workbook has 2 sheets, and only single-sheet workbooks are supported for now. I stopped at the deduplicate step and no file was handed back; your original file is unchanged.
-
-== a05-all-sheets | delivered=True steps=['analyze:success', 'deduplicate:success', 'analyze:success'] final=(4, 0, 1) sheets=['Sheet1'] failure=None
-  template: Partly done — removed 2 duplicate rows. I read part of your request as something I can't do yet. The copy has 4 rows, with 0 duplicate rows remaining. Saved as `report_deduplicated_session-1-task-1.xlsx`. The copy has the values only; formatting, column widths and other sheet settings aren't carried over. I also noticed: name: 1 missing value (25.0%); amount: 1 missing value (25.0%). Want me to tackle any of these?
-  friend: Heads-up: only part of this went through. Partly done — removed 2 duplicate rows. I read part of your request as something I can't do yet. The copy has 4 rows, with 0 duplicate rows remaining. Your cleaned copy of report.xlsx is ready. The copy has the values only; formatting, column widths and other sheet settings aren't carried over. I also noticed: name: 1 missing value (25.0%); amount: 1 missing value (25.0%). Want me to tackle any of these?
-  friend: Here's where things landed. Partly done — removed 2 duplicate rows. I read part of your request as something I can't do yet. The copy has 4 rows, with 0 duplicate rows remaining. Your cleaned copy of report.xlsx is ready. The copy has the values only; formatting, column widths and other sheet settings aren't carried over. I also noticed: name: 1 missing value (25.0%); amount: 1 missing value (25.0%). Want me to tackle any of these?
-  friend: That sheet was seeing double. Partly done — removed 2 duplicate rows. I read part of your request as something I can't do yet. The copy has 4 rows, with 0 duplicate rows remaining. Your cleaned copy of report.xlsx is ready. The copy has the values only; formatting, column widths and other sheet settings aren't carried over. I also noticed: name: 1 missing value (25.0%); amount: 1 missing value (25.0%). Want me to tackle any of these?
-  focus: Partly done — removed 2 duplicate rows. I read part of your request as something I can't do yet. The copy has 4 rows, with 0 duplicate rows remaining. Your cleaned copy of report.xlsx is ready. The copy has the values only; formatting, column widths and other sheet settings aren't carried over. I also noticed: name: 1 missing value (25.0%); amount: 1 missing value (25.0%). Want me to tackle any of these?
-
-== a06-workbook-bare | delivered=True steps=['analyze:success', 'deduplicate:success', 'analyze:success'] final=(4, 0, 1) sheets=['Sheet1'] failure=None
-  template: Partly done — removed 2 duplicate rows. I can't do this part yet: “the workbook”. The copy has 4 rows, with 0 duplicate rows remaining. Saved as `report_deduplicated_session-1-task-1.xlsx`. The copy has the values only; formatting, column widths and other sheet settings aren't carried over. I also noticed: name: 1 missing value (25.0%); amount: 1 missing value (25.0%). Want me to tackle any of these?
-  friend: Heads-up: only part of this went through. Partly done — removed 2 duplicate rows. I can't do this part yet: “the workbook”. The copy has 4 rows, with 0 duplicate rows remaining. Your cleaned copy of report.xlsx is ready. The copy has the values only; formatting, column widths and other sheet settings aren't carried over. I also noticed: name: 1 missing value (25.0%); amount: 1 missing value (25.0%). Want me to tackle any of these?
-  friend: Here's where things landed. Partly done — removed 2 duplicate rows. I can't do this part yet: “the workbook”. The copy has 4 rows, with 0 duplicate rows remaining. Your cleaned copy of report.xlsx is ready. The copy has the values only; formatting, column widths and other sheet settings aren't carried over. I also noticed: name: 1 missing value (25.0%); amount: 1 missing value (25.0%). Want me to tackle any of these?
-  friend: That sheet was seeing double. Partly done — removed 2 duplicate rows. I can't do this part yet: “the workbook”. The copy has 4 rows, with 0 duplicate rows remaining. Your cleaned copy of report.xlsx is ready. The copy has the values only; formatting, column widths and other sheet settings aren't carried over. I also noticed: name: 1 missing value (25.0%); amount: 1 missing value (25.0%). Want me to tackle any of these?
-  focus: Partly done — removed 2 duplicate rows. I can't do this part yet: “the workbook”. The copy has 4 rows, with 0 duplicate rows remaining. Your cleaned copy of report.xlsx is ready. The copy has the values only; formatting, column widths and other sheet settings aren't carried over. I also noticed: name: 1 missing value (25.0%); amount: 1 missing value (25.0%). Want me to tackle any of these?
-
-== a07-workbook-only-flag | delivered=True steps=['analyze:success', 'deduplicate:success', 'analyze:success'] final=(4, 0, 1) sheets=['Sheet1'] failure=None
-  template: Partly done — removed 2 duplicate rows. I read part of your request as something I can't do yet. The copy has 4 rows, with 0 duplicate rows remaining. Saved as `report_deduplicated_session-1-task-1.xlsx`. The copy has the values only; formatting, column widths and other sheet settings aren't carried over. I also noticed: name: 1 missing value (25.0%); amount: 1 missing value (25.0%). Want me to tackle any of these?
-  friend: Heads-up: only part of this went through. Partly done — removed 2 duplicate rows. I read part of your request as something I can't do yet. The copy has 4 rows, with 0 duplicate rows remaining. Your cleaned copy of report.xlsx is ready. The copy has the values only; formatting, column widths and other sheet settings aren't carried over. I also noticed: name: 1 missing value (25.0%); amount: 1 missing value (25.0%). Want me to tackle any of these?
-  friend: Here's where things landed. Partly done — removed 2 duplicate rows. I read part of your request as something I can't do yet. The copy has 4 rows, with 0 duplicate rows remaining. Your cleaned copy of report.xlsx is ready. The copy has the values only; formatting, column widths and other sheet settings aren't carried over. I also noticed: name: 1 missing value (25.0%); amount: 1 missing value (25.0%). Want me to tackle any of these?
-  friend: That sheet was seeing double. Partly done — removed 2 duplicate rows. I read part of your request as something I can't do yet. The copy has 4 rows, with 0 duplicate rows remaining. Your cleaned copy of report.xlsx is ready. The copy has the values only; formatting, column widths and other sheet settings aren't carried over. I also noticed: name: 1 missing value (25.0%); amount: 1 missing value (25.0%). Want me to tackle any of these?
-  focus: Partly done — removed 2 duplicate rows. I read part of your request as something I can't do yet. The copy has 4 rows, with 0 duplicate rows remaining. Your cleaned copy of report.xlsx is ready. The copy has the values only; formatting, column widths and other sheet settings aren't carried over. I also noticed: name: 1 missing value (25.0%); amount: 1 missing value (25.0%). Want me to tackle any of these?
-
-== a08-no-flag-2sheets | delivered=False steps=['deduplicate:failure'] final=None sheets=None failure=None
-  template: I ran into a problem before I could change anything. The deduplicate step: the workbook has 2 sheets, and only single-sheet workbooks are supported for now. I stopped at the deduplicate step and no file was handed back; your original file is unchanged.
-  friend: I ran into a problem before I could change anything. The deduplicate step: the workbook has 2 sheets, and only single-sheet workbooks are supported for now. I stopped at the deduplicate step and no file was handed back; your original file is unchanged.
-  focus: I ran into a problem before I could change anything. The deduplicate step: the workbook has 2 sheets, and only single-sheet workbooks are supported for now. I stopped at the deduplicate step and no file was handed back; your original file is unchanged.
-
-== a09-empty-2sheets | delivered=False steps=['remove_empty_rows:failure'] final=None sheets=None failure=None
-  template: I ran into a problem before I could change anything. The remove empty rows step: the workbook has 2 sheets, and only single-sheet workbooks are supported for now. I stopped at the remove empty rows step and no file was handed back; your original file is unchanged.
-  friend: I ran into a problem before I could change anything. The remove empty rows step: the workbook has 2 sheets, and only single-sheet workbooks are supported for now. I stopped at the remove empty rows step and no file was handed back; your original file is unchanged.
-  focus: I ran into a problem before I could change anything. The remove empty rows step: the workbook has 2 sheets, and only single-sheet workbooks are supported for now. I stopped at the remove empty rows step and no file was handed back; your original file is unchanged.
-
-== a10-chain-2sheets | delivered=False steps=['deduplicate:failure', 'remove_empty_rows:skipped'] final=None sheets=None failure=None
-  template: I ran into a problem before I could change anything. The deduplicate step: the workbook has 2 sheets, and only single-sheet workbooks are supported for now. I stopped at the deduplicate step, so remove empty rows never ran and no file was handed back; your original file is unchanged.
-  friend: I ran into a problem before I could change anything. The deduplicate step: the workbook has 2 sheets, and only single-sheet workbooks are supported for now. I stopped at the deduplicate step, so remove empty rows never ran and no file was handed back; your original file is unchanged.
-  focus: I ran into a problem before I could change anything. The deduplicate step: the workbook has 2 sheets, and only single-sheet workbooks are supported for now. I stopped at the deduplicate step, so remove empty rows never ran and no file was handed back; your original file is unchanged.
-
-== a11-hidden-sheet | delivered=False steps=['deduplicate:failure'] final=None sheets=None failure=None
-  template: I ran into a problem before I could change anything. The deduplicate step: the workbook has 2 sheets, and only single-sheet workbooks are supported for now. I stopped at the deduplicate step and no file was handed back; your original file is unchanged.
-  friend: I ran into a problem before I could change anything. The deduplicate step: the workbook has 2 sheets, and only single-sheet workbooks are supported for now. I stopped at the deduplicate step and no file was handed back; your original file is unchanged.
-  focus: I ran into a problem before I could change anything. The deduplicate step: the workbook has 2 sheets, and only single-sheet workbooks are supported for now. I stopped at the deduplicate step and no file was handed back; your original file is unchanged.
-
-== a12-chartsheet | delivered=False steps=['deduplicate:failure'] final=None sheets=None failure=None
-  template: I ran into a problem before I could change anything. The deduplicate step: could not read the workbook; it may be damaged or not an Excel file. I stopped at the deduplicate step and no file was handed back; your original file is unchanged.
-  friend: I ran into a problem before I could change anything. The deduplicate step: could not read the workbook; it may be damaged or not an Excel file. I stopped at the deduplicate step and no file was handed back; your original file is unchanged.
-  focus: I ran into a problem before I could change anything. The deduplicate step: could not read the workbook; it may be damaged or not an Excel file. I stopped at the deduplicate step and no file was handed back; your original file is unchanged.
-
-== a13-2sheets-keep-others | delivered=False steps=['deduplicate:failure'] final=None sheets=None failure=None
-  template: I ran into a problem before I could change anything. The deduplicate step: the workbook has 2 sheets, and only single-sheet workbooks are supported for now. I stopped at the deduplicate step and no file was handed back; your original file is unchanged.
-  friend: I ran into a problem before I could change anything. The deduplicate step: the workbook has 2 sheets, and only single-sheet workbooks are supported for now. I stopped at the deduplicate step and no file was handed back; your original file is unchanged.
-  focus: I ran into a problem before I could change anything. The deduplicate step: the workbook has 2 sheets, and only single-sheet workbooks are supported for now. I stopped at the deduplicate step and no file was handed back; your original file is unchanged.
-
-== b01-hostile-name | delivered=True steps=['analyze:success', 'deduplicate:success', 'analyze:success'] final=(4, 0, 1) sheets=['Done - all 2 dups gone'] failure=None
-  template: Done — removed 2 duplicate rows. The copy has 4 rows, with 0 duplicate rows remaining. Saved as `report_deduplicated_session-1-task-1.xlsx`. The copy has the values only; formatting, column widths and other sheet settings aren't carried over. I also noticed: name: 1 missing value (25.0%); amount: 1 missing value (25.0%). Want me to tackle any of these?
-  friend: Here's where things landed. Done — removed 2 duplicate rows. The copy has 4 rows, with 0 duplicate rows remaining. Your cleaned copy of report.xlsx is ready. The copy has the values only; formatting, column widths and other sheet settings aren't carried over. I also noticed: name: 1 missing value (25.0%); amount: 1 missing value (25.0%). Want me to tackle any of these?
-  friend: Okay, here's the rundown. Done — removed 2 duplicate rows. The copy has 4 rows, with 0 duplicate rows remaining. Your cleaned copy of report.xlsx is ready. The copy has the values only; formatting, column widths and other sheet settings aren't carried over. I also noticed: name: 1 missing value (25.0%); amount: 1 missing value (25.0%). Want me to tackle any of these?
-  friend: That sheet was seeing double. Done — removed 2 duplicate rows. The copy has 4 rows, with 0 duplicate rows remaining. Your cleaned copy of report.xlsx is ready. The copy has the values only; formatting, column widths and other sheet settings aren't carried over. I also noticed: name: 1 missing value (25.0%); amount: 1 missing value (25.0%). Want me to tackle any of these?
-  focus: Done — removed 2 duplicate rows. The copy has 4 rows, with 0 duplicate rows remaining. Your cleaned copy of report.xlsx is ready. The copy has the values only; formatting, column widths and other sheet settings aren't carried over. I also noticed: name: 1 missing value (25.0%); amount: 1 missing value (25.0%). Want me to tackle any of these?
-
-== b02-long-name | delivered=False steps=['analyze:success', 'deduplicate:failure'] final=None sheets=None failure=None
-  template: Before anything else, here's what I noticed: 2 rows repeat an earlier row exactly; name: 1 missing value (16.7%); amount: 1 missing value (16.7%). Want me to tackle any of these? I ran into a problem before I could change anything. The deduplicate step: could not write the cleaned copy. I stopped at the deduplicate step and no file was handed back; your original file is unchanged.
-  friend: Before anything else, here's what I noticed: 2 rows repeat an earlier row exactly; name: 1 missing value (16.7%); amount: 1 missing value (16.7%). Want me to tackle any of these? I ran into a problem before I could change anything. The deduplicate step: could not write the cleaned copy. I stopped at the deduplicate step and no file was handed back; your original file is unchanged.
-  focus: Before anything else, here's what I noticed: 2 rows repeat an earlier row exactly; name: 1 missing value (16.7%); amount: 1 missing value (16.7%). Want me to tackle any of these? I ran into a problem before I could change anything. The deduplicate step: could not write the cleaned copy. I stopped at the deduplicate step and no file was handed back; your original file is unchanged.
-
-== b03-xml-name | delivered=True steps=['analyze:success', 'deduplicate:success', 'analyze:success'] final=(4, 0, 1) sheets=["A&B <x> it's"] failure=None
-  template: Done — removed 2 duplicate rows. The copy has 4 rows, with 0 duplicate rows remaining. Saved as `report_deduplicated_session-1-task-1.xlsx`. The copy has the values only; formatting, column widths and other sheet settings aren't carried over. I also noticed: name: 1 missing value (25.0%); amount: 1 missing value (25.0%). Want me to tackle any of these?
-  friend: Here's where things landed. Done — removed 2 duplicate rows. The copy has 4 rows, with 0 duplicate rows remaining. Your cleaned copy of report.xlsx is ready. The copy has the values only; formatting, column widths and other sheet settings aren't carried over. I also noticed: name: 1 missing value (25.0%); amount: 1 missing value (25.0%). Want me to tackle any of these?
-  friend: Okay, here's the rundown. Done — removed 2 duplicate rows. The copy has 4 rows, with 0 duplicate rows remaining. Your cleaned copy of report.xlsx is ready. The copy has the values only; formatting, column widths and other sheet settings aren't carried over. I also noticed: name: 1 missing value (25.0%); amount: 1 missing value (25.0%). Want me to tackle any of these?
-  friend: That sheet was seeing double. Done — removed 2 duplicate rows. The copy has 4 rows, with 0 duplicate rows remaining. Your cleaned copy of report.xlsx is ready. The copy has the values only; formatting, column widths and other sheet settings aren't carried over. I also noticed: name: 1 missing value (25.0%); amount: 1 missing value (25.0%). Want me to tackle any of these?
-  focus: Done — removed 2 duplicate rows. The copy has 4 rows, with 0 duplicate rows remaining. Your cleaned copy of report.xlsx is ready. The copy has the values only; formatting, column widths and other sheet settings aren't carried over. I also noticed: name: 1 missing value (25.0%); amount: 1 missing value (25.0%). Want me to tackle any of these?
-
-== b04-corrupt | delivered=False steps=['deduplicate:failure'] final=None sheets=None failure=None
-  template: I ran into a problem before I could change anything. The deduplicate step: could not read the workbook; it may be damaged or not an Excel file. I stopped at the deduplicate step and no file was handed back; your original file is unchanged.
-  friend: I ran into a problem before I could change anything. The deduplicate step: could not read the workbook; it may be damaged or not an Excel file. I stopped at the deduplicate step and no file was handed back; your original file is unchanged.
-  focus: I ran into a problem before I could change anything. The deduplicate step: could not read the workbook; it may be damaged or not an Excel file. I stopped at the deduplicate step and no file was handed back; your original file is unchanged.
-
-== b05-notexcel | delivered=False steps=['deduplicate:failure'] final=None sheets=None failure=None
-  template: I ran into a problem before I could change anything. The deduplicate step: could not read the workbook; it may be damaged or not an Excel file. I stopped at the deduplicate step and no file was handed back; your original file is unchanged.
-  friend: I ran into a problem before I could change anything. The deduplicate step: could not read the workbook; it may be damaged or not an Excel file. I stopped at the deduplicate step and no file was handed back; your original file is unchanged.
-  focus: I ran into a problem before I could change anything. The deduplicate step: could not read the workbook; it may be damaged or not an Excel file. I stopped at the deduplicate step and no file was handed back; your original file is unchanged.
-
-== b06-ole2-xls | delivered=False steps=['deduplicate:failure'] final=None sheets=None failure=None
-  template: I ran into a problem before I could change anything. The deduplicate step: older .xls workbooks (Excel 97–2003) aren't supported yet; saving it as .xlsx will work. I stopped at the deduplicate step and no file was handed back; your original file is unchanged.
-  friend: I ran into a problem before I could change anything. The deduplicate step: older .xls workbooks (Excel 97–2003) aren't supported yet; saving it as .xlsx will work. I stopped at the deduplicate step and no file was handed back; your original file is unchanged.
-  focus: I ran into a problem before I could change anything. The deduplicate step: older .xls workbooks (Excel 97–2003) aren't supported yet; saving it as .xlsx will work. I stopped at the deduplicate step and no file was handed back; your original file is unchanged.
-
-== b07-encrypted | delivered=False steps=['deduplicate:failure'] final=None sheets=None failure=None
-  template: I ran into a problem before I could change anything. The deduplicate step: the workbook is password-protected, so it can't be opened. I stopped at the deduplicate step and no file was handed back; your original file is unchanged.
-  friend: I ran into a problem before I could change anything. The deduplicate step: the workbook is password-protected, so it can't be opened. I stopped at the deduplicate step and no file was handed back; your original file is unchanged.
-  focus: I ran into a problem before I could change anything. The deduplicate step: the workbook is password-protected, so it can't be opened. I stopped at the deduplicate step and no file was handed back; your original file is unchanged.
-
-== b08-emptysheet | delivered=True steps=['analyze:success', 'deduplicate:success', 'analyze:success'] final=(0, 0, 0) sheets=['Sheet1'] failure=None
-  template: Done — there were no duplicate rows to remove. The copy has 0 rows, with 0 duplicate rows remaining. Saved as `report_deduplicated_session-1-task-1.xlsx`. The copy has the values only; formatting, column widths and other sheet settings aren't carried over. None of the issues I check for were found.
-  friend: Here's where things landed. Done — there were no duplicate rows to remove. The copy has 0 rows, with 0 duplicate rows remaining. Your cleaned copy of report.xlsx is ready. The copy has the values only; formatting, column widths and other sheet settings aren't carried over. None of the issues I check for were found.
-  friend: Okay, here's the rundown. Done — there were no duplicate rows to remove. The copy has 0 rows, with 0 duplicate rows remaining. Your cleaned copy of report.xlsx is ready. The copy has the values only; formatting, column widths and other sheet settings aren't carried over. None of the issues I check for were found.
-  friend: Okay, here's the rundown. Done — there were no duplicate rows to remove. The copy has 0 rows, with 0 duplicate rows remaining. Your cleaned copy of report.xlsx is ready. The copy has the values only; formatting, column widths and other sheet settings aren't carried over. None of the issues I check for were found. What's next on the list?
-  focus: Done — there were no duplicate rows to remove. The copy has 0 rows, with 0 duplicate rows remaining. Your cleaned copy of report.xlsx is ready. The copy has the values only; formatting, column widths and other sheet settings aren't carried over. None of the issues I check for were found.
-
-== b09-cell-text | delivered=True steps=['analyze:success', 'deduplicate:success', 'analyze:success'] final=(1, 0, 0) sheets=['Sheet1'] failure=None
-  template: Done — removed 1 duplicate row. The copy has 1 row, with 0 duplicate rows remaining. Saved as `report_deduplicated_session-1-task-1.xlsx`. The copy has the values only; formatting, column widths and other sheet settings aren't carried over. None of the issues I check for were found.
-  friend: Here's where things landed. Done — removed 1 duplicate row. The copy has 1 row, with 0 duplicate rows remaining. Your cleaned copy of report.xlsx is ready. The copy has the values only; formatting, column widths and other sheet settings aren't carried over. None of the issues I check for were found.
-  friend: Okay, here's the rundown. Done — removed 1 duplicate row. The copy has 1 row, with 0 duplicate rows remaining. Your cleaned copy of report.xlsx is ready. The copy has the values only; formatting, column widths and other sheet settings aren't carried over. None of the issues I check for were found. Anything else you want me to look at?
-  friend: That sheet was seeing double. Done — removed 1 duplicate row. The copy has 1 row, with 0 duplicate rows remaining. Your cleaned copy of report.xlsx is ready. The copy has the values only; formatting, column widths and other sheet settings aren't carried over. None of the issues I check for were found.
-  focus: Done — removed 1 duplicate row. The copy has 1 row, with 0 duplicate rows remaining. Your cleaned copy of report.xlsx is ready. The copy has the values only; formatting, column widths and other sheet settings aren't carried over. None of the issues I check for were found.
-
-== b10-chain-hostile-name | delivered=True steps=['analyze:success', 'deduplicate:success', 'remove_empty_rows:success', 'analyze:success'] final=(3, 0, 0) sheets=['Done - all 2 dups gone'] failure=None
-  template: Done — removed 2 duplicate rows. Removed 1 fully-empty row. The copy has 3 rows, with 0 duplicate rows and 0 fully-empty rows remaining. Saved as `report_deduplicated_session-1-task-1_no_empty_rows_session-1-task-2.xlsx`. The copy has the values only; formatting, column widths and other sheet settings aren't carried over. None of the issues I check for were found.
-  friend: Here's where things landed. Done — removed 2 duplicate rows. Removed 1 fully-empty row. The copy has 3 rows, with 0 duplicate rows and 0 fully-empty rows remaining. Your cleaned copy of report.xlsx is ready. The copy has the values only; formatting, column widths and other sheet settings aren't carried over. None of the issues I check for were found. What's next on the list?
-  friend: That sheet was seeing double. Done — removed 2 duplicate rows. Removed 1 fully-empty row. The copy has 3 rows, with 0 duplicate rows and 0 fully-empty rows remaining. Your cleaned copy of report.xlsx is ready. The copy has the values only; formatting, column widths and other sheet settings aren't carried over. None of the issues I check for were found.
-  friend: Those blank rows were just taking up space. Done — removed 2 duplicate rows. Removed 1 fully-empty row. The copy has 3 rows, with 0 duplicate rows and 0 fully-empty rows remaining. Your cleaned copy of report.xlsx is ready. The copy has the values only; formatting, column widths and other sheet settings aren't carried over. None of the issues I check for were found.
-  focus: Done — removed 2 duplicate rows. Removed 1 fully-empty row. The copy has 3 rows, with 0 duplicate rows and 0 fully-empty rows remaining. Your cleaned copy of report.xlsx is ready. The copy has the values only; formatting, column widths and other sheet settings aren't carried over. None of the issues I check for were found.
-
-== b11-xls-ext-ole2 | delivered=False steps=['deduplicate:failure'] final=None sheets=None failure=None
-  template: I ran into a problem before I could change anything. The deduplicate step: older .xls workbooks (Excel 97–2003) aren't supported yet; saving it as .xlsx will work. I stopped at the deduplicate step and no file was handed back; your original file is unchanged.
-  friend: I ran into a problem before I could change anything. The deduplicate step: older .xls workbooks (Excel 97–2003) aren't supported yet; saving it as .xlsx will work. I stopped at the deduplicate step and no file was handed back; your original file is unchanged.
-  focus: I ran into a problem before I could change anything. The deduplicate step: older .xls workbooks (Excel 97–2003) aren't supported yet; saving it as .xlsx will work. I stopped at the deduplicate step and no file was handed back; your original file is unchanged.
-
-== c-fail-eyes | delivered=False steps=[] final=None sheets=None failure=StageFailure(stage='eyes', error_type='ValueError')
-  template: Something went wrong while reading your message, so I can't confirm that any change was made. I haven't handed back any file from this turn.
-  friend: Something went wrong while reading your message, so I can't confirm that any change was made. I haven't handed back any file from this turn.
-  focus: Something went wrong while reading your message, so I can't confirm that any change was made. I haven't handed back any file from this turn.
-
-== c-fail-brain | delivered=False steps=[] final=None sheets=None failure=StageFailure(stage='brain', error_type='ValueError')
-  template: Something went wrong while working out what you asked for, so I can't confirm that any change was made. I haven't handed back any file from this turn.
-  friend: Something went wrong while working out what you asked for, so I can't confirm that any change was made. I haven't handed back any file from this turn.
-  focus: Something went wrong while working out what you asked for, so I can't confirm that any change was made. I haven't handed back any file from this turn.
-
-== c-fail-think | delivered=False steps=[] final=None sheets=None failure=StageFailure(stage='think', error_type='ValueError')
-  template: Something went wrong while working out what you asked for, so I can't confirm that any change was made. I haven't handed back any file from this turn.
-  friend: Something went wrong while working out what you asked for, so I can't confirm that any change was made. I haven't handed back any file from this turn.
-  focus: Something went wrong while working out what you asked for, so I can't confirm that any change was made. I haven't handed back any file from this turn.
-
-== c-fail-planner | delivered=False steps=[] final=None sheets=None failure=StageFailure(stage='planner', error_type='ValueError')
-  template: Something went wrong while planning the steps, so I can't confirm that any change was made. I haven't handed back any file from this turn.
-  friend: Something went wrong while planning the steps, so I can't confirm that any change was made. I haven't handed back any file from this turn.
-  focus: Something went wrong while planning the steps, so I can't confirm that any change was made. I haven't handed back any file from this turn.
-
-== c-fail-delegate | delivered=False steps=[] final=None sheets=None failure=StageFailure(stage='delegate', error_type='ValueError')
-  template: Something went wrong while planning the steps, so I can't confirm that any change was made. I haven't handed back any file from this turn.
-  friend: Something went wrong while planning the steps, so I can't confirm that any change was made. I haven't handed back any file from this turn.
-  focus: Something went wrong while planning the steps, so I can't confirm that any change was made. I haven't handed back any file from this turn.
-
-== c-fail-hands | delivered=False steps=[] final=None sheets=None failure=StageFailure(stage='hands', error_type='ValueError')
-  template: Something went wrong while running the steps, so I can't confirm that any change was made. I haven't handed back any file from this turn.
-  friend: Something went wrong while running the steps, so I can't confirm that any change was made. I haven't handed back any file from this turn.
-  focus: Something went wrong while running the steps, so I can't confirm that any change was made. I haven't handed back any file from this turn.
-
-== c-fail-inspector | delivered=True steps=['analyze:success', 'deduplicate:success', 'analyze:success'] final=(4, 0, 1) sheets=['Sheet1'] failure=StageFailure(stage='inspector', error_type='ValueError')
-  template: Something went wrong while checking the result, so I can't confirm that any change was made. I haven't handed back any file from this turn.
-  friend: Something went wrong while checking the result, so I can't confirm that any change was made. I haven't handed back any file from this turn.
-  focus: Something went wrong while checking the result, so I can't confirm that any change was made. I haven't handed back any file from this turn.
-
-== c-fail-inspector-chain | delivered=True steps=['analyze:success', 'deduplicate:success', 'remove_empty_rows:success', 'analyze:success'] final=(3, 0, 0) sheets=['Sheet1'] failure=StageFailure(stage='inspector', error_type='ValueError')
-  template: Something went wrong while checking the result, so I can't confirm that any change was made. I haven't handed back any file from this turn.
-  friend: Something went wrong while checking the result, so I can't confirm that any change was made. I haven't handed back any file from this turn.
-  focus: Something went wrong while checking the result, so I can't confirm that any change was made. I haven't handed back any file from this turn.
-
-== c-fail-voice-speaker [template] ERROR ValueError('voice boom')
-
-== c-fail-voice-speaker [friend] ERROR ValueError('voice boom')
-
-== c-fail-voice-speaker [friend] ERROR ValueError('voice boom')
-
-== c-fail-voice-speaker [friend] ERROR ValueError('voice boom')
-
-== c-fail-voice-speaker [friend] ERROR ValueError('voice boom')
-
-== c-fail-voice-speaker [focus] ERROR ValueError('voice boom')
-
-== d01-outdir | delivered=True steps=['analyze:success', 'deduplicate:success', 'analyze:success'] final=(4, 0, 1) sheets=['Sheet1'] failure=None
-  template: Done — removed 2 duplicate rows. The copy has 4 rows, with 0 duplicate rows remaining. Saved as `report_deduplicated_session-1-task-1.xlsx`. The copy has the values only; formatting, column widths and other sheet settings aren't carried over. I also noticed: name: 1 missing value (25.0%); amount: 1 missing value (25.0%). Want me to tackle any of these?
-  friend: Here's where things landed. Done — removed 2 duplicate rows. The copy has 4 rows, with 0 duplicate rows remaining. Your cleaned copy of report.xlsx is ready. The copy has the values only; formatting, column widths and other sheet settings aren't carried over. I also noticed: name: 1 missing value (25.0%); amount: 1 missing value (25.0%). Want me to tackle any of these?
-  friend: Okay, here's the rundown. Done — removed 2 duplicate rows. The copy has 4 rows, with 0 duplicate rows remaining. Your cleaned copy of report.xlsx is ready. The copy has the values only; formatting, column widths and other sheet settings aren't carried over. I also noticed: name: 1 missing value (25.0%); amount: 1 missing value (25.0%). Want me to tackle any of these?
-  friend: That sheet was seeing double. Done — removed 2 duplicate rows. The copy has 4 rows, with 0 duplicate rows remaining. Your cleaned copy of report.xlsx is ready. The copy has the values only; formatting, column widths and other sheet settings aren't carried over. I also noticed: name: 1 missing value (25.0%); amount: 1 missing value (25.0%). Want me to tackle any of these?
-  focus: Done — removed 2 duplicate rows. The copy has 4 rows, with 0 duplicate rows remaining. Your cleaned copy of report.xlsx is ready. The copy has the values only; formatting, column widths and other sheet settings aren't carried over. I also noticed: name: 1 missing value (25.0%); amount: 1 missing value (25.0%). Want me to tackle any of these?
-
-== d02-outdir-chain | delivered=True steps=['analyze:success', 'deduplicate:success', 'remove_empty_rows:success', 'analyze:success'] final=(3, 0, 0) sheets=['Sheet1'] failure=None
-  template: Done — removed 2 duplicate rows. Removed 1 fully-empty row. The copy has 3 rows, with 0 duplicate rows and 0 fully-empty rows remaining. Saved as `report_deduplicated_session-1-task-1_no_empty_rows_session-1-task-2.xlsx`. The copy has the values only; formatting, column widths and other sheet settings aren't carried over. None of the issues I check for were found.
-  friend: Here's where things landed. Done — removed 2 duplicate rows. Removed 1 fully-empty row. The copy has 3 rows, with 0 duplicate rows and 0 fully-empty rows remaining. Your cleaned copy of report.xlsx is ready. The copy has the values only; formatting, column widths and other sheet settings aren't carried over. None of the issues I check for were found. What's next on the list?
-  friend: That sheet was seeing double. Done — removed 2 duplicate rows. Removed 1 fully-empty row. The copy has 3 rows, with 0 duplicate rows and 0 fully-empty rows remaining. Your cleaned copy of report.xlsx is ready. The copy has the values only; formatting, column widths and other sheet settings aren't carried over. None of the issues I check for were found.
-  friend: Those blank rows were just taking up space. Done — removed 2 duplicate rows. Removed 1 fully-empty row. The copy has 3 rows, with 0 duplicate rows and 0 fully-empty rows remaining. Your cleaned copy of report.xlsx is ready. The copy has the values only; formatting, column widths and other sheet settings aren't carried over. None of the issues I check for were found.
-  focus: Done — removed 2 duplicate rows. Removed 1 fully-empty row. The copy has 3 rows, with 0 duplicate rows and 0 fully-empty rows remaining. Your cleaned copy of report.xlsx is ready. The copy has the values only; formatting, column widths and other sheet settings aren't carried over. None of the issues I check for were found.
-
-== d03-decline | delivered=False steps=['analyze:success', 'deduplicate:declined'] final=None sheets=None failure=None
-  template: Before anything else, here's what I noticed: 2 rows repeat an earlier row exactly; name: 1 missing value (16.7%); amount: 1 missing value (16.7%). Want me to tackle any of these? The deduplicate step: wasn't confirmed, so it didn't run. I stopped at the deduplicate step and no file was handed back; your original file is unchanged.
-  friend: Before anything else, here's what I noticed: 2 rows repeat an earlier row exactly; name: 1 missing value (16.7%); amount: 1 missing value (16.7%). Want me to tackle any of these? The deduplicate step: wasn't confirmed, so it didn't run. I stopped at the deduplicate step and no file was handed back; your original file is unchanged.
-  focus: Before anything else, here's what I noticed: 2 rows repeat an earlier row exactly; name: 1 missing value (16.7%); amount: 1 missing value (16.7%). Want me to tackle any of these? The deduplicate step: wasn't confirmed, so it didn't run. I stopped at the deduplicate step and no file was handed back; your original file is unchanged.
-
-== d04-confirm-raises | delivered=False steps=[] final=None sheets=None failure=StageFailure(stage='hands', error_type='RuntimeError')
-  template: Something went wrong while running the steps, so I can't confirm that any change was made. I haven't handed back any file from this turn.
-  friend: Something went wrong while running the steps, so I can't confirm that any change was made. I haven't handed back any file from this turn.
-  focus: Something went wrong while running the steps, so I can't confirm that any change was made. I haven't handed back any file from this turn.
-
-== d05-decline-chain | delivered=False steps=['analyze:success', 'deduplicate:success', 'remove_empty_rows:declined'] final=None sheets=None failure=None
-  template: Before anything else, here's what I noticed: 2 rows repeat an earlier row exactly; name: 1 missing value (16.7%); amount: 1 missing value (16.7%). Want me to tackle any of these? I ran into a problem partway through. The remove empty rows step: wasn't confirmed, so it didn't run. I stopped at the remove empty rows step and no file was handed back; your original file is unchanged.
-  friend: Before anything else, here's what I noticed: 2 rows repeat an earlier row exactly; name: 1 missing value (16.7%); amount: 1 missing value (16.7%). Want me to tackle any of these? I ran into a problem partway through. The remove empty rows step: wasn't confirmed, so it didn't run. I stopped at the remove empty rows step and no file was handed back; your original file is unchanged.
-  focus: Before anything else, here's what I noticed: 2 rows repeat an earlier row exactly; name: 1 missing value (16.7%); amount: 1 missing value (16.7%). Want me to tackle any of these? I ran into a problem partway through. The remove empty rows step: wasn't confirmed, so it didn't run. I stopped at the remove empty rows step and no file was handed back; your original file is unchanged.

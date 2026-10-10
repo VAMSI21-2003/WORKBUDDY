@@ -8,7 +8,7 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Protocol
 
-from buddy.actions import INTENT_CAPABILITIES, is_conversation, mentions_report
+from buddy.actions import INTENT_CAPABILITIES, asks_for_report, is_conversation
 from buddy.inspector import FINAL_OUTPUT_CAPABILITY, NO_ANALYSIS_FINDINGS, SKIPPED_FINDING
 from buddy.llm import LLMProvider
 from buddy.models import (
@@ -22,13 +22,14 @@ from buddy.models import (
 from buddy.outcome import (
     FILE_STYLE_GENERATED,
     FILE_STYLE_PLAIN,
+    REPORT_NOT_RUN_SENTENCE,
     _describe_capability,
     _is_action_step,
     _step_passed,
     build_outcome_report,
     not_done_sentences,
-    only_the_report_was_done,
     render_outcome,
+    report_unavailable_sentence,
 )
 from buddy.state import BuddyState, StageFailure
 from buddy.think import CLARIFY_FAILED, Reasoning
@@ -38,12 +39,9 @@ from buddy.voice_catalog import (
     NO_FILE_SENTENCE,
     NOT_UNDERSTOOD_SENTENCE,
     REFUSED_TEMPLATE,
-    REPORT_ANALYSIS_FAILED_SENTENCE,
     REPORT_LEAD_COPY,
     REPORT_LEAD_ORIGINAL,
     REPORT_NOT_PRODUCED_SENTENCE,
-    REPORT_NOT_RUN_SENTENCE,
-    REPORT_RECHECK_FAILED_SENTENCE,
     STYLE_PLAIN,
     UNDERSTANDING_FAILED_SENTENCE,
     clarification_question,
@@ -437,9 +435,9 @@ class SpeakingRequest:
             caller that doesn't say never makes the reply claim there is none.
         file_refusal: The row-cleaning skills' own refusal text for this turn's
             file, when the Planner found one (``BuddyState.file_refusal``).
-        report_requested: The message asks for a report on the file
-            (``buddy.actions.mentions_report``): the reply delivers one or says
-            it isn't available.
+        report_requested: Brain's reading of the message includes a report on the file
+            (``buddy.actions.asks_for_report``). Nothing in the message decides it. The reply
+            then gives the report or says why it can't (``buddy.outcome``).
     """
 
     understanding: Understanding
@@ -518,7 +516,6 @@ def _verified_delivery_reply(
         order_used=_order_used_sentence(request),
         delivered_file=_delivered_file_name(request),
         open_findings=len(open_findings),
-        report_stated=request.report_requested,
     )
     if any(m.remaining for m in report.residuals):
         # "It still has 2 duplicate row(s)." can't be followed by an
@@ -537,17 +534,12 @@ def _verified_delivery_reply(
     parts = [opener, render_outcome(report, file_style)]
     if request.earlier_deliveries > 0:
         parts.append(FROM_ORIGINAL_SENTENCE)
-    report_delivered = request.report_requested and _analysis_describes_final_file(
-        verification_result
-    )
-    if request.report_requested:
+    if report.report_asked:
         # A requested report is the analysis findings on the final file, labelled as the
-        # report, or a statement that it isn't available. It is never left out.
-        parts.append(
-            _report_text(open_findings, analysis_notes, REPORT_LEAD_COPY)
-            if report_delivered
-            else _report_unavailable_sentence(request)
-        )
+        # report. When it can't be given, the outcome block already says why (a not-done
+        # action), so it is never left out and never silent.
+        if report.report_given:
+            parts.append(_report_text(open_findings, analysis_notes, REPORT_LEAD_COPY))
     else:
         if open_findings:
             parts.append(
@@ -556,7 +548,7 @@ def _verified_delivery_reply(
         if analysis_notes:
             joined = "; ".join(analysis_notes)
             parts.append(joined[0].upper() + joined[1:] + ".")
-    if not request.report_requested or report_delivered:
+    if not report.report_asked or report.report_given:
         if _initial_analysis_failed(verification_result):
             parts.append(INITIAL_ANALYSIS_FAILED_SENTENCE)
         if _recheck_failed(verification_result):
@@ -577,16 +569,6 @@ def _report_text(open_findings: Sequence[str], notes: Sequence[str], lead: str) 
         lead: ``REPORT_LEAD_COPY`` or ``REPORT_LEAD_ORIGINAL``: which file they describe.
     """
     return lead + "; ".join((*open_findings, *notes)) + "."
-
-
-def _report_unavailable_sentence(request: "SpeakingRequest") -> str:
-    """Why a requested report isn't in this reply, from what ran this turn."""
-    verification_result = request.verification_result
-    if _recheck_failed(verification_result):
-        return REPORT_RECHECK_FAILED_SENTENCE
-    if _initial_analysis_failed(verification_result):
-        return REPORT_ANALYSIS_FAILED_SENTENCE
-    return REPORT_NOT_RUN_SENTENCE
 
 
 class Speaker(Protocol):
@@ -739,8 +721,10 @@ class TemplateSpeaker:
             reason = REFUSED_TEMPLATE.format(reason=request.file_refusal)
             return f"{reason} {NO_CHANGES_SENTENCE}"
         reasoning = request.reasoning
+        outcome = build_outcome_report(
+            request.execution_result, request.verification_result, understanding
+        )
         parts: list[str] = []
-        after_report: list[str] = []
         asked = False
         if reasoning is not None and reasoning.clarification_required:
             if reasoning.clarification_reason == CLARIFY_FAILED:
@@ -751,26 +735,21 @@ class TemplateSpeaker:
         elif understanding.intent is None:
             parts.append(UNDERSTANDING_FAILED_SENTENCE)
         else:
-            outcome = build_outcome_report(
-                request.execution_result,
-                request.verification_result,
-                understanding,
-                report_stated=request.report_requested,
-            )
-            stated = not_done_sentences(outcome, nothing_done=True)
-            if request.report_requested and stated and only_the_report_was_done(outcome):
-                # The phrase asked for the report and more words: the report comes first, then
-                # the one sentence about the rest, and no list of what Buddy can do.
-                after_report = stated
+            stated = not_done_sentences(outcome, nothing_done=True, include_report=False)
+            parts.extend(stated)
+            if stated or not outcome.report_asked:
+                if not stated:
+                    parts.append(NOT_UNDERSTOOD_SENTENCE)
+                parts.append(CAPABILITIES[style])
+        if outcome.report_asked:
+            # Brain's reading asked for a report: the findings of the analysis of the original,
+            # labelled as the report, or why there isn't one. Never silent, never a "can't do".
+            findings = _analysis_findings(request)
+            unavailable = report_unavailable_sentence(outcome)
+            if outcome.report_given and findings is not None:
+                parts.append(_report_text(findings[0], findings[1], REPORT_LEAD_ORIGINAL))
             else:
-                parts.extend(stated)
-                if stated or not request.report_requested:
-                    if not stated:
-                        parts.append(NOT_UNDERSTOOD_SENTENCE)
-                    parts.append(CAPABILITIES[style])
-        if request.report_requested:
-            parts.append(TemplateSpeaker._report_for_unchanged_file(request))
-            parts.extend(after_report)
+                parts.append(unavailable or REPORT_NOT_RUN_SENTENCE)
         else:
             findings = _analysis_findings(request)
             if findings is not None and (findings[0] or findings[1]):
@@ -779,20 +758,11 @@ class TemplateSpeaker:
                 parts.append(f"{NO_CHANGES_FINDINGS_LEAD}{texts}.")
                 if open_findings:
                     parts.append(ANALYSIS_QUESTION)
-        if _initial_analysis_failed(request.verification_result) and not request.report_requested:
+        if _initial_analysis_failed(request.verification_result) and not outcome.report_asked:
             parts.append(INITIAL_ANALYSIS_FAILED_SENTENCE)
         if not asked:
             parts.append(NO_CHANGES_SENTENCE)
         return _plain_words(" ".join(parts))
-
-    @staticmethod
-    def _report_for_unchanged_file(request: SpeakingRequest) -> str:
-        """A requested report on the original (nothing was changed), or why there isn't one."""
-        findings = _analysis_findings(request)
-        if findings is None:
-            return _report_unavailable_sentence(request)
-        open_findings, notes = findings
-        return _report_text(open_findings, notes, REPORT_LEAD_ORIGINAL)
 
     @staticmethod
     def _stopped_message(
@@ -1082,7 +1052,7 @@ class Voice:
             reasoning=state.reasoning,
             has_file=bool(state.uploaded_files or state.context.active_file),
             file_refusal=state.file_refusal,
-            report_requested=mentions_report(state.user_message or ""),
+            report_requested=asks_for_report(state.understanding or Understanding()),
         )
 
     @staticmethod

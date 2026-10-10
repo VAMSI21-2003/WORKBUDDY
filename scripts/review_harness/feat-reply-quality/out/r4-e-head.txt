@@ -1,760 +1,0 @@
-  0%|          | 0/2 [00:00<?, ?it/s]100%|██████████| 2/2 [00:00<00:00, 46603.38it/s]
-  0%|          | 0/2 [00:00<?, ?it/s]100%|██████████| 2/2 [00:00<00:00, 55924.05it/s]
-  0%|          | 0/2 [00:00<?, ?it/s]100%|██████████| 2/2 [00:00<00:00, 981.35it/s]
-  0%|          | 0/2 [00:00<?, ?it/s]100%|██████████| 2/2 [00:00<00:00, 62137.84it/s]
-  0%|          | 0/2 [00:00<?, ?it/s]100%|██████████| 2/2 [00:00<00:00, 64527.75it/s]
-  0%|          | 0/2 [00:00<?, ?it/s]100%|██████████| 2/2 [00:00<00:00, 47662.55it/s]
-  0%|          | 0/2 [00:00<?, ?it/s]100%|██████████| 2/2 [00:00<00:00, 1166.87it/s]
-  0%|          | 0/2 [00:00<?, ?it/s]100%|██████████| 2/2 [00:00<00:00, 60787.01it/s]
-  0%|          | 0/2 [00:00<?, ?it/s]100%|██████████| 2/2 [00:00<00:00, 13378.96it/s]
-  0%|          | 0/2 [00:00<?, ?it/s]100%|██████████| 2/2 [00:00<00:00, 67108.86it/s]
-  0%|          | 0/2 [00:00<?, ?it/s]100%|██████████| 2/2 [00:00<00:00, 556.46it/s]
-  0%|          | 0/2 [00:00<?, ?it/s]100%|██████████| 2/2 [00:00<00:00, 669.80it/s]
-  0%|          | 0/2 [00:00<?, ?it/s]100%|██████████| 2/2 [00:00<00:00, 169.13it/s]
-WARNING:
-Level All other comparisons on comparison email not observed in dataset, unable to train m value
-
-WARNING:
-Level Exact match on name on comparison name not observed in dataset, unable to train m value
-
-WARNING:
-Level Jaro-Winkler distance of name >= 0.88 on comparison name not observed in dataset, unable to train m value
-
-WARNING:
-Level Jaro-Winkler distance of name >= 0.7 on comparison name not observed in dataset, unable to train m value
-
-WARNING:
-Level All other comparisons on comparison name not observed in dataset, unable to train m value
-
-
- -- WARNING --
-You have called predict(), but there are some parameter estimates which have neither been estimated or specified in your settings dictionary.  To produce predictions the following untrained trained parameters will use default values.
-Comparison: 'name':
-    m values not fully trained
-Comparison: 'name':
-    u values not fully trained
-Comparison: 'email':
-    m values not fully trained
-The 'probability_two_random_records_match' setting has been set to the default value (0.0001). 
-If this is not the desired behaviour, either: 
- - assign a value for `probability_two_random_records_match` in your settings dictionary, or 
- - estimate with the `linker.training.estimate_probability_two_random_records_match` function.
-  0%|          | 0/2 [00:00<?, ?it/s]100%|██████████| 2/2 [00:00<00:00, 42581.77it/s]
-WARNING:
-Level All other comparisons on comparison email not observed in dataset, unable to train m value
-
-WARNING:
-Level Exact match on name on comparison name not observed in dataset, unable to train m value
-
-WARNING:
-Level Jaro-Winkler distance of name >= 0.88 on comparison name not observed in dataset, unable to train m value
-
-WARNING:
-Level Jaro-Winkler distance of name >= 0.7 on comparison name not observed in dataset, unable to train m value
-
-WARNING:
-Level All other comparisons on comparison name not observed in dataset, unable to train m value
-
-
- -- WARNING --
-You have called predict(), but there are some parameter estimates which have neither been estimated or specified in your settings dictionary.  To produce predictions the following untrained trained parameters will use default values.
-Comparison: 'name':
-    m values not fully trained
-Comparison: 'name':
-    u values not fully trained
-Comparison: 'email':
-    m values not fully trained
-The 'probability_two_random_records_match' setting has been set to the default value (0.0001). 
-If this is not the desired behaviour, either: 
- - assign a value for `probability_two_random_records_match` in your settings dictionary, or 
- - estimate with the `linker.training.estimate_probability_two_random_records_match` function.
-  0%|          | 0/2 [00:00<?, ?it/s]100%|██████████| 2/2 [00:00<00:00, 194.25it/s]
-WARNING:
-Level All other comparisons on comparison email not observed in dataset, unable to train m value
-
-WARNING:
-Level Exact match on name on comparison name not observed in dataset, unable to train m value
-
-WARNING:
-Level Jaro-Winkler distance of name >= 0.88 on comparison name not observed in dataset, unable to train m value
-
-WARNING:
-Level Jaro-Winkler distance of name >= 0.7 on comparison name not observed in dataset, unable to train m value
-
-WARNING:
-Level All other comparisons on comparison name not observed in dataset, unable to train m value
-
-
- -- WARNING --
-You have called predict(), but there are some parameter estimates which have neither been estimated or specified in your settings dictionary.  To produce predictions the following untrained trained parameters will use default values.
-Comparison: 'name':
-    m values not fully trained
-Comparison: 'name':
-    u values not fully trained
-Comparison: 'email':
-    m values not fully trained
-The 'probability_two_random_records_match' setting has been set to the default value (0.0001). 
-If this is not the desired behaviour, either: 
- - assign a value for `probability_two_random_records_match` in your settings dictionary, or 
- - estimate with the `linker.training.estimate_probability_two_random_records_match` function.
-  0%|          | 0/2 [00:00<?, ?it/s]100%|██████████| 2/2 [00:00<00:00, 35098.78it/s]
-WARNING:
-Level All other comparisons on comparison email not observed in dataset, unable to train m value
-
-WARNING:
-Level Exact match on name on comparison name not observed in dataset, unable to train m value
-
-WARNING:
-Level Jaro-Winkler distance of name >= 0.88 on comparison name not observed in dataset, unable to train m value
-
-WARNING:
-Level Jaro-Winkler distance of name >= 0.7 on comparison name not observed in dataset, unable to train m value
-
-WARNING:
-Level All other comparisons on comparison name not observed in dataset, unable to train m value
-
-
- -- WARNING --
-You have called predict(), but there are some parameter estimates which have neither been estimated or specified in your settings dictionary.  To produce predictions the following untrained trained parameters will use default values.
-Comparison: 'name':
-    m values not fully trained
-Comparison: 'name':
-    u values not fully trained
-Comparison: 'email':
-    m values not fully trained
-The 'probability_two_random_records_match' setting has been set to the default value (0.0001). 
-If this is not the desired behaviour, either: 
- - assign a value for `probability_two_random_records_match` in your settings dictionary, or 
- - estimate with the `linker.training.estimate_probability_two_random_records_match` function.
-  0%|          | 0/2 [00:00<?, ?it/s]100%|██████████| 2/2 [00:00<00:00, 829.32it/s]
-WARNING:
-Level All other comparisons on comparison email not observed in dataset, unable to train m value
-
-WARNING:
-Level Exact match on name on comparison name not observed in dataset, unable to train m value
-
-WARNING:
-Level Jaro-Winkler distance of name >= 0.88 on comparison name not observed in dataset, unable to train m value
-
-WARNING:
-Level Jaro-Winkler distance of name >= 0.7 on comparison name not observed in dataset, unable to train m value
-
-WARNING:
-Level All other comparisons on comparison name not observed in dataset, unable to train m value
-
-
- -- WARNING --
-You have called predict(), but there are some parameter estimates which have neither been estimated or specified in your settings dictionary.  To produce predictions the following untrained trained parameters will use default values.
-Comparison: 'name':
-    m values not fully trained
-Comparison: 'name':
-    u values not fully trained
-Comparison: 'email':
-    m values not fully trained
-The 'probability_two_random_records_match' setting has been set to the default value (0.0001). 
-If this is not the desired behaviour, either: 
- - assign a value for `probability_two_random_records_match` in your settings dictionary, or 
- - estimate with the `linker.training.estimate_probability_two_random_records_match` function.
-  0%|          | 0/2 [00:00<?, ?it/s]100%|██████████| 2/2 [00:00<00:00, 359.98it/s]
-WARNING:
-Level All other comparisons on comparison email not observed in dataset, unable to train m value
-
-WARNING:
-Level Exact match on name on comparison name not observed in dataset, unable to train m value
-
-WARNING:
-Level Jaro-Winkler distance of name >= 0.88 on comparison name not observed in dataset, unable to train m value
-
-WARNING:
-Level Jaro-Winkler distance of name >= 0.7 on comparison name not observed in dataset, unable to train m value
-
-WARNING:
-Level All other comparisons on comparison name not observed in dataset, unable to train m value
-
-
- -- WARNING --
-You have called predict(), but there are some parameter estimates which have neither been estimated or specified in your settings dictionary.  To produce predictions the following untrained trained parameters will use default values.
-Comparison: 'name':
-    m values not fully trained
-Comparison: 'name':
-    u values not fully trained
-Comparison: 'email':
-    m values not fully trained
-The 'probability_two_random_records_match' setting has been set to the default value (0.0001). 
-If this is not the desired behaviour, either: 
- - assign a value for `probability_two_random_records_match` in your settings dictionary, or 
- - estimate with the `linker.training.estimate_probability_two_random_records_match` function.
-  0%|          | 0/2 [00:00<?, ?it/s]100%|██████████| 2/2 [00:00<00:00, 340.32it/s]
-WARNING:
-Level All other comparisons on comparison email not observed in dataset, unable to train m value
-
-WARNING:
-Level Exact match on name on comparison name not observed in dataset, unable to train m value
-
-WARNING:
-Level Jaro-Winkler distance of name >= 0.88 on comparison name not observed in dataset, unable to train m value
-
-WARNING:
-Level Jaro-Winkler distance of name >= 0.7 on comparison name not observed in dataset, unable to train m value
-
-WARNING:
-Level All other comparisons on comparison name not observed in dataset, unable to train m value
-
-
- -- WARNING --
-You have called predict(), but there are some parameter estimates which have neither been estimated or specified in your settings dictionary.  To produce predictions the following untrained trained parameters will use default values.
-Comparison: 'name':
-    m values not fully trained
-Comparison: 'name':
-    u values not fully trained
-Comparison: 'email':
-    m values not fully trained
-The 'probability_two_random_records_match' setting has been set to the default value (0.0001). 
-If this is not the desired behaviour, either: 
- - assign a value for `probability_two_random_records_match` in your settings dictionary, or 
- - estimate with the `linker.training.estimate_probability_two_random_records_match` function.
-  0%|          | 0/2 [00:00<?, ?it/s]100%|██████████| 2/2 [00:00<00:00, 350.86it/s]
-WARNING:
-Level All other comparisons on comparison email not observed in dataset, unable to train m value
-
-WARNING:
-Level Exact match on name on comparison name not observed in dataset, unable to train m value
-
-WARNING:
-Level Jaro-Winkler distance of name >= 0.88 on comparison name not observed in dataset, unable to train m value
-
-WARNING:
-Level Jaro-Winkler distance of name >= 0.7 on comparison name not observed in dataset, unable to train m value
-
-WARNING:
-Level All other comparisons on comparison name not observed in dataset, unable to train m value
-
-
- -- WARNING --
-You have called predict(), but there are some parameter estimates which have neither been estimated or specified in your settings dictionary.  To produce predictions the following untrained trained parameters will use default values.
-Comparison: 'name':
-    m values not fully trained
-Comparison: 'name':
-    u values not fully trained
-Comparison: 'email':
-    m values not fully trained
-The 'probability_two_random_records_match' setting has been set to the default value (0.0001). 
-If this is not the desired behaviour, either: 
- - assign a value for `probability_two_random_records_match` in your settings dictionary, or 
- - estimate with the `linker.training.estimate_probability_two_random_records_match` function.
-  0%|          | 0/2 [00:00<?, ?it/s]100%|██████████| 2/2 [00:00<00:00, 441.32it/s]
-WARNING:
-Level All other comparisons on comparison email not observed in dataset, unable to train m value
-
-WARNING:
-Level Exact match on name on comparison name not observed in dataset, unable to train m value
-
-WARNING:
-Level Jaro-Winkler distance of name >= 0.88 on comparison name not observed in dataset, unable to train m value
-
-WARNING:
-Level Jaro-Winkler distance of name >= 0.7 on comparison name not observed in dataset, unable to train m value
-
-WARNING:
-Level All other comparisons on comparison name not observed in dataset, unable to train m value
-
-
- -- WARNING --
-You have called predict(), but there are some parameter estimates which have neither been estimated or specified in your settings dictionary.  To produce predictions the following untrained trained parameters will use default values.
-Comparison: 'name':
-    m values not fully trained
-Comparison: 'name':
-    u values not fully trained
-Comparison: 'email':
-    m values not fully trained
-The 'probability_two_random_records_match' setting has been set to the default value (0.0001). 
-If this is not the desired behaviour, either: 
- - assign a value for `probability_two_random_records_match` in your settings dictionary, or 
- - estimate with the `linker.training.estimate_probability_two_random_records_match` function.
-  0%|          | 0/2 [00:00<?, ?it/s]100%|██████████| 2/2 [00:00<00:00, 693.96it/s]
-WARNING:
-Level All other comparisons on comparison email not observed in dataset, unable to train m value
-
-WARNING:
-Level Exact match on name on comparison name not observed in dataset, unable to train m value
-
-WARNING:
-Level Jaro-Winkler distance of name >= 0.88 on comparison name not observed in dataset, unable to train m value
-
-WARNING:
-Level Jaro-Winkler distance of name >= 0.7 on comparison name not observed in dataset, unable to train m value
-
-WARNING:
-Level All other comparisons on comparison name not observed in dataset, unable to train m value
-
-
- -- WARNING --
-You have called predict(), but there are some parameter estimates which have neither been estimated or specified in your settings dictionary.  To produce predictions the following untrained trained parameters will use default values.
-Comparison: 'name':
-    m values not fully trained
-Comparison: 'name':
-    u values not fully trained
-Comparison: 'email':
-    m values not fully trained
-The 'probability_two_random_records_match' setting has been set to the default value (0.0001). 
-If this is not the desired behaviour, either: 
- - assign a value for `probability_two_random_records_match` in your settings dictionary, or 
- - estimate with the `linker.training.estimate_probability_two_random_records_match` function.
-  0%|          | 0/2 [00:00<?, ?it/s]100%|██████████| 2/2 [00:00<00:00, 213.13it/s]
-WARNING:
-Level All other comparisons on comparison email not observed in dataset, unable to train m value
-
-WARNING:
-Level Exact match on name on comparison name not observed in dataset, unable to train m value
-
-WARNING:
-Level Jaro-Winkler distance of name >= 0.88 on comparison name not observed in dataset, unable to train m value
-
-WARNING:
-Level Jaro-Winkler distance of name >= 0.7 on comparison name not observed in dataset, unable to train m value
-
-WARNING:
-Level All other comparisons on comparison name not observed in dataset, unable to train m value
-
-
- -- WARNING --
-You have called predict(), but there are some parameter estimates which have neither been estimated or specified in your settings dictionary.  To produce predictions the following untrained trained parameters will use default values.
-Comparison: 'name':
-    m values not fully trained
-Comparison: 'name':
-    u values not fully trained
-Comparison: 'email':
-    m values not fully trained
-The 'probability_two_random_records_match' setting has been set to the default value (0.0001). 
-If this is not the desired behaviour, either: 
- - assign a value for `probability_two_random_records_match` in your settings dictionary, or 
- - estimate with the `linker.training.estimate_probability_two_random_records_match` function.
-  0%|          | 0/2 [00:00<?, ?it/s]100%|██████████| 2/2 [00:00<00:00, 158.00it/s]
-WARNING:
-Level All other comparisons on comparison email not observed in dataset, unable to train m value
-
-WARNING:
-Level Exact match on name on comparison name not observed in dataset, unable to train m value
-
-WARNING:
-Level Jaro-Winkler distance of name >= 0.88 on comparison name not observed in dataset, unable to train m value
-
-WARNING:
-Level Jaro-Winkler distance of name >= 0.7 on comparison name not observed in dataset, unable to train m value
-
-WARNING:
-Level All other comparisons on comparison name not observed in dataset, unable to train m value
-
-
- -- WARNING --
-You have called predict(), but there are some parameter estimates which have neither been estimated or specified in your settings dictionary.  To produce predictions the following untrained trained parameters will use default values.
-Comparison: 'name':
-    m values not fully trained
-Comparison: 'name':
-    u values not fully trained
-Comparison: 'email':
-    m values not fully trained
-The 'probability_two_random_records_match' setting has been set to the default value (0.0001). 
-If this is not the desired behaviour, either: 
- - assign a value for `probability_two_random_records_match` in your settings dictionary, or 
- - estimate with the `linker.training.estimate_probability_two_random_records_match` function.
-  0%|          | 0/2 [00:00<?, ?it/s]100%|██████████| 2/2 [00:00<00:00, 197.86it/s]
-WARNING:
-Level All other comparisons on comparison email not observed in dataset, unable to train m value
-
-WARNING:
-Level Exact match on name on comparison name not observed in dataset, unable to train m value
-
-WARNING:
-Level Jaro-Winkler distance of name >= 0.88 on comparison name not observed in dataset, unable to train m value
-
-WARNING:
-Level Jaro-Winkler distance of name >= 0.7 on comparison name not observed in dataset, unable to train m value
-
-WARNING:
-Level All other comparisons on comparison name not observed in dataset, unable to train m value
-
-
- -- WARNING --
-You have called predict(), but there are some parameter estimates which have neither been estimated or specified in your settings dictionary.  To produce predictions the following untrained trained parameters will use default values.
-Comparison: 'name':
-    m values not fully trained
-Comparison: 'name':
-    u values not fully trained
-Comparison: 'email':
-    m values not fully trained
-The 'probability_two_random_records_match' setting has been set to the default value (0.0001). 
-If this is not the desired behaviour, either: 
- - assign a value for `probability_two_random_records_match` in your settings dictionary, or 
- - estimate with the `linker.training.estimate_probability_two_random_records_match` function.
-  0%|          | 0/2 [00:00<?, ?it/s]100%|██████████| 2/2 [00:00<00:00, 65027.97it/s]
-WARNING:
-Level All other comparisons on comparison email not observed in dataset, unable to train m value
-
-WARNING:
-Level Exact match on name on comparison name not observed in dataset, unable to train m value
-
-WARNING:
-Level Jaro-Winkler distance of name >= 0.88 on comparison name not observed in dataset, unable to train m value
-
-WARNING:
-Level Jaro-Winkler distance of name >= 0.7 on comparison name not observed in dataset, unable to train m value
-
-WARNING:
-Level All other comparisons on comparison name not observed in dataset, unable to train m value
-
-
- -- WARNING --
-You have called predict(), but there are some parameter estimates which have neither been estimated or specified in your settings dictionary.  To produce predictions the following untrained trained parameters will use default values.
-Comparison: 'name':
-    m values not fully trained
-Comparison: 'name':
-    u values not fully trained
-Comparison: 'email':
-    m values not fully trained
-The 'probability_two_random_records_match' setting has been set to the default value (0.0001). 
-If this is not the desired behaviour, either: 
- - assign a value for `probability_two_random_records_match` in your settings dictionary, or 
- - estimate with the `linker.training.estimate_probability_two_random_records_match` function.
-  0%|          | 0/2 [00:00<?, ?it/s]100%|██████████| 2/2 [00:00<00:00, 39756.44it/s]
-WARNING:
-Level All other comparisons on comparison email not observed in dataset, unable to train m value
-
-WARNING:
-Level Exact match on name on comparison name not observed in dataset, unable to train m value
-
-WARNING:
-Level Jaro-Winkler distance of name >= 0.88 on comparison name not observed in dataset, unable to train m value
-
-WARNING:
-Level Jaro-Winkler distance of name >= 0.7 on comparison name not observed in dataset, unable to train m value
-
-WARNING:
-Level All other comparisons on comparison name not observed in dataset, unable to train m value
-
-
- -- WARNING --
-You have called predict(), but there are some parameter estimates which have neither been estimated or specified in your settings dictionary.  To produce predictions the following untrained trained parameters will use default values.
-Comparison: 'name':
-    m values not fully trained
-Comparison: 'name':
-    u values not fully trained
-Comparison: 'email':
-    m values not fully trained
-The 'probability_two_random_records_match' setting has been set to the default value (0.0001). 
-If this is not the desired behaviour, either: 
- - assign a value for `probability_two_random_records_match` in your settings dictionary, or 
- - estimate with the `linker.training.estimate_probability_two_random_records_match` function.
-  0%|          | 0/2 [00:00<?, ?it/s]100%|██████████| 2/2 [00:00<00:00, 497.10it/s]
-  0%|          | 0/2 [00:00<?, ?it/s]100%|██████████| 2/2 [00:00<00:00, 225.02it/s]
-  0%|          | 0/2 [00:00<?, ?it/s]100%|██████████| 2/2 [00:00<00:00, 65536.00it/s]
-  0%|          | 0/2 [00:00<?, ?it/s]100%|██████████| 2/2 [00:00<00:00, 729.19it/s]
-  0%|          | 0/2 [00:00<?, ?it/s]100%|██████████| 2/2 [00:00<00:00, 637.53it/s]
-  0%|          | 0/2 [00:00<?, ?it/s]100%|██████████| 2/2 [00:00<00:00, 65027.97it/s]
-  0%|          | 0/2 [00:00<?, ?it/s]100%|██████████| 2/2 [00:00<00:00, 241.64it/s]
-/usr/local/lib/python3.13/dist-packages/numpy/_core/_methods.py:222: RuntimeWarning: Degrees of freedom <= 0 for slice
-  ret = _var(a, axis=axis, dtype=dtype, out=out, ddof=ddof,
-/usr/local/lib/python3.13/dist-packages/numpy/_core/_methods.py:214: RuntimeWarning: invalid value encountered in scalar divide
-  ret = ret.dtype.type(ret / rcount)
-/usr/local/lib/python3.13/dist-packages/numpy/_core/fromnumeric.py:4268: RuntimeWarning: Degrees of freedom <= 0 for slice
-  return _methods._var(a, axis=axis, dtype=dtype, out=out, ddof=ddof,
-/usr/local/lib/python3.13/dist-packages/numpy/_core/_methods.py:222: RuntimeWarning: Degrees of freedom <= 0 for slice
-  ret = _var(a, axis=axis, dtype=dtype, out=out, ddof=ddof,
-/usr/local/lib/python3.13/dist-packages/numpy/_core/_methods.py:214: RuntimeWarning: invalid value encountered in scalar divide
-  ret = ret.dtype.type(ret / rcount)
-/usr/local/lib/python3.13/dist-packages/numpy/_core/fromnumeric.py:4268: RuntimeWarning: Degrees of freedom <= 0 for slice
-  return _methods._var(a, axis=axis, dtype=dtype, out=out, ddof=ddof,
-  0%|          | 0/2 [00:00<?, ?it/s]100%|██████████| 2/2 [00:00<00:00, 62601.55it/s]
-  0%|          | 0/2 [00:00<?, ?it/s]100%|██████████| 2/2 [00:00<00:00, 39199.10it/s]
-/usr/local/lib/python3.13/dist-packages/numpy/_core/_methods.py:222: RuntimeWarning: Degrees of freedom <= 0 for slice
-  ret = _var(a, axis=axis, dtype=dtype, out=out, ddof=ddof,
-  0%|          | 0/2 [00:00<?, ?it/s]/usr/local/lib/python3.13/dist-packages/numpy/_core/_methods.py:214: RuntimeWarning: invalid value encountered in scalar divide
-  ret = ret.dtype.type(ret / rcount)
-/usr/local/lib/python3.13/dist-packages/numpy/_core/fromnumeric.py:4268: RuntimeWarning: Degrees of freedom <= 0 for slice
-  return _methods._var(a, axis=axis, dtype=dtype, out=out, ddof=ddof,
-/usr/local/lib/python3.13/dist-packages/numpy/_core/_methods.py:222: RuntimeWarning: Degrees of freedom <= 0 for slice
-  ret = _var(a, axis=axis, dtype=dtype, out=out, ddof=ddof,
-/usr/local/lib/python3.13/dist-packages/numpy/_core/_methods.py:214: RuntimeWarning: invalid value encountered in scalar divide
-  ret = ret.dtype.type(ret / rcount)
-/usr/local/lib/python3.13/dist-packages/numpy/_core/fromnumeric.py:4268: RuntimeWarning: Degrees of freedom <= 0 for slice
-  return _methods._var(a, axis=axis, dtype=dtype, out=out, ddof=ddof,
-100%|██████████| 2/2 [00:00<00:00, 973.83it/s]
-  0%|          | 0/2 [00:00<?, ?it/s]100%|██████████| 2/2 [00:00<00:00, 652.40it/s]
-/usr/local/lib/python3.13/dist-packages/numpy/_core/_methods.py:222: RuntimeWarning: Degrees of freedom <= 0 for slice
-  ret = _var(a, axis=axis, dtype=dtype, out=out, ddof=ddof,
-/usr/local/lib/python3.13/dist-packages/numpy/_core/_methods.py:214: RuntimeWarning: invalid value encountered in scalar divide
-  ret = ret.dtype.type(ret / rcount)
-/usr/local/lib/python3.13/dist-packages/numpy/_core/fromnumeric.py:4268: RuntimeWarning: Degrees of freedom <= 0 for slice
-  return _methods._var(a, axis=axis, dtype=dtype, out=out, ddof=ddof,
-  0%|          | 0/2 [00:00<?, ?it/s]/usr/local/lib/python3.13/dist-packages/numpy/_core/_methods.py:222: RuntimeWarning: Degrees of freedom <= 0 for slice
-  ret = _var(a, axis=axis, dtype=dtype, out=out, ddof=ddof,
-/usr/local/lib/python3.13/dist-packages/numpy/_core/_methods.py:214: RuntimeWarning: invalid value encountered in scalar divide
-  ret = ret.dtype.type(ret / rcount)
-/usr/local/lib/python3.13/dist-packages/numpy/_core/fromnumeric.py:4268: RuntimeWarning: Degrees of freedom <= 0 for slice
-  return _methods._var(a, axis=axis, dtype=dtype, out=out, ddof=ddof,
-100%|██████████| 2/2 [00:00<00:00, 497.22it/s]
-  0%|          | 0/2 [00:00<?, ?it/s]100%|██████████| 2/2 [00:00<00:00, 263.70it/s]
-  0%|          | 0/2 [00:00<?, ?it/s]100%|██████████| 2/2 [00:00<00:00, 259.66it/s]
-  0%|          | 0/2 [00:00<?, ?it/s]100%|██████████| 2/2 [00:00<00:00, 337.58it/s]
-  0%|          | 0/2 [00:00<?, ?it/s]100%|██████████| 2/2 [00:00<00:00, 69327.34it/s]
-  0%|          | 0/2 [00:00<?, ?it/s]100%|██████████| 2/2 [00:00<00:00, 271.67it/s]
-  0%|          | 0/2 [00:00<?, ?it/s]100%|██████████| 2/2 [00:00<00:00, 298.51it/s]
-  0%|          | 0/2 [00:00<?, ?it/s]100%|██████████| 2/2 [00:00<00:00, 248.87it/s]
-  0%|          | 0/2 [00:00<?, ?it/s]100%|██████████| 2/2 [00:00<00:00, 348.42it/s]
-  0%|          | 0/2 [00:00<?, ?it/s]100%|██████████| 2/2 [00:00<00:00, 307.77it/s]
-  0%|          | 0/2 [00:00<?, ?it/s]100%|██████████| 2/2 [00:00<00:00, 214.89it/s]
-  0%|          | 0/2 [00:00<?, ?it/s]100%|██████████| 2/2 [00:00<00:00, 341.11it/s]
-  0%|          | 0/2 [00:00<?, ?it/s]100%|██████████| 2/2 [00:00<00:00, 321.90it/s]
-  0%|          | 0/2 [00:00<?, ?it/s]100%|██████████| 2/2 [00:00<00:00, 304.48it/s]
-  0%|          | 0/2 [00:00<?, ?it/s]100%|██████████| 2/2 [00:00<00:00, 362.50it/s]
-  0%|          | 0/2 [00:00<?, ?it/s]100%|██████████| 2/2 [00:00<00:00, 351.06it/s]
-  0%|          | 0/2 [00:00<?, ?it/s]100%|██████████| 2/2 [00:00<00:00, 563.98it/s]
-  0%|          | 0/2 [00:00<?, ?it/s]100%|██████████| 2/2 [00:00<00:00, 359.32it/s]
-  0%|          | 0/2 [00:00<?, ?it/s]100%|██████████| 2/2 [00:00<00:00, 338.85it/s]
-  0%|          | 0/2 [00:00<?, ?it/s]100%|██████████| 2/2 [00:00<00:00, 302.96it/s]
-  0%|          | 0/2 [00:00<?, ?it/s]100%|██████████| 2/2 [00:00<00:00, 322.79it/s]
-  0%|          | 0/2 [00:00<?, ?it/s]100%|██████████| 2/2 [00:00<00:00, 468.17it/s]
-  0%|          | 0/2 [00:00<?, ?it/s]100%|██████████| 2/2 [00:00<00:00, 301.47it/s]
-  0%|          | 0/2 [00:00<?, ?it/s]100%|██████████| 2/2 [00:00<00:00, 610.79it/s]
-  0%|          | 0/2 [00:00<?, ?it/s]100%|██████████| 2/2 [00:00<00:00, 289.67it/s]
-  0%|          | 0/2 [00:00<?, ?it/s]100%|██████████| 2/2 [00:00<00:00, 457.39it/s]
-  0%|          | 0/2 [00:00<?, ?it/s]100%|██████████| 2/2 [00:00<00:00, 470.71it/s]
-  0%|          | 0/2 [00:00<?, ?it/s]100%|██████████| 2/2 [00:00<00:00, 586.78it/s]
-  0%|          | 0/2 [00:00<?, ?it/s]100%|██████████| 2/2 [00:00<00:00, 382.76it/s]
-  0%|          | 0/2 [00:00<?, ?it/s]100%|██████████| 2/2 [00:00<00:00, 424.91it/s]
-  0%|          | 0/2 [00:00<?, ?it/s]100%|██████████| 2/2 [00:00<00:00, 312.73it/s]
-  0%|          | 0/2 [00:00<?, ?it/s]100%|██████████| 2/2 [00:00<00:00, 257.56it/s]
-  0%|          | 0/2 [00:00<?, ?it/s]100%|██████████| 2/2 [00:00<00:00, 469.42it/s]
-  0%|          | 0/2 [00:00<?, ?it/s]100%|██████████| 2/2 [00:00<00:00, 198.09it/s]
-  0%|          | 0/2 [00:00<?, ?it/s]100%|██████████| 2/2 [00:00<00:00, 294.56it/s]
-  0%|          | 0/2 [00:00<?, ?it/s]100%|██████████| 2/2 [00:00<00:00, 288.36it/s]
-  0%|          | 0/2 [00:00<?, ?it/s]100%|██████████| 2/2 [00:00<00:00, 348.73it/s]
-  0%|          | 0/2 [00:00<?, ?it/s]100%|██████████| 2/2 [00:00<00:00, 353.65it/s]
-  0%|          | 0/2 [00:00<?, ?it/s]100%|██████████| 2/2 [00:00<00:00, 285.06it/s]
-  0%|          | 0/2 [00:00<?, ?it/s]100%|██████████| 2/2 [00:00<00:00, 546.81it/s]
-  0%|          | 0/2 [00:00<?, ?it/s]100%|██████████| 2/2 [00:00<00:00, 265.58it/s]
-  0%|          | 0/2 [00:00<?, ?it/s]100%|██████████| 2/2 [00:00<00:00, 317.13it/s]
-  0%|          | 0/2 [00:00<?, ?it/s]100%|██████████| 2/2 [00:00<00:00, 356.61it/s]
-  0%|          | 0/2 [00:00<?, ?it/s]100%|██████████| 2/2 [00:00<00:00, 324.30it/s]
-  0%|          | 0/2 [00:00<?, ?it/s]100%|██████████| 2/2 [00:00<00:00, 544.96it/s]
-  0%|          | 0/2 [00:00<?, ?it/s]100%|██████████| 2/2 [00:00<00:00, 335.37it/s]
-  0%|          | 0/2 [00:00<?, ?it/s]100%|██████████| 2/2 [00:00<00:00, 328.05it/s]
-  0%|          | 0/2 [00:00<?, ?it/s]100%|██████████| 2/2 [00:00<00:00, 335.62it/s]
-  0%|          | 0/2 [00:00<?, ?it/s]100%|██████████| 2/2 [00:00<00:00, 277.36it/s]
-  0%|          | 0/2 [00:00<?, ?it/s]100%|██████████| 2/2 [00:00<00:00, 316.05it/s]
-  0%|          | 0/2 [00:00<?, ?it/s]100%|██████████| 2/2 [00:00<00:00, 225.94it/s]
-  0%|          | 0/2 [00:00<?, ?it/s]100%|██████████| 2/2 [00:00<00:00, 311.59it/s]
-  0%|          | 0/2 [00:00<?, ?it/s]100%|██████████| 2/2 [00:00<00:00, 2600.31it/s]
-  0%|          | 0/2 [00:00<?, ?it/s]100%|██████████| 2/2 [00:00<00:00, 356.02it/s]
-  0%|          | 0/2 [00:00<?, ?it/s]100%|██████████| 2/2 [00:00<00:00, 351.61it/s]
-  0%|          | 0/2 [00:00<?, ?it/s]100%|██████████| 2/2 [00:00<00:00, 333.04it/s]
-  0%|          | 0/2 [00:00<?, ?it/s]100%|██████████| 2/2 [00:00<00:00, 517.85it/s]
-  0%|          | 0/2 [00:00<?, ?it/s]100%|██████████| 2/2 [00:00<00:00, 718.57it/s]
-SpreadsheetAnalysisSkill: missing_and_distribution analyzer failed
-Traceback (most recent call last):
-  File "/home/user/WORKBUDDY/skills/excel/analyze.py", line 392, in execute
-    findings = analyzer(df)
-  File "/home/user/WORKBUDDY/skills/excel/analyze.py", line 81, in __call__
-    report = ProfileReport(df, minimal=True, progress_bar=False)
-  File "/usr/local/lib/python3.13/dist-packages/ydata_profiling/profile_report.py", line 109, in __init__
-    self.__validate_inputs(df, minimal, tsmode, config_file, lazy)
-    ~~~~~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-  File "/usr/local/lib/python3.13/dist-packages/ydata_profiling/profile_report.py", line 183, in __validate_inputs
-    raise ValueError(
-        "DataFrame is empty. Please" "provide a non-empty DataFrame."
-    )
-ValueError: DataFrame is empty. Pleaseprovide a non-empty DataFrame.
-SpreadsheetAnalysisSkill: missing_and_distribution analyzer failed
-Traceback (most recent call last):
-  File "/home/user/WORKBUDDY/skills/excel/analyze.py", line 392, in execute
-    findings = analyzer(df)
-  File "/home/user/WORKBUDDY/skills/excel/analyze.py", line 81, in __call__
-    report = ProfileReport(df, minimal=True, progress_bar=False)
-  File "/usr/local/lib/python3.13/dist-packages/ydata_profiling/profile_report.py", line 109, in __init__
-    self.__validate_inputs(df, minimal, tsmode, config_file, lazy)
-    ~~~~~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-  File "/usr/local/lib/python3.13/dist-packages/ydata_profiling/profile_report.py", line 183, in __validate_inputs
-    raise ValueError(
-        "DataFrame is empty. Please" "provide a non-empty DataFrame."
-    )
-ValueError: DataFrame is empty. Pleaseprovide a non-empty DataFrame.
-SpreadsheetAnalysisSkill: missing_and_distribution analyzer failed
-Traceback (most recent call last):
-  File "/home/user/WORKBUDDY/skills/excel/analyze.py", line 392, in execute
-    findings = analyzer(df)
-  File "/home/user/WORKBUDDY/skills/excel/analyze.py", line 81, in __call__
-    report = ProfileReport(df, minimal=True, progress_bar=False)
-  File "/usr/local/lib/python3.13/dist-packages/ydata_profiling/profile_report.py", line 109, in __init__
-    self.__validate_inputs(df, minimal, tsmode, config_file, lazy)
-    ~~~~~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-  File "/usr/local/lib/python3.13/dist-packages/ydata_profiling/profile_report.py", line 183, in __validate_inputs
-    raise ValueError(
-        "DataFrame is empty. Please" "provide a non-empty DataFrame."
-    )
-ValueError: DataFrame is empty. Pleaseprovide a non-empty DataFrame.
-SpreadsheetAnalysisSkill: missing_and_distribution analyzer failed
-Traceback (most recent call last):
-  File "/home/user/WORKBUDDY/skills/excel/analyze.py", line 392, in execute
-    findings = analyzer(df)
-  File "/home/user/WORKBUDDY/skills/excel/analyze.py", line 81, in __call__
-    report = ProfileReport(df, minimal=True, progress_bar=False)
-  File "/usr/local/lib/python3.13/dist-packages/ydata_profiling/profile_report.py", line 109, in __init__
-    self.__validate_inputs(df, minimal, tsmode, config_file, lazy)
-    ~~~~~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-  File "/usr/local/lib/python3.13/dist-packages/ydata_profiling/profile_report.py", line 183, in __validate_inputs
-    raise ValueError(
-        "DataFrame is empty. Please" "provide a non-empty DataFrame."
-    )
-ValueError: DataFrame is empty. Pleaseprovide a non-empty DataFrame.
-SpreadsheetAnalysisSkill: missing_and_distribution analyzer failed
-Traceback (most recent call last):
-  File "/home/user/WORKBUDDY/skills/excel/analyze.py", line 392, in execute
-    findings = analyzer(df)
-  File "/home/user/WORKBUDDY/skills/excel/analyze.py", line 81, in __call__
-    report = ProfileReport(df, minimal=True, progress_bar=False)
-  File "/usr/local/lib/python3.13/dist-packages/ydata_profiling/profile_report.py", line 109, in __init__
-    self.__validate_inputs(df, minimal, tsmode, config_file, lazy)
-    ~~~~~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-  File "/usr/local/lib/python3.13/dist-packages/ydata_profiling/profile_report.py", line 183, in __validate_inputs
-    raise ValueError(
-        "DataFrame is empty. Please" "provide a non-empty DataFrame."
-    )
-ValueError: DataFrame is empty. Pleaseprovide a non-empty DataFrame.
-SpreadsheetAnalysisSkill: missing_and_distribution analyzer failed
-Traceback (most recent call last):
-  File "/home/user/WORKBUDDY/skills/excel/analyze.py", line 392, in execute
-    findings = analyzer(df)
-  File "/home/user/WORKBUDDY/skills/excel/analyze.py", line 81, in __call__
-    report = ProfileReport(df, minimal=True, progress_bar=False)
-  File "/usr/local/lib/python3.13/dist-packages/ydata_profiling/profile_report.py", line 109, in __init__
-    self.__validate_inputs(df, minimal, tsmode, config_file, lazy)
-    ~~~~~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-  File "/usr/local/lib/python3.13/dist-packages/ydata_profiling/profile_report.py", line 183, in __validate_inputs
-    raise ValueError(
-        "DataFrame is empty. Please" "provide a non-empty DataFrame."
-    )
-ValueError: DataFrame is empty. Pleaseprovide a non-empty DataFrame.
-  0%|          | 0/2 [00:00<?, ?it/s]/usr/local/lib/python3.13/dist-packages/numpy/_core/_methods.py:222: RuntimeWarning: Degrees of freedom <= 0 for slice
-  ret = _var(a, axis=axis, dtype=dtype, out=out, ddof=ddof,
-/usr/local/lib/python3.13/dist-packages/numpy/_core/_methods.py:214: RuntimeWarning: invalid value encountered in scalar divide
-  ret = ret.dtype.type(ret / rcount)
-/usr/local/lib/python3.13/dist-packages/numpy/_core/fromnumeric.py:4268: RuntimeWarning: Degrees of freedom <= 0 for slice
-  return _methods._var(a, axis=axis, dtype=dtype, out=out, ddof=ddof,
-100%|██████████| 2/2 [00:00<00:00, 321.56it/s]
-/usr/local/lib/python3.13/dist-packages/numpy/_core/_methods.py:222: RuntimeWarning: Degrees of freedom <= 0 for slice
-  ret = _var(a, axis=axis, dtype=dtype, out=out, ddof=ddof,
-  0%|          | 0/2 [00:00<?, ?it/s]/usr/local/lib/python3.13/dist-packages/numpy/_core/_methods.py:214: RuntimeWarning: invalid value encountered in scalar divide
-  ret = ret.dtype.type(ret / rcount)
-/usr/local/lib/python3.13/dist-packages/numpy/_core/fromnumeric.py:4268: RuntimeWarning: Degrees of freedom <= 0 for slice
-  return _methods._var(a, axis=axis, dtype=dtype, out=out, ddof=ddof,
-100%|██████████| 2/2 [00:00<00:00, 261.55it/s]
-  0%|          | 0/2 [00:00<?, ?it/s]/usr/local/lib/python3.13/dist-packages/numpy/_core/_methods.py:222: RuntimeWarning: Degrees of freedom <= 0 for slice
-  ret = _var(a, axis=axis, dtype=dtype, out=out, ddof=ddof,
-/usr/local/lib/python3.13/dist-packages/numpy/_core/_methods.py:214: RuntimeWarning: invalid value encountered in scalar divide
-  ret = ret.dtype.type(ret / rcount)
-/usr/local/lib/python3.13/dist-packages/numpy/_core/fromnumeric.py:4268: RuntimeWarning: Degrees of freedom <= 0 for slice
-  return _methods._var(a, axis=axis, dtype=dtype, out=out, ddof=ddof,
-100%|██████████| 2/2 [00:00<00:00, 941.06it/s]
-  0%|          | 0/2 [00:00<?, ?it/s]/usr/local/lib/python3.13/dist-packages/numpy/_core/_methods.py:222: RuntimeWarning: Degrees of freedom <= 0 for slice
-  ret = _var(a, axis=axis, dtype=dtype, out=out, ddof=ddof,
-/usr/local/lib/python3.13/dist-packages/numpy/_core/_methods.py:214: RuntimeWarning: invalid value encountered in scalar divide
-  ret = ret.dtype.type(ret / rcount)
-/usr/local/lib/python3.13/dist-packages/numpy/_core/fromnumeric.py:4268: RuntimeWarning: Degrees of freedom <= 0 for slice
-  return _methods._var(a, axis=axis, dtype=dtype, out=out, ddof=ddof,
-100%|██████████| 2/2 [00:00<00:00, 382.55it/s]
-/usr/local/lib/python3.13/dist-packages/numpy/_core/_methods.py:222: RuntimeWarning: Degrees of freedom <= 0 for slice
-  ret = _var(a, axis=axis, dtype=dtype, out=out, ddof=ddof,
-/usr/local/lib/python3.13/dist-packages/numpy/_core/_methods.py:214: RuntimeWarning: invalid value encountered in scalar divide
-  ret = ret.dtype.type(ret / rcount)
-/usr/local/lib/python3.13/dist-packages/numpy/_core/fromnumeric.py:4268: RuntimeWarning: Degrees of freedom <= 0 for slice
-  return _methods._var(a, axis=axis, dtype=dtype, out=out, ddof=ddof,
-  0%|          | 0/2 [00:00<?, ?it/s]100%|██████████| 2/2 [00:00<00:00, 26051.58it/s]
-  0%|          | 0/2 [00:00<?, ?it/s]/usr/local/lib/python3.13/dist-packages/numpy/_core/_methods.py:222: RuntimeWarning: Degrees of freedom <= 0 for slice
-  ret = _var(a, axis=axis, dtype=dtype, out=out, ddof=ddof,
-/usr/local/lib/python3.13/dist-packages/numpy/_core/_methods.py:214: RuntimeWarning: invalid value encountered in scalar divide
-  ret = ret.dtype.type(ret / rcount)
-/usr/local/lib/python3.13/dist-packages/numpy/_core/fromnumeric.py:4268: RuntimeWarning: Degrees of freedom <= 0 for slice
-  return _methods._var(a, axis=axis, dtype=dtype, out=out, ddof=ddof,
-100%|██████████| 2/2 [00:00<00:00, 417.45it/s]
-  0%|          | 0/2 [00:00<?, ?it/s]100%|██████████| 2/2 [00:00<00:00, 345.21it/s]
-  0%|          | 0/2 [00:00<?, ?it/s]100%|██████████| 2/2 [00:00<00:00, 331.24it/s]
-  0%|          | 0/2 [00:00<?, ?it/s]100%|██████████| 2/2 [00:00<00:00, 736.62it/s]
-ClaudePlanner: reply was not valid JSON: 'not json'
-  0%|          | 0/2 [00:00<?, ?it/s]100%|██████████| 2/2 [00:00<00:00, 65536.00it/s]
-ClaudePlanner: reply was not valid JSON: 'not json'
-  0%|          | 0/2 [00:00<?, ?it/s]100%|██████████| 2/2 [00:00<00:00, 298.28it/s]
-ClaudePlanner: reply was not valid JSON: 'not json'
-  0%|          | 0/2 [00:00<?, ?it/s]100%|██████████| 2/2 [00:00<00:00, 322.16it/s]
-ClaudePlanner: LLM call failed
-Traceback (most recent call last):
-  File "/home/user/WORKBUDDY/buddy/planner.py", line 747, in __call__
-    raw_reply = self._provider.complete(
-        system=_SYSTEM_PROMPT,
-        messages=(LLMMessage(role="user", content=user_prompt),),
-    )
-  File "/home/user/WORKBUDDY/scripts/review_harness/feat-reply-quality/rq.py", line 85, in complete
-    raise r
-RuntimeError: x TOPSECRET
-  0%|          | 0/2 [00:00<?, ?it/s]100%|██████████| 2/2 [00:00<00:00, 178.27it/s]
-ClaudePlanner: LLM call failed
-Traceback (most recent call last):
-  File "/home/user/WORKBUDDY/buddy/planner.py", line 747, in __call__
-    raw_reply = self._provider.complete(
-        system=_SYSTEM_PROMPT,
-        messages=(LLMMessage(role="user", content=user_prompt),),
-    )
-  File "/home/user/WORKBUDDY/scripts/review_harness/feat-reply-quality/rq.py", line 85, in complete
-    raise r
-  File "/home/user/WORKBUDDY/buddy/planner.py", line 747, in __call__
-    raw_reply = self._provider.complete(
-        system=_SYSTEM_PROMPT,
-        messages=(LLMMessage(role="user", content=user_prompt),),
-    )
-  File "/home/user/WORKBUDDY/scripts/review_harness/feat-reply-quality/rq.py", line 85, in complete
-    raise r
-RuntimeError: x TOPSECRET
-  0%|          | 0/2 [00:00<?, ?it/s]100%|██████████| 2/2 [00:00<00:00, 666.34it/s]
-ClaudePlanner: LLM call failed
-Traceback (most recent call last):
-  File "/home/user/WORKBUDDY/buddy/planner.py", line 747, in __call__
-    raw_reply = self._provider.complete(
-        system=_SYSTEM_PROMPT,
-        messages=(LLMMessage(role="user", content=user_prompt),),
-    )
-  File "/home/user/WORKBUDDY/scripts/review_harness/feat-reply-quality/rq.py", line 85, in complete
-    raise r
-  File "/home/user/WORKBUDDY/buddy/planner.py", line 747, in __call__
-    raw_reply = self._provider.complete(
-        system=_SYSTEM_PROMPT,
-        messages=(LLMMessage(role="user", content=user_prompt),),
-    )
-  File "/home/user/WORKBUDDY/scripts/review_harness/feat-reply-quality/rq.py", line 85, in complete
-    raise r
-  File "/home/user/WORKBUDDY/buddy/planner.py", line 747, in __call__
-    raw_reply = self._provider.complete(
-        system=_SYSTEM_PROMPT,
-        messages=(LLMMessage(role="user", content=user_prompt),),
-    )
-  File "/home/user/WORKBUDDY/scripts/review_harness/feat-reply-quality/rq.py", line 85, in complete
-    raise r
-RuntimeError: x TOPSECRET
-  0%|          | 0/2 [00:00<?, ?it/s]100%|██████████| 2/2 [00:00<00:00, 331.34it/s]
-ClaudeInterpreter: intent outside the vocabulary: 'greeting'
-  0%|          | 0/2 [00:00<?, ?it/s]100%|██████████| 2/2 [00:00<00:00, 338.39it/s]
-ClaudeInterpreter: intent outside the vocabulary: 'greeting'
-  0%|          | 0/2 [00:00<?, ?it/s]100%|██████████| 2/2 [00:00<00:00, 227.17it/s]
-ClaudeInterpreter: intent outside the vocabulary: 'greeting'
-  0%|          | 0/2 [00:00<?, ?it/s]100%|██████████| 2/2 [00:00<00:00, 314.86it/s]
-ClaudeInterpreter: intent outside the vocabulary: 'Conversation'
-  0%|          | 0/2 [00:00<?, ?it/s]100%|██████████| 2/2 [00:00<00:00, 558.12it/s]
-ClaudeInterpreter: intent outside the vocabulary: 'Conversation'
-  0%|          | 0/2 [00:00<?, ?it/s]100%|██████████| 2/2 [00:00<00:00, 341.01it/s]
-ClaudeInterpreter: intent outside the vocabulary: 'Conversation'
-  0%|          | 0/2 [00:00<?, ?it/s]100%|██████████| 2/2 [00:00<00:00, 182.71it/s]
-ClaudeInterpreter: intent outside the vocabulary: ' conversation '
-  0%|          | 0/2 [00:00<?, ?it/s]100%|██████████| 2/2 [00:00<00:00, 314.12it/s]
-ClaudeInterpreter: intent outside the vocabulary: ' conversation '
-  0%|          | 0/2 [00:00<?, ?it/s]100%|██████████| 2/2 [00:00<00:00, 1140.53it/s]
-ClaudeInterpreter: intent outside the vocabulary: ' conversation '
-  0%|          | 0/2 [00:00<?, ?it/s]100%|██████████| 2/2 [00:00<00:00, 300.59it/s]
-105 turns -> out/r4-e-head.json

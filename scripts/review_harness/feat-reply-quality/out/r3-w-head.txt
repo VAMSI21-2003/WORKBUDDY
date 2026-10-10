@@ -197,158 +197,4 @@
   0%|          | 0/2 [00:00<?, ?it/s]100%|██████████| 2/2 [00:00<00:00, 280.37it/s]
   0%|          | 0/2 [00:00<?, ?it/s]100%|██████████| 2/2 [00:00<00:00, 36954.22it/s]
   0%|          | 0/2 [00:00<?, ?it/s]100%|██████████| 2/2 [00:00<00:00, 1240.92it/s]
-  0%|          | 0/2 [00:00<?, ?it/s]100%|██████████| 2/2 [00:00<00:00, 66576.25it/s]
-  0%|          | 0/2 [00:00<?, ?it/s]100%|██████████| 2/2 [00:00<00:00, 66576.25it/s]
-  0%|          | 0/2 [00:00<?, ?it/s]100%|██████████| 2/2 [00:00<00:00, 68200.07it/s]
-  0%|          | 0/2 [00:00<?, ?it/s]100%|██████████| 2/2 [00:00<00:00, 65536.00it/s]
-  0%|          | 0/2 [00:00<?, ?it/s]100%|██████████| 2/2 [00:00<00:00, 28149.69it/s]
-  0%|          | 0/2 [00:00<?, ?it/s]100%|██████████| 2/2 [00:00<00:00, 40136.88it/s]
-  0%|          | 0/2 [00:00<?, ?it/s]100%|██████████| 2/2 [00:00<00:00, 67650.06it/s]
-  0%|          | 0/2 [00:00<?, ?it/s]100%|██████████| 2/2 [00:00<00:00, 411.31it/s]
-  0%|          | 0/2 [00:00<?, ?it/s]100%|██████████| 2/2 [00:00<00:00, 665.50it/s]
-  0%|          | 0/2 [00:00<?, ?it/s]100%|██████████| 2/2 [00:00<00:00, 200.73it/s]
-  0%|          | 0/2 [00:00<?, ?it/s]100%|██████████| 2/2 [00:00<00:00, 472.15it/s]
-  0%|          | 0/2 [00:00<?, ?it/s]100%|██████████| 2/2 [00:00<00:00, 2612.46it/s]
-  0%|          | 0/2 [00:00<?, ?it/s]100%|██████████| 2/2 [00:00<00:00, 41527.76it/s]
-  0%|          | 0/2 [00:00<?, ?it/s]100%|██████████| 2/2 [00:00<00:00, 66576.25it/s]
-  0%|          | 0/2 [00:00<?, ?it/s]100%|██████████| 2/2 [00:00<00:00, 41527.76it/s]
-  0%|          | 0/2 [00:00<?, ?it/s]100%|██████████| 2/2 [00:00<00:00, 71697.50it/s]
-  0%|          | 0/2 [00:00<?, ?it/s]100%|██████████| 2/2 [00:00<00:00, 658.91it/s]
-  0%|          | 0/2 [00:00<?, ?it/s]100%|██████████| 2/2 [00:00<00:00, 42366.71it/s]
-  0%|          | 0/2 [00:00<?, ?it/s]100%|██████████| 2/2 [00:00<00:00, 69327.34it/s]
-  0%|          | 0/2 [00:00<?, ?it/s]100%|██████████| 2/2 [00:00<00:00, 68759.08it/s]
-  0%|          | 0/2 [00:00<?, ?it/s]100%|██████████| 2/2 [00:00<00:00, 69327.34it/s]
-  0%|          | 0/2 [00:00<?, ?it/s]100%|██████████| 2/2 [00:00<00:00, 67108.86it/s]
-  0%|          | 0/2 [00:00<?, ?it/s]100%|██████████| 2/2 [00:00<00:00, 448.54it/s]
-  0%|          | 0/2 [00:00<?, ?it/s]100%|██████████| 2/2 [00:00<00:00, 70492.50it/s]
-  0%|          | 0/2 [00:00<?, ?it/s]100%|██████████| 2/2 [00:00<00:00, 412.54it/s]
-  0%|          | 0/2 [00:00<?, ?it/s]100%|██████████| 2/2 [00:00<00:00, 1195.98it/s]
-  0%|          | 0/2 [00:00<?, ?it/s]100%|██████████| 2/2 [00:00<00:00, 38479.85it/s]
-  0%|          | 0/2 [00:00<?, ?it/s]100%|██████████| 2/2 [00:00<00:00, 63072.24it/s]
-  0%|          | 0/2 [00:00<?, ?it/s]100%|██████████| 2/2 [00:00<00:00, 64035.18it/s]
-  0%|          | 0/2 [00:00<?, ?it/s]100%|██████████| 2/2 [00:00<00:00, 49056.19it/s]
-  0%|          | 0/2 [00:00<?, ?it/s]100%|██████████| 2/2 [00:00<00:00, 68759.08it/s]
-  0%|          | 0/2 [00:00<?, ?it/s]100%|██████████| 2/2 [00:00<00:00, 53430.62it/s]
-  0%|          | 0/2 [00:00<?, ?it/s]100%|██████████| 2/2 [00:00<00:00, 67108.86it/s]
-  0%|          | 0/2 [00:00<?, ?it/s]100%|██████████| 2/2 [00:00<00:00, 65536.00it/s]
-  0%|          | 0/2 [00:00<?, ?it/s]100%|██████████| 2/2 [00:00<00:00, 348.93it/s]
-  0%|          | 0/2 [00:00<?, ?it/s]100%|██████████| 2/2 [00:00<00:00, 683.56it/s]
-  0%|          | 0/2 [00:00<?, ?it/s]100%|██████████| 2/2 [00:00<00:00, 441.34it/s]
-  0%|          | 0/2 [00:00<?, ?it/s]100%|██████████| 2/2 [00:00<00:00, 204.95it/s]
-  0%|          | 0/2 [00:00<?, ?it/s]100%|██████████| 2/2 [00:00<00:00, 353.95it/s]
-  0%|          | 0/2 [00:00<?, ?it/s]100%|██████████| 2/2 [00:00<00:00, 4609.13it/s]
-  0%|          | 0/2 [00:00<?, ?it/s]100%|██████████| 2/2 [00:00<00:00, 65536.00it/s]
-  0%|          | 0/2 [00:00<?, ?it/s]100%|██████████| 2/2 [00:00<00:00, 71697.50it/s]
-  0%|          | 0/2 [00:00<?, ?it/s]100%|██████████| 2/2 [00:00<00:00, 68200.07it/s]
-  0%|          | 0/2 [00:00<?, ?it/s]100%|██████████| 2/2 [00:00<00:00, 43018.50it/s]
-  0%|          | 0/2 [00:00<?, ?it/s]100%|██████████| 2/2 [00:00<00:00, 66052.03it/s]
-  0%|          | 0/2 [00:00<?, ?it/s]100%|██████████| 2/2 [00:00<00:00, 709.46it/s]
-  0%|          | 0/2 [00:00<?, ?it/s]100%|██████████| 2/2 [00:00<00:00, 1151.33it/s]
-  0%|          | 0/2 [00:00<?, ?it/s]100%|██████████| 2/2 [00:00<00:00, 53430.62it/s]
-  0%|          | 0/2 [00:00<?, ?it/s]100%|██████████| 2/2 [00:00<00:00, 69327.34it/s]
-  0%|          | 0/2 [00:00<?, ?it/s]100%|██████████| 2/2 [00:00<00:00, 73584.28it/s]
-  0%|          | 0/2 [00:00<?, ?it/s]100%|██████████| 2/2 [00:00<00:00, 53092.46it/s]
-  0%|          | 0/2 [00:00<?, ?it/s]100%|██████████| 2/2 [00:00<00:00, 494.03it/s]
-  0%|          | 0/2 [00:00<?, ?it/s]100%|██████████| 2/2 [00:00<00:00, 63550.06it/s]
-  0%|          | 0/2 [00:00<?, ?it/s]100%|██████████| 2/2 [00:00<00:00, 68759.08it/s]
-  0%|          | 0/2 [00:00<?, ?it/s]100%|██████████| 2/2 [00:00<00:00, 3804.36it/s]
-  0%|          | 0/2 [00:00<?, ?it/s]100%|██████████| 2/2 [00:00<00:00, 67650.06it/s]
-  0%|          | 0/2 [00:00<?, ?it/s]100%|██████████| 2/2 [00:00<00:00, 665.45it/s]
-  0%|          | 0/2 [00:00<?, ?it/s]100%|██████████| 2/2 [00:00<00:00, 69905.07it/s]
-  0%|          | 0/2 [00:00<?, ?it/s]100%|██████████| 2/2 [00:00<00:00, 385.91it/s]
-  0%|          | 0/2 [00:00<?, ?it/s]100%|██████████| 2/2 [00:00<00:00, 614.78it/s]
-  0%|          | 0/2 [00:00<?, ?it/s]100%|██████████| 2/2 [00:00<00:00, 743.47it/s]
-  0%|          | 0/2 [00:00<?, ?it/s]100%|██████████| 2/2 [00:00<00:00, 668.15it/s]
-  0%|          | 0/2 [00:00<?, ?it/s]100%|██████████| 2/2 [00:00<00:00, 61680.94it/s]
-  0%|          | 0/2 [00:00<?, ?it/s]100%|██████████| 2/2 [00:00<00:00, 66576.25it/s]
-  0%|          | 0/2 [00:00<?, ?it/s]100%|██████████| 2/2 [00:00<00:00, 401.85it/s]
-  0%|          | 0/2 [00:00<?, ?it/s]100%|██████████| 2/2 [00:00<00:00, 67108.86it/s]
-  0%|          | 0/2 [00:00<?, ?it/s]100%|██████████| 2/2 [00:00<00:00, 68200.07it/s]
-  0%|          | 0/2 [00:00<?, ?it/s]100%|██████████| 2/2 [00:00<00:00, 65027.97it/s]
-  0%|          | 0/2 [00:00<?, ?it/s]100%|██████████| 2/2 [00:00<00:00, 69327.34it/s]
-  0%|          | 0/2 [00:00<?, ?it/s]100%|██████████| 2/2 [00:00<00:00, 225.47it/s]
-  0%|          | 0/2 [00:00<?, ?it/s]100%|██████████| 2/2 [00:00<00:00, 625.13it/s]
-  0%|          | 0/2 [00:00<?, ?it/s]100%|██████████| 2/2 [00:00<00:00, 499.26it/s]
-  0%|          | 0/2 [00:00<?, ?it/s]100%|██████████| 2/2 [00:00<00:00, 63550.06it/s]
-  0%|          | 0/2 [00:00<?, ?it/s]100%|██████████| 2/2 [00:00<00:00, 66576.25it/s]
-  0%|          | 0/2 [00:00<?, ?it/s]100%|██████████| 2/2 [00:00<00:00, 266.97it/s]
-  0%|          | 0/2 [00:00<?, ?it/s]100%|██████████| 2/2 [00:00<00:00, 47393.27it/s]
-  0%|          | 0/2 [00:00<?, ?it/s]100%|██████████| 2/2 [00:00<00:00, 31775.03it/s]
-  0%|          | 0/2 [00:00<?, ?it/s]100%|██████████| 2/2 [00:00<00:00, 1516.65it/s]
-  0%|          | 0/2 [00:00<?, ?it/s]100%|██████████| 2/2 [00:00<00:00, 416.89it/s]
-  0%|          | 0/2 [00:00<?, ?it/s]100%|██████████| 2/2 [00:00<00:00, 33961.98it/s]
-  0%|          | 0/2 [00:00<?, ?it/s]100%|██████████| 2/2 [00:00<00:00, 59918.63it/s]
-  0%|          | 0/2 [00:00<?, ?it/s]100%|██████████| 2/2 [00:00<00:00, 674.76it/s]
-  0%|          | 0/2 [00:00<?, ?it/s]100%|██████████| 2/2 [00:00<00:00, 66576.25it/s]
-  0%|          | 0/2 [00:00<?, ?it/s]100%|██████████| 2/2 [00:00<00:00, 1938.67it/s]
-  0%|          | 0/2 [00:00<?, ?it/s]100%|██████████| 2/2 [00:00<00:00, 64527.75it/s]
-  0%|          | 0/2 [00:00<?, ?it/s]100%|██████████| 2/2 [00:00<00:00, 553.96it/s]
-  0%|          | 0/2 [00:00<?, ?it/s]100%|██████████| 2/2 [00:00<00:00, 4454.92it/s]
-  0%|          | 0/2 [00:00<?, ?it/s]100%|██████████| 2/2 [00:00<00:00, 628.83it/s]
-  0%|          | 0/2 [00:00<?, ?it/s]100%|██████████| 2/2 [00:00<00:00, 70492.50it/s]
-192 turns {'OK': 38, 'CONTRADICTION': 6, 'CANT+FINDINGS': 20}
-original changed: 0 | errors: 0
-OK             dlv=0 w00-alone|give me a report on the duplicate rows
-OK             dlv=1 w00-dedupe|give me a report on the duplicate rows
-CONTRADICTION  dlv=0 w01-alone|report on the empty rows
-CONTRADICTION  dlv=1 w01-dedupe|report on the empty rows
-CONTRADICTION  dlv=0 w02-alone|report on duplicate and empty rows
-CONTRADICTION  dlv=1 w02-dedupe|report on duplicate and empty rows
-CONTRADICTION  dlv=0 w03-alone|give me a report on the duplicates and empty rows
-CONTRADICTION  dlv=1 w03-dedupe|give me a report on the duplicates and empty rows
-OK             dlv=0 w04-alone|analyze the duplicate rows
-OK             dlv=1 w04-dedupe|analyze the duplicate rows
-OK             dlv=0 w05-alone|give me a summary of the missing values
-OK             dlv=1 w05-dedupe|give me a summary of the missing values
-OK             dlv=0 w06-alone|summary of the data quality issues
-OK             dlv=1 w06-dedupe|summary of the data quality issues
-OK             dlv=0 w07-alone|a report on data quality
-OK             dlv=1 w07-dedupe|a report on data quality
-OK             dlv=0 w08-alone|give me a report on columns with missing values
-OK             dlv=1 w08-dedupe|give me a report on columns with missing values
-OK             dlv=0 w09-alone|give me a report on the file's problems
-OK             dlv=1 w09-dedupe|give me a report on the file's problems
-OK             dlv=0 w10-alone|give me a report about the problems in the file
-OK             dlv=1 w10-dedupe|give me a report about the problems in the file
-OK             dlv=0 w11-alone|I want a summary of what's in the file
-OK             dlv=1 w11-dedupe|I want a summary of what's in the file
-OK             dlv=0 w12-alone|report on everything
-OK             dlv=1 w12-dedupe|report on everything
-OK             dlv=0 w13-alone|a summary of everything in the file
-OK             dlv=1 w13-dedupe|a summary of everything in the file
-OK             dlv=0 w14-alone|analyze the first sheet
-OK             dlv=1 w14-dedupe|analyze the first sheet
-OK             dlv=0 w15-alone|analyze my data and tell me what's wrong
-OK             dlv=1 w15-dedupe|analyze my data and tell me what's wrong
-OK             dlv=0 w16-alone|I'd like a summary please
-OK             dlv=1 w16-dedupe|I'd like a summary please
-OK             dlv=0 w17-alone|provide a summary of the file
-OK             dlv=1 w17-dedupe|provide a summary of the file
-OK             dlv=0 w18-alone|check my file for duplicates
-OK             dlv=1 w18-dedupe|check my file for duplicates
-CANT+FINDINGS  dlv=0 w19-alone|give me a breakdown of the file
-CANT+FINDINGS  dlv=1 w19-dedupe|give me a breakdown of the file
-CANT+FINDINGS  dlv=0 w20-alone|find problems in my data
-CANT+FINDINGS  dlv=1 w20-dedupe|find problems in my data
-CANT+FINDINGS  dlv=0 w21-alone|scan the file for problems
-CANT+FINDINGS  dlv=1 w21-dedupe|scan the file for problems
-CANT+FINDINGS  dlv=0 w22-alone|look for problems in the file
-CANT+FINDINGS  dlv=1 w22-dedupe|look for problems in the file
-CANT+FINDINGS  dlv=0 w23-alone|tell me what you find
-CANT+FINDINGS  dlv=1 w23-dedupe|tell me what you find
-CANT+FINDINGS  dlv=0 w24-alone|give me stats on the file
-CANT+FINDINGS  dlv=1 w24-dedupe|give me stats on the file
-CANT+FINDINGS  dlv=0 w25-alone|audit the file
-CANT+FINDINGS  dlv=1 w25-dedupe|audit the file
-CANT+FINDINGS  dlv=0 w26-alone|what does the file contain
-CANT+FINDINGS  dlv=1 w26-dedupe|what does the file contain
-CANT+FINDINGS  dlv=0 w27-alone|describe the file
-CANT+FINDINGS  dlv=1 w27-dedupe|describe the file
-CANT+FINDINGS  dlv=0 w28-alone|show me the file's problems
-CANT+FINDINGS  dlv=1 w28-dedupe|show me the file's problems
-OK             dlv=0 w29-alone|analyze my file
-OK             dlv=1 w29-dedupe|analyze my file
-OK             dlv=0 w30-alone|give me a report on this file
-OK             dlv=1 w30-dedupe|give me a report on this file
-OK             dlv=0 w31-alone|summarize the file
-OK             dlv=1 w31-dedupe|summarize the file
+[truncated to 199 lines; the full output is regenerated by the script named in README.md]

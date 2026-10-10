@@ -277,7 +277,9 @@ rest don't run:
   missing values, numeric outliers, mixed date formats, rows that share an
   identifier but disagree on other values, and likely near-duplicates. It
   changes nothing; it only reports. Buddy runs it automatically before other
-  work, so never plan for it or ask about it.
+  work, so never plan for it or ask about it. A request for a report, summary
+  or overview of the file is answered with its findings; it needs no question
+  either.
 
 Set "clarification_required" to true only when the user's answer would
 change what one of these capabilities actually does. If the user asks for

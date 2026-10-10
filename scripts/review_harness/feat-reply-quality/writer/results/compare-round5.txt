@@ -1,4 +1,4 @@
-/tmp/claude-0/-home-user-WORKBUDDY/25b61d56-0443-587c-bd0d-22d35a8e14fc/scratchpad/h4/round5-new.json: 222 turns, 6 errors in new run, base had 222 turns
+h4/round5-new.json: 222 turns, 6 errors in new run, base had 222 turns
      96  plural + exact-duplicate finding / flow
      72  plural
      54  same

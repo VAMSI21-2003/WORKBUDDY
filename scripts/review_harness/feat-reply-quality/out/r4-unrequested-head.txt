@@ -1,55 +1,0 @@
-  0%|          | 0/2 [00:00<?, ?it/s]100%|██████████| 2/2 [00:00<00:00, 41323.19it/s]
-  0%|          | 0/2 [00:00<?, ?it/s]100%|██████████| 2/2 [00:00<00:00, 509.67it/s]
-
-"remove the duplicate rows, I'll check the file myself"
-   report_block=False  tackle_question=True  delivered=True
-   Done — removed 2 duplicate rows. The copy has 4 rows, with 0 duplicate rows remaining. Saved as `report_deduplicated_session-1-task-1.xlsx`. The copy has the values only; formatting, column widths and other sheet settings aren't carried over. I also noticed: name: 1 missing value (25.0%); amount: 1 missing value (25.0%). Want me to tackle any of these?
-  0%|          | 0/2 [00:00<?, ?it/s]100%|██████████| 2/2 [00:00<00:00, 511.63it/s]
-  0%|          | 0/2 [00:00<?, ?it/s]100%|██████████| 2/2 [00:00<00:00, 377.54it/s]
-
-"remove the duplicate rows but don't look at my data"
-   report_block=False  tackle_question=True  delivered=True
-   Done — removed 2 duplicate rows. The copy has 4 rows, with 0 duplicate rows remaining. Saved as `report_deduplicated_session-1-task-1.xlsx`. The copy has the values only; formatting, column widths and other sheet settings aren't carried over. I also noticed: name: 1 missing value (25.0%); amount: 1 missing value (25.0%). Want me to tackle any of these?
-  0%|          | 0/2 [00:00<?, ?it/s]100%|██████████| 2/2 [00:00<00:00, 2522.13it/s]
-  0%|          | 0/2 [00:00<?, ?it/s]100%|██████████| 2/2 [00:00<00:00, 408.72it/s]
-
-'remove the duplicate rows. No need to review the file.'
-   report_block=False  tackle_question=True  delivered=True
-   Done — removed 2 duplicate rows. The copy has 4 rows, with 0 duplicate rows remaining. Saved as `report_deduplicated_session-1-task-1.xlsx`. The copy has the values only; formatting, column widths and other sheet settings aren't carried over. I also noticed: name: 1 missing value (25.0%); amount: 1 missing value (25.0%). Want me to tackle any of these?
-  0%|          | 0/2 [00:00<?, ?it/s]100%|██████████| 2/2 [00:00<00:00, 59918.63it/s]
-  0%|          | 0/2 [00:00<?, ?it/s]100%|██████████| 2/2 [00:00<00:00, 566.57it/s]
-
-'remove the duplicate rows and do not inspect the data'
-   report_block=False  tackle_question=True  delivered=True
-   Done — removed 2 duplicate rows. The copy has 4 rows, with 0 duplicate rows remaining. Saved as `report_deduplicated_session-1-task-1.xlsx`. The copy has the values only; formatting, column widths and other sheet settings aren't carried over. I also noticed: name: 1 missing value (25.0%); amount: 1 missing value (25.0%). Want me to tackle any of these?
-  0%|          | 0/2 [00:00<?, ?it/s]100%|██████████| 2/2 [00:00<00:00, 303.06it/s]
-  0%|          | 0/2 [00:00<?, ?it/s]100%|██████████| 2/2 [00:00<00:00, 64527.75it/s]
-
-'remove the duplicate rows from the overview sheet'
-   report_block=False  tackle_question=True  delivered=True
-   Done — removed 2 duplicate rows. The copy has 4 rows, with 0 duplicate rows remaining. Saved as `report_deduplicated_session-1-task-1.xlsx`. The copy has the values only; formatting, column widths and other sheet settings aren't carried over. I also noticed: name: 1 missing value (25.0%); amount: 1 missing value (25.0%). Want me to tackle any of these?
-  0%|          | 0/2 [00:00<?, ?it/s]100%|██████████| 2/2 [00:00<00:00, 64527.75it/s]
-  0%|          | 0/2 [00:00<?, ?it/s]100%|██████████| 2/2 [00:00<00:00, 592.21it/s]
-
-'remove the duplicate rows, I will take a look at the file after'
-   report_block=False  tackle_question=True  delivered=True
-   Done — removed 2 duplicate rows. The copy has 4 rows, with 0 duplicate rows remaining. Saved as `report_deduplicated_session-1-task-1.xlsx`. The copy has the values only; formatting, column widths and other sheet settings aren't carried over. I also noticed: name: 1 missing value (25.0%); amount: 1 missing value (25.0%). Want me to tackle any of these?
-
-"thanks, I'll review the data now"
-   report_block=False  tackle_question=False  delivered=False
-   Hello. I can remove duplicate rows, remove empty rows, and look a spreadsheet over for possible problems. Tell me what to do with your file.
-
-"thanks! I'll look at the file"
-   report_block=False  tackle_question=False  delivered=False
-   Hello. I can remove duplicate rows, remove empty rows, and look a spreadsheet over for possible problems. Tell me what to do with your file.
-  0%|          | 0/2 [00:00<?, ?it/s]100%|██████████| 2/2 [00:00<00:00, 373.81it/s]
-
-'hi, can you check the file?'
-   report_block=True  tackle_question=False  delivered=False
-   Report on your original file: 2 rows repeat an earlier row exactly; name: 1 missing value (16.7%); amount: 1 missing value (16.7%). No changes were made to any file this turn.
-  0%|          | 0/2 [00:00<?, ?it/s]100%|██████████| 2/2 [00:00<00:00, 587.03it/s]
-  0%|          | 0/2 [00:00<?, ?it/s]100%|██████████| 2/2 [00:00<00:00, 580.13it/s]
-
-"remove the duplicate rows and don't give me a report"
-   report_block=False  tackle_question=True  delivered=True
-   Done — removed 2 duplicate rows. The copy has 4 rows, with 0 duplicate rows remaining. Saved as `report_deduplicated_session-1-task-1.xlsx`. The copy has the values only; formatting, column widths and other sheet settings aren't carried over. I also noticed: name: 1 missing value (25.0%); amount: 1 missing value (25.0%). Want me to tackle any of these?

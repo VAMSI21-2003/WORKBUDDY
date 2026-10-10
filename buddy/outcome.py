@@ -17,6 +17,12 @@ Each action in the report is one of:
   that's true by how it's derived;
 - ``DONE_UNREQUESTED``: a step ran and passed, but Brain's reading of the
   request doesn't have it and neither does the mention detector.
+
+The report (``buddy.actions.REPORT_ON_FILE``) is an action like the others, but it
+changes no file: it is in the ledger only when Brain's reading has it, and it is ``DONE``
+when the analysis of the right file (the delivered copy, or the original when nothing was
+changed) ran and passed, else ``NOT_DONE`` with the reason the analysis isn't available. The
+findings themselves are put in the reply by ``buddy.voice``.
 """
 
 import re
@@ -28,10 +34,9 @@ from buddy.actions import (
     ACTIONS_BY_NAME,
     ACTIONS_BY_TARGET,
     BRAIN_SOURCES,
+    REPORT_ON_FILE,
     UNSUPPORTED,
-    is_only_a_report_request,
     requested_ledger,
-    strip_report_request,
 )
 from buddy.inspector import FINAL_OUTPUT_CAPABILITY
 from buddy.models import (
@@ -53,6 +58,7 @@ from buddy.text import count_noun
 # needs nothing from Voice.
 
 _ACTION_TIERS = ("write", "external_effect")
+_ANALYSIS_CAPABILITY = "spreadsheet.analyze"
 
 
 def _describe_capability(capability: str) -> str:
@@ -134,10 +140,12 @@ DONE_UNREQUESTED = "done_unrequested"
 NOT_PLANNED = "not_planned"  # Brain's reading has it; no step for its capability ran
 NOT_READ_AS_REQUEST = "not_read_as_request"  # only the mention detector has it; no step ran
 NO_SKILL = "no_skill"  # Brain listed it as "unsupported": no capability exists
-# Brain listed it as "unsupported", the phrase holds a report request and other words: the reply
-# states the report itself, and for the rest of the phrase only that nothing beyond it was done.
-# It never says what the other words ask for, because no word list can tell (review rounds 1-3).
-REPORT_ONLY = "report_only"
+# The report was asked for (Brain's reading) and the analysis can't give it. True by how each is
+# derived from the verdicts: the re-check of the final file failed; the analysis of the original
+# failed; or no analysis verdict exists.
+REPORT_RECHECK_FAILED = "report_recheck_failed"
+REPORT_ANALYSIS_FAILED = "report_analysis_failed"
+REPORT_NOT_RUN = "report_not_run"
 # A step for it ran but didn't pass. Not reachable through a verified delivery
 # from build_engine (a failing file-changing step fails the turn); kept so the
 # sentence is never "didn't run" for a step that did run.
@@ -245,6 +253,16 @@ class OutcomeReport:
         )
 
     @property
+    def report_asked(self) -> bool:
+        """Whether Brain's reading asked for a report (the action is in the report either way)."""
+        return any(a.capability == _ANALYSIS_CAPABILITY for a in self.actions)
+
+    @property
+    def report_given(self) -> bool:
+        """Whether the report was asked for and the analysis of the right file passed."""
+        return any(a.capability == _ANALYSIS_CAPABILITY and a.status == DONE for a in self.actions)
+
+    @property
     def lead_word(self) -> str | None:
         """``"Done"``, ``"Partly done"`` or ``None`` (design 2.3 and decision D2).
 
@@ -274,7 +292,6 @@ def build_outcome_report(
     order_used: str | None = None,
     delivered_file: str | None = None,
     open_findings: int = 0,
-    report_stated: bool = False,
 ) -> OutcomeReport:
     """Build the report for a turn that delivered a verified file.
 
@@ -289,6 +306,9 @@ def build_outcome_report(
       request (a mention-detector entry doesn't count as Brain's reading);
       otherwise ``DONE`` with a non-Brain source (nothing to compare it
       with), which never leads to "Done".
+    - The report (``REPORT_ON_FILE``), when Brain's reading has it, is ``DONE`` if the
+      analysis of the right file passed (see ``_report_outcome``), else ``NOT_DONE`` with
+      the reason it can't be given. Nothing else puts a report in the ledger.
     - A ledger action with no passing step is ``NOT_DONE``: ``NO_SKILL`` if
       Brain listed it as ``"unsupported"`` (unless its phrase only names an
       action that has a capability; see ``_no_skill_outcome``),
@@ -304,9 +324,6 @@ def build_outcome_report(
         order_used: The order-used sentence, if the order wasn't confirmed.
         delivered_file: The original file's name.
         open_findings: How many analysis findings the reply asks about.
-        report_stated: The reply states a requested report itself, delivered or
-            not available (``buddy.voice``), so the part of an ``unsupported``
-            entry that only asks for a report is not also stated as "can't do".
 
     Returns:
         The ``OutcomeReport``.
@@ -320,7 +337,7 @@ def build_outcome_report(
     ledger_by_capability = {
         ACTIONS_BY_NAME[entry.action].capability: entry
         for entry in reversed(ledger)  # the first entry for a capability wins
-        if entry.action in ACTIONS_BY_NAME
+        if entry.action in ACTIONS_BY_NAME and ACTIONS_BY_NAME[entry.action].changes_file
     }
 
     steps = execution_result.steps if execution_result is not None else ()
@@ -359,10 +376,15 @@ def build_outcome_report(
     passed_capabilities = {step.capability for step, _ in passed}
     ran_capabilities = {step.capability for step in action_steps}
     not_done: list[ActionOutcome] = []
+    report_done: list[ActionOutcome] = []
     said_no_skill: set[str] = set()
     for entry in ledger:
+        if entry.action == REPORT_ON_FILE:
+            report = _report_outcome(entry, execution_result, verification_result, bool(passed))
+            (report_done if report.status == DONE else not_done).append(report)
+            continue
         if entry.action == UNSUPPORTED:
-            outcome = _no_skill_outcome(entry, ledger, passed_capabilities, report_stated)
+            outcome = _no_skill_outcome(entry, ledger, passed_capabilities)
             if outcome is None or outcome.user_phrase.casefold() in said_no_skill:
                 continue
             said_no_skill.add(outcome.user_phrase.casefold())
@@ -382,6 +404,7 @@ def build_outcome_report(
     outcomes = [outcome for _, outcome in passed]
     actions = (
         *(o for o in outcomes if o.status == DONE),
+        *report_done,
         *(o for o in outcomes if o.status == DONE_UNREQUESTED),
         *not_done,
     )
@@ -403,6 +426,48 @@ def build_outcome_report(
             verification_result.original_facts if verification_result is not None else None
         ),
     )
+
+
+def _report_outcome(
+    entry: RequestedAction,
+    execution_result: ExecutionResult | None,
+    verification_result: VerificationResult | None,
+    changed_a_file: bool,
+) -> ActionOutcome:
+    """The outcome of the report Brain's reading asked for: ``DONE`` or ``NOT_DONE`` with a reason.
+
+    What the report describes decides which verdict counts. When a file-changing step passed
+    (the user gets a copy), the findings must come from the analysis re-run on that copy; the
+    analysis of the original no longer describes the file they receive. When nothing was changed,
+    the analysis of the original counts. A verdict that failed, or none, is never a report.
+
+    Args:
+        entry: The ledger entry for the report (Brain's).
+        execution_result: What Hands ran.
+        verification_result: Inspector's verdicts.
+        changed_a_file: A file-changing step passed this turn.
+    """
+    verdicts = verification_result.steps if verification_result is not None else ()
+    analysis_ran = execution_result is not None and any(
+        step.capability == _ANALYSIS_CAPABILITY for step in execution_result.steps
+    )
+    if changed_a_file:
+        given = any(
+            v.capability == _ANALYSIS_CAPABILITY and v.recheck and v.passed for v in verdicts
+        )
+    else:
+        given = analysis_ran and any(
+            v.capability == _ANALYSIS_CAPABILITY and not v.recheck and v.passed for v in verdicts
+        )
+    if given:
+        return ActionOutcome(_ANALYSIS_CAPABILITY, DONE, source=entry.source)
+    if any(v.recheck and not v.passed for v in verdicts):
+        reason = REPORT_RECHECK_FAILED
+    elif any(v.read_only and not v.recheck and not v.passed for v in verdicts):
+        reason = REPORT_ANALYSIS_FAILED
+    else:
+        reason = REPORT_NOT_RUN
+    return ActionOutcome(_ANALYSIS_CAPABILITY, NOT_DONE, reason=reason, source=entry.source)
 
 
 # RULE for this set: an "unsupported" entry is dropped only when, once the action's
@@ -429,6 +494,7 @@ _ACTION_WITH_VERB = {
         re.IGNORECASE,
     )
     for action in ACTIONS_BY_NAME.values()
+    if action.mention is not None
 }
 # The location strip must never take a phrase that names more than the one sheet the
 # skills read: no "across", no "workbook", no "every", no "all". Brain flagging
@@ -443,7 +509,6 @@ def _no_skill_outcome(
     entry: RequestedAction,
     ledger: tuple[RequestedAction, ...],
     passed_capabilities: set[str],
-    report_stated: bool = False,
 ) -> ActionOutcome | None:
     """The ``NO_SKILL`` outcome for an ``unsupported`` entry, or ``None`` to say nothing.
 
@@ -469,25 +534,15 @@ def _no_skill_outcome(
 
     - A done action's phrase with no joiner that contains an unsupported verb
       (Brain gives "delete the file" as the dedupe phrase) is still dropped.
-
-    When the reply states the report itself (``report_stated``), a phrase that is *only* a
-    report request (``is_only_a_report_request``) is dropped: the report has its own sentence.
-    A phrase with a report request **and** other words left over gets the ``REPORT_ONLY``
-    outcome, whatever the other words are: nothing here decides whether they ask for work
-    Buddy can't do or only describe the report ("the email column", "what needs to be fixed"),
-    because every word list that tried was wrong in one direction (review rounds 1 to 3).
-    The outcome has no source, so it never lets the lead word say "Done" or "Partly done".
     - A double negation in a paraphrase ("don't keep the empty rows") counts
       as a negation.
     """
     phrase = entry.source_phrase
-    if report_stated and is_only_a_report_request(phrase):
-        # The reply states the report itself (delivered or why not), so a phrase that only asks
-        # for one is not also "something I can't do". The same predicate the planner uses.
-        return None
     lowered = phrase.casefold().replace("\u2019", "'")
     names_action = named_passed = named_silent = False
     for action in ACTIONS_BY_NAME.values():
+        if action.name not in _ACTION_WITH_VERB:
+            continue
         remaining = _ACTION_WITH_VERB[action.name].sub(" ", lowered)
         if remaining == lowered:
             continue
@@ -496,13 +551,6 @@ def _no_skill_outcome(
             named_passed = True
         elif all(other.action != action.name for other in ledger):
             named_silent = True
-    had_report = False
-    if report_stated:
-        # A report request is stated by the reply itself (delivered or not available), so it
-        # is "named" and "done" like an action that passed: what's left decides the sentence.
-        lowered, had_report = strip_report_request(lowered)
-        if had_report:
-            names_action = named_passed = True
     lowered = _LOCATION_PHRASE.sub(" ", lowered, count=1)
     for other in ledger:
         other_action = ACTIONS_BY_NAME.get(other.action)
@@ -519,11 +567,6 @@ def _no_skill_outcome(
         return ActionOutcome("", NOT_DONE, reason=NO_SKILL, source=entry.source, user_phrase=quoted)
     words = re.findall(r"[\w']+", lowered)
     negated = any(w in _NEGATION_WORDS for w in words)
-    if had_report and any(w not in _FILLER_WORDS for w in words):
-        # The phrase asks for the report and has other words. They may be work Buddy can't do
-        # ("... and send it to my boss") or only describe the report ("the email column"); the
-        # one sentence that is true of both is that nothing beyond the report was done.
-        return ActionOutcome("", NOT_DONE, reason=REPORT_ONLY)
     if (
         any(w not in _FILLER_WORDS for w in words)
         or (negated and named_passed)
@@ -550,7 +593,7 @@ def _residuals(
     residuals: list[StepMeasurement] = []
     for outcome in not_done:
         action = ACTIONS_BY_CAPABILITY.get(outcome.capability)
-        if action is None:
+        if action is None or not action.target:
             continue
         found = _first_for_target(verification_result.residuals, action.target)
         if found is not None and found not in residuals:
@@ -628,7 +671,7 @@ def render_outcome(report: OutcomeReport, file_style: str) -> str:
     Returns:
         The outcome block.
     """
-    done = [a for a in report.actions if a.status == DONE]
+    done = [a for a in report.actions if a.status == DONE and a.capability != _ANALYSIS_CAPABILITY]
     sentences = [_action_sentence(action) for action in done]
     lead = report.lead_word
     if lead is not None and sentences:
@@ -654,23 +697,32 @@ def render_outcome(report: OutcomeReport, file_style: str) -> str:
     return " ".join(sentences)
 
 
-def only_the_report_was_done(report: OutcomeReport) -> bool:
-    """Whether every ``NOT_DONE`` action is ``REPORT_ONLY`` (and there is one).
+def report_unavailable_sentence(report: OutcomeReport) -> str | None:
+    """Why the report Brain's reading asked for can't be given, or ``None``.
 
-    The phrase asked for the report and more words; the reply states the report and the one
-    sentence about the rest, and has no other not-done action to explain.
+    ``None`` when it can be given, and when no report was asked for.
     """
-    not_done = [a for a in report.actions if a.status == NOT_DONE]
-    return bool(not_done) and all(a.reason == REPORT_ONLY for a in not_done)
+    for action in report.actions:
+        if action.capability == _ANALYSIS_CAPABILITY and action.status == NOT_DONE:
+            return _REPORT_SENTENCES[action.reason or REPORT_NOT_RUN]
+    return None
 
 
-def not_done_sentences(report: OutcomeReport, *, nothing_done: bool = False) -> list[str]:
+def not_done_sentences(
+    report: OutcomeReport, *, nothing_done: bool = False, include_report: bool = True
+) -> list[str]:
     """The sentences for the report's ``NOT_DONE`` actions, with how Brain read the request.
 
     Also used by a turn that changed nothing, where every action in the ledger is one of
     these. ``nothing_done`` then says "that" and not "this part" for what Buddy can't do.
+    ``include_report=False`` leaves out the report's own sentence (a turn that changed nothing
+    puts it where the report would be).
     """
-    not_done = [a for a in report.actions if a.status == NOT_DONE]
+    not_done = [
+        a
+        for a in report.actions
+        if a.status == NOT_DONE and (include_report or a.capability != _ANALYSIS_CAPABILITY)
+    ]
     last_unread = max(
         (i for i, a in enumerate(not_done) if a.reason == NOT_READ_AS_REQUEST), default=None
     )
@@ -710,6 +762,20 @@ def _action_sentence(action: ActionOutcome) -> str:
 
 _NOT_IN_READING = "though I didn't read that as part of your request"
 
+# Why a requested report isn't in the reply. About this turn's analysis only; no count, no file.
+REPORT_ANALYSIS_FAILED_SENTENCE = (
+    "I couldn't produce the report you asked for: the analysis of your file failed."
+)
+REPORT_NOT_RUN_SENTENCE = "I couldn't produce the report you asked for: I didn't run the analysis."
+REPORT_RECHECK_FAILED_SENTENCE = (
+    "I couldn't produce the report you asked for: I couldn't re-check the final file."
+)
+_REPORT_SENTENCES = {
+    REPORT_RECHECK_FAILED: REPORT_RECHECK_FAILED_SENTENCE,
+    REPORT_ANALYSIS_FAILED: REPORT_ANALYSIS_FAILED_SENTENCE,
+    REPORT_NOT_RUN: REPORT_NOT_RUN_SENTENCE,
+}
+
 
 def _unrequested_sentence(action: ActionOutcome, *, also: bool) -> str:
     """The sentence for a ``DONE_UNREQUESTED`` action.
@@ -744,8 +810,8 @@ def _not_done_sentence(action: ActionOutcome, *, nothing_done: bool = False) -> 
         if nothing_done:
             return "I read your request as something I can't do yet."
         return "I read part of your request as something I can't do yet."
-    if action.reason == REPORT_ONLY:
-        return "I did nothing beyond the report for that part of your request."
+    if action.reason in _REPORT_SENTENCES:
+        return _REPORT_SENTENCES[action.reason]
     wording = ACTIONS_BY_CAPABILITY[action.capability]
     if action.reason == NOT_READ_AS_REQUEST:
         return f"Your message mentions {wording.object}, but I didn't run the {wording.step}."

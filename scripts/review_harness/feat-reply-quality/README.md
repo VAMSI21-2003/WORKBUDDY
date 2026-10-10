@@ -90,23 +90,25 @@ report request plus other words, instead of `_OTHER_REQUEST_WORDS`; and the by-t
 alternatives, clause-scoped. `out/r3-*-proto.json` and `r3-x-proto.json` are probes run against it. (These files replace the first attempt's
 `-proto` files, which came from a different prototype.)
 
-## Round 4 (head `398b256`; source changed since the last reviewed commit `2ecaecd`: `buddy/actions.py`, `buddy/outcome.py`, `buddy/voice.py`)
+## Round 4 (head `96aba3d`; source `398b256`'s, later commits only add documents and probe output; last reviewed commit `2ecaecd`)
 
-Same library (`rq.py`), same `--tree DIR` convention (a worktree of `origin/main` for the base, of `2ecaecd` for round 3's source).
-Throwaway worktrees used: `base` (origin/main), `r3src` (2ecaecd), `mut` / `mut2` (mutations; restored with `git checkout -- .` after every one),
-`proto` (HEAD + `out/r4-prototype-fix-for-M1-negated.diff`). Every `out/r4-*` file was produced by this round.
+The first round-4 attempt (the agent stopped on a usage limit) left `r4_reportonly.py`, `r4_negated.py`, `r4_fuzz_no_skill.py`, `r4_guards.py`, `r4_stages.py`,
+`r4_capability.py`, `r4_redos.py`, `r4_mutations.py` and its `out/r4-*` files. This round **moved all of those outputs out of the repository, re-read every script, re-ran each
+one and regenerated every `out/r4-*` file listed below**; nothing rests on the first attempt's output. Same library (`rq.py`), same `--tree DIR` convention (a worktree of
+`origin/main` for the base, of `2ecaecd` for round 3's source, `--tree` of a throwaway copy for a prototype).
 
-    python r4_reportonly.py --speakers template,friend,focus --out out/r4-reportonly-head.json   # REPORT_ONLY: spanning phrase (A), two unsupported phrases (B, dedupe-key collision), report unavailable (C), negation + misread removal (D), no/garbage file (E), hostile phrase (F), non-report nouns (G), other Brain readings (H)
-    python r4_negated.py --speakers template,friend,focus --out out/r4-negated-head.json         # M1: "analyze my file but don't remove the duplicates" -> "I read your request as something I can't do yet" beside the report (10 of 20); [--tree $BASE] the base has no such sentence
-    python r4_fuzz_no_skill.py [--tree DIR]                                                      # unit-level: 594 generated phrases through _no_skill_outcome; 72 distinct phrases hold a report request and get NO_SKILL (all negation + a named action object)
-    python r4_guards.py [--tree2 $R3SRC] [--show-ok]                                             # 118 NEW messages for mentions_report (head vs round 3), want= is my reading of what the person means
-    python r4_stages.py                                                                          # Brain/Think/Planner raise or answer garbage while a report is asked for (+ chains, two turns)
-    python r4_capability.py                                                                      # "can you analyze spreadsheets?" (Brain: conversation) gets a file report
-    python r4_redos.py                                                                           # timing of the patterns on 80,000-220,000 character inputs (worst 0.14 s)
-    python r4_mutations.py --tree $THROWAWAY [prefix ...]                                        # 85 one-place mutations of the 398b256 code (REPORT_ONLY, ordering, guards, noun list word by word, verbs, fillers)
-    # re-runs of earlier probes on this head (outputs `out/r4-*`): r3_extras.py, r3_listed.py, r3_columns.py, r3_nonreport.py, r3_cautious.py, r3_guards.py, r3_guards_engine.py,
-    #   r2_fresh_wordings.py, probe_b_report_phrases.py, r2_misc.py, r3_unavailable.py, r2_unrequested.py, r2_mention.py, probe_h_thanks.py, r3_detect.py, probe_a.py, probe_c_faults.py,
-    #   probe_e_more.py; shared harnesses harness.py / rereview3.py / round5.py head vs base (cmp_harness.py)
-    python check_numbers.py out/r4-*-head.json                                                   # every stated count against the independent read
+    python r4_vetoes.py --out out/r4-vetoes-head.json            # genuine report requests that mentions_report vetoes (unrelated negated verb, unpunctuated "no / not / don't" before the noun); Brain faithful; head/r3src/base
+    python r4_detector.py [--tree2 DIR]                          # 166 messages I wrote (82 requests, 84 not) against mentions_report; head vs another tree
+    python r4_engine.py --out out/r4-engine-head.json            # G1 negated named action next to a report; G2 two unsupported entries (exact / paraphrased); G3 phrase spans an action that ran; G4 two turns; G5 curly apostrophes; G6 chains; G7 odd Brain phrases
+    python r4_files.py --out out/r4-files-head.json              # report requests on 21 odd file kinds x 4 messages x 3 speakers
+    python r4_classify.py out/r4-extras-head.json ...            # per reply: REPORT_ONLY sentence / "can't do" / Done / Partly done / "Report on" (tallies the older populations)
+    python r4_reportonly.py --quiet --out out/r4-reportonly-head.json ; python r4_negated.py ; python r4_fuzz_no_skill.py ; python r4_guards.py ; python r4_stages.py ; python r4_capability.py ; python r4_redos.py
+    python r4_mutations.py --tree $THROWAWAY [prefix ...]        # 85 one-place mutations of the 398b256 code (two throwaway worktrees were used, prefixes `ro voice g-` and `noun ordinal about verb filler action`)
+    # re-runs of the earlier populations on this head (outputs `out/r4-*`): r3_extras.py, r3_listed.py, r3_columns.py, r3_nonreport.py, r3_cautious.py, r3_guards.py, r3_guards_engine.py,
+    #   r2_fresh_wordings.py, probe_b_report_phrases.py, r2_misc.py, r3_unavailable.py, r2_unrequested.py, r2_mention.py, probe_h_thanks.py, r3_detect.py, probe_f_header_text.py,
+    #   probe_a.py, probe_c_faults.py, probe_e_more.py, probe_d_api.py, probe_d2_page.py; shared harnesses harness.py / rereview3.py / round5.py / values_only_probe.py, head vs base (cmp_harness.py)
+    python check_numbers.py out/r4-*-head.json                   # every stated count against the independent read
 
-`out/r4-prototype-fix-for-M1-negated.diff` is my prototype (apply with `git apply` in a worktree of the head; **not applied to the branch**).
+`out/r4-prototype-fix-for-M1-M2-M3.diff` is my prototype (apply with `git apply` in a worktree of the head; **not applied to the branch**): the dedupe key, the report is not a
+"passed action", and the negation scoping. `out/r4-vetoes-proto.json` and `out/r4-engine-proto.json` are the probes run against it. A reviewer that prototyped a fix must not
+review it, so round 5 needs a new agent.

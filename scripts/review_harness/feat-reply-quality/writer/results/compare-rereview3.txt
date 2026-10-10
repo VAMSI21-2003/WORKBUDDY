@@ -1,4 +1,4 @@
-/tmp/claude-0/-home-user-WORKBUDDY/25b61d56-0443-587c-bd0d-22d35a8e14fc/scratchpad/h4/rereview3-new.json: 1078 turns, 0 errors in new run, base had 1078 turns
+h4/rereview3-new.json: 1078 turns, 0 errors in new run, base had 1078 turns
    1008  plural
      63  plural + exact-duplicate finding / flow
       7  other

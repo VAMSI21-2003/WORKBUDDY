@@ -29,7 +29,14 @@ import hashlib
 from collections.abc import Callable
 from dataclasses import dataclass
 
-from buddy.outcome import DONE, LEAD_PARTLY_DONE, OutcomeReport
+from buddy.outcome import (  # noqa: F401  (the report sentences are re-exported)
+    DONE,
+    LEAD_PARTLY_DONE,
+    REPORT_ANALYSIS_FAILED_SENTENCE,
+    REPORT_NOT_RUN_SENTENCE,
+    REPORT_RECHECK_FAILED_SENTENCE,
+    OutcomeReport,
+)
 from buddy.think import CLARIFY_OTHER, CLARIFY_WHICH_ACTION, CLARIFY_WHICH_FILE
 
 OPENER = "opener"
@@ -345,15 +352,10 @@ REFUSED_TEMPLATE = "I can't work on this file: {reason}."
 NOT_UNDERSTOOD_SENTENCE = "I didn't read that as something I can do."
 UNDERSTANDING_FAILED_SENTENCE = "I couldn't work out what you asked for just now. Please try again."
 
-# A requested report that couldn't be produced (backlog item 3). The reasons are about this
-# turn's data: the analysis didn't complete, or didn't run.
-REPORT_ANALYSIS_FAILED_SENTENCE = (
-    "I couldn't produce the report you asked for: the analysis of your file failed."
-)
-REPORT_NOT_RUN_SENTENCE = "I couldn't produce the report you asked for: I didn't run the analysis."
-REPORT_RECHECK_FAILED_SENTENCE = (
-    "I couldn't produce the report you asked for: I couldn't re-check the final file."
-)
+# A requested report that couldn't be produced (backlog item 3). The three reasons the analysis
+# can't give it (``REPORT_ANALYSIS_FAILED_SENTENCE``, ``REPORT_NOT_RUN_SENTENCE``,
+# ``REPORT_RECHECK_FAILED_SENTENCE``) are rendered with the other not-done actions by
+# ``buddy.outcome``; this one is for a chain that stopped, where no file was handed back.
 REPORT_NOT_PRODUCED_SENTENCE = (
     "I didn't produce the report you asked for, since no file was handed back."
 )

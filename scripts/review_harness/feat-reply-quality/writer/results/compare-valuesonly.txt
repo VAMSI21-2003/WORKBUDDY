@@ -1,4 +1,4 @@
-/tmp/claude-0/-home-user-WORKBUDDY/25b61d56-0443-587c-bd0d-22d35a8e14fc/scratchpad/h4/valuesonly-new.json: 650 turns, 0 errors in new run, base had 650 turns
+h4/valuesonly-new.json: 650 turns, 0 errors in new run, base had 650 turns
     271  plural + exact-duplicate finding / flow
     175  plural
      60  not-understood+greeting

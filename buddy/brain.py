@@ -8,10 +8,12 @@ from typing import Protocol
 from buddy.actions import (
     ACTION_VOCABULARY,
     CONVERSATION,
+    REPORT_ON_FILE,
     UNSUPPORTED,
     brain_ledger,
     find_phrase,
     mentioned_actions,
+    report_phrases,
 )
 from buddy.context import ConversationTurn
 from buddy.llm import LLMMessage, LLMProvider
@@ -201,7 +203,14 @@ class Brain:
 # Every intent the classifier may return. Anything else in a reply is
 # recorded as "unclear" rather than passed on as an unknown label.
 INTENT_VOCABULARY = frozenset(
-    {"remove_duplicate_rows", "remove_empty_rows", "multi_step_request", CONVERSATION, "unclear"}
+    {
+        "remove_duplicate_rows",
+        "remove_empty_rows",
+        REPORT_ON_FILE,
+        "multi_step_request",
+        CONVERSATION,
+        "unclear",
+    }
 )
 
 _SYSTEM_PROMPT = """You are the intent classifier for WorkBuddy, an AI coworker.
@@ -209,7 +218,10 @@ _SYSTEM_PROMPT = """You are the intent classifier for WorkBuddy, an AI coworker.
 Classify the user's request into exactly one of the following intents:
 - "remove_duplicate_rows": the user wants duplicate rows removed from a spreadsheet.
 - "remove_empty_rows": the user wants empty rows removed from a spreadsheet.
-- "multi_step_request": the request clearly names more than one distinct action, but is not itself ambiguous.
+- "report_on_file": the user only wants a report, summary, analysis or overview of the file:
+  what is in it or what is wrong with it. Nothing is changed.
+- "multi_step_request": the request clearly names more than one distinct action, but is not
+  itself ambiguous.
 - "conversation": the user is only greeting you, thanking you, or asking what you can do, and
   asks for no action on a file.
 - "unclear": the request does not clearly match a known intent, or is too ambiguous to act on.
@@ -219,8 +231,8 @@ never assume anything about what data a file contains.
 
 Respond with a single JSON object and nothing else, matching this shape:
 {
-  "intent": "remove_duplicate_rows" | "remove_empty_rows" | "multi_step_request"
-            | "conversation" | "unclear",
+  "intent": "remove_duplicate_rows" | "remove_empty_rows" | "report_on_file"
+            | "multi_step_request" | "conversation" | "unclear",
   "confidence": <number between 0.0 and 1.0>,
   "referenced_files": [<file names the request refers to, if any>],
   "referenced_work_items": [<task or work item identifiers referred to, if any>],
@@ -228,7 +240,7 @@ Respond with a single JSON object and nothing else, matching this shape:
   "ambiguity_flags": [<plain-language description of ambiguity, if any>],
   "notes": "<any other brief note, or an empty string>",
   "requested_actions": [
-    {"action": "remove_duplicate_rows" | "remove_empty_rows" | "unsupported",
+    {"action": "remove_duplicate_rows" | "remove_empty_rows" | "report_on_file" | "unsupported",
      "source_phrase": "<the exact words from the user's message that ask for it>"}
   ]
 }
@@ -236,8 +248,10 @@ Respond with a single JSON object and nothing else, matching this shape:
 "requested_actions" lists every action the message asks you to carry out, in
 the order the user asked for them, one entry per action, whatever the intent:
 a single request has one entry, a compound request has one per action. Use
-"unsupported" for an action that is neither removing duplicate rows nor
-removing empty rows (for example sorting, a report or a chart).
+"report_on_file" for a request for a report, summary, analysis or overview of the file,
+whatever it is about ("a report on the duplicate rows" is a report, not a removal).
+Use "unsupported" for an action that is none of those (for example sorting, a chart or
+sending the file somewhere).
 "source_phrase" must be copied character-for-character from the user's
 message, not paraphrased. Don't list anything the user says to keep or not to
 do. A message that asks for no action (a greeting, a question) gets an empty
@@ -443,8 +457,11 @@ class MentionCrossCheck:
 
     Independent of every model, and it can only add items to the "not done"
     side of a reply: see ``docs/design/verified-outcome-design.md`` Section
-    3.2. It never changes ``intent``, so routing is unaffected. It runs even
-    when Brain failed; such turns deliver nothing and never use the ledger.
+    3.2. A mention inside the phrase Brain gave to the report ("a report on the duplicate
+    rows") is what the report is about, not a request to remove them, and is not added.
+    The report itself has no mention pattern, so this stage never adds or confirms one.
+    It never changes ``intent``, so routing is unaffected. It runs even when Brain
+    failed; such turns deliver nothing and never use the ledger.
     """
 
     def __init__(self, inner: Interpreter) -> None:
@@ -475,7 +492,9 @@ class MentionCrossCheck:
                 source=LEDGER_FROM_MENTION,
                 phrase_found=True,
             )
-            for action, text in mentioned_actions(request.user_message)
+            for action, text in mentioned_actions(
+                request.user_message, except_inside=report_phrases(understanding)
+            )
             if action.name not in listed
         )
         if added:
