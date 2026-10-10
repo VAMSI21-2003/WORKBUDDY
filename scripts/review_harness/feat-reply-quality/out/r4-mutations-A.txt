@@ -1,0 +1,19 @@
+voice-after-report-first                 KILLED    1 failed, 887 passed, 393 warnings in 27.05s FAILED tests/buddy/test_reply_quality.py::test_a_report_request_with_more_words_gets_the_report_first_and_one_
+voice-after-report-dropped               KILLED    1 failed, 887 passed, 393 warnings in 30.08s FAILED tests/buddy/test_reply_quality.py::test_a_report_request_with_more_words_gets_the_report_first_and_one_
+voice-capabilities-after-report-only     KILLED    1 failed, 887 passed, 393 warnings in 26.26s FAILED tests/buddy/test_reply_quality.py::test_a_report_request_with_more_words_gets_the_report_first_and_one_
+g-not-a-refusal-1                        KILLED    1 failed, 930 passed, 505 warnings in 32.62s FAILED tests/buddy/test_reply_quality.py::test_a_report_request_is_not_vetoed_by_a_word_that_only_looks_like_a
+g-not-a-refusal-2                        KILLED    1 failed, 931 passed, 505 warnings in 31.87s FAILED tests/buddy/test_reply_quality.py::test_a_report_request_is_not_vetoed_by_a_word_that_only_looks_like_a
+g-forget-off                             KILLED    1 failed, 930 passed, 505 warnings in 32.17s FAILED tests/buddy/test_reply_quality.py::test_a_report_request_is_not_vetoed_by_a_word_that_only_looks_like_a
+g-hesitate-off                           KILLED    1 failed, 933 passed, 505 warnings in 30.89s FAILED tests/buddy/test_reply_quality.py::test_a_report_request_is_not_vetoed_by_a_word_that_only_looks_like_a
+g-worry-off                              SURVIVED  1273 passed, 553 warnings in 33.83s 
+g-afraid-shy-off                         SURVIVED  1273 passed, 553 warnings in 34.02s 
+g-by-name-early-true-off                 KILLED    1 failed, 59 passed, 37 warnings in 6.18s FAILED tests/buddy/test_reply_quality.py::test_an_action_request_misread_as_conversation_never_gets_a_completi
+g-by-person-first-off                    KILLED    1 failed, 946 passed, 505 warnings in 32.79s FAILED tests/buddy/test_reply_quality.py::test_a_message_that_declines_a_report_is_still_not_one[I'll summariz
+g-by-person-letme-off                    SURVIVED  1273 passed, 553 warnings in 34.02s 
+g-by-person-ican-off                     KILLED    1 failed, 947 passed, 505 warnings in 32.00s FAILED tests/buddy/test_reply_quality.py::test_a_message_that_declines_a_report_is_still_not_one[I can analyze
+g-by-person-going-to-off                 SURVIVED  1273 passed, 553 warnings in 34.13s 
+g-by-person-needs-myself-off             KILLED    1 failed, 914 passed, 505 warnings in 32.89s FAILED tests/buddy/test_reply_quality.py::test_a_report_request_is_not_vetoed_by_a_word_that_only_looks_like_a
+g-by-person-clause-off                   SURVIVED  1273 passed, 553 warnings in 34.33s 
+g-by-person-summarize-off                KILLED    1 failed, 946 passed, 505 warnings in 30.55s FAILED tests/buddy/test_reply_quality.py::test_a_message_that_declines_a_report_is_still_not_one[I'll summariz
+g-action-by-person-off                   KILLED    1 failed, 1005 passed, 553 warnings in 33.10s FAILED tests/buddy/test_reply_quality_units.py::test_a_message_that_does_not_ask_for_a_report_is_not[thanks, I
+g-action-by-person-myself-off            SURVIVED  1273 passed, 553 warnings in 33.81s 

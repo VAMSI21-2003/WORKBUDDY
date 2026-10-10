@@ -1,0 +1,44 @@
+diff --git a/buddy/outcome.py b/buddy/outcome.py
+index cf3309e..14fa393 100644
+--- a/buddy/outcome.py
++++ b/buddy/outcome.py
+@@ -359,13 +359,18 @@ def build_outcome_report(
+     passed_capabilities = {step.capability for step, _ in passed}
+     ran_capabilities = {step.capability for step in action_steps}
+     not_done: list[ActionOutcome] = []
+-    said_no_skill: set[str] = set()
++    said_no_skill: set[tuple[str | None, str]] = set()
+     for entry in ledger:
+         if entry.action == UNSUPPORTED:
+             outcome = _no_skill_outcome(entry, ledger, passed_capabilities, report_stated)
+-            if outcome is None or outcome.user_phrase.casefold() in said_no_skill:
++            if outcome is None:
+                 continue
+-            said_no_skill.add(outcome.user_phrase.casefold())
++            # The key is the sentence, not only the quote: REPORT_ONLY and an unquoted NO_SKILL
++            # both have no quote, and have different sentences.
++            key = (outcome.reason, outcome.user_phrase.casefold())
++            if key in said_no_skill:
++                continue
++            said_no_skill.add(key)
+             not_done.append(outcome)
+             continue
+         capability = ACTIONS_BY_NAME[entry.action].capability
+@@ -502,7 +507,7 @@ def _no_skill_outcome(
+         # is "named" and "done" like an action that passed: what's left decides the sentence.
+         lowered, had_report = strip_report_request(lowered)
+         if had_report:
+-            names_action = named_passed = True
++            names_action = True
+     lowered = _LOCATION_PHRASE.sub(" ", lowered, count=1)
+     for other in ledger:
+         other_action = ACTIONS_BY_NAME.get(other.action)
+@@ -519,7 +524,7 @@ def _no_skill_outcome(
+         return ActionOutcome("", NOT_DONE, reason=NO_SKILL, source=entry.source, user_phrase=quoted)
+     words = re.findall(r"[\w']+", lowered)
+     negated = any(w in _NEGATION_WORDS for w in words)
+-    if had_report and any(w not in _FILLER_WORDS for w in words):
++    if had_report and (any(w not in _FILLER_WORDS for w in words) or (negated and not named_passed)):
+         # The phrase asks for the report and has other words. They may be work Buddy can't do
+         # ("... and send it to my boss") or only describe the report ("the email column"); the
+         # one sentence that is true of both is that nothing beyond the report was done.

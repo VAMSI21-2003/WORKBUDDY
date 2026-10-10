@@ -1,0 +1,3962 @@
+[
+ {
+  "speaker": "template",
+  "turn": 0,
+  "msg": "just analyze my file, don't delete the duplicates",
+  "reply": "I read your request as something I can't do yet. Your message mentions duplicate rows, but I didn't run the duplicate-row removal. I can remove duplicate rows, remove empty rows, and look a spreadsheet over for possible problems. Report on your original file: 2 rows repeat an earlier row exactly; name: 1 missing value (16.7%); amount: 1 missing value (16.7%). No changes were made to any file this turn.",
+  "voice_calls": 0,
+  "delivered": false,
+  "steps": [
+   [
+    "analyze",
+    "success"
+   ]
+  ],
+  "stopped_at": null,
+  "failure": null,
+  "orig_unchanged": true,
+  "orig_facts": {
+   "rows": 6,
+   "dups": 2,
+   "blank": 1,
+   "sheets": [
+    "Sheet1"
+   ]
+  },
+  "final_facts": null,
+  "verified": true,
+  "flags": [],
+  "name": "n00-alone|just analyze my file, don't delete the duplicates",
+  "class": "CANT_DO"
+ },
+ {
+  "speaker": "friend",
+  "turn": 0,
+  "msg": "just analyze my file, don't delete the duplicates",
+  "reply": "I read your request as something I can't do yet. Your message mentions duplicate rows, but I didn't run the duplicate-row removal. I can remove duplicate rows, remove empty rows, and look a spreadsheet over for anything that seems off. Report on your original file: 2 rows repeat an earlier row exactly; name: 1 missing value (16.7%); amount: 1 missing value (16.7%). No changes were made to any file this turn.",
+  "voice_calls": 0,
+  "delivered": false,
+  "steps": [
+   [
+    "analyze",
+    "success"
+   ]
+  ],
+  "stopped_at": null,
+  "failure": null,
+  "orig_unchanged": true,
+  "orig_facts": {
+   "rows": 6,
+   "dups": 2,
+   "blank": 1,
+   "sheets": [
+    "Sheet1"
+   ]
+  },
+  "final_facts": null,
+  "verified": true,
+  "flags": [],
+  "name": "n00-alone|just analyze my file, don't delete the duplicates",
+  "class": "CANT_DO"
+ },
+ {
+  "speaker": "focus",
+  "turn": 0,
+  "msg": "just analyze my file, don't delete the duplicates",
+  "reply": "I read your request as something I can't do yet. Your message mentions duplicate rows, but I didn't run the duplicate-row removal. I can remove duplicate rows, remove empty rows, and check a spreadsheet for problems. Report on your original file: 2 rows repeat an earlier row exactly; name: 1 missing value (16.7%); amount: 1 missing value (16.7%). No changes were made to any file this turn.",
+  "voice_calls": 0,
+  "delivered": false,
+  "steps": [
+   [
+    "analyze",
+    "success"
+   ]
+  ],
+  "stopped_at": null,
+  "failure": null,
+  "orig_unchanged": true,
+  "orig_facts": {
+   "rows": 6,
+   "dups": 2,
+   "blank": 1,
+   "sheets": [
+    "Sheet1"
+   ]
+  },
+  "final_facts": null,
+  "verified": true,
+  "flags": [],
+  "name": "n00-alone|just analyze my file, don't delete the duplicates",
+  "class": "CANT_DO"
+ },
+ {
+  "speaker": "template",
+  "turn": 0,
+  "msg": "just analyze my file, don't delete the duplicates",
+  "reply": "Your message mentions duplicate rows, but I didn't run the duplicate-row removal. I can remove duplicate rows, remove empty rows, and look a spreadsheet over for possible problems. Report on your original file: 2 rows repeat an earlier row exactly; name: 1 missing value (16.7%); amount: 1 missing value (16.7%). No changes were made to any file this turn.",
+  "voice_calls": 0,
+  "delivered": false,
+  "steps": [
+   [
+    "analyze",
+    "success"
+   ]
+  ],
+  "stopped_at": null,
+  "failure": null,
+  "orig_unchanged": true,
+  "orig_facts": {
+   "rows": 6,
+   "dups": 2,
+   "blank": 1,
+   "sheets": [
+    "Sheet1"
+   ]
+  },
+  "final_facts": null,
+  "verified": true,
+  "flags": [],
+  "name": "n00-conv|just analyze my file, don't delete the duplicates",
+  "class": "SILENT"
+ },
+ {
+  "speaker": "friend",
+  "turn": 0,
+  "msg": "just analyze my file, don't delete the duplicates",
+  "reply": "Your message mentions duplicate rows, but I didn't run the duplicate-row removal. I can remove duplicate rows, remove empty rows, and look a spreadsheet over for anything that seems off. Report on your original file: 2 rows repeat an earlier row exactly; name: 1 missing value (16.7%); amount: 1 missing value (16.7%). No changes were made to any file this turn.",
+  "voice_calls": 0,
+  "delivered": false,
+  "steps": [
+   [
+    "analyze",
+    "success"
+   ]
+  ],
+  "stopped_at": null,
+  "failure": null,
+  "orig_unchanged": true,
+  "orig_facts": {
+   "rows": 6,
+   "dups": 2,
+   "blank": 1,
+   "sheets": [
+    "Sheet1"
+   ]
+  },
+  "final_facts": null,
+  "verified": true,
+  "flags": [],
+  "name": "n00-conv|just analyze my file, don't delete the duplicates",
+  "class": "SILENT"
+ },
+ {
+  "speaker": "focus",
+  "turn": 0,
+  "msg": "just analyze my file, don't delete the duplicates",
+  "reply": "Your message mentions duplicate rows, but I didn't run the duplicate-row removal. I can remove duplicate rows, remove empty rows, and check a spreadsheet for problems. Report on your original file: 2 rows repeat an earlier row exactly; name: 1 missing value (16.7%); amount: 1 missing value (16.7%). No changes were made to any file this turn.",
+  "voice_calls": 0,
+  "delivered": false,
+  "steps": [
+   [
+    "analyze",
+    "success"
+   ]
+  ],
+  "stopped_at": null,
+  "failure": null,
+  "orig_unchanged": true,
+  "orig_facts": {
+   "rows": 6,
+   "dups": 2,
+   "blank": 1,
+   "sheets": [
+    "Sheet1"
+   ]
+  },
+  "final_facts": null,
+  "verified": true,
+  "flags": [],
+  "name": "n00-conv|just analyze my file, don't delete the duplicates",
+  "class": "SILENT"
+ },
+ {
+  "speaker": "template",
+  "turn": 0,
+  "msg": "analyze my file but don't remove the duplicates",
+  "reply": "I read your request as something I can't do yet. Your message mentions duplicate rows, but I didn't run the duplicate-row removal. I can remove duplicate rows, remove empty rows, and look a spreadsheet over for possible problems. Report on your original file: 2 rows repeat an earlier row exactly; name: 1 missing value (16.7%); amount: 1 missing value (16.7%). No changes were made to any file this turn.",
+  "voice_calls": 0,
+  "delivered": false,
+  "steps": [
+   [
+    "analyze",
+    "success"
+   ]
+  ],
+  "stopped_at": null,
+  "failure": null,
+  "orig_unchanged": true,
+  "orig_facts": {
+   "rows": 6,
+   "dups": 2,
+   "blank": 1,
+   "sheets": [
+    "Sheet1"
+   ]
+  },
+  "final_facts": null,
+  "verified": true,
+  "flags": [],
+  "name": "n01-alone|analyze my file but don't remove the duplicates",
+  "class": "CANT_DO"
+ },
+ {
+  "speaker": "friend",
+  "turn": 0,
+  "msg": "analyze my file but don't remove the duplicates",
+  "reply": "I read your request as something I can't do yet. Your message mentions duplicate rows, but I didn't run the duplicate-row removal. I can remove duplicate rows, remove empty rows, and look a spreadsheet over for anything that seems off. Report on your original file: 2 rows repeat an earlier row exactly; name: 1 missing value (16.7%); amount: 1 missing value (16.7%). No changes were made to any file this turn.",
+  "voice_calls": 0,
+  "delivered": false,
+  "steps": [
+   [
+    "analyze",
+    "success"
+   ]
+  ],
+  "stopped_at": null,
+  "failure": null,
+  "orig_unchanged": true,
+  "orig_facts": {
+   "rows": 6,
+   "dups": 2,
+   "blank": 1,
+   "sheets": [
+    "Sheet1"
+   ]
+  },
+  "final_facts": null,
+  "verified": true,
+  "flags": [],
+  "name": "n01-alone|analyze my file but don't remove the duplicates",
+  "class": "CANT_DO"
+ },
+ {
+  "speaker": "focus",
+  "turn": 0,
+  "msg": "analyze my file but don't remove the duplicates",
+  "reply": "I read your request as something I can't do yet. Your message mentions duplicate rows, but I didn't run the duplicate-row removal. I can remove duplicate rows, remove empty rows, and check a spreadsheet for problems. Report on your original file: 2 rows repeat an earlier row exactly; name: 1 missing value (16.7%); amount: 1 missing value (16.7%). No changes were made to any file this turn.",
+  "voice_calls": 0,
+  "delivered": false,
+  "steps": [
+   [
+    "analyze",
+    "success"
+   ]
+  ],
+  "stopped_at": null,
+  "failure": null,
+  "orig_unchanged": true,
+  "orig_facts": {
+   "rows": 6,
+   "dups": 2,
+   "blank": 1,
+   "sheets": [
+    "Sheet1"
+   ]
+  },
+  "final_facts": null,
+  "verified": true,
+  "flags": [],
+  "name": "n01-alone|analyze my file but don't remove the duplicates",
+  "class": "CANT_DO"
+ },
+ {
+  "speaker": "template",
+  "turn": 0,
+  "msg": "analyze my file but don't remove the duplicates",
+  "reply": "Your message mentions duplicate rows, but I didn't run the duplicate-row removal. I can remove duplicate rows, remove empty rows, and look a spreadsheet over for possible problems. Report on your original file: 2 rows repeat an earlier row exactly; name: 1 missing value (16.7%); amount: 1 missing value (16.7%). No changes were made to any file this turn.",
+  "voice_calls": 0,
+  "delivered": false,
+  "steps": [
+   [
+    "analyze",
+    "success"
+   ]
+  ],
+  "stopped_at": null,
+  "failure": null,
+  "orig_unchanged": true,
+  "orig_facts": {
+   "rows": 6,
+   "dups": 2,
+   "blank": 1,
+   "sheets": [
+    "Sheet1"
+   ]
+  },
+  "final_facts": null,
+  "verified": true,
+  "flags": [],
+  "name": "n01-conv|analyze my file but don't remove the duplicates",
+  "class": "SILENT"
+ },
+ {
+  "speaker": "friend",
+  "turn": 0,
+  "msg": "analyze my file but don't remove the duplicates",
+  "reply": "Your message mentions duplicate rows, but I didn't run the duplicate-row removal. I can remove duplicate rows, remove empty rows, and look a spreadsheet over for anything that seems off. Report on your original file: 2 rows repeat an earlier row exactly; name: 1 missing value (16.7%); amount: 1 missing value (16.7%). No changes were made to any file this turn.",
+  "voice_calls": 0,
+  "delivered": false,
+  "steps": [
+   [
+    "analyze",
+    "success"
+   ]
+  ],
+  "stopped_at": null,
+  "failure": null,
+  "orig_unchanged": true,
+  "orig_facts": {
+   "rows": 6,
+   "dups": 2,
+   "blank": 1,
+   "sheets": [
+    "Sheet1"
+   ]
+  },
+  "final_facts": null,
+  "verified": true,
+  "flags": [],
+  "name": "n01-conv|analyze my file but don't remove the duplicates",
+  "class": "SILENT"
+ },
+ {
+  "speaker": "focus",
+  "turn": 0,
+  "msg": "analyze my file but don't remove the duplicates",
+  "reply": "Your message mentions duplicate rows, but I didn't run the duplicate-row removal. I can remove duplicate rows, remove empty rows, and check a spreadsheet for problems. Report on your original file: 2 rows repeat an earlier row exactly; name: 1 missing value (16.7%); amount: 1 missing value (16.7%). No changes were made to any file this turn.",
+  "voice_calls": 0,
+  "delivered": false,
+  "steps": [
+   [
+    "analyze",
+    "success"
+   ]
+  ],
+  "stopped_at": null,
+  "failure": null,
+  "orig_unchanged": true,
+  "orig_facts": {
+   "rows": 6,
+   "dups": 2,
+   "blank": 1,
+   "sheets": [
+    "Sheet1"
+   ]
+  },
+  "final_facts": null,
+  "verified": true,
+  "flags": [],
+  "name": "n01-conv|analyze my file but don't remove the duplicates",
+  "class": "SILENT"
+ },
+ {
+  "speaker": "template",
+  "turn": 0,
+  "msg": "give me a report but don't remove the duplicate rows",
+  "reply": "I read your request as something I can't do yet. Your message mentions duplicate rows, but I didn't run the duplicate-row removal. I can remove duplicate rows, remove empty rows, and look a spreadsheet over for possible problems. Report on your original file: 2 rows repeat an earlier row exactly; name: 1 missing value (16.7%); amount: 1 missing value (16.7%). No changes were made to any file this turn.",
+  "voice_calls": 0,
+  "delivered": false,
+  "steps": [
+   [
+    "analyze",
+    "success"
+   ]
+  ],
+  "stopped_at": null,
+  "failure": null,
+  "orig_unchanged": true,
+  "orig_facts": {
+   "rows": 6,
+   "dups": 2,
+   "blank": 1,
+   "sheets": [
+    "Sheet1"
+   ]
+  },
+  "final_facts": null,
+  "verified": true,
+  "flags": [],
+  "name": "n02-alone|give me a report but don't remove the duplicate rows",
+  "class": "CANT_DO"
+ },
+ {
+  "speaker": "friend",
+  "turn": 0,
+  "msg": "give me a report but don't remove the duplicate rows",
+  "reply": "I read your request as something I can't do yet. Your message mentions duplicate rows, but I didn't run the duplicate-row removal. I can remove duplicate rows, remove empty rows, and look a spreadsheet over for anything that seems off. Report on your original file: 2 rows repeat an earlier row exactly; name: 1 missing value (16.7%); amount: 1 missing value (16.7%). No changes were made to any file this turn.",
+  "voice_calls": 0,
+  "delivered": false,
+  "steps": [
+   [
+    "analyze",
+    "success"
+   ]
+  ],
+  "stopped_at": null,
+  "failure": null,
+  "orig_unchanged": true,
+  "orig_facts": {
+   "rows": 6,
+   "dups": 2,
+   "blank": 1,
+   "sheets": [
+    "Sheet1"
+   ]
+  },
+  "final_facts": null,
+  "verified": true,
+  "flags": [],
+  "name": "n02-alone|give me a report but don't remove the duplicate rows",
+  "class": "CANT_DO"
+ },
+ {
+  "speaker": "focus",
+  "turn": 0,
+  "msg": "give me a report but don't remove the duplicate rows",
+  "reply": "I read your request as something I can't do yet. Your message mentions duplicate rows, but I didn't run the duplicate-row removal. I can remove duplicate rows, remove empty rows, and check a spreadsheet for problems. Report on your original file: 2 rows repeat an earlier row exactly; name: 1 missing value (16.7%); amount: 1 missing value (16.7%). No changes were made to any file this turn.",
+  "voice_calls": 0,
+  "delivered": false,
+  "steps": [
+   [
+    "analyze",
+    "success"
+   ]
+  ],
+  "stopped_at": null,
+  "failure": null,
+  "orig_unchanged": true,
+  "orig_facts": {
+   "rows": 6,
+   "dups": 2,
+   "blank": 1,
+   "sheets": [
+    "Sheet1"
+   ]
+  },
+  "final_facts": null,
+  "verified": true,
+  "flags": [],
+  "name": "n02-alone|give me a report but don't remove the duplicate rows",
+  "class": "CANT_DO"
+ },
+ {
+  "speaker": "template",
+  "turn": 0,
+  "msg": "give me a report but don't remove the duplicate rows",
+  "reply": "Your message mentions duplicate rows, but I didn't run the duplicate-row removal. I can remove duplicate rows, remove empty rows, and look a spreadsheet over for possible problems. Report on your original file: 2 rows repeat an earlier row exactly; name: 1 missing value (16.7%); amount: 1 missing value (16.7%). No changes were made to any file this turn.",
+  "voice_calls": 0,
+  "delivered": false,
+  "steps": [
+   [
+    "analyze",
+    "success"
+   ]
+  ],
+  "stopped_at": null,
+  "failure": null,
+  "orig_unchanged": true,
+  "orig_facts": {
+   "rows": 6,
+   "dups": 2,
+   "blank": 1,
+   "sheets": [
+    "Sheet1"
+   ]
+  },
+  "final_facts": null,
+  "verified": true,
+  "flags": [],
+  "name": "n02-conv|give me a report but don't remove the duplicate rows",
+  "class": "SILENT"
+ },
+ {
+  "speaker": "friend",
+  "turn": 0,
+  "msg": "give me a report but don't remove the duplicate rows",
+  "reply": "Your message mentions duplicate rows, but I didn't run the duplicate-row removal. I can remove duplicate rows, remove empty rows, and look a spreadsheet over for anything that seems off. Report on your original file: 2 rows repeat an earlier row exactly; name: 1 missing value (16.7%); amount: 1 missing value (16.7%). No changes were made to any file this turn.",
+  "voice_calls": 0,
+  "delivered": false,
+  "steps": [
+   [
+    "analyze",
+    "success"
+   ]
+  ],
+  "stopped_at": null,
+  "failure": null,
+  "orig_unchanged": true,
+  "orig_facts": {
+   "rows": 6,
+   "dups": 2,
+   "blank": 1,
+   "sheets": [
+    "Sheet1"
+   ]
+  },
+  "final_facts": null,
+  "verified": true,
+  "flags": [],
+  "name": "n02-conv|give me a report but don't remove the duplicate rows",
+  "class": "SILENT"
+ },
+ {
+  "speaker": "focus",
+  "turn": 0,
+  "msg": "give me a report but don't remove the duplicate rows",
+  "reply": "Your message mentions duplicate rows, but I didn't run the duplicate-row removal. I can remove duplicate rows, remove empty rows, and check a spreadsheet for problems. Report on your original file: 2 rows repeat an earlier row exactly; name: 1 missing value (16.7%); amount: 1 missing value (16.7%). No changes were made to any file this turn.",
+  "voice_calls": 0,
+  "delivered": false,
+  "steps": [
+   [
+    "analyze",
+    "success"
+   ]
+  ],
+  "stopped_at": null,
+  "failure": null,
+  "orig_unchanged": true,
+  "orig_facts": {
+   "rows": 6,
+   "dups": 2,
+   "blank": 1,
+   "sheets": [
+    "Sheet1"
+   ]
+  },
+  "final_facts": null,
+  "verified": true,
+  "flags": [],
+  "name": "n02-conv|give me a report but don't remove the duplicate rows",
+  "class": "SILENT"
+ },
+ {
+  "speaker": "template",
+  "turn": 0,
+  "msg": "give me a report, keep the duplicates",
+  "reply": "I read your request as something I can't do yet. Your message mentions duplicate rows, but I didn't run the duplicate-row removal. I can remove duplicate rows, remove empty rows, and look a spreadsheet over for possible problems. Report on your original file: 2 rows repeat an earlier row exactly; name: 1 missing value (16.7%); amount: 1 missing value (16.7%). No changes were made to any file this turn.",
+  "voice_calls": 0,
+  "delivered": false,
+  "steps": [
+   [
+    "analyze",
+    "success"
+   ]
+  ],
+  "stopped_at": null,
+  "failure": null,
+  "orig_unchanged": true,
+  "orig_facts": {
+   "rows": 6,
+   "dups": 2,
+   "blank": 1,
+   "sheets": [
+    "Sheet1"
+   ]
+  },
+  "final_facts": null,
+  "verified": true,
+  "flags": [],
+  "name": "n03-alone|give me a report, keep the duplicates",
+  "class": "CANT_DO"
+ },
+ {
+  "speaker": "friend",
+  "turn": 0,
+  "msg": "give me a report, keep the duplicates",
+  "reply": "I read your request as something I can't do yet. Your message mentions duplicate rows, but I didn't run the duplicate-row removal. I can remove duplicate rows, remove empty rows, and look a spreadsheet over for anything that seems off. Report on your original file: 2 rows repeat an earlier row exactly; name: 1 missing value (16.7%); amount: 1 missing value (16.7%). No changes were made to any file this turn.",
+  "voice_calls": 0,
+  "delivered": false,
+  "steps": [
+   [
+    "analyze",
+    "success"
+   ]
+  ],
+  "stopped_at": null,
+  "failure": null,
+  "orig_unchanged": true,
+  "orig_facts": {
+   "rows": 6,
+   "dups": 2,
+   "blank": 1,
+   "sheets": [
+    "Sheet1"
+   ]
+  },
+  "final_facts": null,
+  "verified": true,
+  "flags": [],
+  "name": "n03-alone|give me a report, keep the duplicates",
+  "class": "CANT_DO"
+ },
+ {
+  "speaker": "focus",
+  "turn": 0,
+  "msg": "give me a report, keep the duplicates",
+  "reply": "I read your request as something I can't do yet. Your message mentions duplicate rows, but I didn't run the duplicate-row removal. I can remove duplicate rows, remove empty rows, and check a spreadsheet for problems. Report on your original file: 2 rows repeat an earlier row exactly; name: 1 missing value (16.7%); amount: 1 missing value (16.7%). No changes were made to any file this turn.",
+  "voice_calls": 0,
+  "delivered": false,
+  "steps": [
+   [
+    "analyze",
+    "success"
+   ]
+  ],
+  "stopped_at": null,
+  "failure": null,
+  "orig_unchanged": true,
+  "orig_facts": {
+   "rows": 6,
+   "dups": 2,
+   "blank": 1,
+   "sheets": [
+    "Sheet1"
+   ]
+  },
+  "final_facts": null,
+  "verified": true,
+  "flags": [],
+  "name": "n03-alone|give me a report, keep the duplicates",
+  "class": "CANT_DO"
+ },
+ {
+  "speaker": "template",
+  "turn": 0,
+  "msg": "give me a report, keep the duplicates",
+  "reply": "Your message mentions duplicate rows, but I didn't run the duplicate-row removal. I can remove duplicate rows, remove empty rows, and look a spreadsheet over for possible problems. Report on your original file: 2 rows repeat an earlier row exactly; name: 1 missing value (16.7%); amount: 1 missing value (16.7%). No changes were made to any file this turn.",
+  "voice_calls": 0,
+  "delivered": false,
+  "steps": [
+   [
+    "analyze",
+    "success"
+   ]
+  ],
+  "stopped_at": null,
+  "failure": null,
+  "orig_unchanged": true,
+  "orig_facts": {
+   "rows": 6,
+   "dups": 2,
+   "blank": 1,
+   "sheets": [
+    "Sheet1"
+   ]
+  },
+  "final_facts": null,
+  "verified": true,
+  "flags": [],
+  "name": "n03-conv|give me a report, keep the duplicates",
+  "class": "SILENT"
+ },
+ {
+  "speaker": "friend",
+  "turn": 0,
+  "msg": "give me a report, keep the duplicates",
+  "reply": "Your message mentions duplicate rows, but I didn't run the duplicate-row removal. I can remove duplicate rows, remove empty rows, and look a spreadsheet over for anything that seems off. Report on your original file: 2 rows repeat an earlier row exactly; name: 1 missing value (16.7%); amount: 1 missing value (16.7%). No changes were made to any file this turn.",
+  "voice_calls": 0,
+  "delivered": false,
+  "steps": [
+   [
+    "analyze",
+    "success"
+   ]
+  ],
+  "stopped_at": null,
+  "failure": null,
+  "orig_unchanged": true,
+  "orig_facts": {
+   "rows": 6,
+   "dups": 2,
+   "blank": 1,
+   "sheets": [
+    "Sheet1"
+   ]
+  },
+  "final_facts": null,
+  "verified": true,
+  "flags": [],
+  "name": "n03-conv|give me a report, keep the duplicates",
+  "class": "SILENT"
+ },
+ {
+  "speaker": "focus",
+  "turn": 0,
+  "msg": "give me a report, keep the duplicates",
+  "reply": "Your message mentions duplicate rows, but I didn't run the duplicate-row removal. I can remove duplicate rows, remove empty rows, and check a spreadsheet for problems. Report on your original file: 2 rows repeat an earlier row exactly; name: 1 missing value (16.7%); amount: 1 missing value (16.7%). No changes were made to any file this turn.",
+  "voice_calls": 0,
+  "delivered": false,
+  "steps": [
+   [
+    "analyze",
+    "success"
+   ]
+  ],
+  "stopped_at": null,
+  "failure": null,
+  "orig_unchanged": true,
+  "orig_facts": {
+   "rows": 6,
+   "dups": 2,
+   "blank": 1,
+   "sheets": [
+    "Sheet1"
+   ]
+  },
+  "final_facts": null,
+  "verified": true,
+  "flags": [],
+  "name": "n03-conv|give me a report, keep the duplicates",
+  "class": "SILENT"
+ },
+ {
+  "speaker": "template",
+  "turn": 0,
+  "msg": "give me a summary and keep the duplicate rows",
+  "reply": "I read your request as something I can't do yet. Your message mentions duplicate rows, but I didn't run the duplicate-row removal. I can remove duplicate rows, remove empty rows, and look a spreadsheet over for possible problems. Report on your original file: 2 rows repeat an earlier row exactly; name: 1 missing value (16.7%); amount: 1 missing value (16.7%). No changes were made to any file this turn.",
+  "voice_calls": 0,
+  "delivered": false,
+  "steps": [
+   [
+    "analyze",
+    "success"
+   ]
+  ],
+  "stopped_at": null,
+  "failure": null,
+  "orig_unchanged": true,
+  "orig_facts": {
+   "rows": 6,
+   "dups": 2,
+   "blank": 1,
+   "sheets": [
+    "Sheet1"
+   ]
+  },
+  "final_facts": null,
+  "verified": true,
+  "flags": [],
+  "name": "n04-alone|give me a summary and keep the duplicate rows",
+  "class": "CANT_DO"
+ },
+ {
+  "speaker": "friend",
+  "turn": 0,
+  "msg": "give me a summary and keep the duplicate rows",
+  "reply": "I read your request as something I can't do yet. Your message mentions duplicate rows, but I didn't run the duplicate-row removal. I can remove duplicate rows, remove empty rows, and look a spreadsheet over for anything that seems off. Report on your original file: 2 rows repeat an earlier row exactly; name: 1 missing value (16.7%); amount: 1 missing value (16.7%). No changes were made to any file this turn.",
+  "voice_calls": 0,
+  "delivered": false,
+  "steps": [
+   [
+    "analyze",
+    "success"
+   ]
+  ],
+  "stopped_at": null,
+  "failure": null,
+  "orig_unchanged": true,
+  "orig_facts": {
+   "rows": 6,
+   "dups": 2,
+   "blank": 1,
+   "sheets": [
+    "Sheet1"
+   ]
+  },
+  "final_facts": null,
+  "verified": true,
+  "flags": [],
+  "name": "n04-alone|give me a summary and keep the duplicate rows",
+  "class": "CANT_DO"
+ },
+ {
+  "speaker": "focus",
+  "turn": 0,
+  "msg": "give me a summary and keep the duplicate rows",
+  "reply": "I read your request as something I can't do yet. Your message mentions duplicate rows, but I didn't run the duplicate-row removal. I can remove duplicate rows, remove empty rows, and check a spreadsheet for problems. Report on your original file: 2 rows repeat an earlier row exactly; name: 1 missing value (16.7%); amount: 1 missing value (16.7%). No changes were made to any file this turn.",
+  "voice_calls": 0,
+  "delivered": false,
+  "steps": [
+   [
+    "analyze",
+    "success"
+   ]
+  ],
+  "stopped_at": null,
+  "failure": null,
+  "orig_unchanged": true,
+  "orig_facts": {
+   "rows": 6,
+   "dups": 2,
+   "blank": 1,
+   "sheets": [
+    "Sheet1"
+   ]
+  },
+  "final_facts": null,
+  "verified": true,
+  "flags": [],
+  "name": "n04-alone|give me a summary and keep the duplicate rows",
+  "class": "CANT_DO"
+ },
+ {
+  "speaker": "template",
+  "turn": 0,
+  "msg": "give me a summary and keep the duplicate rows",
+  "reply": "Your message mentions duplicate rows, but I didn't run the duplicate-row removal. I can remove duplicate rows, remove empty rows, and look a spreadsheet over for possible problems. Report on your original file: 2 rows repeat an earlier row exactly; name: 1 missing value (16.7%); amount: 1 missing value (16.7%). No changes were made to any file this turn.",
+  "voice_calls": 0,
+  "delivered": false,
+  "steps": [
+   [
+    "analyze",
+    "success"
+   ]
+  ],
+  "stopped_at": null,
+  "failure": null,
+  "orig_unchanged": true,
+  "orig_facts": {
+   "rows": 6,
+   "dups": 2,
+   "blank": 1,
+   "sheets": [
+    "Sheet1"
+   ]
+  },
+  "final_facts": null,
+  "verified": true,
+  "flags": [],
+  "name": "n04-conv|give me a summary and keep the duplicate rows",
+  "class": "SILENT"
+ },
+ {
+  "speaker": "friend",
+  "turn": 0,
+  "msg": "give me a summary and keep the duplicate rows",
+  "reply": "Your message mentions duplicate rows, but I didn't run the duplicate-row removal. I can remove duplicate rows, remove empty rows, and look a spreadsheet over for anything that seems off. Report on your original file: 2 rows repeat an earlier row exactly; name: 1 missing value (16.7%); amount: 1 missing value (16.7%). No changes were made to any file this turn.",
+  "voice_calls": 0,
+  "delivered": false,
+  "steps": [
+   [
+    "analyze",
+    "success"
+   ]
+  ],
+  "stopped_at": null,
+  "failure": null,
+  "orig_unchanged": true,
+  "orig_facts": {
+   "rows": 6,
+   "dups": 2,
+   "blank": 1,
+   "sheets": [
+    "Sheet1"
+   ]
+  },
+  "final_facts": null,
+  "verified": true,
+  "flags": [],
+  "name": "n04-conv|give me a summary and keep the duplicate rows",
+  "class": "SILENT"
+ },
+ {
+  "speaker": "focus",
+  "turn": 0,
+  "msg": "give me a summary and keep the duplicate rows",
+  "reply": "Your message mentions duplicate rows, but I didn't run the duplicate-row removal. I can remove duplicate rows, remove empty rows, and check a spreadsheet for problems. Report on your original file: 2 rows repeat an earlier row exactly; name: 1 missing value (16.7%); amount: 1 missing value (16.7%). No changes were made to any file this turn.",
+  "voice_calls": 0,
+  "delivered": false,
+  "steps": [
+   [
+    "analyze",
+    "success"
+   ]
+  ],
+  "stopped_at": null,
+  "failure": null,
+  "orig_unchanged": true,
+  "orig_facts": {
+   "rows": 6,
+   "dups": 2,
+   "blank": 1,
+   "sheets": [
+    "Sheet1"
+   ]
+  },
+  "final_facts": null,
+  "verified": true,
+  "flags": [],
+  "name": "n04-conv|give me a summary and keep the duplicate rows",
+  "class": "SILENT"
+ },
+ {
+  "speaker": "template",
+  "turn": 0,
+  "msg": "analyze my file without removing duplicates",
+  "reply": "I did nothing beyond the report for that part of your request. Your message mentions duplicate rows, but I didn't run the duplicate-row removal. I can remove duplicate rows, remove empty rows, and look a spreadsheet over for possible problems. Report on your original file: 2 rows repeat an earlier row exactly; name: 1 missing value (16.7%); amount: 1 missing value (16.7%). No changes were made to any file this turn.",
+  "voice_calls": 0,
+  "delivered": false,
+  "steps": [
+   [
+    "analyze",
+    "success"
+   ]
+  ],
+  "stopped_at": null,
+  "failure": null,
+  "orig_unchanged": true,
+  "orig_facts": {
+   "rows": 6,
+   "dups": 2,
+   "blank": 1,
+   "sheets": [
+    "Sheet1"
+   ]
+  },
+  "final_facts": null,
+  "verified": true,
+  "flags": [],
+  "name": "n05-alone|analyze my file without removing duplicates",
+  "class": "REPORT_ONLY"
+ },
+ {
+  "speaker": "friend",
+  "turn": 0,
+  "msg": "analyze my file without removing duplicates",
+  "reply": "I did nothing beyond the report for that part of your request. Your message mentions duplicate rows, but I didn't run the duplicate-row removal. I can remove duplicate rows, remove empty rows, and look a spreadsheet over for anything that seems off. Report on your original file: 2 rows repeat an earlier row exactly; name: 1 missing value (16.7%); amount: 1 missing value (16.7%). No changes were made to any file this turn.",
+  "voice_calls": 0,
+  "delivered": false,
+  "steps": [
+   [
+    "analyze",
+    "success"
+   ]
+  ],
+  "stopped_at": null,
+  "failure": null,
+  "orig_unchanged": true,
+  "orig_facts": {
+   "rows": 6,
+   "dups": 2,
+   "blank": 1,
+   "sheets": [
+    "Sheet1"
+   ]
+  },
+  "final_facts": null,
+  "verified": true,
+  "flags": [],
+  "name": "n05-alone|analyze my file without removing duplicates",
+  "class": "REPORT_ONLY"
+ },
+ {
+  "speaker": "focus",
+  "turn": 0,
+  "msg": "analyze my file without removing duplicates",
+  "reply": "I did nothing beyond the report for that part of your request. Your message mentions duplicate rows, but I didn't run the duplicate-row removal. I can remove duplicate rows, remove empty rows, and check a spreadsheet for problems. Report on your original file: 2 rows repeat an earlier row exactly; name: 1 missing value (16.7%); amount: 1 missing value (16.7%). No changes were made to any file this turn.",
+  "voice_calls": 0,
+  "delivered": false,
+  "steps": [
+   [
+    "analyze",
+    "success"
+   ]
+  ],
+  "stopped_at": null,
+  "failure": null,
+  "orig_unchanged": true,
+  "orig_facts": {
+   "rows": 6,
+   "dups": 2,
+   "blank": 1,
+   "sheets": [
+    "Sheet1"
+   ]
+  },
+  "final_facts": null,
+  "verified": true,
+  "flags": [],
+  "name": "n05-alone|analyze my file without removing duplicates",
+  "class": "REPORT_ONLY"
+ },
+ {
+  "speaker": "template",
+  "turn": 0,
+  "msg": "analyze my file without removing duplicates",
+  "reply": "Your message mentions duplicate rows, but I didn't run the duplicate-row removal. I can remove duplicate rows, remove empty rows, and look a spreadsheet over for possible problems. Report on your original file: 2 rows repeat an earlier row exactly; name: 1 missing value (16.7%); amount: 1 missing value (16.7%). No changes were made to any file this turn.",
+  "voice_calls": 0,
+  "delivered": false,
+  "steps": [
+   [
+    "analyze",
+    "success"
+   ]
+  ],
+  "stopped_at": null,
+  "failure": null,
+  "orig_unchanged": true,
+  "orig_facts": {
+   "rows": 6,
+   "dups": 2,
+   "blank": 1,
+   "sheets": [
+    "Sheet1"
+   ]
+  },
+  "final_facts": null,
+  "verified": true,
+  "flags": [],
+  "name": "n05-conv|analyze my file without removing duplicates",
+  "class": "SILENT"
+ },
+ {
+  "speaker": "friend",
+  "turn": 0,
+  "msg": "analyze my file without removing duplicates",
+  "reply": "Your message mentions duplicate rows, but I didn't run the duplicate-row removal. I can remove duplicate rows, remove empty rows, and look a spreadsheet over for anything that seems off. Report on your original file: 2 rows repeat an earlier row exactly; name: 1 missing value (16.7%); amount: 1 missing value (16.7%). No changes were made to any file this turn.",
+  "voice_calls": 0,
+  "delivered": false,
+  "steps": [
+   [
+    "analyze",
+    "success"
+   ]
+  ],
+  "stopped_at": null,
+  "failure": null,
+  "orig_unchanged": true,
+  "orig_facts": {
+   "rows": 6,
+   "dups": 2,
+   "blank": 1,
+   "sheets": [
+    "Sheet1"
+   ]
+  },
+  "final_facts": null,
+  "verified": true,
+  "flags": [],
+  "name": "n05-conv|analyze my file without removing duplicates",
+  "class": "SILENT"
+ },
+ {
+  "speaker": "focus",
+  "turn": 0,
+  "msg": "analyze my file without removing duplicates",
+  "reply": "Your message mentions duplicate rows, but I didn't run the duplicate-row removal. I can remove duplicate rows, remove empty rows, and check a spreadsheet for problems. Report on your original file: 2 rows repeat an earlier row exactly; name: 1 missing value (16.7%); amount: 1 missing value (16.7%). No changes were made to any file this turn.",
+  "voice_calls": 0,
+  "delivered": false,
+  "steps": [
+   [
+    "analyze",
+    "success"
+   ]
+  ],
+  "stopped_at": null,
+  "failure": null,
+  "orig_unchanged": true,
+  "orig_facts": {
+   "rows": 6,
+   "dups": 2,
+   "blank": 1,
+   "sheets": [
+    "Sheet1"
+   ]
+  },
+  "final_facts": null,
+  "verified": true,
+  "flags": [],
+  "name": "n05-conv|analyze my file without removing duplicates",
+  "class": "SILENT"
+ },
+ {
+  "speaker": "template",
+  "turn": 0,
+  "msg": "give me a report without deleting the duplicates",
+  "reply": "I did nothing beyond the report for that part of your request. Your message mentions duplicate rows, but I didn't run the duplicate-row removal. I can remove duplicate rows, remove empty rows, and look a spreadsheet over for possible problems. Report on your original file: 2 rows repeat an earlier row exactly; name: 1 missing value (16.7%); amount: 1 missing value (16.7%). No changes were made to any file this turn.",
+  "voice_calls": 0,
+  "delivered": false,
+  "steps": [
+   [
+    "analyze",
+    "success"
+   ]
+  ],
+  "stopped_at": null,
+  "failure": null,
+  "orig_unchanged": true,
+  "orig_facts": {
+   "rows": 6,
+   "dups": 2,
+   "blank": 1,
+   "sheets": [
+    "Sheet1"
+   ]
+  },
+  "final_facts": null,
+  "verified": true,
+  "flags": [],
+  "name": "n06-alone|give me a report without deleting the duplicates",
+  "class": "REPORT_ONLY"
+ },
+ {
+  "speaker": "friend",
+  "turn": 0,
+  "msg": "give me a report without deleting the duplicates",
+  "reply": "I did nothing beyond the report for that part of your request. Your message mentions duplicate rows, but I didn't run the duplicate-row removal. I can remove duplicate rows, remove empty rows, and look a spreadsheet over for anything that seems off. Report on your original file: 2 rows repeat an earlier row exactly; name: 1 missing value (16.7%); amount: 1 missing value (16.7%). No changes were made to any file this turn.",
+  "voice_calls": 0,
+  "delivered": false,
+  "steps": [
+   [
+    "analyze",
+    "success"
+   ]
+  ],
+  "stopped_at": null,
+  "failure": null,
+  "orig_unchanged": true,
+  "orig_facts": {
+   "rows": 6,
+   "dups": 2,
+   "blank": 1,
+   "sheets": [
+    "Sheet1"
+   ]
+  },
+  "final_facts": null,
+  "verified": true,
+  "flags": [],
+  "name": "n06-alone|give me a report without deleting the duplicates",
+  "class": "REPORT_ONLY"
+ },
+ {
+  "speaker": "focus",
+  "turn": 0,
+  "msg": "give me a report without deleting the duplicates",
+  "reply": "I did nothing beyond the report for that part of your request. Your message mentions duplicate rows, but I didn't run the duplicate-row removal. I can remove duplicate rows, remove empty rows, and check a spreadsheet for problems. Report on your original file: 2 rows repeat an earlier row exactly; name: 1 missing value (16.7%); amount: 1 missing value (16.7%). No changes were made to any file this turn.",
+  "voice_calls": 0,
+  "delivered": false,
+  "steps": [
+   [
+    "analyze",
+    "success"
+   ]
+  ],
+  "stopped_at": null,
+  "failure": null,
+  "orig_unchanged": true,
+  "orig_facts": {
+   "rows": 6,
+   "dups": 2,
+   "blank": 1,
+   "sheets": [
+    "Sheet1"
+   ]
+  },
+  "final_facts": null,
+  "verified": true,
+  "flags": [],
+  "name": "n06-alone|give me a report without deleting the duplicates",
+  "class": "REPORT_ONLY"
+ },
+ {
+  "speaker": "template",
+  "turn": 0,
+  "msg": "give me a report without deleting the duplicates",
+  "reply": "Your message mentions duplicate rows, but I didn't run the duplicate-row removal. I can remove duplicate rows, remove empty rows, and look a spreadsheet over for possible problems. Report on your original file: 2 rows repeat an earlier row exactly; name: 1 missing value (16.7%); amount: 1 missing value (16.7%). No changes were made to any file this turn.",
+  "voice_calls": 0,
+  "delivered": false,
+  "steps": [
+   [
+    "analyze",
+    "success"
+   ]
+  ],
+  "stopped_at": null,
+  "failure": null,
+  "orig_unchanged": true,
+  "orig_facts": {
+   "rows": 6,
+   "dups": 2,
+   "blank": 1,
+   "sheets": [
+    "Sheet1"
+   ]
+  },
+  "final_facts": null,
+  "verified": true,
+  "flags": [],
+  "name": "n06-conv|give me a report without deleting the duplicates",
+  "class": "SILENT"
+ },
+ {
+  "speaker": "friend",
+  "turn": 0,
+  "msg": "give me a report without deleting the duplicates",
+  "reply": "Your message mentions duplicate rows, but I didn't run the duplicate-row removal. I can remove duplicate rows, remove empty rows, and look a spreadsheet over for anything that seems off. Report on your original file: 2 rows repeat an earlier row exactly; name: 1 missing value (16.7%); amount: 1 missing value (16.7%). No changes were made to any file this turn.",
+  "voice_calls": 0,
+  "delivered": false,
+  "steps": [
+   [
+    "analyze",
+    "success"
+   ]
+  ],
+  "stopped_at": null,
+  "failure": null,
+  "orig_unchanged": true,
+  "orig_facts": {
+   "rows": 6,
+   "dups": 2,
+   "blank": 1,
+   "sheets": [
+    "Sheet1"
+   ]
+  },
+  "final_facts": null,
+  "verified": true,
+  "flags": [],
+  "name": "n06-conv|give me a report without deleting the duplicates",
+  "class": "SILENT"
+ },
+ {
+  "speaker": "focus",
+  "turn": 0,
+  "msg": "give me a report without deleting the duplicates",
+  "reply": "Your message mentions duplicate rows, but I didn't run the duplicate-row removal. I can remove duplicate rows, remove empty rows, and check a spreadsheet for problems. Report on your original file: 2 rows repeat an earlier row exactly; name: 1 missing value (16.7%); amount: 1 missing value (16.7%). No changes were made to any file this turn.",
+  "voice_calls": 0,
+  "delivered": false,
+  "steps": [
+   [
+    "analyze",
+    "success"
+   ]
+  ],
+  "stopped_at": null,
+  "failure": null,
+  "orig_unchanged": true,
+  "orig_facts": {
+   "rows": 6,
+   "dups": 2,
+   "blank": 1,
+   "sheets": [
+    "Sheet1"
+   ]
+  },
+  "final_facts": null,
+  "verified": true,
+  "flags": [],
+  "name": "n06-conv|give me a report without deleting the duplicates",
+  "class": "SILENT"
+ },
+ {
+  "speaker": "template",
+  "turn": 0,
+  "msg": "report on the file but leave the duplicates alone",
+  "reply": "I did nothing beyond the report for that part of your request. Your message mentions duplicate rows, but I didn't run the duplicate-row removal. I can remove duplicate rows, remove empty rows, and look a spreadsheet over for possible problems. Report on your original file: 2 rows repeat an earlier row exactly; name: 1 missing value (16.7%); amount: 1 missing value (16.7%). No changes were made to any file this turn.",
+  "voice_calls": 0,
+  "delivered": false,
+  "steps": [
+   [
+    "analyze",
+    "success"
+   ]
+  ],
+  "stopped_at": null,
+  "failure": null,
+  "orig_unchanged": true,
+  "orig_facts": {
+   "rows": 6,
+   "dups": 2,
+   "blank": 1,
+   "sheets": [
+    "Sheet1"
+   ]
+  },
+  "final_facts": null,
+  "verified": true,
+  "flags": [],
+  "name": "n07-alone|report on the file but leave the duplicates alone",
+  "class": "REPORT_ONLY"
+ },
+ {
+  "speaker": "friend",
+  "turn": 0,
+  "msg": "report on the file but leave the duplicates alone",
+  "reply": "I did nothing beyond the report for that part of your request. Your message mentions duplicate rows, but I didn't run the duplicate-row removal. I can remove duplicate rows, remove empty rows, and look a spreadsheet over for anything that seems off. Report on your original file: 2 rows repeat an earlier row exactly; name: 1 missing value (16.7%); amount: 1 missing value (16.7%). No changes were made to any file this turn.",
+  "voice_calls": 0,
+  "delivered": false,
+  "steps": [
+   [
+    "analyze",
+    "success"
+   ]
+  ],
+  "stopped_at": null,
+  "failure": null,
+  "orig_unchanged": true,
+  "orig_facts": {
+   "rows": 6,
+   "dups": 2,
+   "blank": 1,
+   "sheets": [
+    "Sheet1"
+   ]
+  },
+  "final_facts": null,
+  "verified": true,
+  "flags": [],
+  "name": "n07-alone|report on the file but leave the duplicates alone",
+  "class": "REPORT_ONLY"
+ },
+ {
+  "speaker": "focus",
+  "turn": 0,
+  "msg": "report on the file but leave the duplicates alone",
+  "reply": "I did nothing beyond the report for that part of your request. Your message mentions duplicate rows, but I didn't run the duplicate-row removal. I can remove duplicate rows, remove empty rows, and check a spreadsheet for problems. Report on your original file: 2 rows repeat an earlier row exactly; name: 1 missing value (16.7%); amount: 1 missing value (16.7%). No changes were made to any file this turn.",
+  "voice_calls": 0,
+  "delivered": false,
+  "steps": [
+   [
+    "analyze",
+    "success"
+   ]
+  ],
+  "stopped_at": null,
+  "failure": null,
+  "orig_unchanged": true,
+  "orig_facts": {
+   "rows": 6,
+   "dups": 2,
+   "blank": 1,
+   "sheets": [
+    "Sheet1"
+   ]
+  },
+  "final_facts": null,
+  "verified": true,
+  "flags": [],
+  "name": "n07-alone|report on the file but leave the duplicates alone",
+  "class": "REPORT_ONLY"
+ },
+ {
+  "speaker": "template",
+  "turn": 0,
+  "msg": "report on the file but leave the duplicates alone",
+  "reply": "Your message mentions duplicate rows, but I didn't run the duplicate-row removal. I can remove duplicate rows, remove empty rows, and look a spreadsheet over for possible problems. Report on your original file: 2 rows repeat an earlier row exactly; name: 1 missing value (16.7%); amount: 1 missing value (16.7%). No changes were made to any file this turn.",
+  "voice_calls": 0,
+  "delivered": false,
+  "steps": [
+   [
+    "analyze",
+    "success"
+   ]
+  ],
+  "stopped_at": null,
+  "failure": null,
+  "orig_unchanged": true,
+  "orig_facts": {
+   "rows": 6,
+   "dups": 2,
+   "blank": 1,
+   "sheets": [
+    "Sheet1"
+   ]
+  },
+  "final_facts": null,
+  "verified": true,
+  "flags": [],
+  "name": "n07-conv|report on the file but leave the duplicates alone",
+  "class": "SILENT"
+ },
+ {
+  "speaker": "friend",
+  "turn": 0,
+  "msg": "report on the file but leave the duplicates alone",
+  "reply": "Your message mentions duplicate rows, but I didn't run the duplicate-row removal. I can remove duplicate rows, remove empty rows, and look a spreadsheet over for anything that seems off. Report on your original file: 2 rows repeat an earlier row exactly; name: 1 missing value (16.7%); amount: 1 missing value (16.7%). No changes were made to any file this turn.",
+  "voice_calls": 0,
+  "delivered": false,
+  "steps": [
+   [
+    "analyze",
+    "success"
+   ]
+  ],
+  "stopped_at": null,
+  "failure": null,
+  "orig_unchanged": true,
+  "orig_facts": {
+   "rows": 6,
+   "dups": 2,
+   "blank": 1,
+   "sheets": [
+    "Sheet1"
+   ]
+  },
+  "final_facts": null,
+  "verified": true,
+  "flags": [],
+  "name": "n07-conv|report on the file but leave the duplicates alone",
+  "class": "SILENT"
+ },
+ {
+  "speaker": "focus",
+  "turn": 0,
+  "msg": "report on the file but leave the duplicates alone",
+  "reply": "Your message mentions duplicate rows, but I didn't run the duplicate-row removal. I can remove duplicate rows, remove empty rows, and check a spreadsheet for problems. Report on your original file: 2 rows repeat an earlier row exactly; name: 1 missing value (16.7%); amount: 1 missing value (16.7%). No changes were made to any file this turn.",
+  "voice_calls": 0,
+  "delivered": false,
+  "steps": [
+   [
+    "analyze",
+    "success"
+   ]
+  ],
+  "stopped_at": null,
+  "failure": null,
+  "orig_unchanged": true,
+  "orig_facts": {
+   "rows": 6,
+   "dups": 2,
+   "blank": 1,
+   "sheets": [
+    "Sheet1"
+   ]
+  },
+  "final_facts": null,
+  "verified": true,
+  "flags": [],
+  "name": "n07-conv|report on the file but leave the duplicates alone",
+  "class": "SILENT"
+ },
+ {
+  "speaker": "template",
+  "turn": 0,
+  "msg": "just a report please, no need to remove the duplicates",
+  "reply": "I did nothing beyond the report for that part of your request. Your message mentions duplicate rows, but I didn't run the duplicate-row removal. I can remove duplicate rows, remove empty rows, and look a spreadsheet over for possible problems. Report on your original file: 2 rows repeat an earlier row exactly; name: 1 missing value (16.7%); amount: 1 missing value (16.7%). No changes were made to any file this turn.",
+  "voice_calls": 0,
+  "delivered": false,
+  "steps": [
+   [
+    "analyze",
+    "success"
+   ]
+  ],
+  "stopped_at": null,
+  "failure": null,
+  "orig_unchanged": true,
+  "orig_facts": {
+   "rows": 6,
+   "dups": 2,
+   "blank": 1,
+   "sheets": [
+    "Sheet1"
+   ]
+  },
+  "final_facts": null,
+  "verified": true,
+  "flags": [],
+  "name": "n08-alone|just a report please, no need to remove the duplicates",
+  "class": "REPORT_ONLY"
+ },
+ {
+  "speaker": "friend",
+  "turn": 0,
+  "msg": "just a report please, no need to remove the duplicates",
+  "reply": "I did nothing beyond the report for that part of your request. Your message mentions duplicate rows, but I didn't run the duplicate-row removal. I can remove duplicate rows, remove empty rows, and look a spreadsheet over for anything that seems off. Report on your original file: 2 rows repeat an earlier row exactly; name: 1 missing value (16.7%); amount: 1 missing value (16.7%). No changes were made to any file this turn.",
+  "voice_calls": 0,
+  "delivered": false,
+  "steps": [
+   [
+    "analyze",
+    "success"
+   ]
+  ],
+  "stopped_at": null,
+  "failure": null,
+  "orig_unchanged": true,
+  "orig_facts": {
+   "rows": 6,
+   "dups": 2,
+   "blank": 1,
+   "sheets": [
+    "Sheet1"
+   ]
+  },
+  "final_facts": null,
+  "verified": true,
+  "flags": [],
+  "name": "n08-alone|just a report please, no need to remove the duplicates",
+  "class": "REPORT_ONLY"
+ },
+ {
+  "speaker": "focus",
+  "turn": 0,
+  "msg": "just a report please, no need to remove the duplicates",
+  "reply": "I did nothing beyond the report for that part of your request. Your message mentions duplicate rows, but I didn't run the duplicate-row removal. I can remove duplicate rows, remove empty rows, and check a spreadsheet for problems. Report on your original file: 2 rows repeat an earlier row exactly; name: 1 missing value (16.7%); amount: 1 missing value (16.7%). No changes were made to any file this turn.",
+  "voice_calls": 0,
+  "delivered": false,
+  "steps": [
+   [
+    "analyze",
+    "success"
+   ]
+  ],
+  "stopped_at": null,
+  "failure": null,
+  "orig_unchanged": true,
+  "orig_facts": {
+   "rows": 6,
+   "dups": 2,
+   "blank": 1,
+   "sheets": [
+    "Sheet1"
+   ]
+  },
+  "final_facts": null,
+  "verified": true,
+  "flags": [],
+  "name": "n08-alone|just a report please, no need to remove the duplicates",
+  "class": "REPORT_ONLY"
+ },
+ {
+  "speaker": "template",
+  "turn": 0,
+  "msg": "just a report please, no need to remove the duplicates",
+  "reply": "Your message mentions duplicate rows, but I didn't run the duplicate-row removal. I can remove duplicate rows, remove empty rows, and look a spreadsheet over for possible problems. Report on your original file: 2 rows repeat an earlier row exactly; name: 1 missing value (16.7%); amount: 1 missing value (16.7%). No changes were made to any file this turn.",
+  "voice_calls": 0,
+  "delivered": false,
+  "steps": [
+   [
+    "analyze",
+    "success"
+   ]
+  ],
+  "stopped_at": null,
+  "failure": null,
+  "orig_unchanged": true,
+  "orig_facts": {
+   "rows": 6,
+   "dups": 2,
+   "blank": 1,
+   "sheets": [
+    "Sheet1"
+   ]
+  },
+  "final_facts": null,
+  "verified": true,
+  "flags": [],
+  "name": "n08-conv|just a report please, no need to remove the duplicates",
+  "class": "SILENT"
+ },
+ {
+  "speaker": "friend",
+  "turn": 0,
+  "msg": "just a report please, no need to remove the duplicates",
+  "reply": "Your message mentions duplicate rows, but I didn't run the duplicate-row removal. I can remove duplicate rows, remove empty rows, and look a spreadsheet over for anything that seems off. Report on your original file: 2 rows repeat an earlier row exactly; name: 1 missing value (16.7%); amount: 1 missing value (16.7%). No changes were made to any file this turn.",
+  "voice_calls": 0,
+  "delivered": false,
+  "steps": [
+   [
+    "analyze",
+    "success"
+   ]
+  ],
+  "stopped_at": null,
+  "failure": null,
+  "orig_unchanged": true,
+  "orig_facts": {
+   "rows": 6,
+   "dups": 2,
+   "blank": 1,
+   "sheets": [
+    "Sheet1"
+   ]
+  },
+  "final_facts": null,
+  "verified": true,
+  "flags": [],
+  "name": "n08-conv|just a report please, no need to remove the duplicates",
+  "class": "SILENT"
+ },
+ {
+  "speaker": "focus",
+  "turn": 0,
+  "msg": "just a report please, no need to remove the duplicates",
+  "reply": "Your message mentions duplicate rows, but I didn't run the duplicate-row removal. I can remove duplicate rows, remove empty rows, and check a spreadsheet for problems. Report on your original file: 2 rows repeat an earlier row exactly; name: 1 missing value (16.7%); amount: 1 missing value (16.7%). No changes were made to any file this turn.",
+  "voice_calls": 0,
+  "delivered": false,
+  "steps": [
+   [
+    "analyze",
+    "success"
+   ]
+  ],
+  "stopped_at": null,
+  "failure": null,
+  "orig_unchanged": true,
+  "orig_facts": {
+   "rows": 6,
+   "dups": 2,
+   "blank": 1,
+   "sheets": [
+    "Sheet1"
+   ]
+  },
+  "final_facts": null,
+  "verified": true,
+  "flags": [],
+  "name": "n08-conv|just a report please, no need to remove the duplicates",
+  "class": "SILENT"
+ },
+ {
+  "speaker": "template",
+  "turn": 0,
+  "msg": "I only want a report, do not remove duplicates",
+  "reply": "I read your request as something I can't do yet. Your message mentions duplicate rows, but I didn't run the duplicate-row removal. I can remove duplicate rows, remove empty rows, and look a spreadsheet over for possible problems. Report on your original file: 2 rows repeat an earlier row exactly; name: 1 missing value (16.7%); amount: 1 missing value (16.7%). No changes were made to any file this turn.",
+  "voice_calls": 0,
+  "delivered": false,
+  "steps": [
+   [
+    "analyze",
+    "success"
+   ]
+  ],
+  "stopped_at": null,
+  "failure": null,
+  "orig_unchanged": true,
+  "orig_facts": {
+   "rows": 6,
+   "dups": 2,
+   "blank": 1,
+   "sheets": [
+    "Sheet1"
+   ]
+  },
+  "final_facts": null,
+  "verified": true,
+  "flags": [],
+  "name": "n09-alone|I only want a report, do not remove duplicates",
+  "class": "CANT_DO"
+ },
+ {
+  "speaker": "friend",
+  "turn": 0,
+  "msg": "I only want a report, do not remove duplicates",
+  "reply": "I read your request as something I can't do yet. Your message mentions duplicate rows, but I didn't run the duplicate-row removal. I can remove duplicate rows, remove empty rows, and look a spreadsheet over for anything that seems off. Report on your original file: 2 rows repeat an earlier row exactly; name: 1 missing value (16.7%); amount: 1 missing value (16.7%). No changes were made to any file this turn.",
+  "voice_calls": 0,
+  "delivered": false,
+  "steps": [
+   [
+    "analyze",
+    "success"
+   ]
+  ],
+  "stopped_at": null,
+  "failure": null,
+  "orig_unchanged": true,
+  "orig_facts": {
+   "rows": 6,
+   "dups": 2,
+   "blank": 1,
+   "sheets": [
+    "Sheet1"
+   ]
+  },
+  "final_facts": null,
+  "verified": true,
+  "flags": [],
+  "name": "n09-alone|I only want a report, do not remove duplicates",
+  "class": "CANT_DO"
+ },
+ {
+  "speaker": "focus",
+  "turn": 0,
+  "msg": "I only want a report, do not remove duplicates",
+  "reply": "I read your request as something I can't do yet. Your message mentions duplicate rows, but I didn't run the duplicate-row removal. I can remove duplicate rows, remove empty rows, and check a spreadsheet for problems. Report on your original file: 2 rows repeat an earlier row exactly; name: 1 missing value (16.7%); amount: 1 missing value (16.7%). No changes were made to any file this turn.",
+  "voice_calls": 0,
+  "delivered": false,
+  "steps": [
+   [
+    "analyze",
+    "success"
+   ]
+  ],
+  "stopped_at": null,
+  "failure": null,
+  "orig_unchanged": true,
+  "orig_facts": {
+   "rows": 6,
+   "dups": 2,
+   "blank": 1,
+   "sheets": [
+    "Sheet1"
+   ]
+  },
+  "final_facts": null,
+  "verified": true,
+  "flags": [],
+  "name": "n09-alone|I only want a report, do not remove duplicates",
+  "class": "CANT_DO"
+ },
+ {
+  "speaker": "template",
+  "turn": 0,
+  "msg": "I only want a report, do not remove duplicates",
+  "reply": "Your message mentions duplicate rows, but I didn't run the duplicate-row removal. I can remove duplicate rows, remove empty rows, and look a spreadsheet over for possible problems. Report on your original file: 2 rows repeat an earlier row exactly; name: 1 missing value (16.7%); amount: 1 missing value (16.7%). No changes were made to any file this turn.",
+  "voice_calls": 0,
+  "delivered": false,
+  "steps": [
+   [
+    "analyze",
+    "success"
+   ]
+  ],
+  "stopped_at": null,
+  "failure": null,
+  "orig_unchanged": true,
+  "orig_facts": {
+   "rows": 6,
+   "dups": 2,
+   "blank": 1,
+   "sheets": [
+    "Sheet1"
+   ]
+  },
+  "final_facts": null,
+  "verified": true,
+  "flags": [],
+  "name": "n09-conv|I only want a report, do not remove duplicates",
+  "class": "SILENT"
+ },
+ {
+  "speaker": "friend",
+  "turn": 0,
+  "msg": "I only want a report, do not remove duplicates",
+  "reply": "Your message mentions duplicate rows, but I didn't run the duplicate-row removal. I can remove duplicate rows, remove empty rows, and look a spreadsheet over for anything that seems off. Report on your original file: 2 rows repeat an earlier row exactly; name: 1 missing value (16.7%); amount: 1 missing value (16.7%). No changes were made to any file this turn.",
+  "voice_calls": 0,
+  "delivered": false,
+  "steps": [
+   [
+    "analyze",
+    "success"
+   ]
+  ],
+  "stopped_at": null,
+  "failure": null,
+  "orig_unchanged": true,
+  "orig_facts": {
+   "rows": 6,
+   "dups": 2,
+   "blank": 1,
+   "sheets": [
+    "Sheet1"
+   ]
+  },
+  "final_facts": null,
+  "verified": true,
+  "flags": [],
+  "name": "n09-conv|I only want a report, do not remove duplicates",
+  "class": "SILENT"
+ },
+ {
+  "speaker": "focus",
+  "turn": 0,
+  "msg": "I only want a report, do not remove duplicates",
+  "reply": "Your message mentions duplicate rows, but I didn't run the duplicate-row removal. I can remove duplicate rows, remove empty rows, and check a spreadsheet for problems. Report on your original file: 2 rows repeat an earlier row exactly; name: 1 missing value (16.7%); amount: 1 missing value (16.7%). No changes were made to any file this turn.",
+  "voice_calls": 0,
+  "delivered": false,
+  "steps": [
+   [
+    "analyze",
+    "success"
+   ]
+  ],
+  "stopped_at": null,
+  "failure": null,
+  "orig_unchanged": true,
+  "orig_facts": {
+   "rows": 6,
+   "dups": 2,
+   "blank": 1,
+   "sheets": [
+    "Sheet1"
+   ]
+  },
+  "final_facts": null,
+  "verified": true,
+  "flags": [],
+  "name": "n09-conv|I only want a report, do not remove duplicates",
+  "class": "SILENT"
+ },
+ {
+  "speaker": "template",
+  "turn": 0,
+  "msg": "give me a report first, don't remove the duplicates yet",
+  "reply": "I did nothing beyond the report for that part of your request. Your message mentions duplicate rows, but I didn't run the duplicate-row removal. I can remove duplicate rows, remove empty rows, and look a spreadsheet over for possible problems. Report on your original file: 2 rows repeat an earlier row exactly; name: 1 missing value (16.7%); amount: 1 missing value (16.7%). No changes were made to any file this turn.",
+  "voice_calls": 0,
+  "delivered": false,
+  "steps": [
+   [
+    "analyze",
+    "success"
+   ]
+  ],
+  "stopped_at": null,
+  "failure": null,
+  "orig_unchanged": true,
+  "orig_facts": {
+   "rows": 6,
+   "dups": 2,
+   "blank": 1,
+   "sheets": [
+    "Sheet1"
+   ]
+  },
+  "final_facts": null,
+  "verified": true,
+  "flags": [],
+  "name": "n10-alone|give me a report first, don't remove the duplicates yet",
+  "class": "REPORT_ONLY"
+ },
+ {
+  "speaker": "friend",
+  "turn": 0,
+  "msg": "give me a report first, don't remove the duplicates yet",
+  "reply": "I did nothing beyond the report for that part of your request. Your message mentions duplicate rows, but I didn't run the duplicate-row removal. I can remove duplicate rows, remove empty rows, and look a spreadsheet over for anything that seems off. Report on your original file: 2 rows repeat an earlier row exactly; name: 1 missing value (16.7%); amount: 1 missing value (16.7%). No changes were made to any file this turn.",
+  "voice_calls": 0,
+  "delivered": false,
+  "steps": [
+   [
+    "analyze",
+    "success"
+   ]
+  ],
+  "stopped_at": null,
+  "failure": null,
+  "orig_unchanged": true,
+  "orig_facts": {
+   "rows": 6,
+   "dups": 2,
+   "blank": 1,
+   "sheets": [
+    "Sheet1"
+   ]
+  },
+  "final_facts": null,
+  "verified": true,
+  "flags": [],
+  "name": "n10-alone|give me a report first, don't remove the duplicates yet",
+  "class": "REPORT_ONLY"
+ },
+ {
+  "speaker": "focus",
+  "turn": 0,
+  "msg": "give me a report first, don't remove the duplicates yet",
+  "reply": "I did nothing beyond the report for that part of your request. Your message mentions duplicate rows, but I didn't run the duplicate-row removal. I can remove duplicate rows, remove empty rows, and check a spreadsheet for problems. Report on your original file: 2 rows repeat an earlier row exactly; name: 1 missing value (16.7%); amount: 1 missing value (16.7%). No changes were made to any file this turn.",
+  "voice_calls": 0,
+  "delivered": false,
+  "steps": [
+   [
+    "analyze",
+    "success"
+   ]
+  ],
+  "stopped_at": null,
+  "failure": null,
+  "orig_unchanged": true,
+  "orig_facts": {
+   "rows": 6,
+   "dups": 2,
+   "blank": 1,
+   "sheets": [
+    "Sheet1"
+   ]
+  },
+  "final_facts": null,
+  "verified": true,
+  "flags": [],
+  "name": "n10-alone|give me a report first, don't remove the duplicates yet",
+  "class": "REPORT_ONLY"
+ },
+ {
+  "speaker": "template",
+  "turn": 0,
+  "msg": "give me a report first, don't remove the duplicates yet",
+  "reply": "Your message mentions duplicate rows, but I didn't run the duplicate-row removal. I can remove duplicate rows, remove empty rows, and look a spreadsheet over for possible problems. Report on your original file: 2 rows repeat an earlier row exactly; name: 1 missing value (16.7%); amount: 1 missing value (16.7%). No changes were made to any file this turn.",
+  "voice_calls": 0,
+  "delivered": false,
+  "steps": [
+   [
+    "analyze",
+    "success"
+   ]
+  ],
+  "stopped_at": null,
+  "failure": null,
+  "orig_unchanged": true,
+  "orig_facts": {
+   "rows": 6,
+   "dups": 2,
+   "blank": 1,
+   "sheets": [
+    "Sheet1"
+   ]
+  },
+  "final_facts": null,
+  "verified": true,
+  "flags": [],
+  "name": "n10-conv|give me a report first, don't remove the duplicates yet",
+  "class": "SILENT"
+ },
+ {
+  "speaker": "friend",
+  "turn": 0,
+  "msg": "give me a report first, don't remove the duplicates yet",
+  "reply": "Your message mentions duplicate rows, but I didn't run the duplicate-row removal. I can remove duplicate rows, remove empty rows, and look a spreadsheet over for anything that seems off. Report on your original file: 2 rows repeat an earlier row exactly; name: 1 missing value (16.7%); amount: 1 missing value (16.7%). No changes were made to any file this turn.",
+  "voice_calls": 0,
+  "delivered": false,
+  "steps": [
+   [
+    "analyze",
+    "success"
+   ]
+  ],
+  "stopped_at": null,
+  "failure": null,
+  "orig_unchanged": true,
+  "orig_facts": {
+   "rows": 6,
+   "dups": 2,
+   "blank": 1,
+   "sheets": [
+    "Sheet1"
+   ]
+  },
+  "final_facts": null,
+  "verified": true,
+  "flags": [],
+  "name": "n10-conv|give me a report first, don't remove the duplicates yet",
+  "class": "SILENT"
+ },
+ {
+  "speaker": "focus",
+  "turn": 0,
+  "msg": "give me a report first, don't remove the duplicates yet",
+  "reply": "Your message mentions duplicate rows, but I didn't run the duplicate-row removal. I can remove duplicate rows, remove empty rows, and check a spreadsheet for problems. Report on your original file: 2 rows repeat an earlier row exactly; name: 1 missing value (16.7%); amount: 1 missing value (16.7%). No changes were made to any file this turn.",
+  "voice_calls": 0,
+  "delivered": false,
+  "steps": [
+   [
+    "analyze",
+    "success"
+   ]
+  ],
+  "stopped_at": null,
+  "failure": null,
+  "orig_unchanged": true,
+  "orig_facts": {
+   "rows": 6,
+   "dups": 2,
+   "blank": 1,
+   "sheets": [
+    "Sheet1"
+   ]
+  },
+  "final_facts": null,
+  "verified": true,
+  "flags": [],
+  "name": "n10-conv|give me a report first, don't remove the duplicates yet",
+  "class": "SILENT"
+ },
+ {
+  "speaker": "template",
+  "turn": 0,
+  "msg": "summarize my data but keep the duplicate rows",
+  "reply": "I read your request as something I can't do yet. Your message mentions duplicate rows, but I didn't run the duplicate-row removal. I can remove duplicate rows, remove empty rows, and look a spreadsheet over for possible problems. Report on your original file: 2 rows repeat an earlier row exactly; name: 1 missing value (16.7%); amount: 1 missing value (16.7%). No changes were made to any file this turn.",
+  "voice_calls": 0,
+  "delivered": false,
+  "steps": [
+   [
+    "analyze",
+    "success"
+   ]
+  ],
+  "stopped_at": null,
+  "failure": null,
+  "orig_unchanged": true,
+  "orig_facts": {
+   "rows": 6,
+   "dups": 2,
+   "blank": 1,
+   "sheets": [
+    "Sheet1"
+   ]
+  },
+  "final_facts": null,
+  "verified": true,
+  "flags": [],
+  "name": "n11-alone|summarize my data but keep the duplicate rows",
+  "class": "CANT_DO"
+ },
+ {
+  "speaker": "friend",
+  "turn": 0,
+  "msg": "summarize my data but keep the duplicate rows",
+  "reply": "I read your request as something I can't do yet. Your message mentions duplicate rows, but I didn't run the duplicate-row removal. I can remove duplicate rows, remove empty rows, and look a spreadsheet over for anything that seems off. Report on your original file: 2 rows repeat an earlier row exactly; name: 1 missing value (16.7%); amount: 1 missing value (16.7%). No changes were made to any file this turn.",
+  "voice_calls": 0,
+  "delivered": false,
+  "steps": [
+   [
+    "analyze",
+    "success"
+   ]
+  ],
+  "stopped_at": null,
+  "failure": null,
+  "orig_unchanged": true,
+  "orig_facts": {
+   "rows": 6,
+   "dups": 2,
+   "blank": 1,
+   "sheets": [
+    "Sheet1"
+   ]
+  },
+  "final_facts": null,
+  "verified": true,
+  "flags": [],
+  "name": "n11-alone|summarize my data but keep the duplicate rows",
+  "class": "CANT_DO"
+ },
+ {
+  "speaker": "focus",
+  "turn": 0,
+  "msg": "summarize my data but keep the duplicate rows",
+  "reply": "I read your request as something I can't do yet. Your message mentions duplicate rows, but I didn't run the duplicate-row removal. I can remove duplicate rows, remove empty rows, and check a spreadsheet for problems. Report on your original file: 2 rows repeat an earlier row exactly; name: 1 missing value (16.7%); amount: 1 missing value (16.7%). No changes were made to any file this turn.",
+  "voice_calls": 0,
+  "delivered": false,
+  "steps": [
+   [
+    "analyze",
+    "success"
+   ]
+  ],
+  "stopped_at": null,
+  "failure": null,
+  "orig_unchanged": true,
+  "orig_facts": {
+   "rows": 6,
+   "dups": 2,
+   "blank": 1,
+   "sheets": [
+    "Sheet1"
+   ]
+  },
+  "final_facts": null,
+  "verified": true,
+  "flags": [],
+  "name": "n11-alone|summarize my data but keep the duplicate rows",
+  "class": "CANT_DO"
+ },
+ {
+  "speaker": "template",
+  "turn": 0,
+  "msg": "summarize my data but keep the duplicate rows",
+  "reply": "Your message mentions duplicate rows, but I didn't run the duplicate-row removal. I can remove duplicate rows, remove empty rows, and look a spreadsheet over for possible problems. Report on your original file: 2 rows repeat an earlier row exactly; name: 1 missing value (16.7%); amount: 1 missing value (16.7%). No changes were made to any file this turn.",
+  "voice_calls": 0,
+  "delivered": false,
+  "steps": [
+   [
+    "analyze",
+    "success"
+   ]
+  ],
+  "stopped_at": null,
+  "failure": null,
+  "orig_unchanged": true,
+  "orig_facts": {
+   "rows": 6,
+   "dups": 2,
+   "blank": 1,
+   "sheets": [
+    "Sheet1"
+   ]
+  },
+  "final_facts": null,
+  "verified": true,
+  "flags": [],
+  "name": "n11-conv|summarize my data but keep the duplicate rows",
+  "class": "SILENT"
+ },
+ {
+  "speaker": "friend",
+  "turn": 0,
+  "msg": "summarize my data but keep the duplicate rows",
+  "reply": "Your message mentions duplicate rows, but I didn't run the duplicate-row removal. I can remove duplicate rows, remove empty rows, and look a spreadsheet over for anything that seems off. Report on your original file: 2 rows repeat an earlier row exactly; name: 1 missing value (16.7%); amount: 1 missing value (16.7%). No changes were made to any file this turn.",
+  "voice_calls": 0,
+  "delivered": false,
+  "steps": [
+   [
+    "analyze",
+    "success"
+   ]
+  ],
+  "stopped_at": null,
+  "failure": null,
+  "orig_unchanged": true,
+  "orig_facts": {
+   "rows": 6,
+   "dups": 2,
+   "blank": 1,
+   "sheets": [
+    "Sheet1"
+   ]
+  },
+  "final_facts": null,
+  "verified": true,
+  "flags": [],
+  "name": "n11-conv|summarize my data but keep the duplicate rows",
+  "class": "SILENT"
+ },
+ {
+  "speaker": "focus",
+  "turn": 0,
+  "msg": "summarize my data but keep the duplicate rows",
+  "reply": "Your message mentions duplicate rows, but I didn't run the duplicate-row removal. I can remove duplicate rows, remove empty rows, and check a spreadsheet for problems. Report on your original file: 2 rows repeat an earlier row exactly; name: 1 missing value (16.7%); amount: 1 missing value (16.7%). No changes were made to any file this turn.",
+  "voice_calls": 0,
+  "delivered": false,
+  "steps": [
+   [
+    "analyze",
+    "success"
+   ]
+  ],
+  "stopped_at": null,
+  "failure": null,
+  "orig_unchanged": true,
+  "orig_facts": {
+   "rows": 6,
+   "dups": 2,
+   "blank": 1,
+   "sheets": [
+    "Sheet1"
+   ]
+  },
+  "final_facts": null,
+  "verified": true,
+  "flags": [],
+  "name": "n11-conv|summarize my data but keep the duplicate rows",
+  "class": "SILENT"
+ },
+ {
+  "speaker": "template",
+  "turn": 0,
+  "msg": "analyze my file but don't remove the empty rows",
+  "reply": "I read your request as something I can't do yet. Your message mentions empty rows, but I didn't run the empty-row removal. I can remove duplicate rows, remove empty rows, and look a spreadsheet over for possible problems. Report on your original file: 2 rows repeat an earlier row exactly; name: 1 missing value (16.7%); amount: 1 missing value (16.7%). No changes were made to any file this turn.",
+  "voice_calls": 0,
+  "delivered": false,
+  "steps": [
+   [
+    "analyze",
+    "success"
+   ]
+  ],
+  "stopped_at": null,
+  "failure": null,
+  "orig_unchanged": true,
+  "orig_facts": {
+   "rows": 6,
+   "dups": 2,
+   "blank": 1,
+   "sheets": [
+    "Sheet1"
+   ]
+  },
+  "final_facts": null,
+  "verified": true,
+  "flags": [],
+  "name": "n12-alone|analyze my file but don't remove the empty rows",
+  "class": "CANT_DO"
+ },
+ {
+  "speaker": "friend",
+  "turn": 0,
+  "msg": "analyze my file but don't remove the empty rows",
+  "reply": "I read your request as something I can't do yet. Your message mentions empty rows, but I didn't run the empty-row removal. I can remove duplicate rows, remove empty rows, and look a spreadsheet over for anything that seems off. Report on your original file: 2 rows repeat an earlier row exactly; name: 1 missing value (16.7%); amount: 1 missing value (16.7%). No changes were made to any file this turn.",
+  "voice_calls": 0,
+  "delivered": false,
+  "steps": [
+   [
+    "analyze",
+    "success"
+   ]
+  ],
+  "stopped_at": null,
+  "failure": null,
+  "orig_unchanged": true,
+  "orig_facts": {
+   "rows": 6,
+   "dups": 2,
+   "blank": 1,
+   "sheets": [
+    "Sheet1"
+   ]
+  },
+  "final_facts": null,
+  "verified": true,
+  "flags": [],
+  "name": "n12-alone|analyze my file but don't remove the empty rows",
+  "class": "CANT_DO"
+ },
+ {
+  "speaker": "focus",
+  "turn": 0,
+  "msg": "analyze my file but don't remove the empty rows",
+  "reply": "I read your request as something I can't do yet. Your message mentions empty rows, but I didn't run the empty-row removal. I can remove duplicate rows, remove empty rows, and check a spreadsheet for problems. Report on your original file: 2 rows repeat an earlier row exactly; name: 1 missing value (16.7%); amount: 1 missing value (16.7%). No changes were made to any file this turn.",
+  "voice_calls": 0,
+  "delivered": false,
+  "steps": [
+   [
+    "analyze",
+    "success"
+   ]
+  ],
+  "stopped_at": null,
+  "failure": null,
+  "orig_unchanged": true,
+  "orig_facts": {
+   "rows": 6,
+   "dups": 2,
+   "blank": 1,
+   "sheets": [
+    "Sheet1"
+   ]
+  },
+  "final_facts": null,
+  "verified": true,
+  "flags": [],
+  "name": "n12-alone|analyze my file but don't remove the empty rows",
+  "class": "CANT_DO"
+ },
+ {
+  "speaker": "template",
+  "turn": 0,
+  "msg": "analyze my file but don't remove the empty rows",
+  "reply": "Your message mentions empty rows, but I didn't run the empty-row removal. I can remove duplicate rows, remove empty rows, and look a spreadsheet over for possible problems. Report on your original file: 2 rows repeat an earlier row exactly; name: 1 missing value (16.7%); amount: 1 missing value (16.7%). No changes were made to any file this turn.",
+  "voice_calls": 0,
+  "delivered": false,
+  "steps": [
+   [
+    "analyze",
+    "success"
+   ]
+  ],
+  "stopped_at": null,
+  "failure": null,
+  "orig_unchanged": true,
+  "orig_facts": {
+   "rows": 6,
+   "dups": 2,
+   "blank": 1,
+   "sheets": [
+    "Sheet1"
+   ]
+  },
+  "final_facts": null,
+  "verified": true,
+  "flags": [],
+  "name": "n12-conv|analyze my file but don't remove the empty rows",
+  "class": "SILENT"
+ },
+ {
+  "speaker": "friend",
+  "turn": 0,
+  "msg": "analyze my file but don't remove the empty rows",
+  "reply": "Your message mentions empty rows, but I didn't run the empty-row removal. I can remove duplicate rows, remove empty rows, and look a spreadsheet over for anything that seems off. Report on your original file: 2 rows repeat an earlier row exactly; name: 1 missing value (16.7%); amount: 1 missing value (16.7%). No changes were made to any file this turn.",
+  "voice_calls": 0,
+  "delivered": false,
+  "steps": [
+   [
+    "analyze",
+    "success"
+   ]
+  ],
+  "stopped_at": null,
+  "failure": null,
+  "orig_unchanged": true,
+  "orig_facts": {
+   "rows": 6,
+   "dups": 2,
+   "blank": 1,
+   "sheets": [
+    "Sheet1"
+   ]
+  },
+  "final_facts": null,
+  "verified": true,
+  "flags": [],
+  "name": "n12-conv|analyze my file but don't remove the empty rows",
+  "class": "SILENT"
+ },
+ {
+  "speaker": "focus",
+  "turn": 0,
+  "msg": "analyze my file but don't remove the empty rows",
+  "reply": "Your message mentions empty rows, but I didn't run the empty-row removal. I can remove duplicate rows, remove empty rows, and check a spreadsheet for problems. Report on your original file: 2 rows repeat an earlier row exactly; name: 1 missing value (16.7%); amount: 1 missing value (16.7%). No changes were made to any file this turn.",
+  "voice_calls": 0,
+  "delivered": false,
+  "steps": [
+   [
+    "analyze",
+    "success"
+   ]
+  ],
+  "stopped_at": null,
+  "failure": null,
+  "orig_unchanged": true,
+  "orig_facts": {
+   "rows": 6,
+   "dups": 2,
+   "blank": 1,
+   "sheets": [
+    "Sheet1"
+   ]
+  },
+  "final_facts": null,
+  "verified": true,
+  "flags": [],
+  "name": "n12-conv|analyze my file but don't remove the empty rows",
+  "class": "SILENT"
+ },
+ {
+  "speaker": "template",
+  "turn": 0,
+  "msg": "give me a report, keep the empty rows",
+  "reply": "I read your request as something I can't do yet. Your message mentions empty rows, but I didn't run the empty-row removal. I can remove duplicate rows, remove empty rows, and look a spreadsheet over for possible problems. Report on your original file: 2 rows repeat an earlier row exactly; name: 1 missing value (16.7%); amount: 1 missing value (16.7%). No changes were made to any file this turn.",
+  "voice_calls": 0,
+  "delivered": false,
+  "steps": [
+   [
+    "analyze",
+    "success"
+   ]
+  ],
+  "stopped_at": null,
+  "failure": null,
+  "orig_unchanged": true,
+  "orig_facts": {
+   "rows": 6,
+   "dups": 2,
+   "blank": 1,
+   "sheets": [
+    "Sheet1"
+   ]
+  },
+  "final_facts": null,
+  "verified": true,
+  "flags": [],
+  "name": "n13-alone|give me a report, keep the empty rows",
+  "class": "CANT_DO"
+ },
+ {
+  "speaker": "friend",
+  "turn": 0,
+  "msg": "give me a report, keep the empty rows",
+  "reply": "I read your request as something I can't do yet. Your message mentions empty rows, but I didn't run the empty-row removal. I can remove duplicate rows, remove empty rows, and look a spreadsheet over for anything that seems off. Report on your original file: 2 rows repeat an earlier row exactly; name: 1 missing value (16.7%); amount: 1 missing value (16.7%). No changes were made to any file this turn.",
+  "voice_calls": 0,
+  "delivered": false,
+  "steps": [
+   [
+    "analyze",
+    "success"
+   ]
+  ],
+  "stopped_at": null,
+  "failure": null,
+  "orig_unchanged": true,
+  "orig_facts": {
+   "rows": 6,
+   "dups": 2,
+   "blank": 1,
+   "sheets": [
+    "Sheet1"
+   ]
+  },
+  "final_facts": null,
+  "verified": true,
+  "flags": [],
+  "name": "n13-alone|give me a report, keep the empty rows",
+  "class": "CANT_DO"
+ },
+ {
+  "speaker": "focus",
+  "turn": 0,
+  "msg": "give me a report, keep the empty rows",
+  "reply": "I read your request as something I can't do yet. Your message mentions empty rows, but I didn't run the empty-row removal. I can remove duplicate rows, remove empty rows, and check a spreadsheet for problems. Report on your original file: 2 rows repeat an earlier row exactly; name: 1 missing value (16.7%); amount: 1 missing value (16.7%). No changes were made to any file this turn.",
+  "voice_calls": 0,
+  "delivered": false,
+  "steps": [
+   [
+    "analyze",
+    "success"
+   ]
+  ],
+  "stopped_at": null,
+  "failure": null,
+  "orig_unchanged": true,
+  "orig_facts": {
+   "rows": 6,
+   "dups": 2,
+   "blank": 1,
+   "sheets": [
+    "Sheet1"
+   ]
+  },
+  "final_facts": null,
+  "verified": true,
+  "flags": [],
+  "name": "n13-alone|give me a report, keep the empty rows",
+  "class": "CANT_DO"
+ },
+ {
+  "speaker": "template",
+  "turn": 0,
+  "msg": "give me a report, keep the empty rows",
+  "reply": "Your message mentions empty rows, but I didn't run the empty-row removal. I can remove duplicate rows, remove empty rows, and look a spreadsheet over for possible problems. Report on your original file: 2 rows repeat an earlier row exactly; name: 1 missing value (16.7%); amount: 1 missing value (16.7%). No changes were made to any file this turn.",
+  "voice_calls": 0,
+  "delivered": false,
+  "steps": [
+   [
+    "analyze",
+    "success"
+   ]
+  ],
+  "stopped_at": null,
+  "failure": null,
+  "orig_unchanged": true,
+  "orig_facts": {
+   "rows": 6,
+   "dups": 2,
+   "blank": 1,
+   "sheets": [
+    "Sheet1"
+   ]
+  },
+  "final_facts": null,
+  "verified": true,
+  "flags": [],
+  "name": "n13-conv|give me a report, keep the empty rows",
+  "class": "SILENT"
+ },
+ {
+  "speaker": "friend",
+  "turn": 0,
+  "msg": "give me a report, keep the empty rows",
+  "reply": "Your message mentions empty rows, but I didn't run the empty-row removal. I can remove duplicate rows, remove empty rows, and look a spreadsheet over for anything that seems off. Report on your original file: 2 rows repeat an earlier row exactly; name: 1 missing value (16.7%); amount: 1 missing value (16.7%). No changes were made to any file this turn.",
+  "voice_calls": 0,
+  "delivered": false,
+  "steps": [
+   [
+    "analyze",
+    "success"
+   ]
+  ],
+  "stopped_at": null,
+  "failure": null,
+  "orig_unchanged": true,
+  "orig_facts": {
+   "rows": 6,
+   "dups": 2,
+   "blank": 1,
+   "sheets": [
+    "Sheet1"
+   ]
+  },
+  "final_facts": null,
+  "verified": true,
+  "flags": [],
+  "name": "n13-conv|give me a report, keep the empty rows",
+  "class": "SILENT"
+ },
+ {
+  "speaker": "focus",
+  "turn": 0,
+  "msg": "give me a report, keep the empty rows",
+  "reply": "Your message mentions empty rows, but I didn't run the empty-row removal. I can remove duplicate rows, remove empty rows, and check a spreadsheet for problems. Report on your original file: 2 rows repeat an earlier row exactly; name: 1 missing value (16.7%); amount: 1 missing value (16.7%). No changes were made to any file this turn.",
+  "voice_calls": 0,
+  "delivered": false,
+  "steps": [
+   [
+    "analyze",
+    "success"
+   ]
+  ],
+  "stopped_at": null,
+  "failure": null,
+  "orig_unchanged": true,
+  "orig_facts": {
+   "rows": 6,
+   "dups": 2,
+   "blank": 1,
+   "sheets": [
+    "Sheet1"
+   ]
+  },
+  "final_facts": null,
+  "verified": true,
+  "flags": [],
+  "name": "n13-conv|give me a report, keep the empty rows",
+  "class": "SILENT"
+ },
+ {
+  "speaker": "template",
+  "turn": 0,
+  "msg": "give me a report and leave the blank rows alone",
+  "reply": "I did nothing beyond the report for that part of your request. Your message mentions empty rows, but I didn't run the empty-row removal. I can remove duplicate rows, remove empty rows, and look a spreadsheet over for possible problems. Report on your original file: 2 rows repeat an earlier row exactly; name: 1 missing value (16.7%); amount: 1 missing value (16.7%). No changes were made to any file this turn.",
+  "voice_calls": 0,
+  "delivered": false,
+  "steps": [
+   [
+    "analyze",
+    "success"
+   ]
+  ],
+  "stopped_at": null,
+  "failure": null,
+  "orig_unchanged": true,
+  "orig_facts": {
+   "rows": 6,
+   "dups": 2,
+   "blank": 1,
+   "sheets": [
+    "Sheet1"
+   ]
+  },
+  "final_facts": null,
+  "verified": true,
+  "flags": [],
+  "name": "n14-alone|give me a report and leave the blank rows alone",
+  "class": "REPORT_ONLY"
+ },
+ {
+  "speaker": "friend",
+  "turn": 0,
+  "msg": "give me a report and leave the blank rows alone",
+  "reply": "I did nothing beyond the report for that part of your request. Your message mentions empty rows, but I didn't run the empty-row removal. I can remove duplicate rows, remove empty rows, and look a spreadsheet over for anything that seems off. Report on your original file: 2 rows repeat an earlier row exactly; name: 1 missing value (16.7%); amount: 1 missing value (16.7%). No changes were made to any file this turn.",
+  "voice_calls": 0,
+  "delivered": false,
+  "steps": [
+   [
+    "analyze",
+    "success"
+   ]
+  ],
+  "stopped_at": null,
+  "failure": null,
+  "orig_unchanged": true,
+  "orig_facts": {
+   "rows": 6,
+   "dups": 2,
+   "blank": 1,
+   "sheets": [
+    "Sheet1"
+   ]
+  },
+  "final_facts": null,
+  "verified": true,
+  "flags": [],
+  "name": "n14-alone|give me a report and leave the blank rows alone",
+  "class": "REPORT_ONLY"
+ },
+ {
+  "speaker": "focus",
+  "turn": 0,
+  "msg": "give me a report and leave the blank rows alone",
+  "reply": "I did nothing beyond the report for that part of your request. Your message mentions empty rows, but I didn't run the empty-row removal. I can remove duplicate rows, remove empty rows, and check a spreadsheet for problems. Report on your original file: 2 rows repeat an earlier row exactly; name: 1 missing value (16.7%); amount: 1 missing value (16.7%). No changes were made to any file this turn.",
+  "voice_calls": 0,
+  "delivered": false,
+  "steps": [
+   [
+    "analyze",
+    "success"
+   ]
+  ],
+  "stopped_at": null,
+  "failure": null,
+  "orig_unchanged": true,
+  "orig_facts": {
+   "rows": 6,
+   "dups": 2,
+   "blank": 1,
+   "sheets": [
+    "Sheet1"
+   ]
+  },
+  "final_facts": null,
+  "verified": true,
+  "flags": [],
+  "name": "n14-alone|give me a report and leave the blank rows alone",
+  "class": "REPORT_ONLY"
+ },
+ {
+  "speaker": "template",
+  "turn": 0,
+  "msg": "give me a report and leave the blank rows alone",
+  "reply": "Your message mentions empty rows, but I didn't run the empty-row removal. I can remove duplicate rows, remove empty rows, and look a spreadsheet over for possible problems. Report on your original file: 2 rows repeat an earlier row exactly; name: 1 missing value (16.7%); amount: 1 missing value (16.7%). No changes were made to any file this turn.",
+  "voice_calls": 0,
+  "delivered": false,
+  "steps": [
+   [
+    "analyze",
+    "success"
+   ]
+  ],
+  "stopped_at": null,
+  "failure": null,
+  "orig_unchanged": true,
+  "orig_facts": {
+   "rows": 6,
+   "dups": 2,
+   "blank": 1,
+   "sheets": [
+    "Sheet1"
+   ]
+  },
+  "final_facts": null,
+  "verified": true,
+  "flags": [],
+  "name": "n14-conv|give me a report and leave the blank rows alone",
+  "class": "SILENT"
+ },
+ {
+  "speaker": "friend",
+  "turn": 0,
+  "msg": "give me a report and leave the blank rows alone",
+  "reply": "Your message mentions empty rows, but I didn't run the empty-row removal. I can remove duplicate rows, remove empty rows, and look a spreadsheet over for anything that seems off. Report on your original file: 2 rows repeat an earlier row exactly; name: 1 missing value (16.7%); amount: 1 missing value (16.7%). No changes were made to any file this turn.",
+  "voice_calls": 0,
+  "delivered": false,
+  "steps": [
+   [
+    "analyze",
+    "success"
+   ]
+  ],
+  "stopped_at": null,
+  "failure": null,
+  "orig_unchanged": true,
+  "orig_facts": {
+   "rows": 6,
+   "dups": 2,
+   "blank": 1,
+   "sheets": [
+    "Sheet1"
+   ]
+  },
+  "final_facts": null,
+  "verified": true,
+  "flags": [],
+  "name": "n14-conv|give me a report and leave the blank rows alone",
+  "class": "SILENT"
+ },
+ {
+  "speaker": "focus",
+  "turn": 0,
+  "msg": "give me a report and leave the blank rows alone",
+  "reply": "Your message mentions empty rows, but I didn't run the empty-row removal. I can remove duplicate rows, remove empty rows, and check a spreadsheet for problems. Report on your original file: 2 rows repeat an earlier row exactly; name: 1 missing value (16.7%); amount: 1 missing value (16.7%). No changes were made to any file this turn.",
+  "voice_calls": 0,
+  "delivered": false,
+  "steps": [
+   [
+    "analyze",
+    "success"
+   ]
+  ],
+  "stopped_at": null,
+  "failure": null,
+  "orig_unchanged": true,
+  "orig_facts": {
+   "rows": 6,
+   "dups": 2,
+   "blank": 1,
+   "sheets": [
+    "Sheet1"
+   ]
+  },
+  "final_facts": null,
+  "verified": true,
+  "flags": [],
+  "name": "n14-conv|give me a report and leave the blank rows alone",
+  "class": "SILENT"
+ },
+ {
+  "speaker": "template",
+  "turn": 0,
+  "msg": "just analyze the file, don't delete the empty rows",
+  "reply": "I read your request as something I can't do yet. Your message mentions empty rows, but I didn't run the empty-row removal. I can remove duplicate rows, remove empty rows, and look a spreadsheet over for possible problems. Report on your original file: 2 rows repeat an earlier row exactly; name: 1 missing value (16.7%); amount: 1 missing value (16.7%). No changes were made to any file this turn.",
+  "voice_calls": 0,
+  "delivered": false,
+  "steps": [
+   [
+    "analyze",
+    "success"
+   ]
+  ],
+  "stopped_at": null,
+  "failure": null,
+  "orig_unchanged": true,
+  "orig_facts": {
+   "rows": 6,
+   "dups": 2,
+   "blank": 1,
+   "sheets": [
+    "Sheet1"
+   ]
+  },
+  "final_facts": null,
+  "verified": true,
+  "flags": [],
+  "name": "n15-alone|just analyze the file, don't delete the empty rows",
+  "class": "CANT_DO"
+ },
+ {
+  "speaker": "friend",
+  "turn": 0,
+  "msg": "just analyze the file, don't delete the empty rows",
+  "reply": "I read your request as something I can't do yet. Your message mentions empty rows, but I didn't run the empty-row removal. I can remove duplicate rows, remove empty rows, and look a spreadsheet over for anything that seems off. Report on your original file: 2 rows repeat an earlier row exactly; name: 1 missing value (16.7%); amount: 1 missing value (16.7%). No changes were made to any file this turn.",
+  "voice_calls": 0,
+  "delivered": false,
+  "steps": [
+   [
+    "analyze",
+    "success"
+   ]
+  ],
+  "stopped_at": null,
+  "failure": null,
+  "orig_unchanged": true,
+  "orig_facts": {
+   "rows": 6,
+   "dups": 2,
+   "blank": 1,
+   "sheets": [
+    "Sheet1"
+   ]
+  },
+  "final_facts": null,
+  "verified": true,
+  "flags": [],
+  "name": "n15-alone|just analyze the file, don't delete the empty rows",
+  "class": "CANT_DO"
+ },
+ {
+  "speaker": "focus",
+  "turn": 0,
+  "msg": "just analyze the file, don't delete the empty rows",
+  "reply": "I read your request as something I can't do yet. Your message mentions empty rows, but I didn't run the empty-row removal. I can remove duplicate rows, remove empty rows, and check a spreadsheet for problems. Report on your original file: 2 rows repeat an earlier row exactly; name: 1 missing value (16.7%); amount: 1 missing value (16.7%). No changes were made to any file this turn.",
+  "voice_calls": 0,
+  "delivered": false,
+  "steps": [
+   [
+    "analyze",
+    "success"
+   ]
+  ],
+  "stopped_at": null,
+  "failure": null,
+  "orig_unchanged": true,
+  "orig_facts": {
+   "rows": 6,
+   "dups": 2,
+   "blank": 1,
+   "sheets": [
+    "Sheet1"
+   ]
+  },
+  "final_facts": null,
+  "verified": true,
+  "flags": [],
+  "name": "n15-alone|just analyze the file, don't delete the empty rows",
+  "class": "CANT_DO"
+ },
+ {
+  "speaker": "template",
+  "turn": 0,
+  "msg": "just analyze the file, don't delete the empty rows",
+  "reply": "Your message mentions empty rows, but I didn't run the empty-row removal. I can remove duplicate rows, remove empty rows, and look a spreadsheet over for possible problems. Report on your original file: 2 rows repeat an earlier row exactly; name: 1 missing value (16.7%); amount: 1 missing value (16.7%). No changes were made to any file this turn.",
+  "voice_calls": 0,
+  "delivered": false,
+  "steps": [
+   [
+    "analyze",
+    "success"
+   ]
+  ],
+  "stopped_at": null,
+  "failure": null,
+  "orig_unchanged": true,
+  "orig_facts": {
+   "rows": 6,
+   "dups": 2,
+   "blank": 1,
+   "sheets": [
+    "Sheet1"
+   ]
+  },
+  "final_facts": null,
+  "verified": true,
+  "flags": [],
+  "name": "n15-conv|just analyze the file, don't delete the empty rows",
+  "class": "SILENT"
+ },
+ {
+  "speaker": "friend",
+  "turn": 0,
+  "msg": "just analyze the file, don't delete the empty rows",
+  "reply": "Your message mentions empty rows, but I didn't run the empty-row removal. I can remove duplicate rows, remove empty rows, and look a spreadsheet over for anything that seems off. Report on your original file: 2 rows repeat an earlier row exactly; name: 1 missing value (16.7%); amount: 1 missing value (16.7%). No changes were made to any file this turn.",
+  "voice_calls": 0,
+  "delivered": false,
+  "steps": [
+   [
+    "analyze",
+    "success"
+   ]
+  ],
+  "stopped_at": null,
+  "failure": null,
+  "orig_unchanged": true,
+  "orig_facts": {
+   "rows": 6,
+   "dups": 2,
+   "blank": 1,
+   "sheets": [
+    "Sheet1"
+   ]
+  },
+  "final_facts": null,
+  "verified": true,
+  "flags": [],
+  "name": "n15-conv|just analyze the file, don't delete the empty rows",
+  "class": "SILENT"
+ },
+ {
+  "speaker": "focus",
+  "turn": 0,
+  "msg": "just analyze the file, don't delete the empty rows",
+  "reply": "Your message mentions empty rows, but I didn't run the empty-row removal. I can remove duplicate rows, remove empty rows, and check a spreadsheet for problems. Report on your original file: 2 rows repeat an earlier row exactly; name: 1 missing value (16.7%); amount: 1 missing value (16.7%). No changes were made to any file this turn.",
+  "voice_calls": 0,
+  "delivered": false,
+  "steps": [
+   [
+    "analyze",
+    "success"
+   ]
+  ],
+  "stopped_at": null,
+  "failure": null,
+  "orig_unchanged": true,
+  "orig_facts": {
+   "rows": 6,
+   "dups": 2,
+   "blank": 1,
+   "sheets": [
+    "Sheet1"
+   ]
+  },
+  "final_facts": null,
+  "verified": true,
+  "flags": [],
+  "name": "n15-conv|just analyze the file, don't delete the empty rows",
+  "class": "SILENT"
+ },
+ {
+  "speaker": "template",
+  "turn": 0,
+  "msg": "give me a summary without removing the blank rows",
+  "reply": "I did nothing beyond the report for that part of your request. Your message mentions empty rows, but I didn't run the empty-row removal. I can remove duplicate rows, remove empty rows, and look a spreadsheet over for possible problems. Report on your original file: 2 rows repeat an earlier row exactly; name: 1 missing value (16.7%); amount: 1 missing value (16.7%). No changes were made to any file this turn.",
+  "voice_calls": 0,
+  "delivered": false,
+  "steps": [
+   [
+    "analyze",
+    "success"
+   ]
+  ],
+  "stopped_at": null,
+  "failure": null,
+  "orig_unchanged": true,
+  "orig_facts": {
+   "rows": 6,
+   "dups": 2,
+   "blank": 1,
+   "sheets": [
+    "Sheet1"
+   ]
+  },
+  "final_facts": null,
+  "verified": true,
+  "flags": [],
+  "name": "n16-alone|give me a summary without removing the blank rows",
+  "class": "REPORT_ONLY"
+ },
+ {
+  "speaker": "friend",
+  "turn": 0,
+  "msg": "give me a summary without removing the blank rows",
+  "reply": "I did nothing beyond the report for that part of your request. Your message mentions empty rows, but I didn't run the empty-row removal. I can remove duplicate rows, remove empty rows, and look a spreadsheet over for anything that seems off. Report on your original file: 2 rows repeat an earlier row exactly; name: 1 missing value (16.7%); amount: 1 missing value (16.7%). No changes were made to any file this turn.",
+  "voice_calls": 0,
+  "delivered": false,
+  "steps": [
+   [
+    "analyze",
+    "success"
+   ]
+  ],
+  "stopped_at": null,
+  "failure": null,
+  "orig_unchanged": true,
+  "orig_facts": {
+   "rows": 6,
+   "dups": 2,
+   "blank": 1,
+   "sheets": [
+    "Sheet1"
+   ]
+  },
+  "final_facts": null,
+  "verified": true,
+  "flags": [],
+  "name": "n16-alone|give me a summary without removing the blank rows",
+  "class": "REPORT_ONLY"
+ },
+ {
+  "speaker": "focus",
+  "turn": 0,
+  "msg": "give me a summary without removing the blank rows",
+  "reply": "I did nothing beyond the report for that part of your request. Your message mentions empty rows, but I didn't run the empty-row removal. I can remove duplicate rows, remove empty rows, and check a spreadsheet for problems. Report on your original file: 2 rows repeat an earlier row exactly; name: 1 missing value (16.7%); amount: 1 missing value (16.7%). No changes were made to any file this turn.",
+  "voice_calls": 0,
+  "delivered": false,
+  "steps": [
+   [
+    "analyze",
+    "success"
+   ]
+  ],
+  "stopped_at": null,
+  "failure": null,
+  "orig_unchanged": true,
+  "orig_facts": {
+   "rows": 6,
+   "dups": 2,
+   "blank": 1,
+   "sheets": [
+    "Sheet1"
+   ]
+  },
+  "final_facts": null,
+  "verified": true,
+  "flags": [],
+  "name": "n16-alone|give me a summary without removing the blank rows",
+  "class": "REPORT_ONLY"
+ },
+ {
+  "speaker": "template",
+  "turn": 0,
+  "msg": "give me a summary without removing the blank rows",
+  "reply": "Your message mentions empty rows, but I didn't run the empty-row removal. I can remove duplicate rows, remove empty rows, and look a spreadsheet over for possible problems. Report on your original file: 2 rows repeat an earlier row exactly; name: 1 missing value (16.7%); amount: 1 missing value (16.7%). No changes were made to any file this turn.",
+  "voice_calls": 0,
+  "delivered": false,
+  "steps": [
+   [
+    "analyze",
+    "success"
+   ]
+  ],
+  "stopped_at": null,
+  "failure": null,
+  "orig_unchanged": true,
+  "orig_facts": {
+   "rows": 6,
+   "dups": 2,
+   "blank": 1,
+   "sheets": [
+    "Sheet1"
+   ]
+  },
+  "final_facts": null,
+  "verified": true,
+  "flags": [],
+  "name": "n16-conv|give me a summary without removing the blank rows",
+  "class": "SILENT"
+ },
+ {
+  "speaker": "friend",
+  "turn": 0,
+  "msg": "give me a summary without removing the blank rows",
+  "reply": "Your message mentions empty rows, but I didn't run the empty-row removal. I can remove duplicate rows, remove empty rows, and look a spreadsheet over for anything that seems off. Report on your original file: 2 rows repeat an earlier row exactly; name: 1 missing value (16.7%); amount: 1 missing value (16.7%). No changes were made to any file this turn.",
+  "voice_calls": 0,
+  "delivered": false,
+  "steps": [
+   [
+    "analyze",
+    "success"
+   ]
+  ],
+  "stopped_at": null,
+  "failure": null,
+  "orig_unchanged": true,
+  "orig_facts": {
+   "rows": 6,
+   "dups": 2,
+   "blank": 1,
+   "sheets": [
+    "Sheet1"
+   ]
+  },
+  "final_facts": null,
+  "verified": true,
+  "flags": [],
+  "name": "n16-conv|give me a summary without removing the blank rows",
+  "class": "SILENT"
+ },
+ {
+  "speaker": "focus",
+  "turn": 0,
+  "msg": "give me a summary without removing the blank rows",
+  "reply": "Your message mentions empty rows, but I didn't run the empty-row removal. I can remove duplicate rows, remove empty rows, and check a spreadsheet for problems. Report on your original file: 2 rows repeat an earlier row exactly; name: 1 missing value (16.7%); amount: 1 missing value (16.7%). No changes were made to any file this turn.",
+  "voice_calls": 0,
+  "delivered": false,
+  "steps": [
+   [
+    "analyze",
+    "success"
+   ]
+  ],
+  "stopped_at": null,
+  "failure": null,
+  "orig_unchanged": true,
+  "orig_facts": {
+   "rows": 6,
+   "dups": 2,
+   "blank": 1,
+   "sheets": [
+    "Sheet1"
+   ]
+  },
+  "final_facts": null,
+  "verified": true,
+  "flags": [],
+  "name": "n16-conv|give me a summary without removing the blank rows",
+  "class": "SILENT"
+ },
+ {
+  "speaker": "template",
+  "turn": 0,
+  "msg": "report on the file, don't touch the empty rows",
+  "reply": "I did nothing beyond the report for that part of your request. Your message mentions empty rows, but I didn't run the empty-row removal. I can remove duplicate rows, remove empty rows, and look a spreadsheet over for possible problems. Report on your original file: 2 rows repeat an earlier row exactly; name: 1 missing value (16.7%); amount: 1 missing value (16.7%). No changes were made to any file this turn.",
+  "voice_calls": 0,
+  "delivered": false,
+  "steps": [
+   [
+    "analyze",
+    "success"
+   ]
+  ],
+  "stopped_at": null,
+  "failure": null,
+  "orig_unchanged": true,
+  "orig_facts": {
+   "rows": 6,
+   "dups": 2,
+   "blank": 1,
+   "sheets": [
+    "Sheet1"
+   ]
+  },
+  "final_facts": null,
+  "verified": true,
+  "flags": [],
+  "name": "n17-alone|report on the file, don't touch the empty rows",
+  "class": "REPORT_ONLY"
+ },
+ {
+  "speaker": "friend",
+  "turn": 0,
+  "msg": "report on the file, don't touch the empty rows",
+  "reply": "I did nothing beyond the report for that part of your request. Your message mentions empty rows, but I didn't run the empty-row removal. I can remove duplicate rows, remove empty rows, and look a spreadsheet over for anything that seems off. Report on your original file: 2 rows repeat an earlier row exactly; name: 1 missing value (16.7%); amount: 1 missing value (16.7%). No changes were made to any file this turn.",
+  "voice_calls": 0,
+  "delivered": false,
+  "steps": [
+   [
+    "analyze",
+    "success"
+   ]
+  ],
+  "stopped_at": null,
+  "failure": null,
+  "orig_unchanged": true,
+  "orig_facts": {
+   "rows": 6,
+   "dups": 2,
+   "blank": 1,
+   "sheets": [
+    "Sheet1"
+   ]
+  },
+  "final_facts": null,
+  "verified": true,
+  "flags": [],
+  "name": "n17-alone|report on the file, don't touch the empty rows",
+  "class": "REPORT_ONLY"
+ },
+ {
+  "speaker": "focus",
+  "turn": 0,
+  "msg": "report on the file, don't touch the empty rows",
+  "reply": "I did nothing beyond the report for that part of your request. Your message mentions empty rows, but I didn't run the empty-row removal. I can remove duplicate rows, remove empty rows, and check a spreadsheet for problems. Report on your original file: 2 rows repeat an earlier row exactly; name: 1 missing value (16.7%); amount: 1 missing value (16.7%). No changes were made to any file this turn.",
+  "voice_calls": 0,
+  "delivered": false,
+  "steps": [
+   [
+    "analyze",
+    "success"
+   ]
+  ],
+  "stopped_at": null,
+  "failure": null,
+  "orig_unchanged": true,
+  "orig_facts": {
+   "rows": 6,
+   "dups": 2,
+   "blank": 1,
+   "sheets": [
+    "Sheet1"
+   ]
+  },
+  "final_facts": null,
+  "verified": true,
+  "flags": [],
+  "name": "n17-alone|report on the file, don't touch the empty rows",
+  "class": "REPORT_ONLY"
+ },
+ {
+  "speaker": "template",
+  "turn": 0,
+  "msg": "report on the file, don't touch the empty rows",
+  "reply": "Your message mentions empty rows, but I didn't run the empty-row removal. I can remove duplicate rows, remove empty rows, and look a spreadsheet over for possible problems. Report on your original file: 2 rows repeat an earlier row exactly; name: 1 missing value (16.7%); amount: 1 missing value (16.7%). No changes were made to any file this turn.",
+  "voice_calls": 0,
+  "delivered": false,
+  "steps": [
+   [
+    "analyze",
+    "success"
+   ]
+  ],
+  "stopped_at": null,
+  "failure": null,
+  "orig_unchanged": true,
+  "orig_facts": {
+   "rows": 6,
+   "dups": 2,
+   "blank": 1,
+   "sheets": [
+    "Sheet1"
+   ]
+  },
+  "final_facts": null,
+  "verified": true,
+  "flags": [],
+  "name": "n17-conv|report on the file, don't touch the empty rows",
+  "class": "SILENT"
+ },
+ {
+  "speaker": "friend",
+  "turn": 0,
+  "msg": "report on the file, don't touch the empty rows",
+  "reply": "Your message mentions empty rows, but I didn't run the empty-row removal. I can remove duplicate rows, remove empty rows, and look a spreadsheet over for anything that seems off. Report on your original file: 2 rows repeat an earlier row exactly; name: 1 missing value (16.7%); amount: 1 missing value (16.7%). No changes were made to any file this turn.",
+  "voice_calls": 0,
+  "delivered": false,
+  "steps": [
+   [
+    "analyze",
+    "success"
+   ]
+  ],
+  "stopped_at": null,
+  "failure": null,
+  "orig_unchanged": true,
+  "orig_facts": {
+   "rows": 6,
+   "dups": 2,
+   "blank": 1,
+   "sheets": [
+    "Sheet1"
+   ]
+  },
+  "final_facts": null,
+  "verified": true,
+  "flags": [],
+  "name": "n17-conv|report on the file, don't touch the empty rows",
+  "class": "SILENT"
+ },
+ {
+  "speaker": "focus",
+  "turn": 0,
+  "msg": "report on the file, don't touch the empty rows",
+  "reply": "Your message mentions empty rows, but I didn't run the empty-row removal. I can remove duplicate rows, remove empty rows, and check a spreadsheet for problems. Report on your original file: 2 rows repeat an earlier row exactly; name: 1 missing value (16.7%); amount: 1 missing value (16.7%). No changes were made to any file this turn.",
+  "voice_calls": 0,
+  "delivered": false,
+  "steps": [
+   [
+    "analyze",
+    "success"
+   ]
+  ],
+  "stopped_at": null,
+  "failure": null,
+  "orig_unchanged": true,
+  "orig_facts": {
+   "rows": 6,
+   "dups": 2,
+   "blank": 1,
+   "sheets": [
+    "Sheet1"
+   ]
+  },
+  "final_facts": null,
+  "verified": true,
+  "flags": [],
+  "name": "n17-conv|report on the file, don't touch the empty rows",
+  "class": "SILENT"
+ },
+ {
+  "speaker": "template",
+  "turn": 0,
+  "msg": "give me a report but don't remove anything",
+  "reply": "Report on your original file: 2 rows repeat an earlier row exactly; name: 1 missing value (16.7%); amount: 1 missing value (16.7%). I did nothing beyond the report for that part of your request. No changes were made to any file this turn.",
+  "voice_calls": 0,
+  "delivered": false,
+  "steps": [
+   [
+    "analyze",
+    "success"
+   ]
+  ],
+  "stopped_at": null,
+  "failure": null,
+  "orig_unchanged": true,
+  "orig_facts": {
+   "rows": 6,
+   "dups": 2,
+   "blank": 1,
+   "sheets": [
+    "Sheet1"
+   ]
+  },
+  "final_facts": null,
+  "verified": true,
+  "flags": [],
+  "name": "n18-alone|give me a report but don't remove anything",
+  "class": "REPORT_ONLY"
+ },
+ {
+  "speaker": "friend",
+  "turn": 0,
+  "msg": "give me a report but don't remove anything",
+  "reply": "Report on your original file: 2 rows repeat an earlier row exactly; name: 1 missing value (16.7%); amount: 1 missing value (16.7%). I did nothing beyond the report for that part of your request. No changes were made to any file this turn.",
+  "voice_calls": 0,
+  "delivered": false,
+  "steps": [
+   [
+    "analyze",
+    "success"
+   ]
+  ],
+  "stopped_at": null,
+  "failure": null,
+  "orig_unchanged": true,
+  "orig_facts": {
+   "rows": 6,
+   "dups": 2,
+   "blank": 1,
+   "sheets": [
+    "Sheet1"
+   ]
+  },
+  "final_facts": null,
+  "verified": true,
+  "flags": [],
+  "name": "n18-alone|give me a report but don't remove anything",
+  "class": "REPORT_ONLY"
+ },
+ {
+  "speaker": "focus",
+  "turn": 0,
+  "msg": "give me a report but don't remove anything",
+  "reply": "Report on your original file: 2 rows repeat an earlier row exactly; name: 1 missing value (16.7%); amount: 1 missing value (16.7%). I did nothing beyond the report for that part of your request. No changes were made to any file this turn.",
+  "voice_calls": 0,
+  "delivered": false,
+  "steps": [
+   [
+    "analyze",
+    "success"
+   ]
+  ],
+  "stopped_at": null,
+  "failure": null,
+  "orig_unchanged": true,
+  "orig_facts": {
+   "rows": 6,
+   "dups": 2,
+   "blank": 1,
+   "sheets": [
+    "Sheet1"
+   ]
+  },
+  "final_facts": null,
+  "verified": true,
+  "flags": [],
+  "name": "n18-alone|give me a report but don't remove anything",
+  "class": "REPORT_ONLY"
+ },
+ {
+  "speaker": "template",
+  "turn": 0,
+  "msg": "give me a report but don't remove anything",
+  "reply": "Report on your original file: 2 rows repeat an earlier row exactly; name: 1 missing value (16.7%); amount: 1 missing value (16.7%). No changes were made to any file this turn.",
+  "voice_calls": 0,
+  "delivered": false,
+  "steps": [
+   [
+    "analyze",
+    "success"
+   ]
+  ],
+  "stopped_at": null,
+  "failure": null,
+  "orig_unchanged": true,
+  "orig_facts": {
+   "rows": 6,
+   "dups": 2,
+   "blank": 1,
+   "sheets": [
+    "Sheet1"
+   ]
+  },
+  "final_facts": null,
+  "verified": true,
+  "flags": [],
+  "name": "n18-conv|give me a report but don't remove anything",
+  "class": "SILENT"
+ },
+ {
+  "speaker": "friend",
+  "turn": 0,
+  "msg": "give me a report but don't remove anything",
+  "reply": "Report on your original file: 2 rows repeat an earlier row exactly; name: 1 missing value (16.7%); amount: 1 missing value (16.7%). No changes were made to any file this turn.",
+  "voice_calls": 0,
+  "delivered": false,
+  "steps": [
+   [
+    "analyze",
+    "success"
+   ]
+  ],
+  "stopped_at": null,
+  "failure": null,
+  "orig_unchanged": true,
+  "orig_facts": {
+   "rows": 6,
+   "dups": 2,
+   "blank": 1,
+   "sheets": [
+    "Sheet1"
+   ]
+  },
+  "final_facts": null,
+  "verified": true,
+  "flags": [],
+  "name": "n18-conv|give me a report but don't remove anything",
+  "class": "SILENT"
+ },
+ {
+  "speaker": "focus",
+  "turn": 0,
+  "msg": "give me a report but don't remove anything",
+  "reply": "Report on your original file: 2 rows repeat an earlier row exactly; name: 1 missing value (16.7%); amount: 1 missing value (16.7%). No changes were made to any file this turn.",
+  "voice_calls": 0,
+  "delivered": false,
+  "steps": [
+   [
+    "analyze",
+    "success"
+   ]
+  ],
+  "stopped_at": null,
+  "failure": null,
+  "orig_unchanged": true,
+  "orig_facts": {
+   "rows": 6,
+   "dups": 2,
+   "blank": 1,
+   "sheets": [
+    "Sheet1"
+   ]
+  },
+  "final_facts": null,
+  "verified": true,
+  "flags": [],
+  "name": "n18-conv|give me a report but don't remove anything",
+  "class": "SILENT"
+ },
+ {
+  "speaker": "template",
+  "turn": 0,
+  "msg": "just analyze my file, don't delete anything",
+  "reply": "Report on your original file: 2 rows repeat an earlier row exactly; name: 1 missing value (16.7%); amount: 1 missing value (16.7%). I did nothing beyond the report for that part of your request. No changes were made to any file this turn.",
+  "voice_calls": 0,
+  "delivered": false,
+  "steps": [
+   [
+    "analyze",
+    "success"
+   ]
+  ],
+  "stopped_at": null,
+  "failure": null,
+  "orig_unchanged": true,
+  "orig_facts": {
+   "rows": 6,
+   "dups": 2,
+   "blank": 1,
+   "sheets": [
+    "Sheet1"
+   ]
+  },
+  "final_facts": null,
+  "verified": true,
+  "flags": [],
+  "name": "n19-alone|just analyze my file, don't delete anything",
+  "class": "REPORT_ONLY"
+ },
+ {
+  "speaker": "friend",
+  "turn": 0,
+  "msg": "just analyze my file, don't delete anything",
+  "reply": "Report on your original file: 2 rows repeat an earlier row exactly; name: 1 missing value (16.7%); amount: 1 missing value (16.7%). I did nothing beyond the report for that part of your request. No changes were made to any file this turn.",
+  "voice_calls": 0,
+  "delivered": false,
+  "steps": [
+   [
+    "analyze",
+    "success"
+   ]
+  ],
+  "stopped_at": null,
+  "failure": null,
+  "orig_unchanged": true,
+  "orig_facts": {
+   "rows": 6,
+   "dups": 2,
+   "blank": 1,
+   "sheets": [
+    "Sheet1"
+   ]
+  },
+  "final_facts": null,
+  "verified": true,
+  "flags": [],
+  "name": "n19-alone|just analyze my file, don't delete anything",
+  "class": "REPORT_ONLY"
+ },
+ {
+  "speaker": "focus",
+  "turn": 0,
+  "msg": "just analyze my file, don't delete anything",
+  "reply": "Report on your original file: 2 rows repeat an earlier row exactly; name: 1 missing value (16.7%); amount: 1 missing value (16.7%). I did nothing beyond the report for that part of your request. No changes were made to any file this turn.",
+  "voice_calls": 0,
+  "delivered": false,
+  "steps": [
+   [
+    "analyze",
+    "success"
+   ]
+  ],
+  "stopped_at": null,
+  "failure": null,
+  "orig_unchanged": true,
+  "orig_facts": {
+   "rows": 6,
+   "dups": 2,
+   "blank": 1,
+   "sheets": [
+    "Sheet1"
+   ]
+  },
+  "final_facts": null,
+  "verified": true,
+  "flags": [],
+  "name": "n19-alone|just analyze my file, don't delete anything",
+  "class": "REPORT_ONLY"
+ },
+ {
+  "speaker": "template",
+  "turn": 0,
+  "msg": "just analyze my file, don't delete anything",
+  "reply": "Report on your original file: 2 rows repeat an earlier row exactly; name: 1 missing value (16.7%); amount: 1 missing value (16.7%). No changes were made to any file this turn.",
+  "voice_calls": 0,
+  "delivered": false,
+  "steps": [
+   [
+    "analyze",
+    "success"
+   ]
+  ],
+  "stopped_at": null,
+  "failure": null,
+  "orig_unchanged": true,
+  "orig_facts": {
+   "rows": 6,
+   "dups": 2,
+   "blank": 1,
+   "sheets": [
+    "Sheet1"
+   ]
+  },
+  "final_facts": null,
+  "verified": true,
+  "flags": [],
+  "name": "n19-conv|just analyze my file, don't delete anything",
+  "class": "SILENT"
+ },
+ {
+  "speaker": "friend",
+  "turn": 0,
+  "msg": "just analyze my file, don't delete anything",
+  "reply": "Report on your original file: 2 rows repeat an earlier row exactly; name: 1 missing value (16.7%); amount: 1 missing value (16.7%). No changes were made to any file this turn.",
+  "voice_calls": 0,
+  "delivered": false,
+  "steps": [
+   [
+    "analyze",
+    "success"
+   ]
+  ],
+  "stopped_at": null,
+  "failure": null,
+  "orig_unchanged": true,
+  "orig_facts": {
+   "rows": 6,
+   "dups": 2,
+   "blank": 1,
+   "sheets": [
+    "Sheet1"
+   ]
+  },
+  "final_facts": null,
+  "verified": true,
+  "flags": [],
+  "name": "n19-conv|just analyze my file, don't delete anything",
+  "class": "SILENT"
+ },
+ {
+  "speaker": "focus",
+  "turn": 0,
+  "msg": "just analyze my file, don't delete anything",
+  "reply": "Report on your original file: 2 rows repeat an earlier row exactly; name: 1 missing value (16.7%); amount: 1 missing value (16.7%). No changes were made to any file this turn.",
+  "voice_calls": 0,
+  "delivered": false,
+  "steps": [
+   [
+    "analyze",
+    "success"
+   ]
+  ],
+  "stopped_at": null,
+  "failure": null,
+  "orig_unchanged": true,
+  "orig_facts": {
+   "rows": 6,
+   "dups": 2,
+   "blank": 1,
+   "sheets": [
+    "Sheet1"
+   ]
+  },
+  "final_facts": null,
+  "verified": true,
+  "flags": [],
+  "name": "n19-conv|just analyze my file, don't delete anything",
+  "class": "SILENT"
+ },
+ {
+  "speaker": "template",
+  "turn": 0,
+  "msg": "give me a report",
+  "reply": "Report on your original file: 2 rows repeat an earlier row exactly; name: 1 missing value (16.7%); amount: 1 missing value (16.7%). No changes were made to any file this turn.",
+  "voice_calls": 0,
+  "delivered": false,
+  "steps": [
+   [
+    "analyze",
+    "success"
+   ]
+  ],
+  "stopped_at": null,
+  "failure": null,
+  "orig_unchanged": true,
+  "orig_facts": {
+   "rows": 6,
+   "dups": 2,
+   "blank": 1,
+   "sheets": [
+    "Sheet1"
+   ]
+  },
+  "final_facts": null,
+  "verified": true,
+  "flags": [],
+  "name": "n20-alone|give me a report",
+  "class": "SILENT"
+ },
+ {
+  "speaker": "friend",
+  "turn": 0,
+  "msg": "give me a report",
+  "reply": "Report on your original file: 2 rows repeat an earlier row exactly; name: 1 missing value (16.7%); amount: 1 missing value (16.7%). No changes were made to any file this turn.",
+  "voice_calls": 0,
+  "delivered": false,
+  "steps": [
+   [
+    "analyze",
+    "success"
+   ]
+  ],
+  "stopped_at": null,
+  "failure": null,
+  "orig_unchanged": true,
+  "orig_facts": {
+   "rows": 6,
+   "dups": 2,
+   "blank": 1,
+   "sheets": [
+    "Sheet1"
+   ]
+  },
+  "final_facts": null,
+  "verified": true,
+  "flags": [],
+  "name": "n20-alone|give me a report",
+  "class": "SILENT"
+ },
+ {
+  "speaker": "focus",
+  "turn": 0,
+  "msg": "give me a report",
+  "reply": "Report on your original file: 2 rows repeat an earlier row exactly; name: 1 missing value (16.7%); amount: 1 missing value (16.7%). No changes were made to any file this turn.",
+  "voice_calls": 0,
+  "delivered": false,
+  "steps": [
+   [
+    "analyze",
+    "success"
+   ]
+  ],
+  "stopped_at": null,
+  "failure": null,
+  "orig_unchanged": true,
+  "orig_facts": {
+   "rows": 6,
+   "dups": 2,
+   "blank": 1,
+   "sheets": [
+    "Sheet1"
+   ]
+  },
+  "final_facts": null,
+  "verified": true,
+  "flags": [],
+  "name": "n20-alone|give me a report",
+  "class": "SILENT"
+ },
+ {
+  "speaker": "template",
+  "turn": 0,
+  "msg": "give me a report",
+  "reply": "Report on your original file: 2 rows repeat an earlier row exactly; name: 1 missing value (16.7%); amount: 1 missing value (16.7%). No changes were made to any file this turn.",
+  "voice_calls": 0,
+  "delivered": false,
+  "steps": [
+   [
+    "analyze",
+    "success"
+   ]
+  ],
+  "stopped_at": null,
+  "failure": null,
+  "orig_unchanged": true,
+  "orig_facts": {
+   "rows": 6,
+   "dups": 2,
+   "blank": 1,
+   "sheets": [
+    "Sheet1"
+   ]
+  },
+  "final_facts": null,
+  "verified": true,
+  "flags": [],
+  "name": "n20-conv|give me a report",
+  "class": "SILENT"
+ },
+ {
+  "speaker": "friend",
+  "turn": 0,
+  "msg": "give me a report",
+  "reply": "Report on your original file: 2 rows repeat an earlier row exactly; name: 1 missing value (16.7%); amount: 1 missing value (16.7%). No changes were made to any file this turn.",
+  "voice_calls": 0,
+  "delivered": false,
+  "steps": [
+   [
+    "analyze",
+    "success"
+   ]
+  ],
+  "stopped_at": null,
+  "failure": null,
+  "orig_unchanged": true,
+  "orig_facts": {
+   "rows": 6,
+   "dups": 2,
+   "blank": 1,
+   "sheets": [
+    "Sheet1"
+   ]
+  },
+  "final_facts": null,
+  "verified": true,
+  "flags": [],
+  "name": "n20-conv|give me a report",
+  "class": "SILENT"
+ },
+ {
+  "speaker": "focus",
+  "turn": 0,
+  "msg": "give me a report",
+  "reply": "Report on your original file: 2 rows repeat an earlier row exactly; name: 1 missing value (16.7%); amount: 1 missing value (16.7%). No changes were made to any file this turn.",
+  "voice_calls": 0,
+  "delivered": false,
+  "steps": [
+   [
+    "analyze",
+    "success"
+   ]
+  ],
+  "stopped_at": null,
+  "failure": null,
+  "orig_unchanged": true,
+  "orig_facts": {
+   "rows": 6,
+   "dups": 2,
+   "blank": 1,
+   "sheets": [
+    "Sheet1"
+   ]
+  },
+  "final_facts": null,
+  "verified": true,
+  "flags": [],
+  "name": "n20-conv|give me a report",
+  "class": "SILENT"
+ },
+ {
+  "speaker": "template",
+  "turn": 0,
+  "msg": "analyze my file",
+  "reply": "Report on your original file: 2 rows repeat an earlier row exactly; name: 1 missing value (16.7%); amount: 1 missing value (16.7%). No changes were made to any file this turn.",
+  "voice_calls": 0,
+  "delivered": false,
+  "steps": [
+   [
+    "analyze",
+    "success"
+   ]
+  ],
+  "stopped_at": null,
+  "failure": null,
+  "orig_unchanged": true,
+  "orig_facts": {
+   "rows": 6,
+   "dups": 2,
+   "blank": 1,
+   "sheets": [
+    "Sheet1"
+   ]
+  },
+  "final_facts": null,
+  "verified": true,
+  "flags": [],
+  "name": "n21-alone|analyze my file",
+  "class": "SILENT"
+ },
+ {
+  "speaker": "friend",
+  "turn": 0,
+  "msg": "analyze my file",
+  "reply": "Report on your original file: 2 rows repeat an earlier row exactly; name: 1 missing value (16.7%); amount: 1 missing value (16.7%). No changes were made to any file this turn.",
+  "voice_calls": 0,
+  "delivered": false,
+  "steps": [
+   [
+    "analyze",
+    "success"
+   ]
+  ],
+  "stopped_at": null,
+  "failure": null,
+  "orig_unchanged": true,
+  "orig_facts": {
+   "rows": 6,
+   "dups": 2,
+   "blank": 1,
+   "sheets": [
+    "Sheet1"
+   ]
+  },
+  "final_facts": null,
+  "verified": true,
+  "flags": [],
+  "name": "n21-alone|analyze my file",
+  "class": "SILENT"
+ },
+ {
+  "speaker": "focus",
+  "turn": 0,
+  "msg": "analyze my file",
+  "reply": "Report on your original file: 2 rows repeat an earlier row exactly; name: 1 missing value (16.7%); amount: 1 missing value (16.7%). No changes were made to any file this turn.",
+  "voice_calls": 0,
+  "delivered": false,
+  "steps": [
+   [
+    "analyze",
+    "success"
+   ]
+  ],
+  "stopped_at": null,
+  "failure": null,
+  "orig_unchanged": true,
+  "orig_facts": {
+   "rows": 6,
+   "dups": 2,
+   "blank": 1,
+   "sheets": [
+    "Sheet1"
+   ]
+  },
+  "final_facts": null,
+  "verified": true,
+  "flags": [],
+  "name": "n21-alone|analyze my file",
+  "class": "SILENT"
+ },
+ {
+  "speaker": "template",
+  "turn": 0,
+  "msg": "analyze my file",
+  "reply": "Report on your original file: 2 rows repeat an earlier row exactly; name: 1 missing value (16.7%); amount: 1 missing value (16.7%). No changes were made to any file this turn.",
+  "voice_calls": 0,
+  "delivered": false,
+  "steps": [
+   [
+    "analyze",
+    "success"
+   ]
+  ],
+  "stopped_at": null,
+  "failure": null,
+  "orig_unchanged": true,
+  "orig_facts": {
+   "rows": 6,
+   "dups": 2,
+   "blank": 1,
+   "sheets": [
+    "Sheet1"
+   ]
+  },
+  "final_facts": null,
+  "verified": true,
+  "flags": [],
+  "name": "n21-conv|analyze my file",
+  "class": "SILENT"
+ },
+ {
+  "speaker": "friend",
+  "turn": 0,
+  "msg": "analyze my file",
+  "reply": "Report on your original file: 2 rows repeat an earlier row exactly; name: 1 missing value (16.7%); amount: 1 missing value (16.7%). No changes were made to any file this turn.",
+  "voice_calls": 0,
+  "delivered": false,
+  "steps": [
+   [
+    "analyze",
+    "success"
+   ]
+  ],
+  "stopped_at": null,
+  "failure": null,
+  "orig_unchanged": true,
+  "orig_facts": {
+   "rows": 6,
+   "dups": 2,
+   "blank": 1,
+   "sheets": [
+    "Sheet1"
+   ]
+  },
+  "final_facts": null,
+  "verified": true,
+  "flags": [],
+  "name": "n21-conv|analyze my file",
+  "class": "SILENT"
+ },
+ {
+  "speaker": "focus",
+  "turn": 0,
+  "msg": "analyze my file",
+  "reply": "Report on your original file: 2 rows repeat an earlier row exactly; name: 1 missing value (16.7%); amount: 1 missing value (16.7%). No changes were made to any file this turn.",
+  "voice_calls": 0,
+  "delivered": false,
+  "steps": [
+   [
+    "analyze",
+    "success"
+   ]
+  ],
+  "stopped_at": null,
+  "failure": null,
+  "orig_unchanged": true,
+  "orig_facts": {
+   "rows": 6,
+   "dups": 2,
+   "blank": 1,
+   "sheets": [
+    "Sheet1"
+   ]
+  },
+  "final_facts": null,
+  "verified": true,
+  "flags": [],
+  "name": "n21-conv|analyze my file",
+  "class": "SILENT"
+ }
+]

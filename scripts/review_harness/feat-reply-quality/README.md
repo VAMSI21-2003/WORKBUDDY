@@ -89,3 +89,24 @@ The first round-3 attempt (the container restarted) left `r3_cautious.py`, `r3_d
 report request plus other words, instead of `_OTHER_REQUEST_WORDS`; and the by-the-person guard only for the "check/look at/review the file"
 alternatives, clause-scoped. `out/r3-*-proto.json` and `r3-x-proto.json` are probes run against it. (These files replace the first attempt's
 `-proto` files, which came from a different prototype.)
+
+## Round 4 (head `398b256`; source changed since the last reviewed commit `2ecaecd`: `buddy/actions.py`, `buddy/outcome.py`, `buddy/voice.py`)
+
+Same library (`rq.py`), same `--tree DIR` convention (a worktree of `origin/main` for the base, of `2ecaecd` for round 3's source).
+Throwaway worktrees used: `base` (origin/main), `r3src` (2ecaecd), `mut` / `mut2` (mutations; restored with `git checkout -- .` after every one),
+`proto` (HEAD + `out/r4-prototype-fix-for-M1-negated.diff`). Every `out/r4-*` file was produced by this round.
+
+    python r4_reportonly.py --speakers template,friend,focus --out out/r4-reportonly-head.json   # REPORT_ONLY: spanning phrase (A), two unsupported phrases (B, dedupe-key collision), report unavailable (C), negation + misread removal (D), no/garbage file (E), hostile phrase (F), non-report nouns (G), other Brain readings (H)
+    python r4_negated.py --speakers template,friend,focus --out out/r4-negated-head.json         # M1: "analyze my file but don't remove the duplicates" -> "I read your request as something I can't do yet" beside the report (10 of 20); [--tree $BASE] the base has no such sentence
+    python r4_fuzz_no_skill.py [--tree DIR]                                                      # unit-level: 594 generated phrases through _no_skill_outcome; 72 distinct phrases hold a report request and get NO_SKILL (all negation + a named action object)
+    python r4_guards.py [--tree2 $R3SRC] [--show-ok]                                             # 118 NEW messages for mentions_report (head vs round 3), want= is my reading of what the person means
+    python r4_stages.py                                                                          # Brain/Think/Planner raise or answer garbage while a report is asked for (+ chains, two turns)
+    python r4_capability.py                                                                      # "can you analyze spreadsheets?" (Brain: conversation) gets a file report
+    python r4_redos.py                                                                           # timing of the patterns on 80,000-220,000 character inputs (worst 0.14 s)
+    python r4_mutations.py --tree $THROWAWAY [prefix ...]                                        # 85 one-place mutations of the 398b256 code (REPORT_ONLY, ordering, guards, noun list word by word, verbs, fillers)
+    # re-runs of earlier probes on this head (outputs `out/r4-*`): r3_extras.py, r3_listed.py, r3_columns.py, r3_nonreport.py, r3_cautious.py, r3_guards.py, r3_guards_engine.py,
+    #   r2_fresh_wordings.py, probe_b_report_phrases.py, r2_misc.py, r3_unavailable.py, r2_unrequested.py, r2_mention.py, probe_h_thanks.py, r3_detect.py, probe_a.py, probe_c_faults.py,
+    #   probe_e_more.py; shared harnesses harness.py / rereview3.py / round5.py head vs base (cmp_harness.py)
+    python check_numbers.py out/r4-*-head.json                                                   # every stated count against the independent read
+
+`out/r4-prototype-fix-for-M1-negated.diff` is my prototype (apply with `git apply` in a worktree of the head; **not applied to the branch**).
