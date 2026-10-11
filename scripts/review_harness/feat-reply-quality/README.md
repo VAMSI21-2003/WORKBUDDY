@@ -112,3 +112,26 @@ one and regenerated every `out/r4-*` file listed below**; nothing rests on the f
 `out/r4-prototype-fix-for-M1-M2-M3.diff` is my prototype (apply with `git apply` in a worktree of the head; **not applied to the branch**): the dedupe key, the report is not a
 "passed action", and the negation scoping. `out/r4-vetoes-proto.json` and `out/r4-engine-proto.json` are the probes run against it. A reviewer that prototyped a fix must not
 review it, so round 5 needs a new agent.
+
+
+## Round 5 (head `073be8a`; source = `0eb950c`: the report is Brain's `report_on_file` action, no word decides it)
+
+The `r2_*`, `r3_*` and `r4_*` scripts import functions the new head deleted (`mentions_report`, `is_only_a_report_request`, ...) and are
+historical; the round-1 probes (`probe_a` ... `probe_i`) still run, but they hand every report wording to the pipeline as Brain's
+`unsupported` entry (the "Brain does not read it" case, see `r5_shapes.py` group C). The round-5 scripts use `rq.py` (unchanged) and
+`r5lib.py` (arguments, fault patches, a reply classifier). Each takes `--tree DIR` (a worktree of `origin/main` for the base; there Brain's
+`report_on_file` is outside the vocabulary and becomes `unsupported`, so a base run of a "reads the report" scenario shows what the base does with a report),
+`--speakers template,friend,focus`, `--out FILE`. Outputs go to `out/` (git-ignored).
+
+    python r5_shapes.py [--only A,B,C,D]         # 54 scenarios: every shape Brain can hand over a report (A), report + dedupe with the planner naming the step
+                                                  # analyze / spreadsheet.report (same words, other words) / nothing (B), Brain does NOT read it (C), Brain's report phrase swallows more (D)
+    python r5_files_faults.py [--only F,X]       # report on 21 file kinds + no file (F); every stage failing: analysis skill, both verifiers, pandas read 1st/2nd/3rd call, planner, Hands, Think (X)
+    python r5_sessions.py                        # 10 multi-turn sessions (report after a delivery, twice, after a greeting, after a question ...)
+    python r5_hostile.py                         # 24 odd inputs: empty/regex/backslash phrases, 1000 entries, wrong JSON types, planner steps quoting the report phrase
+    python r5_api.py [--tree DIR]                # the HTTP app (friend, focus): report alone, dedupe + report, download names, original hash
+    python r5_fuzz.py --seed 11 --n 250 [--bias delivered]   # seeded random Brain/Think/planner/file/fault combinations, 8 invariants on every turn (header of the file); --bias: mostly sound dedupe+report readings with faults
+    python r5_l11.py [--tree DIR]                # exception text in a stopped-chain reply: same on head and base (pre-existing L11)
+    python r5_mutations.py --tree $THROWAWAY     # 53 one-place mutations of the new mechanism (and the three prompts); prints KILLED / SURVIVED
+    python r5_cmp.py out/a-base.json out/a-head.json        # head vs base for any probe output, grouped by changed sentence
+    python r5_harness_check.py base.json head.json         # harness.py / rereview3.py / round5.py pair: delivered, originals, voice calls, forbidden text
+    # shared harnesses (not edited): python scripts/review_harness/{harness,rereview3,round5}.py --out X.json   and the same with --tree $BASE
