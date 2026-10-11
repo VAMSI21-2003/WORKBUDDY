@@ -31,7 +31,10 @@ from __future__ import annotations
 
 import copy
 import dataclasses
+import hashlib
 import logging
+import os
+import shutil
 import threading
 import time
 from collections.abc import Callable
@@ -48,21 +51,27 @@ from backend.confirmation import (
     StaticConfirmationProvider,
     WebConfirmationProvider,
 )
-from backend.delivery import delivered_files, make_read_only, uploads_unchanged
+from backend.delivery import check_turn_file, delivered_files, make_read_only, uploads_unchanged
 from backend.errors import ApiError, ErrorCode, too_many_turns_message
+from backend.names import display_names, download_name
 from backend.sessions import (
     AWAITING_CONFIRMATION,
     FINISHED,
     RUNNING,
+    USED_DELIVERED,
+    USED_UPLOAD,
     DeliveredFile,
+    FileUsedRecord,
     SessionRecord,
     SessionRegistry,
     TurnRecord,
+    UploadRecord,
     utc_now,
 )
 from backend.settings import Settings
+from buddy.context import Context
 from buddy.hands import ConfirmationProvider
-from buddy.models import StepResult, VerificationResult
+from buddy.models import FileChoice, StepResult, VerificationResult
 from buddy.state import BuddyState
 from buddy.voice import is_verified_delivery
 from buddy.voice_catalog import FALLBACK_INTEGRITY_FAILURE, FALLBACK_PIPELINE_ERROR
@@ -93,6 +102,25 @@ class Finalization:
     delivered: tuple[DeliveredFile, ...] = ()
     detail: dict[str, Any] | None = None
     commit: bool = False
+    # The file the turn worked on (``None`` unless it ran to its end: delivered or not).
+    file_used: FileUsedRecord | None = None
+
+
+@dataclass(frozen=True)
+class _Offer:
+    """The files a turn is offered: the upload and, if one was handed back, a copy of it.
+
+    ``work_input`` is the turn's own read-only copy of the latest delivered file
+    (``source``), written into the turn's folder under a short name: the pipeline reads that, so
+    the delivered file itself is never opened by it, and the generated names of what it writes
+    don't keep growing with every follow-up.
+    """
+
+    choice: FileChoice
+    upload: UploadRecord
+    source: DeliveredFile | None = None
+    work_input: Path | None = None
+    expected: dict[str, tuple[Path, str]] = dataclasses.field(default_factory=dict)
 
 
 @dataclass
@@ -108,6 +136,7 @@ class _Job:
     # Seconds of working time the turn has left; the deadline is paused
     # while its plan waits for the user.
     deadline_left: float
+    offer: _Offer | None = None
     provider: ConfirmationProvider | None = None
     gate: WebConfirmationProvider | None = None
     timer: threading.Timer | None = None
@@ -280,18 +309,17 @@ class TurnRunner:
                     work.context.switch_active_file(str(target.path))
                 work.turn_output_dir = str(turn_dir)
                 target_id = file_id if file_id is not None else record.active_file_id
-                # Files handed back earlier *from this same upload*: only then is
-                # "made from your original upload, not from a file I handed back
-                # earlier" the point (review round 2, R2-M1). A copy the user
-                # re-uploaded is an upload of its own, with its own count.
-                work.earlier_deliveries = sum(
-                    len(t.delivered_files)
-                    for t in record.turns
-                    if t.finished
-                    and t.outcome == DELIVERED
-                    and target_id is not None
-                    and t.target_file_id == target_id
+                upload = record.files.get(target_id) if target_id is not None else None
+                # Which files the turn is offered; Brain's reading decides which it works on
+                # (``buddy.source.choose_file``).
+                offer = (
+                    self._offer(record, upload, turn_dir, pinned=file_id is not None)
+                    if upload is not None
+                    else None
                 )
+                if offer is not None:
+                    work.file_choice = offer.choice
+                    expected.update(offer.expected)
                 work.context.record_user_message(message)
 
                 turn = TurnRecord(
@@ -310,12 +338,15 @@ class TurnRunner:
                     expected,
                     mode,
                     deadline_left=settings.turn_deadline_s,
+                    offer=offer,
                 )
                 job.provider = self._provider_for(job)
                 record.turns.append(turn)
                 record.running_turn_id = turn_id
                 self._registry.saved(record, turn)
             except BaseException:
+                if turn_dir is not None:
+                    shutil.rmtree(turn_dir / WORK_INPUT_DIR, ignore_errors=True)
                 if turn is not None and turn in record.turns:
                     record.turns.remove(turn)
                     record.running_turn_id = None
@@ -348,6 +379,58 @@ class TurnRunner:
                 self._release_slot()
             raise
         return turn
+
+    def _offer(
+        self, record: SessionRecord, upload: UploadRecord, turn_dir: Path, *, pinned: bool
+    ) -> _Offer:
+        """What the turn may work on: ``upload``, and the latest file delivered from it, if any.
+
+        The latest delivered file (``SessionRecord.latest_copy``) is read back and checked
+        against the SHA-256 recorded when it was delivered, then written read-only into the
+        turn's folder. If it can't be (gone, changed, unreadable), the turn is offered the upload
+        alone and flagged so (``FileChoice.copy_unavailable``): the reply says the upload was
+        used, and never that a copy was.
+        """
+        latest = record.latest_copy(upload.file_id)
+        if latest is None:
+            return _Offer(FileChoice(original=str(upload.path), pinned=pinned), upload)
+        unavailable = _Offer(
+            FileChoice(original=str(upload.path), copy_unavailable=True, pinned=pinned), upload
+        )
+        checked = check_turn_file(latest.path, record.turn_dir(self._settings, latest.turn_id))
+        if checked is None or hashlib.sha256(checked[1]).hexdigest() != latest.sha256:
+            logger.warning(
+                "Delivered file %s of session %s is unavailable", latest.file_id, record.key
+            )
+            return unavailable
+        name = download_name(latest.name, record.key)
+        if not name.lower().endswith(".xlsx"):
+            name = "copy.xlsx"
+        work_dir = turn_dir / WORK_INPUT_DIR
+        work_path = work_dir / name
+        try:
+            work_dir.mkdir(mode=0o700)
+            with open(work_path, "xb") as out:
+                out.write(checked[1])
+            os.chmod(work_path, 0o444)
+        except OSError:
+            logger.exception("Turn input for session %s couldn't be written", record.key)
+            shutil.rmtree(work_dir, ignore_errors=True)
+            return unavailable
+        shown = display_names(record.key, record.delivered()).get(latest.file_id, name)
+        return _Offer(
+            FileChoice(
+                original=str(upload.path), copy=str(work_path), copy_name=shown, pinned=pinned
+            ),
+            upload,
+            source=latest,
+            work_input=work_path,
+            # Neither the delivered file nor the turn's copy of it may change during the turn.
+            expected={
+                latest.file_id: (latest.path, latest.sha256),
+                f"{latest.file_id}:input": (work_path, latest.sha256),
+            },
+        )
 
     def answer(
         self, record: SessionRecord, turn_id: str, confirmation_id: str, decision: str
@@ -517,6 +600,8 @@ class TurnRunner:
         except BaseException:
             logger.exception("Turn %s: finalization failed; using the fallback", turn.turn_id)
             result = Finalization(FAILED, FALLBACK_PIPELINE_ERROR, PIPELINE_FALLBACK)
+        if result.outcome in (DELIVERED, NOT_DELIVERED) and state is not None:
+            result = dataclasses.replace(result, file_used=_file_used_record(job, state))
         if result.outcome == INTEGRITY_FAILURE:
             logger.critical(
                 "Turn %s for session %s: an upload changed; every file is held back",
@@ -562,6 +647,7 @@ class TurnRunner:
             turn.reply_source = result.reply_source
             turn.delivered_files = result.delivered
             turn.detail = result.detail
+            turn.file_used = result.file_used
             turn.finished_at = now
             turn.status = FINISHED
             turn.version += 1
@@ -589,6 +675,7 @@ class TurnRunner:
         if result.commit and state is not None:
             state.context.record_buddy_reply(result.reply)
             state.reset_transient()
+            _restore_upload_focus(job, state.context, record)
             record.state = state
             record.active_file_id = _file_id_for(record, state.context.active_file)
             return
@@ -613,6 +700,7 @@ class TurnRunner:
             reply_source=result.reply_source,
             delivered_files=result.delivered,
             detail=result.detail,
+            file_used=result.file_used,
             finished_at=now,
             pending_confirmation=None,
         )
@@ -635,6 +723,40 @@ class TurnRunner:
     def _release_slot(self) -> None:
         with self._slots_lock:
             self._running -= 1
+
+
+# The folder inside a turn's folder that holds the turn's own copy of the delivered file it builds
+# on. Outputs are handed back only from the turn folder itself, never from here.
+WORK_INPUT_DIR = "input"
+
+
+def _file_used_record(job: _Job, state: BuddyState) -> FileUsedRecord | None:
+    """The file the pipeline says it worked on, as a stored record; ``None`` if it can't be named.
+
+    Matched by path against the two files the turn was offered, so a record never names a file the
+    turn wasn't given.
+    """
+    used, offer = state.file_used, job.offer
+    if used is None or offer is None:
+        return None
+    if used.path == str(offer.upload.path):
+        return FileUsedRecord(USED_UPLOAD, offer.upload.file_id, used.start_over)
+    if offer.source is not None and used.path == str(offer.work_input):
+        return FileUsedRecord(USED_DELIVERED, offer.source.file_id, used.start_over)
+    logger.error("Turn %s worked on a file it wasn't offered", job.turn.turn_id)
+    return None
+
+
+def _restore_upload_focus(job: _Job, context: Context, record: SessionRecord) -> None:
+    """After a turn, the session's focus is an upload again, never the turn's copy of a delivery.
+
+    What is saved of the context (``backend.store``) names uploads only, so the turn's working
+    file, and any analysis of it, are dropped from it: the next turn is offered its files afresh.
+    """
+    uploads = {str(f.path) for f in record.files.values()}
+    if job.offer is not None and context.active_file not in uploads:
+        context.switch_active_file(str(job.offer.upload.path))
+    context.analyzed_files = frozenset(p for p in context.analyzed_files if p in uploads)
 
 
 def _file_id_for(record: SessionRecord, path: str | None) -> str | None:

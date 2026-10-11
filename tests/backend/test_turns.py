@@ -29,8 +29,9 @@ from buddy.voice_catalog import (
     CLARIFICATION_QUESTIONS,
     FALLBACK_INTEGRITY_FAILURE,
     FALLBACK_PIPELINE_ERROR,
-    FROM_ORIGINAL_SENTENCE,
     NO_FILE_SENTENCE,
+    WORKED_ON_ORIGINAL_SENTENCE,
+    WORKED_ON_ORIGINAL_SKIPPING_COPY_SENTENCE,
     failure_reply,
 )
 from tests.backend.factories import (
@@ -277,7 +278,9 @@ def test_a_chain_hands_back_only_its_final_file(settings: Settings) -> None:
 def test_two_turns_write_to_different_folders_and_the_first_file_survives(
     settings: Settings,
 ) -> None:
-    provider = QueuedProvider(single("remove_duplicate_rows") + single("remove_duplicate_rows"))
+    provider = QueuedProvider(
+        single("remove_duplicate_rows") + single("remove_duplicate_rows", file_to_use="original")
+    )
     factory = PipelineFactory(provider)
     client = _app(settings, factory)
     session_id, _ = _session_with_upload(client)
@@ -285,7 +288,7 @@ def test_two_turns_write_to_different_folders_and_the_first_file_survives(
     first = _turn(client, session_id, "remove duplicate rows")
     first_path = Path(factory.runs[0].outputs[0])
     first_hash = _sha(first_path)
-    second = _turn(client, session_id, "remove duplicate rows again")
+    second = _turn(client, session_id, "start over and remove duplicate rows again")
     second_path = Path(factory.runs[1].outputs[0])
 
     assert first["outcome"] == second["outcome"] == "delivered"
@@ -297,7 +300,9 @@ def test_two_turns_write_to_different_folders_and_the_first_file_survives(
 
 
 def test_a_chain_then_a_single_step_never_overwrite_each_other(settings: Settings) -> None:
-    provider = QueuedProvider(chain(*DEDUPE_THEN_EMPTY) + single("remove_empty_rows"))
+    provider = QueuedProvider(
+        chain(*DEDUPE_THEN_EMPTY) + single("remove_empty_rows", file_to_use="original")
+    )
     factory = PipelineFactory(provider)
     client = _app(settings, factory)
     session_id, _ = _session_with_upload(client)
@@ -305,7 +310,7 @@ def test_a_chain_then_a_single_step_never_overwrite_each_other(settings: Setting
     first = _turn(client, session_id, "remove duplicate rows, then remove empty rows")
     first_path = Path(factory.runs[0].outputs[0])
     first_hash = _sha(first_path)
-    second = _turn(client, session_id, "now remove the empty rows too")
+    second = _turn(client, session_id, "start over and remove the empty rows")
 
     assert first["outcome"] == second["outcome"] == "delivered"
     assert Path(factory.runs[1].outputs[0]).parent != first_path.parent
@@ -600,7 +605,8 @@ def test_rule_1_holds_in_every_scenario(
         assert _COMPLETION_CLAIM.search(turn["reply"]) is None, turn["reply"]
         assert "verifier" not in turn["reply"].lower()
     if turn["outcome"] == "delivered" and "first" in options:
-        assert FROM_ORIGINAL_SENTENCE in turn["reply"]
+        # It built on the file the first turn handed back, and says so.
+        assert "the latest copy I handed back" in turn["reply"]
     text = json.dumps(turn["detail"])
     for run in factory.runs:
         for prose in run.summaries + run.findings:
@@ -875,10 +881,10 @@ def test_a_turn_where_nothing_ran_says_so_plainly(
 
 
 @pytest.mark.parametrize("speaker", SPEAKERS)
-def test_a_follow_up_delivery_says_it_was_made_from_the_original(
+def test_a_follow_up_delivery_builds_on_the_first_and_says_so(
     settings: Settings, speaker: str
 ) -> None:
-    """Review M2, option (b): later turns read the original upload, and the reply says so."""
+    """A later turn works on the latest file handed back, and the reply names it."""
     provider = QueuedProvider(single("remove_duplicate_rows") + single("remove_empty_rows"))
     factory = PipelineFactory(provider, speaker=speaker)
     client = _app(settings, factory)
@@ -888,13 +894,13 @@ def test_a_follow_up_delivery_says_it_was_made_from_the_original(
     second = _turn(client, session_id, "now remove the empty rows too")
 
     assert first["outcome"] == second["outcome"] == "delivered"
-    assert FROM_ORIGINAL_SENTENCE not in first["reply"]
-    assert FROM_ORIGINAL_SENTENCE in second["reply"]
+    assert WORKED_ON_ORIGINAL_SENTENCE in first["reply"]
+    copy = first["delivered_files"][0]["name"]
+    assert f"`{copy}`, the latest copy I handed back" in second["reply"]
     assert second["reply"] == factory.runs[1].reply
-    # The sentence is true: the second file is the original minus its empty row,
-    # duplicates and all.
+    # The sentence is true: the second file has both done, the duplicates and the empty row.
     written = pd.read_excel(Path(factory.runs[1].outputs[0]))
-    assert len(written) == 5 and int(written.duplicated().sum()) == 2
+    assert len(written) == 3 and int(written.duplicated().sum()) == 0
 
 
 def test_a_verified_delivery_the_api_cant_hand_back_gets_the_fallback(
@@ -1051,7 +1057,8 @@ def test_a_re_uploaded_copy_gets_no_from_original_sentence(
     second = _turn(client, session_id, "now remove the empty rows")
 
     assert second["outcome"] == "delivered"
-    assert FROM_ORIGINAL_SENTENCE not in second["reply"]
+    assert WORKED_ON_ORIGINAL_SENTENCE in second["reply"]
+    assert "the latest copy I handed back" not in second["reply"]
     written = pd.read_excel(Path(factory.runs[1].outputs[0]))
     assert len(written) == 3 and int(written.duplicated().sum()) == 0  # it built on the copy
 
@@ -1082,12 +1089,13 @@ def test_a_first_delivery_after_a_turn_that_delivered_nothing_gets_no_sentence(
 
     assert before["outcome"] in ("not_delivered", "failed")
     assert turn["outcome"] == "delivered"
-    assert FROM_ORIGINAL_SENTENCE not in turn["reply"]
+    assert WORKED_ON_ORIGINAL_SENTENCE in turn["reply"]
+    assert WORKED_ON_ORIGINAL_SKIPPING_COPY_SENTENCE not in turn["reply"]
 
 
 @pytest.mark.parametrize("speaker", SPEAKERS)
 def test_a_delivery_on_another_upload_gets_no_sentence(settings: Settings, speaker: str) -> None:
-    """R2-M1 (c): a delivery from the first upload says nothing about the second's copy."""
+    """R2-M1 (c): the second upload is used as itself, whatever was delivered from the first."""
     provider = QueuedProvider(single("remove_duplicate_rows") + single("remove_duplicate_rows"))
     factory = PipelineFactory(provider, speaker=speaker)
     client = _app(settings, factory)
@@ -1099,7 +1107,8 @@ def test_a_delivery_on_another_upload_gets_no_sentence(settings: Settings, speak
     turn = _turn(client, session_id, "remove duplicate rows")
 
     assert turn["outcome"] == "delivered"
-    assert FROM_ORIGINAL_SENTENCE not in turn["reply"]
+    assert WORKED_ON_ORIGINAL_SENTENCE in turn["reply"]
+    assert WORKED_ON_ORIGINAL_SKIPPING_COPY_SENTENCE not in turn["reply"]
 
 
 class _Halt(BaseException):

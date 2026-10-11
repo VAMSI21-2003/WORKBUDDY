@@ -180,13 +180,14 @@ def test_the_download_header_and_the_lists_use_the_friendly_name(settings: Setti
 
 def test_two_downloads_in_one_session_do_not_collide(settings: Settings) -> None:
     client, factory = _client(
-        settings, single("remove_duplicate_rows") + single("remove_duplicate_rows")
+        settings,
+        single("remove_duplicate_rows") + single("remove_duplicate_rows", file_to_use="original"),
     )
     session_id = new_session(client)
     assert upload(client, session_id, xlsx_bytes()).status_code == 201
 
     first = _turn(client, session_id, "remove duplicate rows")["delivered_files"][0]
-    second = _turn(client, session_id, "remove duplicate rows again")["delivered_files"][0]
+    second = _turn(client, session_id, "start over, remove duplicate rows")["delivered_files"][0]
 
     assert (first["name"], second["name"]) == (
         "report_deduplicated.xlsx",

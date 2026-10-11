@@ -616,6 +616,34 @@
         "title": "Limits",
         "type": "object"
       },
+      "NextFile": {
+        "description": "The file the session's next request will work on, unless the person asks to start over.\n\nThe latest file Buddy delivered from the active upload, or that upload itself when nothing\nwas delivered from it. It says which file is on offer; it says nothing about any result.",
+        "properties": {
+          "file_id": {
+            "title": "File Id",
+            "type": "string"
+          },
+          "kind": {
+            "enum": [
+              "upload",
+              "delivered"
+            ],
+            "title": "Kind",
+            "type": "string"
+          },
+          "name": {
+            "title": "Name",
+            "type": "string"
+          }
+        },
+        "required": [
+          "kind",
+          "file_id",
+          "name"
+        ],
+        "title": "NextFile",
+        "type": "object"
+      },
       "PendingConfirmation": {
         "description": "The plan waiting for the user's answer: every file-changing step, in order.\n\nApproving it approves every step; rejecting it, or no answer by\n``expires_at``, means none of them runs.",
         "properties": {
@@ -986,6 +1014,17 @@
             "title": "Mode",
             "type": "string"
           },
+          "next_request_file": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/NextFile"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "The file the next request will work on (null with no upload): the latest file delivered from the active upload, else the upload. A request that names another file, or that asks to start over, works on that one instead."
+          },
           "pending_confirmation": {
             "anyOf": [
               {
@@ -1046,6 +1085,7 @@
           "mode",
           "busy",
           "active_file_id",
+          "next_request_file",
           "files",
           "turns",
           "pending_confirmation",
