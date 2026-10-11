@@ -385,3 +385,7 @@ Each item has its own acceptance criterion: fixed with a test, or explicitly clo
 **Status (2026-10-01):** decided: 3.11 and newer (backend design, "Decisions (2026-09-30)" item 3). PR-1 (`feat/pipeline-failure-and-output-dir`) sets `requires-python = ">=3.11"` and the black, ruff and mypy targets, updates the README, and pins `setuptools<81` (a fresh 3.12+ install otherwise can't import `ydata_profiling`). The full suite passed on 3.11.15 and 3.13.14. Closes when PR-1 merges. Still open: CI that runs both versions (there is no CI yet).
 
 `pyproject.toml` required Python 3.13 (`requires-python = ">=3.13"`), but cloud sessions default to Python 3.11.
+
+## feat/follow-up-turns review round 1: deferred
+- **follow-up-turns F3 (Low, tests):** no test fails when `_offer`'s integrity entries (delivered file, turn's copy), `_restore_upload_focus`'s `analyzed_files` filter, or `_finalize`'s outcome guard on `file_used` are removed (mutations survive; the filter's removal makes the session unreadable after a restart). See `docs/reviews/feat-follow-up-turns-review.md`.
+- **follow-up-turns F4 (Low):** the Files-panel line names a copy that has become unreadable; a copy is re-analysed every turn so leftover findings repeat; integrity-failure text says "your original file" for a delivered file or the turn's copy; `file_used: null` is written on every finished turn (a rollback makes those sessions unreadable).
