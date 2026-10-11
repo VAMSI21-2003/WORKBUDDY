@@ -8,10 +8,16 @@ from buddy import planner
 from buddy.actions import (
     ACTION_VOCABULARY,
     ACTIONS,
+    ACTIONS_BY_NAME,
+    CONVERSATION,
     INTENT_CAPABILITIES,
+    REPORT_ON_FILE,
     UNSUPPORTED,
+    asks_for_report,
     find_phrase,
+    is_conversation,
     mentioned_actions,
+    report_phrases,
     requested_ledger,
 )
 from buddy.brain import INTENT_VOCABULARY
@@ -36,8 +42,20 @@ def test_every_action_is_a_brain_intent_with_a_registered_skill_and_a_measured_t
     for action in ACTIONS:
         assert action.name in INTENT_VOCABULARY
         assert action.capability in registered
-        assert action.target in _TARGET_COUNTERS
+        if action.changes_file:
+            assert action.target in _TARGET_COUNTERS
+            assert action.mention is not None
     assert ACTION_VOCABULARY == {a.name for a in ACTIONS} | {UNSUPPORTED}
+
+
+def test_the_report_is_a_row_of_the_table_with_no_mention_pattern_and_no_file_change() -> None:
+    report = ACTIONS_BY_NAME[REPORT_ON_FILE]
+
+    assert REPORT_ON_FILE in ACTION_VOCABULARY and REPORT_ON_FILE in INTENT_VOCABULARY
+    assert report.capability == "spreadsheet.analyze"
+    assert report.mention is None
+    assert not report.changes_file
+    assert REPORT_ON_FILE not in INTENT_CAPABILITIES  # planned as the analysis, not as a step
 
 
 def test_the_planner_routes_intents_with_the_same_table() -> None:
@@ -76,10 +94,76 @@ def test_the_planner_routes_intents_with_the_same_table() -> None:
         ("hi, what can you do?", []),
         ("sort by amount", []),
         ("fill the empty cells", []),
+        # The report has no mention pattern: no wording of a report request is ever found.
+        ("give me a report", []),
+        ("summarize the file", []),
+        ("what is wrong with my file", []),
+        ("analyze my data and give me an overview", []),
     ],
 )
 def test_mentioned_actions(message: str, expected: list[tuple[str, str]]) -> None:
     assert [(a.name, text) for a, text in mentioned_actions(message)] == expected
+
+
+def test_a_mention_inside_the_phrase_brain_gave_to_the_report_is_not_a_request() -> None:
+    message = "remove the empty rows and give me a report on the duplicate rows"
+
+    assert [a.name for a, _ in mentioned_actions(message)] == [
+        "remove_empty_rows",
+        "remove_duplicate_rows",
+    ]
+    inside = mentioned_actions(message, except_inside=["give me a report on the duplicate rows"])
+    assert [a.name for a, _ in inside] == ["remove_empty_rows"]
+    # A phrase that isn't in the message, or an empty one, excludes nothing.
+    assert mentioned_actions(message, except_inside=["not there", ""]) == mentioned_actions(message)
+
+
+# -- The report and conversation come from Brain's reading only -----------------------------
+
+
+def test_a_report_is_asked_for_only_when_brains_reading_has_it() -> None:
+    by_action = Understanding(
+        intent="multi_step_request",
+        requested_actions=(
+            RequestedAction("remove_duplicate_rows", "remove duplicates", LEDGER_FROM_BRAIN, True),
+            RequestedAction(REPORT_ON_FILE, "a report on the rows", LEDGER_FROM_BRAIN, True),
+        ),
+    )
+    by_intent = Understanding(intent=REPORT_ON_FILE)
+    unsupported = Understanding(
+        intent="unclear",
+        requested_actions=(
+            RequestedAction(UNSUPPORTED, "give me a report", LEDGER_FROM_BRAIN, True),
+        ),
+    )
+
+    assert asks_for_report(by_action) and report_phrases(by_action) == ("a report on the rows",)
+    assert asks_for_report(by_intent) and report_phrases(by_intent) == ()
+    # Brain did not read a report: nothing is labelled one, whatever the message says.
+    assert not asks_for_report(unsupported)
+    assert not asks_for_report(Understanding(intent="unclear"))
+    assert not asks_for_report(Understanding(intent=None))
+
+
+@pytest.mark.parametrize(
+    ("intent", "actions", "message", "expected"),
+    [
+        (CONVERSATION, (), "hello", True),
+        (CONVERSATION, (), "thanks for the summary!", True),
+        (CONVERSATION, (), "an overview of what you can do?", True),
+        (CONVERSATION, (), "give me a report", True),  # Brain's reading decides, not the words
+        (CONVERSATION, (), "remove the duplicate rows", False),  # a file-changing mention
+        (CONVERSATION, (RequestedAction(REPORT_ON_FILE, "a report", "brain", True),), "x", False),
+        (CONVERSATION, (RequestedAction(UNSUPPORTED, "sort", "brain", True),), "x", False),
+        ("unclear", (), "hello", False),
+    ],
+)
+def test_a_conversation_is_brains_intent_with_nothing_contradicting_it(
+    intent: str, actions: tuple[RequestedAction, ...], message: str, expected: bool
+) -> None:
+    understanding = Understanding(intent=intent, requested_actions=actions)
+
+    assert is_conversation(understanding, message) is expected
 
 
 # -- Phrases and the ledger ----------------------------------------------------------------

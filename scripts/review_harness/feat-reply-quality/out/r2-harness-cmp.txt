@@ -1,0 +1,57 @@
+# harness.py (532 turns), rereview3.py (1078), round5.py (228): head vs base, reviewer round 2
+
+== harness
+{'other-change': 532}
+distinct other-change (removed -> added) groups: 8
+   322  - ['The copy has 4 X, 0 duplicate X remaining.']
+        + ['The copy has 4 X, with 0 duplicate X remaining.']
+    84  - ['The copy has 3 X, 0 duplicate X and 0 fully-empty X remainin']
+        + ['The copy has 3 X, with 0 duplicate X and 0 fully-empty X rem']
+    70  - ['None of the other issues I check for were found.', 'The copy has 5 X, 0 fully-empty X remaining.']
+        + ['I also noticed: 2 X repeat an earlier X exactly.', 'The copy has 5 X, with 0 fully-empty X remaining.', 'Want me to tackle any of these?']
+    14  - ['The copy has 3 X, 0 fully-empty X and 0 duplicate X remainin']
+        + ['The copy has 3 X, with 0 fully-empty X and 0 duplicate X rem']
+    14  - ['The copy has 3 X, 0 fully-empty X remaining.']
+        + ['The copy has 3 X, with 0 fully-empty X remaining.']
+    14  - ["Before anything else, here's what I noticed: name: 1 missing", 'I ran into a problem partway through.']
+        + ["Before anything else, here's what I noticed: 2 X repeat an e", 'I ran into a problem before I could change anything.']
+    13  - ["Before anything else, here's what I noticed: name: 1 missing"]
+        + ["Here's what I noticed when I looked it over: 2 X repeat an e", 'I can remove duplicate X, remove empty X, and look a spreads', "I didn't read that as something I can do."]
+
+== rr3
+{'other-change': 1078}
+distinct other-change (removed -> added) groups: 7
+   980  - ['The copy has 4 X, 0 duplicate X remaining.']
+        + ['The copy has 4 X, with 0 duplicate X remaining.']
+    42  - ['I ran into a problem partway through.']
+        + ['I ran into a problem before I could change anything.']
+    28  - ['The copy has 3 X, 0 duplicate X and 0 fully-empty X remainin']
+        + ['The copy has 3 X, with 0 duplicate X and 0 fully-empty X rem']
+    14  - ['None of the other issues I check for were found.', 'The copy has 5 X, 0 fully-empty X remaining.']
+        + ['I also noticed: 2 X repeat an earlier X exactly.', 'The copy has 5 X, with 0 fully-empty X remaining.', 'Want me to tackle any of these?']
+     7  - ['None of the issues I check for were found.', 'The copy has 5 X, 0 fully-empty X remaining.']
+        + ['I also noticed: 2 X repeat an earlier X exactly.', 'The copy has 5 X, with 0 fully-empty X remaining.', 'Want me to tackle any of these?']
+     4  - ['None of the issues I check for were found.', 'The copy has 5 X, 0 fully-empty X remaining.', "What's next on the list?"]
+        + ['I also noticed: 2 X repeat an earlier X exactly.', 'The copy has 5 X, with 0 fully-empty X remaining.', 'Want me to tackle any of these?']
+     3  - ['Anything else you want me to look at?', 'None of the issues I check for were found.', 'The copy has 5 X, 0 fully-empty X remaining.']
+        + ['I also noticed: 2 X repeat an earlier X exactly.', 'The copy has 5 X, with 0 fully-empty X remaining.', 'Want me to tackle any of these?']
+
+== r5
+{'other-change': 168, 'claim-words-undelivered': 6, 'identical': 54, 'error': 6}
+   error (('c-fail-voice-speaker', 'template', 'session-1'), "ValueError('voice boom')", "ValueError('voice boom')")
+   error (('c-fail-voice-speaker', 'friend', 's1'), "ValueError('voice boom')", "ValueError('voice boom')")
+   error (('c-fail-voice-speaker', 'friend', 's2'), "ValueError('voice boom')", "ValueError('voice boom')")
+   error (('c-fail-voice-speaker', 'friend', 's3'), "ValueError('voice boom')", "ValueError('voice boom')")
+   error (('c-fail-voice-speaker', 'friend', 's4'), "ValueError('voice boom')", "ValueError('voice boom')")
+   error (('c-fail-voice-speaker', 'focus', 'session-1'), "ValueError('voice boom')", "ValueError('voice boom')")
+   claim-words-undelivered (('b02-long-name', 'template', 'session-1'), 'cleaned', "Before anything else, here's what I noticed: 2 rows repeat an earlier row exactly; name: 1 missing value (16.7%); amount: 1 missing value (16.7%). Want me t
+   claim-words-undelivered (('b02-long-name', 'friend', 's1'), 'cleaned', "Before anything else, here's what I noticed: 2 rows repeat an earlier row exactly; name: 1 missing value (16.7%); amount: 1 missing value (16.7%). Want me to tackle 
+   claim-words-undelivered (('b02-long-name', 'friend', 's2'), 'cleaned', "Before anything else, here's what I noticed: 2 rows repeat an earlier row exactly; name: 1 missing value (16.7%); amount: 1 missing value (16.7%). Want me to tackle 
+   claim-words-undelivered (('b02-long-name', 'friend', 's3'), 'cleaned', "Before anything else, here's what I noticed: 2 rows repeat an earlier row exactly; name: 1 missing value (16.7%); amount: 1 missing value (16.7%). Want me to tackle 
+   claim-words-undelivered (('b02-long-name', 'friend', 's4'), 'cleaned', "Before anything else, here's what I noticed: 2 rows repeat an earlier row exactly; name: 1 missing value (16.7%); amount: 1 missing value (16.7%). Want me to tackle 
+   claim-words-undelivered (('b02-long-name', 'focus', 'session-1'), 'cleaned', "Before anything else, here's what I noticed: 2 rows repeat an earlier row exactly; name: 1 missing value (16.7%); amount: 1 missing value (16.7%). Want me to t
+distinct other-change (removed -> added) groups: 7
+    78  - ['I ran into a problem partway through.']
+        + ['I ran into a problem before I could change anything.']
+
+== independent check (delivered differs / originals changed / voice calls / errors): all 0 except round5's 6 errors, same on base (its own raising-Voice scenario)

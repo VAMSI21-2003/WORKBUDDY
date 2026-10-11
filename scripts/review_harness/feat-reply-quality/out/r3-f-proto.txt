@@ -1,0 +1,42 @@
+80 turns; {'OK': 80}
+original changed: 0 | errors: 0 | voice calls: 0
+  alone=OK             dedupe=OK             Could you please analyze my spreadsheet?
+  alone=OK             dedupe=OK             Please give me a summary of this file.
+  alone=OK             dedupe=OK             I'd like a report on this spreadsheet
+  alone=OK             dedupe=OK             Can you analyze the data for me?
+  alone=OK             dedupe=OK             Analyze my sales data
+  alone=OK             dedupe=OK             give me a quick summary
+  alone=OK             dedupe=OK             summary of this sheet please
+  alone=OK             dedupe=OK             Generate a report
+  alone=OK             dedupe=OK             Create a summary report
+  alone=OK             dedupe=OK             Prepare a data quality report
+  alone=OK             dedupe=OK             report
+  alone=OK             dedupe=OK             report please
+  alone=OK             dedupe=OK             I want to see a report
+  alone=OK             dedupe=OK             Please analyze
+  alone=OK             dedupe=OK             give me a detailed analysis of the spreadsheet
+  alone=OK             dedupe=OK             run a quality check on the file
+  alone=OK             dedupe=OK             check the data quality
+  alone=OK             dedupe=OK             get me a report on all issues in this file
+  alone=OK             dedupe=OK             analyze and summarize my file
+  alone=OK             dedupe=OK             Can you provide a report?
+  alone=OK             dedupe=OK             Make a report of the missing values
+  alone=OK             dedupe=OK             give me report on missing values
+  alone=OK             dedupe=OK             summarise the spreadsheet
+  alone=OK             dedupe=OK             Summarise my file for me please
+  alone=OK             dedupe=OK             i need a summary of the data
+  alone=OK             dedupe=OK             I need an analysis of my spreadsheet
+  alone=OK             dedupe=OK             show me a report of the data problems
+  alone=OK             dedupe=OK             give me an overview of the file
+  alone=OK             dedupe=OK             what is wrong with my file
+  alone=OK             dedupe=OK             give me a report on the duplicate rows
+  alone=OK             dedupe=OK             analyze the first sheet
+  alone=OK             dedupe=OK             provide a summary of the file
+  alone=OK             dedupe=OK             I'd like a summary please
+  alone=OK             dedupe=OK             give me a summary of the missing values
+  alone=OK             dedupe=OK             report on everything
+  alone=OK             dedupe=OK             check my file for duplicates
+  alone=OK             dedupe=OK             analyze my file thoroughly
+  alone=OK             dedupe=OK             Please write a report for me
+  alone=OK             dedupe=OK             Do a full analysis of this file
+  alone=OK             dedupe=OK             Send me a summary of what you find

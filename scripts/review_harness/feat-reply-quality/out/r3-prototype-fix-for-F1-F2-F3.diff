@@ -1,0 +1,113 @@
+diff --git a/buddy/actions.py b/buddy/actions.py
+index d3bc568..6cbd44b 100644
+--- a/buddy/actions.py
++++ b/buddy/actions.py
+@@ -220,19 +220,22 @@ _ABOUT_BUDDY = (
+     r"(?:what\s+you\s+(?:can\s+do|do|are\s+able\s+to\s+do|offer)\b|your\b|yourself\b))"
+ )
+ _A_PART_OF_THE_FILE = r"(?!\s+(?:sheet|tab|worksheet|columns?|page)\b)"
+-_REPORT_REQUEST = re.compile(
++# PROTOTYPE: the request by name (a noun or verb that IS a report) and by action ("check the file").
++_REPORT_BY_NAME = re.compile(
+     r"(?:\b(?:give|send|show|make|create|write|produce|generate|prepare|get|run|do|need|want)\s+"
+     r"(?:(?:me|us|a|an|the|my|our|your|full|short|brief|quick|detailed|written|data|quality)\s+)*)?"
+-    rf"\b(?:{_REPORT_NOMINAL}{_A_PART_OF_THE_FILE}|{_REPORT_VERBAL})\b{_ABOUT_BUDDY}{_REPORT_ABOUT}"
+-    # "check the file for problems", "take a look at my data", "what's wrong with the sheet": the
+-    # analysis, asked for by what it does.
+-    r"|\b(?:check|look\s+(?:at|over)|take\s+a\s+look\s+at|review|inspect)\s+"
++    rf"\b(?:{_REPORT_NOMINAL}{_A_PART_OF_THE_FILE}|{_REPORT_VERBAL})\b{_ABOUT_BUDDY}{_REPORT_ABOUT}",
++    re.IGNORECASE,
++)
++_REPORT_BY_ACTION = re.compile(
++    r"\b(?:check|look\s+(?:at|over)|take\s+a\s+look\s+at|review|inspect)\s+"
+     r"(?:(?:the|this|that|my|our|your)\s+)?(?:file|sheet|spreadsheet|workbook|data|table)\b"
+     r"(?:\s+for\s+(?:any\s+)?(?:issues?|problems?|errors?|mistakes?|duplicates?|duplicate\s+rows?))?"
+     r"|\bwhat(?:'?s|\s+is|\s+are)\s+wrong\s+with\s+(?:(?:the|this|that|my|our|your)\s+)?"
+     r"(?:file|sheet|spreadsheet|workbook|data|table)\b",
+     re.IGNORECASE,
+ )
++_REPORT_REQUEST = re.compile(_REPORT_BY_NAME.pattern + "|" + _REPORT_BY_ACTION.pattern, re.IGNORECASE)
+ # "no report please", "don't give me a report", "don't look at my data": the opposite request.
+ _REPORT_NEGATED = re.compile(
+     rf"\b(?:no|not|without|skip|never|don't|dont|do\s+not)\b[^.;,!?]{{0,24}}\b{_REPORT_NOMINAL}\b"
+@@ -242,8 +245,10 @@ _REPORT_NEGATED = re.compile(
+ )
+ # "I'll check the file myself": the person will do it, not ask Buddy to.
+ _REPORT_BY_THE_PERSON = re.compile(
+-    r"\bmyself\b|\b(?:i'll|i\s+will|i'm\s+going\s+to|i\s+can)\s+(?:\w+\s+){0,3}"
+-    r"(?:check|look|review|inspect|analy[sz]e|summari[sz]e)\b",
++    r"\b(?:check|look(?:\s+(?:at|over))?|review|inspect)\b[^.;,!?]{0,40}\bmyself\b"
++    r"|\b(?:i'll|i\s+will|i'm\s+going\s+to|i\s+can)\s+(?:\w+\s+){0,3}"
++    r"(?:check|look(?:\s+(?:at|over))?|review|inspect)\s+(?:(?:the|this|that|my|our|your)\s+)?"
++    r"(?:file|sheet|spreadsheet|workbook|data|table)\b",
+     re.IGNORECASE,
+ )
+ # "email me the report", "print the summary": a report to be sent somewhere else. Buddy can't do
+@@ -269,12 +274,11 @@ def mentions_report(message: str) -> bool:
+     only way to a report nobody wanted, which states findings and claims nothing else.
+     A report to be sent elsewhere ("email me the report") isn't one: Buddy can't send it.
+     """
+-    return (
+-        _REPORT_REQUEST.search(message) is not None
+-        and _REPORT_NEGATED.search(message) is None
+-        and _REPORT_BY_THE_PERSON.search(message) is None
+-        and _REPORT_ELSEWHERE.search(message) is None
+-    )
++    if _REPORT_NEGATED.search(message) or _REPORT_ELSEWHERE.search(message):
++        return False
++    if _REPORT_BY_NAME.search(message):
++        return True  # PROTOTYPE: a named report ("a summary", "analyze") is not vetoed by "myself"
++    return _REPORT_BY_ACTION.search(message) is not None and _REPORT_BY_THE_PERSON.search(message) is None
+ 
+ 
+ def strip_report_request(text: str) -> tuple[str, bool]:
+diff --git a/buddy/outcome.py b/buddy/outcome.py
+index 09bcd8c..59714c9 100644
+--- a/buddy/outcome.py
++++ b/buddy/outcome.py
+@@ -134,6 +134,7 @@ DONE_UNREQUESTED = "done_unrequested"
+ NOT_PLANNED = "not_planned"  # Brain's reading has it; no step for its capability ran
+ NOT_READ_AS_REQUEST = "not_read_as_request"  # only the mention detector has it; no step ran
+ NO_SKILL = "no_skill"  # Brain listed it as "unsupported": no capability exists
++REPORT_ONLY = "report_only"  # PROTOTYPE: an unsupported phrase with a report in it and more words
+ # A step for it ran but didn't pass. Not reachable through a verified delivery
+ # from build_engine (a failing file-changing step fails the turn); kept so the
+ # sentence is never "didn't run" for a step that did run.
+@@ -501,15 +502,13 @@ def _no_skill_outcome(
+             named_passed = True
+         elif all(other.action != action.name for other in ledger):
+             named_silent = True
++    had_report = False
+     if report_stated:
+         # A report request is stated by the reply itself (delivered or not available), so it
+         # is "named" and "done" like an action that passed: what's left decides the sentence.
+         lowered, had_report = strip_report_request(lowered)
+         if had_report:
+             names_action = named_passed = True
+-            if not _OTHER_REQUEST_WORDS.search(lowered):
+-                # The report, and nothing Buddy can't do: the reply states the report itself.
+-                return None
+     lowered = _LOCATION_PHRASE.sub(" ", lowered, count=1)
+     for other in ledger:
+         other_action = ACTIONS_BY_NAME.get(other.action)
+@@ -526,6 +525,11 @@ def _no_skill_outcome(
+         return ActionOutcome("", NOT_DONE, reason=NO_SKILL, source=entry.source, user_phrase=quoted)
+     words = re.findall(r"[\w']+", lowered)
+     negated = any(w in _NEGATION_WORDS for w in words)
++    if had_report and any(w not in _FILLER_WORDS for w in words):
++        # PROTOTYPE: the phrase asks for a report and has more words in it. Whether they are
++        # work Buddy can't do or only describe the report, this is true of both: the report is
++        # all that was done for it. No word list decides.
++        return ActionOutcome("", NOT_DONE, reason=REPORT_ONLY)  # no source: no "Done", no "Partly done"
+     if (
+         any(w not in _FILLER_WORDS for w in words)
+         or (negated and named_passed)
+@@ -736,6 +740,8 @@ def _not_done_sentence(action: ActionOutcome, *, nothing_done: bool = False) ->
+         if nothing_done:
+             return "I read your request as something I can't do yet."
+         return "I read part of your request as something I can't do yet."
++    if action.reason == REPORT_ONLY:
++        return "The report is all I did for that part of your request."
+     wording = ACTIONS_BY_CAPABILITY[action.capability]
+     if action.reason == NOT_READ_AS_REQUEST:
+         return f"Your message mentions {wording.object}, but I didn't run the {wording.step}."

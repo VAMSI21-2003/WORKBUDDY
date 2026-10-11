@@ -1,0 +1,30 @@
+[template] "just analyze my file, don't delete anything"
+    I read your request as something I can't do yet. I can remove duplicate rows, remove empty rows, and look a spreadsheet over for possible problems. Report on your original file: 2 rows repeat an earlier row exactly; name: 1 missing value (16.7%); amount: 1 missing value (16.7%). No changes were made to any file this turn.
+
+[template] "give me a report but don't remove anything"
+    I read your request as something I can't do yet. I can remove duplicate rows, remove empty rows, and look a spreadsheet over for possible problems. Report on your original file: 2 rows repeat an earlier row exactly; name: 1 missing value (16.7%); amount: 1 missing value (16.7%). No changes were made to any file this turn.
+
+[template] "give me a report first, don't clean anything yet"
+    I read your request as something I can't do yet. I can remove duplicate rows, remove empty rows, and look a spreadsheet over for possible problems. Report on your original file: 2 rows repeat an earlier row exactly; name: 1 missing value (16.7%); amount: 1 missing value (16.7%). No changes were made to any file this turn.
+
+[template] 'analyze my file without fixing anything'
+    I read your request as something I can't do yet. I can remove duplicate rows, remove empty rows, and look a spreadsheet over for possible problems. Report on your original file: 2 rows repeat an earlier row exactly; name: 1 missing value (16.7%); amount: 1 missing value (16.7%). No changes were made to any file this turn.
+
+[template] "give me a summary but don't change or delete the data"
+    I read your request as something I can't do yet. I can remove duplicate rows, remove empty rows, and look a spreadsheet over for possible problems. Report on your original file: 2 rows repeat an earlier row exactly; name: 1 missing value (16.7%); amount: 1 missing value (16.7%). No changes were made to any file this turn.
+
+[template] 'give me a report, no need to remove anything'
+    I read your request as something I can't do yet. I can remove duplicate rows, remove empty rows, and look a spreadsheet over for possible problems. Report on your original file: 2 rows repeat an earlier row exactly; name: 1 missing value (16.7%); amount: 1 missing value (16.7%). No changes were made to any file this turn.
+
+[template] "I only want a report, please don't drop any rows"
+    I read your request as something I can't do yet. I can remove duplicate rows, remove empty rows, and look a spreadsheet over for possible problems. Report on your original file: 2 rows repeat an earlier row exactly; name: 1 missing value (16.7%); amount: 1 missing value (16.7%). No changes were made to any file this turn.
+
+[template] 'report on the file but leave everything as it is'
+    Report on your original file: 2 rows repeat an earlier row exactly; name: 1 missing value (16.7%); amount: 1 missing value (16.7%). No changes were made to any file this turn.
+
+[template] "give me a report and don't save anything"
+    I read your request as something I can't do yet. I can remove duplicate rows, remove empty rows, and look a spreadsheet over for possible problems. Report on your original file: 2 rows repeat an earlier row exactly; name: 1 missing value (16.7%); amount: 1 missing value (16.7%). No changes were made to any file this turn.
+
+[template] 'analyze my file but do not add anything'
+    I read your request as something I can't do yet. I can remove duplicate rows, remove empty rows, and look a spreadsheet over for possible problems. Report on your original file: 2 rows repeat an earlier row exactly; name: 1 missing value (16.7%); amount: 1 missing value (16.7%). No changes were made to any file this turn.
+

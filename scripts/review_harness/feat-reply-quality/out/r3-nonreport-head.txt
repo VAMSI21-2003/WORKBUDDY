@@ -1,0 +1,27 @@
+SILENT n00-dedupe|rewrite the summary                   Done — removed 2 duplicate rows. The copy has 4 rows, with 0
+SILENT n00-alone|rewrite the summary                    Report on your original file: 2 rows repeat an earlier row e
+SILENT n01-dedupe|update the summary                    Done — removed 2 duplicate rows. The copy has 4 rows, with 0
+SILENT n01-alone|update the summary                     Report on your original file: 2 rows repeat an earlier row e
+SILENT n02-dedupe|make the summary shorter              Done — removed 2 duplicate rows. The copy has 4 rows, with 0
+SILENT n02-alone|make the summary shorter               Report on your original file: 2 rows repeat an earlier row e
+SILENT n03-dedupe|proofread the report                  Done — removed 2 duplicate rows. The copy has 4 rows, with 0
+SILENT n03-alone|proofread the report                   Report on your original file: 2 rows repeat an earlier row e
+SILENT n04-dedupe|finalize the report                   Done — removed 2 duplicate rows. The copy has 4 rows, with 0
+SILENT n04-alone|finalize the report                    Report on your original file: 2 rows repeat an earlier row e
+SILENT n05-dedupe|approve the report                    Done — removed 2 duplicate rows. The copy has 4 rows, with 0
+SILENT n05-alone|approve the report                     Report on your original file: 2 rows repeat an earlier row e
+SILENT n06-dedupe|improve the analysis                  Done — removed 2 duplicate rows. The copy has 4 rows, with 0
+SILENT n06-alone|improve the analysis                   Report on your original file: 2 rows repeat an earlier row e
+SILENT n07-dedupe|polish the summary                    Done — removed 2 duplicate rows. The copy has 4 rows, with 0
+SILENT n07-alone|polish the summary                     Report on your original file: 2 rows repeat an earlier row e
+SILENT n08-dedupe|move the summary to the top           Done — removed 2 duplicate rows. The copy has 4 rows, with 0
+SILENT n08-alone|move the summary to the top            Report on your original file: 2 rows repeat an earlier row e
+SILENT n09-dedupe|number the summary lines              Done — removed 2 duplicate rows. The copy has 4 rows, with 0
+SILENT n09-alone|number the summary lines               Report on your original file: 2 rows repeat an earlier row e
+SAYS   n10-dedupe|fix the summary                       Partly done — removed 2 duplicate rows. I read part of your 
+SAYS   n10-alone|fix the summary                        I read your request as something I can't do yet. I can remov
+SAYS   n11-dedupe|sort the summary                      Partly done — removed 2 duplicate rows. I read part of your 
+SAYS   n11-alone|sort the summary                       I read your request as something I can't do yet. I can remov
+SAYS   n12-dedupe|delete the summary                    Partly done — removed 2 duplicate rows. I read part of your 
+SAYS   n12-alone|delete the summary                     I read your request as something I can't do yet. I can remov
+original changed: 0 | errors: 0

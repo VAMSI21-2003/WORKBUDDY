@@ -24,7 +24,7 @@ from buddy.voice import (
     SpeakingRequest,
     TemplateSpeaker,
 )
-from buddy.voice_catalog import FROM_ORIGINAL_SENTENCE, NOTHING_RAN_REPLY
+from buddy.voice_catalog import FROM_ORIGINAL_SENTENCE, NO_FILE_SENTENCE
 from tests.buddy.test_engine_factory import _QueuedLLMProvider, _single_intent_replies
 
 _SPEAKERS = ["template", "friend", "focus"]
@@ -35,9 +35,9 @@ def _speaker(kind: str) -> object:
 
 
 def test_the_new_constants_claim_nothing() -> None:
-    assert _COMPLETION_CLAIM.search(NOTHING_RAN_REPLY) is None
+    assert _COMPLETION_CLAIM.search(NO_FILE_SENTENCE) is None
     assert _COMPLETION_CLAIM.search(FROM_ORIGINAL_SENTENCE) is None
-    for text in (NOTHING_RAN_REPLY, FROM_ORIGINAL_SENTENCE):
+    for text in (NO_FILE_SENTENCE, FROM_ORIGINAL_SENTENCE):
         assert "{" not in text and not any(c.isdigit() for c in text)
 
 
@@ -51,11 +51,12 @@ def test_a_turn_where_nothing_ran_gets_the_fixed_reply(kind: str) -> None:
         execution_result=ExecutionResult(success=True, warnings=("nothing to execute",)),
         verification_result=VerificationResult(passed=False, findings=("x",)),
         mode="focus" if kind == "focus" else "friend",
+        has_file=False,
     )
 
     reply = _speaker(kind)(request)  # type: ignore[operator]
 
-    assert reply == NOTHING_RAN_REPLY
+    assert reply.startswith(NO_FILE_SENTENCE)
     assert "verifier" not in reply.lower() and "confirm that worked" not in reply
 
 
@@ -74,7 +75,7 @@ def test_a_turn_with_no_upload_through_the_real_pipeline(
     build_engine(llm_provider=provider, speaker=speaker).run(state)
 
     assert state.execution_result is not None and not state.execution_result.steps
-    assert state.reply == NOTHING_RAN_REPLY
+    assert (state.reply or "").startswith(NO_FILE_SENTENCE)
 
 
 @pytest.mark.parametrize("kind", _SPEAKERS)
@@ -87,7 +88,7 @@ def test_a_turn_where_a_step_ran_keeps_its_own_reply(kind: str) -> None:
         mode="friend",
     )
 
-    assert _speaker(kind)(request) != NOTHING_RAN_REPLY  # type: ignore[operator]
+    assert not _speaker(kind)(request).startswith(NO_FILE_SENTENCE)  # type: ignore[operator]
 
 
 # -- M2 ------------------------------------------------------------------------------

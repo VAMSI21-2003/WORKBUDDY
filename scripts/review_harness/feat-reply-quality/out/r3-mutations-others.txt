@@ -1,0 +1,18 @@
+early-return-off                              KILLED    1 failed, 210 passed, 308 warnings in 23.97s FAILED tests/buddy/test_reply_quality.py::test_a_phrase_that_asks_for_a_report_and_nothing_else_is_never_cant_do[I'd lik
+early-return-always                           KILLED    1 failed, 653 passed, 308 warnings in 22.78s FAILED tests/buddy/test_reply_quality.py::test_a_report_phrase_that_also_asks_for_work_buddy_cant_do_still_says_so[give 
+send-alternative-off                          KILLED    1 failed, 659 passed, 308 warnings in 22.46s FAILED tests/buddy/test_reply_quality.py::test_a_report_phrase_that_also_asks_for_work_buddy_cant_do_still_says_so[a rep
+suffix-off                                    SURVIVED  979 passed, 410 warnings in 25.87s 
+spans-off                                     KILLED    1 failed, 665 passed, 328 warnings in 21.14s FAILED tests/buddy/test_reply_quality.py::test_ordinary_report_requests_flagged_unsupported_are_delivered_with_no_contra
+spans-only-if-report-off                      SURVIVED  979 passed, 410 warnings in 26.91s 
+overlap-never                                 KILLED    1 failed, 665 passed, 328 warnings in 20.65s FAILED tests/buddy/test_reply_quality.py::test_ordinary_report_requests_flagged_unsupported_are_delivered_with_no_contra
+overlap-touching                              SURVIVED  979 passed, 410 warnings in 26.47s 
+by-person-off                                 KILLED    1 failed, 693 passed, 398 warnings in 25.62s FAILED tests/buddy/test_reply_quality_units.py::test_a_message_that_does_not_ask_for_a_report_is_not[I'll check the file
+by-person-myself-off                          SURVIVED  979 passed, 410 warnings in 27.71s 
+by-person-ican-off                            SURVIVED  979 passed, 410 warnings in 27.94s 
+by-person-ill-off                             KILLED    1 failed, 694 passed, 398 warnings in 27.31s FAILED tests/buddy/test_reply_quality_units.py::test_a_message_that_does_not_ask_for_a_report_is_not[thanks, I'll review
+negated-verbs-off                             KILLED    1 failed, 692 passed, 398 warnings in 25.44s FAILED tests/buddy/test_reply_quality_units.py::test_a_message_that_does_not_ask_for_a_report_is_not[remove the duplicat
+negated-noneed-off                            SURVIVED  979 passed, 410 warnings in 27.84s 
+negated-wont-off                              SURVIVED  979 passed, 410 warnings in 27.48s 
+negated-nominal-only                          SURVIVED  979 passed, 410 warnings in 28.08s 
+about-buddy-off                               KILLED    1 failed, 689 passed, 398 warnings in 25.44s FAILED tests/buddy/test_reply_quality_units.py::test_a_message_that_does_not_ask_for_a_report_is_not[give me an overview
+about-buddy-offer-off                         SURVIVED  979 passed, 410 warnings in 27.75s 

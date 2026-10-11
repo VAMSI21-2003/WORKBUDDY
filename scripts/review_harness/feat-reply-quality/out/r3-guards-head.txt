@@ -1,0 +1,15 @@
+44 messages; 14 disagree with what the person means
+   want=True  got=False 'give me a summary so I can review it'
+   want=True  got=False 'give me a report so I can check it'
+   want=True  got=False 'analyze my file so I can look at the problems'
+   want=True  got=False 'summarize the data so I can check the numbers'
+   want=True  got=False "I can't find the problem myself, check my file"
+   want=True  got=False 'I built this file myself, can you analyze it'
+   want=True  got=False 'I made this spreadsheet myself. Give me a report on it'
+   want=True  got=False "I'm new to this myself, give me a summary of the file"
+   want=True  got=False 'I will review it later, give me a summary now'
+   want=True  got=False "please don't forget to include a summary of the problems"
+   want=True  got=False "don't forget to give me a report on the file"
+   want=True  got=False "don't hesitate to give me a report on everything you find"
+   want=True  got=False "can you check my data? I don't have time to do it myself"
+   want=True  got=False "check my data and tell me what you find, I'm too busy to look myself"

@@ -660,19 +660,19 @@ def test_claude_planner_matches_source_phrases_case_insensitively() -> None:
 
 def test_claude_planner_remaps_dependencies_after_reordering() -> None:
     """The model's dedupe (its step 1) is second after reordering; its
-    report step depended on both, which now maps to the new ids, and the
+    sort step depended on both, which now maps to the new ids, and the
     empty-rows step's dependency on dedupe (now later) is dropped."""
     steps = _plan(
-        "remove the empty rows, then remove the duplicate rows, then give me a report",
+        "remove the empty rows, then remove the duplicate rows, then sort by name",
         _step_json("spreadsheet.deduplicate", "remove the duplicate rows"),
         _step_json("spreadsheet.remove_empty_rows", "remove the empty rows", [1]),
-        _step_json("spreadsheet.report", "give me a report", [1, 2]),
+        _step_json("spreadsheet.sort", "sort by name", [1, 2]),
     )
 
     assert [(s.id, s.capability, s.dependencies) for s in steps] == [
         ("step-1", "spreadsheet.remove_empty_rows", ()),
         ("step-2", "spreadsheet.deduplicate", ()),
-        ("step-3", "spreadsheet.report", ("step-2", "step-1")),
+        ("step-3", "spreadsheet.sort", ("step-2", "step-1")),
     ]
 
 

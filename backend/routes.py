@@ -32,6 +32,7 @@ from backend.errors import (
     too_many_uploads_message,
     upload_bytes_quota_message,
 )
+from backend.names import display_names
 from backend.ratelimit import ACCESS, GENERAL, HEALTHZ, POLL, TURNS, UPLOADS, limits
 from backend.retention import StorageMeter
 from backend.schemas import (
@@ -350,7 +351,7 @@ def get_turn(
         turn = record.turn(turn_id)
         if turn is None:
             raise ApiError(ErrorCode.TURN_NOT_FOUND)
-        return views.turn_out(session_id, turn)
+        return views.turn_out(session_id, turn, record)
 
 
 @router.post(
@@ -377,7 +378,7 @@ def answer_confirmation(
         raise ApiError(ErrorCode.TURN_NOT_FOUND)
     with record.lock:
         turn = runner_of(request).answer(record, turn_id, body.confirmation_id, body.decision)
-        return views.turn_out(session_id, turn)
+        return views.turn_out(session_id, turn, record)
 
 
 @router.get(
@@ -423,11 +424,13 @@ def download_file(request: Request, session_id: str, file_id: str) -> Response:
         if delivered is None:
             raise ApiError(ErrorCode.FILE_NOT_FOUND)
         turn_dir = record.turn_dir(settings, delivered.turn_id)
+        # The name a person sees (``backend.names``); the file on disk keeps its unique name.
+        shown = display_names(record.key, record.delivered()).get(file_id)
     checked = check_turn_file(delivered.path, turn_dir)
     if checked is None or hashlib.sha256(checked[1]).hexdigest() != delivered.sha256:
         logger.warning("Delivered file %s of session %s is unavailable", file_id, record.key)
         raise ApiError(ErrorCode.FILE_UNAVAILABLE)
-    name = sanitize_name(delivered.name) or "download.xlsx"
+    name = shown or sanitize_name(delivered.name) or "download.xlsx"
     media_type = XLSX_MEDIA_TYPE if name.lower().endswith(".xlsx") else "application/octet-stream"
     return Response(
         content=checked[1],

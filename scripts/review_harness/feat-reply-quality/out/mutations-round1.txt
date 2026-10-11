@@ -1,0 +1,34 @@
+conv-ignore-mentions                          KILLED    1 failed, 159 passed, 182 warnings in 16.11s FAILED tests/buddy/test_reply_quality_units.py::test_conversation_needs_brains_intent_and_nothing_that_contrad
+conv-ignore-ledger                            KILLED    1 failed, 56 passed, 32 warnings in 8.33s FAILED tests/buddy/test_reply_quality.py::test_an_action_request_misread_as_conversation_never_gets_a_completi
+conv-ignore-report                            KILLED    1 failed, 59 passed, 40 warnings in 5.76s FAILED tests/buddy/test_reply_quality.py::test_an_action_request_misread_as_conversation_never_gets_a_completi
+report-no-negation-guard                      KILLED    1 failed, 125 passed, 114 warnings in 9.19s FAILED tests/buddy/test_reply_quality.py::test_no_report_is_given_when_the_user_says_not_to[template]
+report-no-elsewhere-guard                     KILLED    1 failed, 141 passed, 174 warnings in 12.69s FAILED tests/buddy/test_reply_quality.py::test_a_report_to_be_emailed_is_not_given_as_the_report_and_is_stated
+think-reason-passthrough                      KILLED    1 failed, 83 passed, 50 warnings in 6.49s FAILED tests/buddy/test_reply_quality.py::test_an_unknown_clarification_reason_asks_the_general_question[faile
+think-reason-ignore-required                  KILLED    1 failed, 162 passed, 182 warnings in 13.68s FAILED tests/buddy/test_reply_quality_units.py::test_think_has_no_reason_when_it_does_not_ask
+plan-analysis-for-conversation                KILLED    1 failed, 40 passed, 22 warnings in 5.53s FAILED tests/buddy/test_reply_quality.py::test_a_greeting_gets_the_fixed_greeting_and_no_analysis[hi-template]
+plan-report-not-forced                        KILLED    1 failed, 98 passed, 68 warnings in 7.56s FAILED tests/buddy/test_reply_quality.py::test_a_report_is_given_again_for_a_file_already_analysed_earlier[tem
+plan-report-step-not-mapped                   KILLED    1 failed, 92 passed, 52 warnings in 6.52s ERROR    core.dispatcher:dispatcher.py:135 No registered skill declares capability 'spreadsheet.report'
+plan-refusal-dropped                          KILLED    1 failed, 9 passed, 1 warning in 2.15s FAILED tests/buddy/test_reply_quality.py::test_a_file_that_cannot_be_cleaned_says_why_in_the_skills_own_words[
+voice-greeting-first-off                      KILLED    1 failed, 6 passed, 1 warning in 2.00s FAILED tests/buddy/test_reply_quality.py::test_no_file_yet_says_so[conversation-template]
+voice-nofile-off                              KILLED    1 failed, 1 warning in 2.10s FAILED tests/buddy/test_reply_quality.py::test_no_file_yet_says_so[remove_duplicate_rows-template]
+voice-refusal-off                             KILLED    1 failed, 9 passed, 1 warning in 2.12s FAILED tests/buddy/test_reply_quality.py::test_a_file_that_cannot_be_cleaned_says_why_in_the_skills_own_words[
+voice-failed-reason-as-question               KILLED    1 failed, 89 passed, 50 warnings in 6.75s FAILED tests/buddy/test_reply_quality.py::test_when_think_itself_fails_the_reply_does_not_ask_a_question[templ
+voice-no-changes-sentence-dropped             KILLED    1 failed, 30 passed, 4 warnings in 4.19s FAILED tests/buddy/test_reply_quality.py::test_an_unrecognised_request_lists_what_buddy_can_do[template]
+voice-report-always-delivered                 KILLED    1 failed, 122 passed, 106 warnings in 9.07s FAILED tests/buddy/test_reply_quality.py::test_a_report_the_analysis_could_not_make_is_stated_as_not_available
+voice-report-never-requested                  KILLED    1 failed, 92 passed, 54 warnings in 6.35s FAILED tests/buddy/test_reply_quality.py::test_dedupe_then_report_delivers_the_report_on_the_final_file[templa
+voice-report-unchanged-unavailable-dropped    SURVIVED  721 passed, 216 warnings in 18.32s 
+voice-analysis-findings-without-pass          SURVIVED  721 passed, 216 warnings in 18.39s 
+voice-stop-always-partway                     KILLED    1 failed, 27 passed, 1 warning in 2.43s FAILED tests/buddy/test_reply_quality.py::test_a_cleaning_request_on_a_refused_file_says_the_same_reason[templ
+voice-stopped-no-report-sentence              KILLED    1 failed, 119 passed, 100 warnings in 9.23s ERROR    core.dispatcher:dispatcher.py:135 No registered skill declares capability 'spreadsheet.sort'
+voice-personality-plain                       KILLED    1 failed, 7 passed, 1 warning in 2.13s FAILED tests/buddy/test_reply_quality.py::test_no_file_yet_says_so[conversation-friend]
+outcome-report-not-stripped                   KILLED    1 failed, 92 passed, 54 warnings in 6.68s FAILED tests/buddy/test_reply_quality.py::test_dedupe_then_report_delivers_the_report_on_the_final_file[templa
+outcome-removed-clause-plural                 KILLED    1 failed, 196 passed, 182 warnings in 13.32s FAILED tests/buddy/test_voice.py::test_personality_voice_makes_no_model_call_on_a_verified_delivery[friend]
+text-count-noun-always-plural                 KILLED    1 failed, 30 passed, 4 warnings in 4.16s FAILED tests/buddy/test_reply_quality.py::test_an_unrecognised_request_lists_what_buddy_can_do[template]
+inspector-dup-finding-off                     KILLED    1 failed, 30 passed, 4 warnings in 4.49s FAILED tests/buddy/test_reply_quality.py::test_an_unrecognised_request_lists_what_buddy_can_do[template]
+analyze-dup-analyzer-off                      KILLED    1 failed, 178 passed, 182 warnings in 13.61s FAILED tests/buddy/test_reply_quality_units.py::test_the_analyzer_reports_exact_duplicate_rows_with_a_count
+names-no-strip                                KILLED    1 failed, 415 passed, 182 warnings in 13.63s FAILED tests/backend/test_download_names.py::test_the_internal_ids_are_dropped_from_the_download_name[report_d
+names-no-numbering                            KILLED    1 failed, 422 passed, 182 warnings in 13.74s FAILED tests/backend/test_download_names.py::test_two_files_with_the_same_name_are_numbered_in_the_order_deliv
+names-friendly-off                            KILLED    1 failed, 416 passed, 182 warnings in 14.15s FAILED tests/backend/test_download_names.py::test_the_internal_ids_are_dropped_from_the_download_name[report_n
+routes-download-uses-stored-name              KILLED    1 failed, 423 passed, 186 warnings in 14.67s FAILED tests/backend/test_download_names.py::test_the_download_header_and_the_lists_use_the_friendly_name
+views-file-list-stored                        KILLED    1 failed, 423 passed, 186 warnings in 14.85s FAILED tests/backend/test_download_names.py::test_the_download_header_and_the_lists_use_the_friendly_name
+views-turn-stored                             KILLED    1 failed, 423 passed, 186 warnings in 14.68s FAILED tests/backend/test_download_names.py::test_the_download_header_and_the_lists_use_the_friendly_name

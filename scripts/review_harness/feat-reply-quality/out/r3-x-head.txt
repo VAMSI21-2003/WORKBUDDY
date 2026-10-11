@@ -1,0 +1,200 @@
+  0%|          | 0/2 [00:00<?, ?it/s]100%|██████████| 2/2 [00:00<00:00, 1290.36it/s]
+  0%|          | 0/2 [00:00<?, ?it/s]100%|██████████| 2/2 [00:00<00:00, 2257.43it/s]
+  0%|          | 0/2 [00:00<?, ?it/s]100%|██████████| 2/2 [00:00<00:00, 270.86it/s]
+  0%|          | 0/2 [00:00<?, ?it/s]100%|██████████| 2/2 [00:00<00:00, 217.39it/s]
+  0%|          | 0/2 [00:00<?, ?it/s]100%|██████████| 2/2 [00:00<00:00, 569.11it/s]
+  0%|          | 0/2 [00:00<?, ?it/s]100%|██████████| 2/2 [00:00<00:00, 644.53it/s]
+  0%|          | 0/2 [00:00<?, ?it/s]100%|██████████| 2/2 [00:00<00:00, 738.76it/s]
+  0%|          | 0/2 [00:00<?, ?it/s]100%|██████████| 2/2 [00:00<00:00, 266.68it/s]
+  0%|          | 0/2 [00:00<?, ?it/s]100%|██████████| 2/2 [00:00<00:00, 550.43it/s]
+  0%|          | 0/2 [00:00<?, ?it/s]100%|██████████| 2/2 [00:00<00:00, 39568.91it/s]
+  0%|          | 0/2 [00:00<?, ?it/s]100%|██████████| 2/2 [00:00<00:00, 51150.05it/s]
+  0%|          | 0/2 [00:00<?, ?it/s]100%|██████████| 2/2 [00:00<00:00, 407.02it/s]
+No registered skill declares capability 'spreadsheet.report'
+  0%|          | 0/2 [00:00<?, ?it/s]100%|██████████| 2/2 [00:00<00:00, 72944.42it/s]
+No registered skill declares capability 'spreadsheet.report'
+Hands: could not dispatch capability 'spreadsheet.report' for session 'session-1': No registered skill declares support for 'spreadsheet.report'.
+No registered skill declares capability 'spreadsheet.report'
+  0%|          | 0/2 [00:00<?, ?it/s]100%|██████████| 2/2 [00:00<00:00, 2690.38it/s]
+No registered skill declares capability 'spreadsheet.report'
+Hands: could not dispatch capability 'spreadsheet.report' for session 'session-1': No registered skill declares support for 'spreadsheet.report'.
+No registered skill declares capability 'spreadsheet.report'
+  0%|          | 0/2 [00:00<?, ?it/s]100%|██████████| 2/2 [00:00<00:00, 25266.89it/s]
+No registered skill declares capability 'spreadsheet.report'
+Hands: could not dispatch capability 'spreadsheet.report' for session 'session-1': No registered skill declares support for 'spreadsheet.report'.
+No registered skill declares capability 'spreadsheet.report'
+  0%|          | 0/2 [00:00<?, ?it/s]100%|██████████| 2/2 [00:00<00:00, 72944.42it/s]
+No registered skill declares capability 'spreadsheet.report'
+Hands: could not dispatch capability 'spreadsheet.report' for session 'session-1': No registered skill declares support for 'spreadsheet.report'.
+No registered skill declares capability 'spreadsheet.report'
+  0%|          | 0/2 [00:00<?, ?it/s]100%|██████████| 2/2 [00:00<00:00, 628.22it/s]
+No registered skill declares capability 'spreadsheet.report'
+Hands: could not dispatch capability 'spreadsheet.report' for session 'session-1': No registered skill declares support for 'spreadsheet.report'.
+No registered skill declares capability 'spreadsheet.report'
+  0%|          | 0/2 [00:00<?, ?it/s]100%|██████████| 2/2 [00:00<00:00, 68759.08it/s]
+No registered skill declares capability 'spreadsheet.report'
+Hands: could not dispatch capability 'spreadsheet.report' for session 'session-1': No registered skill declares support for 'spreadsheet.report'.
+No registered skill declares capability 'spreadsheet.report'
+  0%|          | 0/2 [00:00<?, ?it/s]100%|██████████| 2/2 [00:00<00:00, 67650.06it/s]
+No registered skill declares capability 'spreadsheet.report'
+Hands: could not dispatch capability 'spreadsheet.report' for session 'session-1': No registered skill declares support for 'spreadsheet.report'.
+No registered skill declares capability 'spreadsheet.report'
+  0%|          | 0/2 [00:00<?, ?it/s]100%|██████████| 2/2 [00:00<00:00, 602.89it/s]
+No registered skill declares capability 'spreadsheet.report'
+Hands: could not dispatch capability 'spreadsheet.report' for session 'session-1': No registered skill declares support for 'spreadsheet.report'.
+No registered skill declares capability 'spreadsheet.report'
+  0%|          | 0/2 [00:00<?, ?it/s]100%|██████████| 2/2 [00:00<00:00, 610.04it/s]
+No registered skill declares capability 'spreadsheet.report'
+Hands: could not dispatch capability 'spreadsheet.report' for session 'session-1': No registered skill declares support for 'spreadsheet.report'.
+No registered skill declares capability 'spreadsheet.report'
+  0%|          | 0/2 [00:00<?, ?it/s]100%|██████████| 2/2 [00:00<00:00, 69905.07it/s]
+No registered skill declares capability 'spreadsheet.report'
+Hands: could not dispatch capability 'spreadsheet.report' for session 'session-1': No registered skill declares support for 'spreadsheet.report'.
+No registered skill declares capability 'spreadsheet.report'
+  0%|          | 0/2 [00:00<?, ?it/s]100%|██████████| 2/2 [00:00<00:00, 938.64it/s]
+No registered skill declares capability 'spreadsheet.report'
+Hands: could not dispatch capability 'spreadsheet.report' for session 'session-1': No registered skill declares support for 'spreadsheet.report'.
+No registered skill declares capability 'spreadsheet.report'
+  0%|          | 0/2 [00:00<?, ?it/s]100%|██████████| 2/2 [00:00<00:00, 34521.02it/s]
+No registered skill declares capability 'spreadsheet.report'
+Hands: could not dispatch capability 'spreadsheet.report' for session 'session-1': No registered skill declares support for 'spreadsheet.report'.
+  0%|          | 0/2 [00:00<?, ?it/s]100%|██████████| 2/2 [00:00<00:00, 364.14it/s]
+  0%|          | 0/2 [00:00<?, ?it/s]100%|██████████| 2/2 [00:00<00:00, 31655.12it/s]
+  0%|          | 0/2 [00:00<?, ?it/s]100%|██████████| 2/2 [00:00<00:00, 585.18it/s]
+  0%|          | 0/2 [00:00<?, ?it/s]100%|██████████| 2/2 [00:00<00:00, 381.49it/s]
+  0%|          | 0/2 [00:00<?, ?it/s]100%|██████████| 2/2 [00:00<00:00, 298.00it/s]
+  0%|          | 0/2 [00:00<?, ?it/s]100%|██████████| 2/2 [00:00<00:00, 92.38it/s]
+  0%|          | 0/2 [00:00<?, ?it/s]100%|██████████| 2/2 [00:00<00:00, 433.03it/s]
+  0%|          | 0/2 [00:00<?, ?it/s]100%|██████████| 2/2 [00:00<00:00, 186.58it/s]
+  0%|          | 0/2 [00:00<?, ?it/s]100%|██████████| 2/2 [00:00<00:00, 360.68it/s]
+  0%|          | 0/2 [00:00<?, ?it/s]100%|██████████| 2/2 [00:00<00:00, 480.45it/s]
+  0%|          | 0/2 [00:00<?, ?it/s]100%|██████████| 2/2 [00:00<00:00, 377.53it/s]
+  0%|          | 0/2 [00:00<?, ?it/s]100%|██████████| 2/2 [00:00<00:00, 1844.87it/s]
+  0%|          | 0/2 [00:00<?, ?it/s]100%|██████████| 2/2 [00:00<00:00, 288.10it/s]
+  0%|          | 0/2 [00:00<?, ?it/s]100%|██████████| 2/2 [00:00<00:00, 574.09it/s]
+  0%|          | 0/2 [00:00<?, ?it/s]100%|██████████| 2/2 [00:00<00:00, 327.45it/s]
+  0%|          | 0/2 [00:00<?, ?it/s]100%|██████████| 2/2 [00:00<00:00, 353.74it/s]
+  0%|          | 0/2 [00:00<?, ?it/s]100%|██████████| 2/2 [00:00<00:00, 345.57it/s]
+  0%|          | 0/2 [00:00<?, ?it/s]100%|██████████| 2/2 [00:00<00:00, 628.41it/s]
+  0%|          | 0/2 [00:00<?, ?it/s]100%|██████████| 2/2 [00:00<00:00, 309.37it/s]
+  0%|          | 0/2 [00:00<?, ?it/s]100%|██████████| 2/2 [00:00<00:00, 244.69it/s]
+  0%|          | 0/2 [00:00<?, ?it/s]100%|██████████| 2/2 [00:00<00:00, 254.69it/s]
+ClaudeThinker: reply was not valid JSON: 'not json'
+ClaudeThinker: reply was not valid JSON: 'not json'
+ClaudeThinker: reply was not valid JSON: 'not json'
+ClaudeThinker: LLM call failed
+Traceback (most recent call last):
+  File "/home/user/WORKBUDDY/buddy/think.py", line 360, in __call__
+    raw_reply = self._provider.complete(
+        system=_SYSTEM_PROMPT,
+        messages=(LLMMessage(role="user", content=user_prompt),),
+    )
+  File "/home/user/WORKBUDDY/scripts/review_harness/feat-reply-quality/rq.py", line 85, in complete
+    raise r
+RuntimeError: boom TOPSECRET
+ClaudeThinker: LLM call failed
+Traceback (most recent call last):
+  File "/home/user/WORKBUDDY/buddy/think.py", line 360, in __call__
+    raw_reply = self._provider.complete(
+        system=_SYSTEM_PROMPT,
+        messages=(LLMMessage(role="user", content=user_prompt),),
+    )
+  File "/home/user/WORKBUDDY/scripts/review_harness/feat-reply-quality/rq.py", line 85, in complete
+    raise r
+  File "/home/user/WORKBUDDY/buddy/think.py", line 360, in __call__
+    raw_reply = self._provider.complete(
+        system=_SYSTEM_PROMPT,
+        messages=(LLMMessage(role="user", content=user_prompt),),
+    )
+  File "/home/user/WORKBUDDY/scripts/review_harness/feat-reply-quality/rq.py", line 85, in complete
+    raise r
+RuntimeError: boom TOPSECRET
+ClaudeThinker: LLM call failed
+Traceback (most recent call last):
+  File "/home/user/WORKBUDDY/buddy/think.py", line 360, in __call__
+    raw_reply = self._provider.complete(
+        system=_SYSTEM_PROMPT,
+        messages=(LLMMessage(role="user", content=user_prompt),),
+    )
+  File "/home/user/WORKBUDDY/scripts/review_harness/feat-reply-quality/rq.py", line 85, in complete
+    raise r
+  File "/home/user/WORKBUDDY/buddy/think.py", line 360, in __call__
+    raw_reply = self._provider.complete(
+        system=_SYSTEM_PROMPT,
+        messages=(LLMMessage(role="user", content=user_prompt),),
+    )
+  File "/home/user/WORKBUDDY/scripts/review_harness/feat-reply-quality/rq.py", line 85, in complete
+    raise r
+  File "/home/user/WORKBUDDY/buddy/think.py", line 360, in __call__
+    raw_reply = self._provider.complete(
+        system=_SYSTEM_PROMPT,
+        messages=(LLMMessage(role="user", content=user_prompt),),
+    )
+  File "/home/user/WORKBUDDY/scripts/review_harness/feat-reply-quality/rq.py", line 85, in complete
+    raise r
+RuntimeError: boom TOPSECRET
+ClaudeThinker: reply was not valid JSON: 'not json'
+  0%|          | 0/2 [00:00<?, ?it/s]100%|██████████| 2/2 [00:00<00:00, 328.13it/s]
+ClaudeThinker: reply was not valid JSON: 'not json'
+  0%|          | 0/2 [00:00<?, ?it/s]100%|██████████| 2/2 [00:00<00:00, 311.47it/s]
+ClaudeThinker: reply was not valid JSON: 'not json'
+  0%|          | 0/2 [00:00<?, ?it/s]100%|██████████| 2/2 [00:00<00:00, 350.65it/s]
+ClaudeThinker: LLM call failed
+Traceback (most recent call last):
+  File "/home/user/WORKBUDDY/buddy/think.py", line 360, in __call__
+    raw_reply = self._provider.complete(
+        system=_SYSTEM_PROMPT,
+        messages=(LLMMessage(role="user", content=user_prompt),),
+    )
+  File "/home/user/WORKBUDDY/scripts/review_harness/feat-reply-quality/rq.py", line 85, in complete
+    raise r
+RuntimeError: boom TOPSECRET
+  0%|          | 0/2 [00:00<?, ?it/s]100%|██████████| 2/2 [00:00<00:00, 364.18it/s]
+ClaudeThinker: LLM call failed
+Traceback (most recent call last):
+  File "/home/user/WORKBUDDY/buddy/think.py", line 360, in __call__
+    raw_reply = self._provider.complete(
+        system=_SYSTEM_PROMPT,
+        messages=(LLMMessage(role="user", content=user_prompt),),
+    )
+  File "/home/user/WORKBUDDY/scripts/review_harness/feat-reply-quality/rq.py", line 85, in complete
+    raise r
+  File "/home/user/WORKBUDDY/buddy/think.py", line 360, in __call__
+    raw_reply = self._provider.complete(
+        system=_SYSTEM_PROMPT,
+        messages=(LLMMessage(role="user", content=user_prompt),),
+    )
+  File "/home/user/WORKBUDDY/scripts/review_harness/feat-reply-quality/rq.py", line 85, in complete
+    raise r
+RuntimeError: boom TOPSECRET
+  0%|          | 0/2 [00:00<?, ?it/s]100%|██████████| 2/2 [00:00<00:00, 326.88it/s]
+ClaudeThinker: LLM call failed
+Traceback (most recent call last):
+  File "/home/user/WORKBUDDY/buddy/think.py", line 360, in __call__
+    raw_reply = self._provider.complete(
+        system=_SYSTEM_PROMPT,
+        messages=(LLMMessage(role="user", content=user_prompt),),
+    )
+  File "/home/user/WORKBUDDY/scripts/review_harness/feat-reply-quality/rq.py", line 85, in complete
+    raise r
+  File "/home/user/WORKBUDDY/buddy/think.py", line 360, in __call__
+    raw_reply = self._provider.complete(
+        system=_SYSTEM_PROMPT,
+        messages=(LLMMessage(role="user", content=user_prompt),),
+    )
+  File "/home/user/WORKBUDDY/scripts/review_harness/feat-reply-quality/rq.py", line 85, in complete
+    raise r
+  File "/home/user/WORKBUDDY/buddy/think.py", line 360, in __call__
+    raw_reply = self._provider.complete(
+        system=_SYSTEM_PROMPT,
+        messages=(LLMMessage(role="user", content=user_prompt),),
+    )
+  File "/home/user/WORKBUDDY/scripts/review_harness/feat-reply-quality/rq.py", line 85, in complete
+    raise r
+RuntimeError: boom TOPSECRET
+  0%|          | 0/2 [00:00<?, ?it/s]100%|██████████| 2/2 [00:00<00:00, 605.68it/s]
+  0%|          | 0/2 [00:00<?, ?it/s]100%|██████████| 2/2 [00:00<00:00, 293.51it/s]
+  0%|          | 0/2 [00:00<?, ?it/s]100%|██████████| 2/2 [00:00<00:00, 737.72it/s]
+  0%|          | 0/2 [00:00<?, ?it/s]100%|██████████| 2/2 [00:00<00:00, 362.99it/s]
+ClaudeThinker: reply was not valid JSON: 'not json'
+[truncated to 199 lines; the full output is regenerated by the script named in README.md]

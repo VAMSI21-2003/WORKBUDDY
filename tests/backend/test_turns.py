@@ -23,12 +23,14 @@ from backend.confirmation import StaticConfirmationProvider, WebConfirmationProv
 from backend.main import create_app
 from backend.settings import Settings
 from backend.store import SessionStore
+from buddy.think import CLARIFY_OTHER
 from buddy.voice import _COMPLETION_CLAIM
 from buddy.voice_catalog import (
+    CLARIFICATION_QUESTIONS,
     FALLBACK_INTEGRITY_FAILURE,
     FALLBACK_PIPELINE_ERROR,
     FROM_ORIGINAL_SENTENCE,
-    NOTHING_RAN_REPLY,
+    NO_FILE_SENTENCE,
     failure_reply,
 )
 from tests.backend.factories import (
@@ -127,7 +129,8 @@ def test_a_delivered_turn_hands_back_the_verified_file_and_the_pipelines_reply(
     assert delivered["download_url"].endswith(f"/files/{delivered['file_id']}/download")
     on_disk = Path(run.outputs[0])
     assert on_disk.parent == settings.outputs_dir / on_disk.parent.parent.name / turn["turn_id"]
-    assert delivered["name"] == on_disk.name
+    # The person sees the name without the internal ids; the file on disk keeps its own.
+    assert delivered["name"] == "report_deduplicated.xlsx" and "-task-" in on_disk.name
     assert delivered["sha256"] == _sha(on_disk)
     assert delivered["size"] == on_disk.stat().st_size
     written = pd.read_excel(on_disk)
@@ -264,8 +267,10 @@ def test_a_chain_hands_back_only_its_final_file(settings: Settings) -> None:
     turn_dir = Path(factory.runs[0].turn_output_dir or "")
     written = sorted(p.name for p in turn_dir.iterdir())
     assert len(written) == 2  # the intermediate file stays on disk, unlisted
-    assert delivered["name"] == Path(factory.runs[0].outputs[0]).name
-    final = pd.read_excel(turn_dir / delivered["name"])
+    on_disk = Path(factory.runs[0].outputs[0])
+    assert delivered["name"] == "report_deduplicated_cleaned.xlsx"
+    assert "-task-" in on_disk.name
+    final = pd.read_excel(turn_dir / on_disk.name)
     assert len(final) == 3
 
 
@@ -445,7 +450,7 @@ def test_the_deadline_fails_the_turn_and_a_late_worker_changes_nothing(tmp_path:
         auto_approve=True,
         rate_limits=RELAXED_LIMITS,
     )
-    factory = BlockingFactory(reply="Done — removed 2 duplicate row(s).")
+    factory = BlockingFactory(reply="Done — removed 2 duplicate rows.")
     client = _app(settings, factory)
     session_id, _ = _session_with_upload(client)
     record = _context_of(client)
@@ -858,7 +863,13 @@ def test_a_turn_where_nothing_ran_says_so_plainly(
 
     turn = _turn(client, session_id, message)
 
-    assert turn["reply"] == NOTHING_RAN_REPLY == factory.runs[-1].reply
+    assert turn["reply"] == factory.runs[-1].reply
+    if setup == "no_upload":
+        assert turn["reply"].startswith(NO_FILE_SENTENCE)
+    else:
+        # Think asked for clarification: the user sees the fixed question for its reason.
+        style = "plain" if speaker == "template" else mode
+        assert turn["reply"] in CLARIFICATION_QUESTIONS[CLARIFY_OTHER][style]
     assert turn["outcome"] == "not_delivered" and turn["delivered_files"] == []
     assert "verifier" not in turn["reply"] and "confirm that worked" not in turn["reply"]
 

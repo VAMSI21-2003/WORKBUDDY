@@ -17,6 +17,12 @@ Each action in the report is one of:
   that's true by how it's derived;
 - ``DONE_UNREQUESTED``: a step ran and passed, but Brain's reading of the
   request doesn't have it and neither does the mention detector.
+
+The report (``buddy.actions.REPORT_ON_FILE``) is an action like the others, but it
+changes no file: it is in the ledger only when Brain's reading has it, and it is ``DONE``
+when the analysis of the right file (the delivered copy, or the original when nothing was
+changed) ran and passed, else ``NOT_DONE`` with the reason the analysis isn't available. The
+findings themselves are put in the reply by ``buddy.voice``.
 """
 
 import re
@@ -28,6 +34,7 @@ from buddy.actions import (
     ACTIONS_BY_NAME,
     ACTIONS_BY_TARGET,
     BRAIN_SOURCES,
+    REPORT_ON_FILE,
     UNSUPPORTED,
     requested_ledger,
 )
@@ -44,12 +51,14 @@ from buddy.models import (
     Understanding,
     VerificationResult,
 )
+from buddy.text import count_noun
 
 # -- Which steps count, and which passed ----------------------------------------------
 # Shared with buddy.voice, which imports these; they live here so this module
 # needs nothing from Voice.
 
 _ACTION_TIERS = ("write", "external_effect")
+_ANALYSIS_CAPABILITY = "spreadsheet.analyze"
 
 
 def _describe_capability(capability: str) -> str:
@@ -131,6 +140,12 @@ DONE_UNREQUESTED = "done_unrequested"
 NOT_PLANNED = "not_planned"  # Brain's reading has it; no step for its capability ran
 NOT_READ_AS_REQUEST = "not_read_as_request"  # only the mention detector has it; no step ran
 NO_SKILL = "no_skill"  # Brain listed it as "unsupported": no capability exists
+# The report was asked for (Brain's reading) and the analysis can't give it. True by how each is
+# derived from the verdicts: the re-check of the final file failed; the analysis of the original
+# failed; or no analysis verdict exists.
+REPORT_RECHECK_FAILED = "report_recheck_failed"
+REPORT_ANALYSIS_FAILED = "report_analysis_failed"
+REPORT_NOT_RUN = "report_not_run"
 # A step for it ran but didn't pass. Not reachable through a verified delivery
 # from build_engine (a failing file-changing step fails the turn); kept so the
 # sentence is never "didn't run" for a step that did run.
@@ -238,6 +253,16 @@ class OutcomeReport:
         )
 
     @property
+    def report_asked(self) -> bool:
+        """Whether Brain's reading asked for a report (the action is in the report either way)."""
+        return any(a.capability == _ANALYSIS_CAPABILITY for a in self.actions)
+
+    @property
+    def report_given(self) -> bool:
+        """Whether the report was asked for and the analysis of the right file passed."""
+        return any(a.capability == _ANALYSIS_CAPABILITY and a.status == DONE for a in self.actions)
+
+    @property
     def lead_word(self) -> str | None:
         """``"Done"``, ``"Partly done"`` or ``None`` (design 2.3 and decision D2).
 
@@ -281,6 +306,9 @@ def build_outcome_report(
       request (a mention-detector entry doesn't count as Brain's reading);
       otherwise ``DONE`` with a non-Brain source (nothing to compare it
       with), which never leads to "Done".
+    - The report (``REPORT_ON_FILE``), when Brain's reading has it, is ``DONE`` if the
+      analysis of the right file passed (see ``_report_outcome``), else ``NOT_DONE`` with
+      the reason it can't be given. Nothing else puts a report in the ledger.
     - A ledger action with no passing step is ``NOT_DONE``: ``NO_SKILL`` if
       Brain listed it as ``"unsupported"`` (unless its phrase only names an
       action that has a capability; see ``_no_skill_outcome``),
@@ -309,7 +337,7 @@ def build_outcome_report(
     ledger_by_capability = {
         ACTIONS_BY_NAME[entry.action].capability: entry
         for entry in reversed(ledger)  # the first entry for a capability wins
-        if entry.action in ACTIONS_BY_NAME
+        if entry.action in ACTIONS_BY_NAME and ACTIONS_BY_NAME[entry.action].changes_file
     }
 
     steps = execution_result.steps if execution_result is not None else ()
@@ -348,8 +376,13 @@ def build_outcome_report(
     passed_capabilities = {step.capability for step, _ in passed}
     ran_capabilities = {step.capability for step in action_steps}
     not_done: list[ActionOutcome] = []
+    report_done: list[ActionOutcome] = []
     said_no_skill: set[str] = set()
     for entry in ledger:
+        if entry.action == REPORT_ON_FILE:
+            report = _report_outcome(entry, execution_result, verification_result, bool(passed))
+            (report_done if report.status == DONE else not_done).append(report)
+            continue
         if entry.action == UNSUPPORTED:
             outcome = _no_skill_outcome(entry, ledger, passed_capabilities)
             if outcome is None or outcome.user_phrase.casefold() in said_no_skill:
@@ -371,6 +404,7 @@ def build_outcome_report(
     outcomes = [outcome for _, outcome in passed]
     actions = (
         *(o for o in outcomes if o.status == DONE),
+        *report_done,
         *(o for o in outcomes if o.status == DONE_UNREQUESTED),
         *not_done,
     )
@@ -392,6 +426,48 @@ def build_outcome_report(
             verification_result.original_facts if verification_result is not None else None
         ),
     )
+
+
+def _report_outcome(
+    entry: RequestedAction,
+    execution_result: ExecutionResult | None,
+    verification_result: VerificationResult | None,
+    changed_a_file: bool,
+) -> ActionOutcome:
+    """The outcome of the report Brain's reading asked for: ``DONE`` or ``NOT_DONE`` with a reason.
+
+    What the report describes decides which verdict counts. When a file-changing step passed
+    (the user gets a copy), the findings must come from the analysis re-run on that copy; the
+    analysis of the original no longer describes the file they receive. When nothing was changed,
+    the analysis of the original counts. A verdict that failed, or none, is never a report.
+
+    Args:
+        entry: The ledger entry for the report (Brain's).
+        execution_result: What Hands ran.
+        verification_result: Inspector's verdicts.
+        changed_a_file: A file-changing step passed this turn.
+    """
+    verdicts = verification_result.steps if verification_result is not None else ()
+    analysis_ran = execution_result is not None and any(
+        step.capability == _ANALYSIS_CAPABILITY for step in execution_result.steps
+    )
+    if changed_a_file:
+        given = any(
+            v.capability == _ANALYSIS_CAPABILITY and v.recheck and v.passed for v in verdicts
+        )
+    else:
+        given = analysis_ran and any(
+            v.capability == _ANALYSIS_CAPABILITY and not v.recheck and v.passed for v in verdicts
+        )
+    if given:
+        return ActionOutcome(_ANALYSIS_CAPABILITY, DONE, source=entry.source)
+    if any(v.recheck and not v.passed for v in verdicts):
+        reason = REPORT_RECHECK_FAILED
+    elif any(v.read_only and not v.recheck and not v.passed for v in verdicts):
+        reason = REPORT_ANALYSIS_FAILED
+    else:
+        reason = REPORT_NOT_RUN
+    return ActionOutcome(_ANALYSIS_CAPABILITY, NOT_DONE, reason=reason, source=entry.source)
 
 
 # RULE for this set: an "unsupported" entry is dropped only when, once the action's
@@ -418,6 +494,7 @@ _ACTION_WITH_VERB = {
         re.IGNORECASE,
     )
     for action in ACTIONS_BY_NAME.values()
+    if action.mention is not None
 }
 # The location strip must never take a phrase that names more than the one sheet the
 # skills read: no "across", no "workbook", no "every", no "all". Brain flagging
@@ -428,8 +505,6 @@ _LOCATION_PHRASE = re.compile(
     r"(?:sheet|file|spreadsheet|table|data)\b"
 )
 _TWO_REQUESTS = re.compile(r"\b(?:and|then|also|plus)\b|[,;&+]")
-
-
 def _no_skill_outcome(
     entry: RequestedAction,
     ledger: tuple[RequestedAction, ...],
@@ -466,6 +541,8 @@ def _no_skill_outcome(
     lowered = phrase.casefold().replace("\u2019", "'")
     names_action = named_passed = named_silent = False
     for action in ACTIONS_BY_NAME.values():
+        if action.name not in _ACTION_WITH_VERB:
+            continue
         remaining = _ACTION_WITH_VERB[action.name].sub(" ", lowered)
         if remaining == lowered:
             continue
@@ -516,7 +593,7 @@ def _residuals(
     residuals: list[StepMeasurement] = []
     for outcome in not_done:
         action = ACTIONS_BY_CAPABILITY.get(outcome.capability)
-        if action is None:
+        if action is None or not action.target:
             continue
         found = _first_for_target(verification_result.residuals, action.target)
         if found is not None and found not in residuals:
@@ -594,7 +671,7 @@ def render_outcome(report: OutcomeReport, file_style: str) -> str:
     Returns:
         The outcome block.
     """
-    done = [a for a in report.actions if a.status == DONE]
+    done = [a for a in report.actions if a.status == DONE and a.capability != _ANALYSIS_CAPABILITY]
     sentences = [_action_sentence(action) for action in done]
     lead = report.lead_word
     if lead is not None and sentences:
@@ -603,14 +680,7 @@ def render_outcome(report: OutcomeReport, file_style: str) -> str:
     unrequested = [a for a in report.actions if a.status == DONE_UNREQUESTED]
     for index, action in enumerate(unrequested):
         sentences.append(_unrequested_sentence(action, also=bool(done) or index > 0))
-    not_done = [a for a in report.actions if a.status == NOT_DONE]
-    last_unread = max(
-        (i for i, a in enumerate(not_done) if a.reason == NOT_READ_AS_REQUEST), default=None
-    )
-    for index, action in enumerate(not_done):
-        sentences.append(_not_done_sentence(action))
-        if index == last_unread and report.brain_reading:
-            sentences.append(f"I read your request as: {' and '.join(report.brain_reading)}.")
+    sentences.extend(not_done_sentences(report))
     final_state = _final_state_sentence(report.final_state)
     if final_state:
         sentences.append(final_state)
@@ -627,12 +697,49 @@ def render_outcome(report: OutcomeReport, file_style: str) -> str:
     return " ".join(sentences)
 
 
-def _removed_clause(measurement: StepMeasurement, counted: str) -> str:
-    """ "removed 2 duplicate row(s), including 1 repeated blank row" """
-    clause = f"removed {measurement.removed} {counted}"
+def report_unavailable_sentence(report: OutcomeReport) -> str | None:
+    """Why the report Brain's reading asked for can't be given, or ``None``.
+
+    ``None`` when it can be given, and when no report was asked for.
+    """
+    for action in report.actions:
+        if action.capability == _ANALYSIS_CAPABILITY and action.status == NOT_DONE:
+            return _REPORT_SENTENCES[action.reason or REPORT_NOT_RUN]
+    return None
+
+
+def not_done_sentences(
+    report: OutcomeReport, *, nothing_done: bool = False, include_report: bool = True
+) -> list[str]:
+    """The sentences for the report's ``NOT_DONE`` actions, with how Brain read the request.
+
+    Also used by a turn that changed nothing, where every action in the ledger is one of
+    these. ``nothing_done`` then says "that" and not "this part" for what Buddy can't do.
+    ``include_report=False`` leaves out the report's own sentence (a turn that changed nothing
+    puts it where the report would be).
+    """
+    not_done = [
+        a
+        for a in report.actions
+        if a.status == NOT_DONE and (include_report or a.capability != _ANALYSIS_CAPABILITY)
+    ]
+    last_unread = max(
+        (i for i, a in enumerate(not_done) if a.reason == NOT_READ_AS_REQUEST), default=None
+    )
+    sentences = []
+    for index, action in enumerate(not_done):
+        sentences.append(_not_done_sentence(action, nothing_done=nothing_done))
+        if index == last_unread and report.brain_reading:
+            sentences.append(f"I read your request as: {' and '.join(report.brain_reading)}.")
+    return sentences
+
+
+def _removed_clause(measurement: StepMeasurement, row_noun: str) -> str:
+    """ "removed 2 duplicate rows, including 1 repeated blank row" """
+    clause = f"removed {count_noun(measurement.removed or 0, row_noun)}"
     blank = measurement.removed_blank
     if blank:
-        clause += f", including {blank} repeated blank row{'' if blank == 1 else 's'}"
+        clause += f", including {count_noun(blank, 'repeated blank row')}"
     return clause
 
 
@@ -649,11 +756,25 @@ def _action_sentence(action: ActionOutcome) -> str:
         # the sentence can't be read as being about the user's file.
         left = " left" if action.after_earlier_step else ""
         return f"There were no {wording.rows}{left} to remove."
-    clause = _removed_clause(measurement, wording.counted)
+    clause = _removed_clause(measurement, wording.row_noun)
     return clause[0].upper() + clause[1:] + "."
 
 
 _NOT_IN_READING = "though I didn't read that as part of your request"
+
+# Why a requested report isn't in the reply. About this turn's analysis only; no count, no file.
+REPORT_ANALYSIS_FAILED_SENTENCE = (
+    "I couldn't produce the report you asked for: the analysis of your file failed."
+)
+REPORT_NOT_RUN_SENTENCE = "I couldn't produce the report you asked for: I didn't run the analysis."
+REPORT_RECHECK_FAILED_SENTENCE = (
+    "I couldn't produce the report you asked for: I couldn't re-check the final file."
+)
+_REPORT_SENTENCES = {
+    REPORT_RECHECK_FAILED: REPORT_RECHECK_FAILED_SENTENCE,
+    REPORT_ANALYSIS_FAILED: REPORT_ANALYSIS_FAILED_SENTENCE,
+    REPORT_NOT_RUN: REPORT_NOT_RUN_SENTENCE,
+}
 
 
 def _unrequested_sentence(action: ActionOutcome, *, also: bool) -> str:
@@ -673,10 +794,10 @@ def _unrequested_sentence(action: ActionOutcome, *, also: bool) -> str:
             f"{subject} ran the {step}, {_NOT_IN_READING}; "
             f"there were no {wording.rows}{left} to remove."
         )
-    return f"{subject} {_removed_clause(measurement, wording.counted)}, {_NOT_IN_READING}."
+    return f"{subject} {_removed_clause(measurement, wording.row_noun)}, {_NOT_IN_READING}."
 
 
-def _not_done_sentence(action: ActionOutcome) -> str:
+def _not_done_sentence(action: ActionOutcome, *, nothing_done: bool = False) -> str:
     """The sentence for a ``NOT_DONE`` action, from its reason code.
 
     Each one says what Buddy didn't run, never that rows weren't removed:
@@ -684,8 +805,13 @@ def _not_done_sentence(action: ActionOutcome) -> str:
     """
     if action.reason == NO_SKILL:
         if action.user_phrase:
-            return f"I can't do this part yet: “{action.user_phrase}”."
+            what = "that" if nothing_done else "this part"
+            return f"I can't do {what} yet: “{action.user_phrase}”."
+        if nothing_done:
+            return "I read your request as something I can't do yet."
         return "I read part of your request as something I can't do yet."
+    if action.reason in _REPORT_SENTENCES:
+        return _REPORT_SENTENCES[action.reason]
     wording = ACTIONS_BY_CAPABILITY[action.capability]
     if action.reason == NOT_READ_AS_REQUEST:
         return f"Your message mentions {wording.object}, but I didn't run the {wording.step}."
@@ -705,7 +831,9 @@ def _residual_sentences(
             continue
         subject = "It" if after_final_state or sentences else "The copy"
         if measurement.remaining:
-            sentences.append(f"{subject} still has {measurement.remaining} {wording.counted}.")
+            sentences.append(
+                f"{subject} still has {count_noun(measurement.remaining, wording.row_noun)}."
+            )
         else:
             sentences.append(f"{subject} has no {wording.rows}.")
     return sentences
@@ -715,11 +843,11 @@ def _final_state_sentence(final_state: tuple[StepMeasurement, ...]) -> str:
     measured = [m for m in final_state if m.target in ACTIONS_BY_TARGET]
     if not measured or len({m.output_rows for m in measured}) != 1:
         return ""
-    remaining = [f"{m.remaining} {ACTIONS_BY_TARGET[m.target].counted}" for m in measured]
+    remaining = [count_noun(m.remaining, ACTIONS_BY_TARGET[m.target].row_noun) for m in measured]
     listed = remaining[-1]
     if len(remaining) > 1:
         listed = ", ".join(remaining[:-1]) + " and " + listed
-    return f"The copy has {measured[0].output_rows} row(s), {listed} remaining."
+    return f"The copy has {count_noun(measured[0].output_rows, 'row')}, with {listed} remaining."
 
 
 # What a delivered copy doesn't keep (``docs/design/values-only-copy.md``, Section 2).
@@ -749,16 +877,31 @@ def _values_only_sentences(original_facts: OriginalFacts | None) -> list[str]:
     if formulas is None:
         sentences.append(FORMULAS_UNCHECKED_SENTENCE)
     elif formulas:
-        sentences.append(
-            f"Your file has {formulas} formula cell(s). The copy has their last saved values, "
-            "not the formulas."
-        )
         unsaved = original_facts.formula_cells_without_value
-        if unsaved:
+        if formulas == 1:
             sentences.append(
-                f"{unsaved} of them had no saved value, so they're empty in the copy, and "
-                "rows were judged with those cells empty."
+                "Your file has 1 formula cell. The copy has its last saved value, not the formula."
             )
+            if unsaved:
+                sentences.append(
+                    "That cell had no saved value, so it's empty in the copy, and rows were "
+                    "judged with it empty."
+                )
+        else:
+            sentences.append(
+                f"Your file has {formulas} formula cells. The copy has their last saved values, "
+                "not the formulas."
+            )
+            if unsaved == 1:
+                sentences.append(
+                    "1 of them had no saved value, so it's empty in the copy, and rows were "
+                    "judged with that cell empty."
+                )
+            elif unsaved:
+                sentences.append(
+                    f"{unsaved} of them had no saved value, so they're empty in the copy, and "
+                    "rows were judged with those cells empty."
+                )
     return sentences
 
 

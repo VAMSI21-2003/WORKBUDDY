@@ -1,0 +1,85 @@
+102 turns; {'FALSE-CANT': 84, 'OK': 18}
+  FALSE-CANT      give me a report on the email column
+  FALSE-CANT      analyze the email column
+  FALSE-CANT      summarize the email data
+  FALSE-CANT      give me a report on the Email Address column
+  FALSE-CANT      analyze the Email Address column
+  FALSE-CANT      summarize the Email Address data
+  FALSE-CANT      give me a report on the mail column
+  FALSE-CANT      analyze the mail column
+  FALSE-CANT      summarize the mail data
+  FALSE-CANT      give me a report on the share column
+  FALSE-CANT      analyze the share column
+  FALSE-CANT      summarize the share data
+  FALSE-CANT      give me a report on the Market Share column
+  FALSE-CANT      analyze the Market Share column
+  FALSE-CANT      summarize the Market Share data
+  FALSE-CANT      give me a report on the post code column
+  FALSE-CANT      analyze the post code column
+  FALSE-CANT      summarize the post code data
+  FALSE-CANT      give me a report on the post column
+  FALSE-CANT      analyze the post column
+  FALSE-CANT      summarize the post data
+  FALSE-CANT      give me a report on the plot column
+  FALSE-CANT      analyze the plot column
+  FALSE-CANT      summarize the plot data
+  FALSE-CANT      give me a report on the plot number column
+  FALSE-CANT      analyze the plot number column
+  FALSE-CANT      summarize the plot number data
+  FALSE-CANT      give me a report on the color column
+  FALSE-CANT      analyze the color column
+  FALSE-CANT      summarize the color data
+  FALSE-CANT      give me a report on the colour column
+  FALSE-CANT      analyze the colour column
+  FALSE-CANT      summarize the colour data
+  FALSE-CANT      give me a report on the schedule column
+  FALSE-CANT      analyze the schedule column
+  FALSE-CANT      summarize the schedule data
+  FALSE-CANT      give me a report on the Schedule column
+  FALSE-CANT      analyze the Schedule column
+  FALSE-CANT      summarize the Schedule data
+  FALSE-CANT      give me a report on the filter column
+  FALSE-CANT      analyze the filter column
+  FALSE-CANT      summarize the filter data
+  FALSE-CANT      give me a report on the print column
+  FALSE-CANT      analyze the print column
+  FALSE-CANT      summarize the print data
+  FALSE-CANT      give me a report on the forecast column
+  FALSE-CANT      analyze the forecast column
+  FALSE-CANT      summarize the forecast data
+  FALSE-CANT      give me a report on the dashboard column
+  FALSE-CANT      analyze the dashboard column
+  FALSE-CANT      summarize the dashboard data
+  FALSE-CANT      give me a report on the trim column
+  FALSE-CANT      analyze the trim column
+  FALSE-CANT      summarize the trim data
+  FALSE-CANT      give me a report on the split column
+  FALSE-CANT      analyze the split column
+  FALSE-CANT      summarize the split data
+  FALSE-CANT      give me a report on the bold column
+  FALSE-CANT      analyze the bold column
+  FALSE-CANT      summarize the bold data
+  FALSE-CANT      give me a report on the hide column
+  FALSE-CANT      analyze the hide column
+  FALSE-CANT      summarize the hide data
+  FALSE-CANT      give me a report on the drop column
+  FALSE-CANT      analyze the drop column
+  FALSE-CANT      summarize the drop data
+  FALSE-CANT      give me a report on the add column
+  FALSE-CANT      analyze the add column
+  FALSE-CANT      summarize the add data
+  FALSE-CANT      give me a report on the save column
+  FALSE-CANT      analyze the save column
+  FALSE-CANT      summarize the save data
+  FALSE-CANT      give me a report on the download column
+  FALSE-CANT      analyze the download column
+  FALSE-CANT      summarize the download data
+  FALSE-CANT      give me a report on the attach column
+  FALSE-CANT      analyze the attach column
+  FALSE-CANT      summarize the attach data
+  FALSE-CANT      give me a report on the publish column
+  FALSE-CANT      analyze the publish column
+  FALSE-CANT      summarize the publish data
+  FALSE-CANT      give me a report on the rotate column
+  FALSE-CANT      analyze the rotate column
+  FALSE-CANT      summarize the rotate data

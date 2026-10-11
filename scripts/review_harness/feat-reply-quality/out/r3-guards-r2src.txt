@@ -1,0 +1,9 @@
+44 messages; 8 disagree with what the person means
+   want=True  got=False "please don't forget to include a summary of the problems"
+   want=True  got=False "don't forget to give me a report on the file"
+   want=True  got=False "don't hesitate to give me a report on everything you find"
+   want=False got=True  'no need to check my file'
+   want=False got=True  "I'll check the file myself"
+   want=False got=True  'I will review the data myself'
+   want=False got=True  'I can look at the file myself'
+   want=False got=True  "remove the duplicate rows but don't look at my data"

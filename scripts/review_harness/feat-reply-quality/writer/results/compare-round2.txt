@@ -1,0 +1,52 @@
+h4/round2-new.json: 320 turns, 0 errors in new run, base had 320 turns
+    160  plural + exact-duplicate finding / flow
+     76  plural
+     36  refusal
+     24  not-understood+greeting
+     20  same
+      4  other
+problems: 0
+
+=== plural + exact-duplicate finding / flow (160)
+  key: {'fx': 'extras', 'req': 'empty', 'sid': 'session-1', 'speaker': 'template'}
+  base: Done — there were no fully-empty rows to remove. The copy has 4 row(s), 0 fully-empty row(s) remaining. Saved as `report_no_empty_rows_session-1-task-1.xlsx`. The copy has the values only; formatting, column widths and other sheet settings aren't carried over. None of the issues I check for were found.
+  new:  Done — there were no fully-empty rows to remove. The copy has 4 rows, with 0 fully-empty rows remaining. Saved as `report_no_empty_rows_session-1-task-1.xlsx`. The copy has the values only; formatting, column widths and other sheet settings aren't carried over. I also noticed: 1 row repeats an earlier row exactly. Want me to tackle any of these?
+  key: {'fx': 'extras', 'req': 'empty', 'sid': 's1', 'speaker': 'friend'}
+  base: Here's where things landed. Done — there were no fully-empty rows to remove. The copy has 4 row(s), 0 fully-empty row(s) remaining. Your cleaned copy of report.xlsx is ready. The copy has the values only; formatting, column widths and other sheet settings aren't carried over. None of the issues I check for were found.
+  new:  Here's where things landed. Done — there were no fully-empty rows to remove. The copy has 4 rows, with 0 fully-empty rows remaining. Your cleaned copy of report.xlsx is ready. The copy has the values only; formatting, column widths and other sheet settings aren't carried over. I also noticed: 1 row repeats an earlier row exactly. Want me to tackle any of these?
+  key: {'fx': 'extras', 'req': 'empty', 'sid': 'session-1', 'speaker': 'focus'}
+  base: Done — there were no fully-empty rows to remove. The copy has 4 row(s), 0 fully-empty row(s) remaining. Your cleaned copy of report.xlsx is ready. The copy has the values only; formatting, column widths and other sheet settings aren't carried over. None of the issues I check for were found.
+  new:  Done — there were no fully-empty rows to remove. The copy has 4 rows, with 0 fully-empty rows remaining. Your cleaned copy of report.xlsx is ready. The copy has the values only; formatting, column widths and other sheet settings aren't carried over. I also noticed: 1 row repeats an earlier row exactly. Want me to tackle any of these?
+
+=== other (4)
+  key: {'fx': 'extras', 'req': 'empty', 'sid': 's2', 'speaker': 'friend'}
+  base: Short one: there was nothing to remove. Done — there were no fully-empty rows to remove. The copy has 4 row(s), 0 fully-empty row(s) remaining. Your cleaned copy of report.xlsx is ready. The copy has the values only; formatting, column widths and other sheet settings aren't carried over. None of the issues I check for were found. Anything else you want me to look at?
+  new:  Short one: there was nothing to remove. Done — there were no fully-empty rows to remove. The copy has 4 rows, with 0 fully-empty rows remaining. Your cleaned copy of report.xlsx is ready. The copy has the values only; formatting, column widths and other sheet settings aren't carried over. I also noticed: 1 row repeats an earlier row exactly. Want me to tackle any of these?
+  key: {'fx': 'plain', 'req': 'empty', 'sid': 's2', 'speaker': 'friend'}
+  base: Here's where things landed. Done — removed 1 fully-empty row(s). The copy has 4 row(s), 0 fully-empty row(s) remaining. Your cleaned copy of report.xlsx is ready. The copy has the values only; formatting, column widths and other sheet settings aren't carried over. None of the issues I check for were found. Anything else you want me to look at?
+  new:  Here's where things landed. Done — removed 1 fully-empty row. The copy has 4 rows, with 0 fully-empty rows remaining. Your cleaned copy of report.xlsx is ready. The copy has the values only; formatting, column widths and other sheet settings aren't carried over. I also noticed: 1 row repeats an earlier row exactly. Want me to tackle any of these?
+  key: {'fx': 'r2_huge_dim', 'req': 'empty', 'sid': 's2', 'speaker': 'friend'}
+  base: Here's where things landed. Done — removed 1 fully-empty row(s). The copy has 4 row(s), 0 fully-empty row(s) remaining. Your cleaned copy of report.xlsx is ready. The copy has the values only; formatting, column widths and other sheet settings aren't carried over. None of the issues I check for were found. Anything else you want me to look at?
+  new:  Here's where things landed. Done — removed 1 fully-empty row. The copy has 4 rows, with 0 fully-empty rows remaining. Your cleaned copy of report.xlsx is ready. The copy has the values only; formatting, column widths and other sheet settings aren't carried over. I also noticed: 1 row repeats an earlier row exactly. Want me to tackle any of these?
+
+=== not-understood+greeting (24)
+  key: {'fx': 'extras', 'req': 'analyze_only', 'sid': 'session-1', 'speaker': 'template'}
+  base: None of the issues I check for were found. No changes were made to any file this turn.
+  new:  I didn't read that as something I can do. I can remove duplicate rows, remove empty rows, and look a spreadsheet over for possible problems. Here's what I noticed when I looked it over: 1 row repeats an earlier row exactly. Want me to tackle any of these? No changes were made to any file this turn.
+  key: {'fx': 'extras', 'req': 'analyze_only', 'sid': 's1', 'speaker': 'friend'}
+  base: None of the issues I check for were found. No changes were made to any file this turn.
+  new:  I didn't read that as something I can do. I can remove duplicate rows, remove empty rows, and look a spreadsheet over for anything that seems off. Here's what I noticed when I looked it over: 1 row repeats an earlier row exactly. Want me to tackle any of these? No changes were made to any file this turn.
+  key: {'fx': 'extras', 'req': 'analyze_only', 'sid': 's2', 'speaker': 'friend'}
+  base: None of the issues I check for were found. No changes were made to any file this turn.
+  new:  I didn't read that as something I can do. I can remove duplicate rows, remove empty rows, and look a spreadsheet over for anything that seems off. Here's what I noticed when I looked it over: 1 row repeats an earlier row exactly. Want me to tackle any of these? No changes were made to any file this turn.
+
+=== refusal (36)
+  key: {'fx': 'gap_dim_a1', 'req': 'analyze_only', 'sid': 'session-1', 'speaker': 'template'}
+  base: I didn't run anything on a file this turn, so no file was changed.
+  new:  I can't work on this file: a column in the sheet has no header, and only plain tables (one header row at the top, then the data) are supported for now. No changes were made to any file this turn.
+  key: {'fx': 'gap_dim_a1', 'req': 'analyze_only', 'sid': 's1', 'speaker': 'friend'}
+  base: I didn't run anything on a file this turn, so no file was changed.
+  new:  I can't work on this file: a column in the sheet has no header, and only plain tables (one header row at the top, then the data) are supported for now. No changes were made to any file this turn.
+  key: {'fx': 'gap_dim_a1', 'req': 'analyze_only', 'sid': 's2', 'speaker': 'friend'}
+  base: I didn't run anything on a file this turn, so no file was changed.
+  new:  I can't work on this file: a column in the sheet has no header, and only plain tables (one header row at the top, then the data) are supported for now. No changes were made to any file this turn.

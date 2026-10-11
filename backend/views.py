@@ -7,9 +7,11 @@ as it is, and every other field is structured data.
 
 from __future__ import annotations
 
+from collections.abc import Mapping
 from typing import Any
 
 from backend.confirmation import PendingPlan
+from backend.names import display_names
 from backend.schemas import (
     AwaitingConfirmationTurn,
     AwaitingConfirmationTurnSummary,
@@ -57,6 +59,7 @@ def session_created(session_id: str, record: SessionRecord, settings: Settings) 
 
 
 def session_state(session_id: str, record: SessionRecord, settings: Settings) -> SessionState:
+    names = display_names(record.key, record.delivered())
     running = record.turn(record.running_turn_id) if record.running_turn_id else None
     return SessionState(
         session_id=session_id,
@@ -64,7 +67,7 @@ def session_state(session_id: str, record: SessionRecord, settings: Settings) ->
         busy=record.busy,
         active_file_id=record.active_file_id,
         files=[uploaded_file(f) for f in record.files.values()],
-        turns=[turn_summary(session_id, t) for t in record.turns],
+        turns=[turn_summary(session_id, t, names) for t in record.turns],
         pending_confirmation=_waiting_plan(running) if running is not None else None,
         limits=limits(settings),
         retention_hours=settings.retention_hours,
@@ -104,10 +107,11 @@ def download_url(session_id: str, file_id: str) -> str:
     return f"/api/v1/sessions/{session_id}/files/{file_id}/download"
 
 
-def delivered_file(session_id: str, delivered: DeliveredFile) -> DeliveredFileOut:
+def delivered_file(session_id: str, delivered: DeliveredFile, name: str) -> DeliveredFileOut:
+    """One delivered file, under the name a person sees (``backend.names``)."""
     return DeliveredFileOut(
         file_id=delivered.file_id,
-        name=delivered.name,
+        name=name,
         size=delivered.size,
         sha256=delivered.sha256,
         download_url=download_url(session_id, delivered.file_id),
@@ -115,6 +119,7 @@ def delivered_file(session_id: str, delivered: DeliveredFile) -> DeliveredFileOu
 
 
 def file_list(record: SessionRecord) -> FileList:
+    names = display_names(record.key, record.delivered())
     files = [
         SessionFile(
             file_id=f.file_id,
@@ -129,7 +134,7 @@ def file_list(record: SessionRecord) -> FileList:
     files.extend(
         SessionFile(
             file_id=d.file_id,
-            name=d.name,
+            name=names[d.file_id],
             size=d.size,
             kind="delivered",
             downloadable=True,
@@ -141,7 +146,9 @@ def file_list(record: SessionRecord) -> FileList:
     return FileList(files=files)
 
 
-def _turn_fields(session_id: str, turn: TurnRecord) -> dict[str, object]:
+def _turn_fields(
+    session_id: str, turn: TurnRecord, names: Mapping[str, str]
+) -> dict[str, object]:
     common: dict[str, object] = {
         "turn_id": turn.turn_id,
         "seq": turn.seq,
@@ -167,7 +174,10 @@ def _turn_fields(session_id: str, turn: TurnRecord) -> dict[str, object]:
         "finished_at": turn.finished_at,
         "reply": turn.reply,
         "reply_source": turn.reply_source,
-        "delivered_files": [delivered_file(session_id, d) for d in turn.delivered_files],
+        "delivered_files": [
+            delivered_file(session_id, d, names.get(d.file_id, d.name))
+            for d in turn.delivered_files
+        ],
     }
 
 
@@ -186,9 +196,9 @@ def turn_as_started(turn: TurnRecord) -> RunningTurn:
 
 
 def turn_summary(
-    session_id: str, turn: TurnRecord
+    session_id: str, turn: TurnRecord, names: Mapping[str, str]
 ) -> RunningTurnSummary | AwaitingConfirmationTurnSummary | FinishedTurnSummary:
-    fields = _turn_fields(session_id, turn)
+    fields = _turn_fields(session_id, turn, names)
     if turn.finished:
         return FinishedTurnSummary.model_validate(fields)
     if fields["status"] == AWAITING_CONFIRMATION:
@@ -197,9 +207,9 @@ def turn_summary(
 
 
 def turn_out(
-    session_id: str, turn: TurnRecord
+    session_id: str, turn: TurnRecord, record: SessionRecord
 ) -> RunningTurn | AwaitingConfirmationTurn | FinishedTurn:
-    fields = _turn_fields(session_id, turn)
+    fields = _turn_fields(session_id, turn, display_names(record.key, record.delivered()))
     if turn.finished:
         return FinishedTurn.model_validate({**fields, "detail": _detail(turn)})
     if fields["status"] == AWAITING_CONFIRMATION:

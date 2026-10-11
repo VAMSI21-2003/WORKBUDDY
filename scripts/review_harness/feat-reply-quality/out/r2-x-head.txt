@@ -1,0 +1,200 @@
+No registered skill declares capability 'spreadsheet.report'
+No registered skill declares capability 'spreadsheet.report'
+Hands: could not dispatch capability 'spreadsheet.report' for session 'session-1': No registered skill declares support for 'spreadsheet.report'.
+No registered skill declares capability 'spreadsheet.report'
+No registered skill declares capability 'spreadsheet.report'
+Hands: could not dispatch capability 'spreadsheet.report' for session 'session-1': No registered skill declares support for 'spreadsheet.report'.
+No registered skill declares capability 'spreadsheet.report'
+No registered skill declares capability 'spreadsheet.report'
+Hands: could not dispatch capability 'spreadsheet.report' for session 'session-1': No registered skill declares support for 'spreadsheet.report'.
+No registered skill declares capability 'spreadsheet.report'
+No registered skill declares capability 'spreadsheet.report'
+Hands: could not dispatch capability 'spreadsheet.report' for session 'session-1': No registered skill declares support for 'spreadsheet.report'.
+No registered skill declares capability 'spreadsheet.report'
+No registered skill declares capability 'spreadsheet.report'
+Hands: could not dispatch capability 'spreadsheet.report' for session 'session-1': No registered skill declares support for 'spreadsheet.report'.
+No registered skill declares capability 'spreadsheet.report'
+No registered skill declares capability 'spreadsheet.report'
+Hands: could not dispatch capability 'spreadsheet.report' for session 'session-1': No registered skill declares support for 'spreadsheet.report'.
+No registered skill declares capability 'spreadsheet.report'
+No registered skill declares capability 'spreadsheet.report'
+Hands: could not dispatch capability 'spreadsheet.report' for session 'session-1': No registered skill declares support for 'spreadsheet.report'.
+No registered skill declares capability 'spreadsheet.report'
+No registered skill declares capability 'spreadsheet.report'
+Hands: could not dispatch capability 'spreadsheet.report' for session 'session-1': No registered skill declares support for 'spreadsheet.report'.
+No registered skill declares capability 'spreadsheet.report'
+No registered skill declares capability 'spreadsheet.report'
+Hands: could not dispatch capability 'spreadsheet.report' for session 'session-1': No registered skill declares support for 'spreadsheet.report'.
+No registered skill declares capability 'spreadsheet.report'
+No registered skill declares capability 'spreadsheet.report'
+Hands: could not dispatch capability 'spreadsheet.report' for session 'session-1': No registered skill declares support for 'spreadsheet.report'.
+No registered skill declares capability 'spreadsheet.report'
+No registered skill declares capability 'spreadsheet.report'
+Hands: could not dispatch capability 'spreadsheet.report' for session 'session-1': No registered skill declares support for 'spreadsheet.report'.
+No registered skill declares capability 'spreadsheet.report'
+No registered skill declares capability 'spreadsheet.report'
+Hands: could not dispatch capability 'spreadsheet.report' for session 'session-1': No registered skill declares support for 'spreadsheet.report'.
+ClaudeThinker: reply was not valid JSON: 'not json'
+ClaudeThinker: reply was not valid JSON: 'not json'
+ClaudeThinker: reply was not valid JSON: 'not json'
+ClaudeThinker: LLM call failed
+Traceback (most recent call last):
+  File "/home/user/WORKBUDDY/buddy/think.py", line 360, in __call__
+    raw_reply = self._provider.complete(
+        system=_SYSTEM_PROMPT,
+        messages=(LLMMessage(role="user", content=user_prompt),),
+    )
+  File "/home/user/WORKBUDDY/scripts/review_harness/feat-reply-quality/rq.py", line 85, in complete
+    raise r
+RuntimeError: boom TOPSECRET
+ClaudeThinker: LLM call failed
+Traceback (most recent call last):
+  File "/home/user/WORKBUDDY/buddy/think.py", line 360, in __call__
+    raw_reply = self._provider.complete(
+        system=_SYSTEM_PROMPT,
+        messages=(LLMMessage(role="user", content=user_prompt),),
+    )
+  File "/home/user/WORKBUDDY/scripts/review_harness/feat-reply-quality/rq.py", line 85, in complete
+    raise r
+  File "/home/user/WORKBUDDY/buddy/think.py", line 360, in __call__
+    raw_reply = self._provider.complete(
+        system=_SYSTEM_PROMPT,
+        messages=(LLMMessage(role="user", content=user_prompt),),
+    )
+  File "/home/user/WORKBUDDY/scripts/review_harness/feat-reply-quality/rq.py", line 85, in complete
+    raise r
+RuntimeError: boom TOPSECRET
+ClaudeThinker: LLM call failed
+Traceback (most recent call last):
+  File "/home/user/WORKBUDDY/buddy/think.py", line 360, in __call__
+    raw_reply = self._provider.complete(
+        system=_SYSTEM_PROMPT,
+        messages=(LLMMessage(role="user", content=user_prompt),),
+    )
+  File "/home/user/WORKBUDDY/scripts/review_harness/feat-reply-quality/rq.py", line 85, in complete
+    raise r
+  File "/home/user/WORKBUDDY/buddy/think.py", line 360, in __call__
+    raw_reply = self._provider.complete(
+        system=_SYSTEM_PROMPT,
+        messages=(LLMMessage(role="user", content=user_prompt),),
+    )
+  File "/home/user/WORKBUDDY/scripts/review_harness/feat-reply-quality/rq.py", line 85, in complete
+    raise r
+  File "/home/user/WORKBUDDY/buddy/think.py", line 360, in __call__
+    raw_reply = self._provider.complete(
+        system=_SYSTEM_PROMPT,
+        messages=(LLMMessage(role="user", content=user_prompt),),
+    )
+  File "/home/user/WORKBUDDY/scripts/review_harness/feat-reply-quality/rq.py", line 85, in complete
+    raise r
+RuntimeError: boom TOPSECRET
+ClaudeThinker: reply was not valid JSON: 'not json'
+ClaudeThinker: reply was not valid JSON: 'not json'
+ClaudeThinker: reply was not valid JSON: 'not json'
+ClaudeThinker: LLM call failed
+Traceback (most recent call last):
+  File "/home/user/WORKBUDDY/buddy/think.py", line 360, in __call__
+    raw_reply = self._provider.complete(
+        system=_SYSTEM_PROMPT,
+        messages=(LLMMessage(role="user", content=user_prompt),),
+    )
+  File "/home/user/WORKBUDDY/scripts/review_harness/feat-reply-quality/rq.py", line 85, in complete
+    raise r
+RuntimeError: boom TOPSECRET
+ClaudeThinker: LLM call failed
+Traceback (most recent call last):
+  File "/home/user/WORKBUDDY/buddy/think.py", line 360, in __call__
+    raw_reply = self._provider.complete(
+        system=_SYSTEM_PROMPT,
+        messages=(LLMMessage(role="user", content=user_prompt),),
+    )
+  File "/home/user/WORKBUDDY/scripts/review_harness/feat-reply-quality/rq.py", line 85, in complete
+    raise r
+  File "/home/user/WORKBUDDY/buddy/think.py", line 360, in __call__
+    raw_reply = self._provider.complete(
+        system=_SYSTEM_PROMPT,
+        messages=(LLMMessage(role="user", content=user_prompt),),
+    )
+  File "/home/user/WORKBUDDY/scripts/review_harness/feat-reply-quality/rq.py", line 85, in complete
+    raise r
+RuntimeError: boom TOPSECRET
+ClaudeThinker: LLM call failed
+Traceback (most recent call last):
+  File "/home/user/WORKBUDDY/buddy/think.py", line 360, in __call__
+    raw_reply = self._provider.complete(
+        system=_SYSTEM_PROMPT,
+        messages=(LLMMessage(role="user", content=user_prompt),),
+    )
+  File "/home/user/WORKBUDDY/scripts/review_harness/feat-reply-quality/rq.py", line 85, in complete
+    raise r
+  File "/home/user/WORKBUDDY/buddy/think.py", line 360, in __call__
+    raw_reply = self._provider.complete(
+        system=_SYSTEM_PROMPT,
+        messages=(LLMMessage(role="user", content=user_prompt),),
+    )
+  File "/home/user/WORKBUDDY/scripts/review_harness/feat-reply-quality/rq.py", line 85, in complete
+    raise r
+  File "/home/user/WORKBUDDY/buddy/think.py", line 360, in __call__
+    raw_reply = self._provider.complete(
+        system=_SYSTEM_PROMPT,
+        messages=(LLMMessage(role="user", content=user_prompt),),
+    )
+  File "/home/user/WORKBUDDY/scripts/review_harness/feat-reply-quality/rq.py", line 85, in complete
+    raise r
+RuntimeError: boom TOPSECRET
+ClaudeThinker: reply was not valid JSON: 'not json'
+ClaudeThinker: reply was not valid JSON: 'not json'
+ClaudeThinker: reply was not valid JSON: 'not json'
+ClaudeThinker: LLM call failed
+Traceback (most recent call last):
+  File "/home/user/WORKBUDDY/buddy/think.py", line 360, in __call__
+    raw_reply = self._provider.complete(
+        system=_SYSTEM_PROMPT,
+        messages=(LLMMessage(role="user", content=user_prompt),),
+    )
+  File "/home/user/WORKBUDDY/scripts/review_harness/feat-reply-quality/rq.py", line 85, in complete
+    raise r
+RuntimeError: boom TOPSECRET
+ClaudeThinker: LLM call failed
+Traceback (most recent call last):
+  File "/home/user/WORKBUDDY/buddy/think.py", line 360, in __call__
+    raw_reply = self._provider.complete(
+        system=_SYSTEM_PROMPT,
+        messages=(LLMMessage(role="user", content=user_prompt),),
+    )
+  File "/home/user/WORKBUDDY/scripts/review_harness/feat-reply-quality/rq.py", line 85, in complete
+    raise r
+  File "/home/user/WORKBUDDY/buddy/think.py", line 360, in __call__
+    raw_reply = self._provider.complete(
+        system=_SYSTEM_PROMPT,
+        messages=(LLMMessage(role="user", content=user_prompt),),
+    )
+  File "/home/user/WORKBUDDY/scripts/review_harness/feat-reply-quality/rq.py", line 85, in complete
+    raise r
+RuntimeError: boom TOPSECRET
+ClaudeThinker: LLM call failed
+Traceback (most recent call last):
+  File "/home/user/WORKBUDDY/buddy/think.py", line 360, in __call__
+    raw_reply = self._provider.complete(
+        system=_SYSTEM_PROMPT,
+        messages=(LLMMessage(role="user", content=user_prompt),),
+    )
+  File "/home/user/WORKBUDDY/scripts/review_harness/feat-reply-quality/rq.py", line 85, in complete
+    raise r
+  File "/home/user/WORKBUDDY/buddy/think.py", line 360, in __call__
+    raw_reply = self._provider.complete(
+        system=_SYSTEM_PROMPT,
+        messages=(LLMMessage(role="user", content=user_prompt),),
+    )
+  File "/home/user/WORKBUDDY/scripts/review_harness/feat-reply-quality/rq.py", line 85, in complete
+    raise r
+  File "/home/user/WORKBUDDY/buddy/think.py", line 360, in __call__
+    raw_reply = self._provider.complete(
+        system=_SYSTEM_PROMPT,
+        messages=(LLMMessage(role="user", content=user_prompt),),
+    )
+  File "/home/user/WORKBUDDY/scripts/review_harness/feat-reply-quality/rq.py", line 85, in complete
+    raise r
+RuntimeError: boom TOPSECRET
+ClaudeThinker: reply was not valid JSON: 'not json'
+[truncated to 199 lines; the full output is regenerated by the script named in README.md]

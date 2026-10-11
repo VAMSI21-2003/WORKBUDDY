@@ -1,0 +1,11 @@
+word-sort                                     KILLED    1 failed, 653 passed, 307 warnings in 24.12s FAILED tests/buddy/test_reply_quality.py::test_a_report_phrase_that_also_asks_for_work_buddy_cant_do_still_says_so[give 
+word-filter                                   SURVIVED  733 passed, 397 warnings in 26.93s 
+word-chart                                    KILLED    1 failed, 654 passed, 307 warnings in 21.52s FAILED tests/buddy/test_reply_quality.py::test_a_report_phrase_that_also_asks_for_work_buddy_cant_do_still_says_so[analy
+word-graph                                    SURVIVED  733 passed, 397 warnings in 23.58s 
+word-plot                                     SURVIVED  733 passed, 397 warnings in 24.28s 
+word-highlight                                KILLED    1 failed, 656 passed, 307 warnings in 20.53s FAILED tests/buddy/test_reply_quality.py::test_a_report_phrase_that_also_asks_for_work_buddy_cant_do_still_says_so[analy
+word-colou?r                                  SURVIVED  733 passed, 397 warnings in 23.36s 
+word-merge                                    SURVIVED  733 passed, 397 warnings in 23.98s 
+word-split                                    SURVIVED  733 passed, 397 warnings in 24.41s 
+word-rename                                   SURVIVED  733 passed, 397 warnings in 25.00s 
+word-translate                                KILLED    1 failed, 658 passed, 307 warnings in 21.21s FAILED tests/buddy/test_reply_quality.py::test_a_report_phrase_that_also_asks_for_work_buddy_cant_do_still_says_so[summa

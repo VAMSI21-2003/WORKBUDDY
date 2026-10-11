@@ -15,6 +15,7 @@ from buddy.models import (
     Understanding,
 )
 from buddy.state import BuddyState
+from buddy.text import count_noun
 from core.dispatcher import Dispatcher, DispatchError
 from skills.base import PermissionTier, Skill, SkillStatus, SkillTask
 
@@ -477,9 +478,14 @@ class Hands:
             later = sum(1 for s in step_results if s.status == SKIPPED_STATUS) - not_started
             counts = []
             if not_started:
-                counts.append(f"{not_started} earlier step(s) weren't started")
+                counts.append(
+                    f"{count_noun(not_started, 'earlier step')} "
+                    f"{'wasn' if not_started == 1 else 'weren'}'t started"
+                )
             if later:
-                counts.append(f"{later} later step(s) were skipped")
+                counts.append(
+                    f"{count_noun(later, 'later step')} {'was' if later == 1 else 'were'} skipped"
+                )
             if counts:
                 errors.append(
                     f"stopped: {stopped_because}; {' and '.join(counts)} "
@@ -696,7 +702,7 @@ class Hands:
         """
         if len(outputs) != 1 or not outputs[0].lower().endswith(_SPREADSHEET_SUFFIXES):
             return (
-                f"produced {len(outputs)} file(s) instead of one spreadsheet, so its "
+                f"produced {count_noun(len(outputs), 'file')} instead of one spreadsheet, so its "
                 "result couldn't be carried forward"
             )
         for later_index in range(index + 1, len(requests)):

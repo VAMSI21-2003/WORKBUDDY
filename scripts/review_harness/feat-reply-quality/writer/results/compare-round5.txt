@@ -1,0 +1,16 @@
+h4/round5-new.json: 222 turns, 6 errors in new run, base had 222 turns
+     96  plural + exact-duplicate finding / flow
+     72  plural
+     54  same
+problems: 0
+
+=== plural + exact-duplicate finding / flow (96)
+  key: {'name': 'a01-across-workbook-2sheets', 'sid': 'session-1', 'speaker': 'template'}
+  base: I ran into a problem partway through. The deduplicate step: the workbook has 2 sheets, and only single-sheet workbooks are supported for now. I stopped at the deduplicate step and no file was handed back; your original file is unchanged.
+  new:  I ran into a problem before I could change anything. The deduplicate step: the workbook has 2 sheets, and only single-sheet workbooks are supported for now. I stopped at the deduplicate step and no file was handed back; your original file is unchanged.
+  key: {'name': 'a01-across-workbook-2sheets', 'sid': 's1', 'speaker': 'friend'}
+  base: I ran into a problem partway through. The deduplicate step: the workbook has 2 sheets, and only single-sheet workbooks are supported for now. I stopped at the deduplicate step and no file was handed back; your original file is unchanged.
+  new:  I ran into a problem before I could change anything. The deduplicate step: the workbook has 2 sheets, and only single-sheet workbooks are supported for now. I stopped at the deduplicate step and no file was handed back; your original file is unchanged.
+  key: {'name': 'a01-across-workbook-2sheets', 'sid': 's2', 'speaker': 'friend'}
+  base: I ran into a problem partway through. The deduplicate step: the workbook has 2 sheets, and only single-sheet workbooks are supported for now. I stopped at the deduplicate step and no file was handed back; your original file is unchanged.
+  new:  I ran into a problem before I could change anything. The deduplicate step: the workbook has 2 sheets, and only single-sheet workbooks are supported for now. I stopped at the deduplicate step and no file was handed back; your original file is unchanged.

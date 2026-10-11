@@ -133,6 +133,12 @@ class BuddyState:
             original upload, so when this is above 0 a delivered reply says
             the copy was made from the original
             (``buddy.voice_catalog.FROM_ORIGINAL_SENTENCE``).
+        file_refusal: Set by the Planner when the row-cleaning skills would
+            refuse this turn's target file: the refusal's own fixed text
+            (``skills.excel.workbook.WorkbookRefused``), e.g. "the workbook
+            has 2 sheets, and only single-sheet workbooks are supported for
+            now". ``None`` when the file wasn't checked or isn't refused. A
+            reply that explains why nothing ran uses it.
     """
 
     context: Context
@@ -155,9 +161,10 @@ class BuddyState:
     failure: StageFailure | None = None
     turn_output_dir: str | None = None
     earlier_deliveries: int = 0
+    file_refusal: str | None = None
 
     @classmethod
-    def new(cls, session_id: str, workspace_id: str) -> "BuddyState":
+    def new(cls, session_id: str, workspace_id: str) -> BuddyState:
         """Construct a fresh ``BuddyState`` with a new ``Context``.
 
         Convenience factory for the common case of starting a state from
@@ -247,3 +254,4 @@ class BuddyState:
         self.failure = None
         self.turn_output_dir = None
         self.earlier_deliveries = 0
+        self.file_refusal = None

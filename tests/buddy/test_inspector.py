@@ -77,7 +77,7 @@ def test_verifier_passes_when_output_file_has_no_duplicates(tmp_path: Path) -> N
     result = SpreadsheetDedupeVerifier()(request)
 
     assert result.passed is True
-    assert "0 duplicate row(s)" in result.findings[0]
+    assert "0 duplicate rows" in result.findings[0]
 
 
 def test_verifier_fails_when_output_file_still_has_duplicates(tmp_path: Path) -> None:
@@ -88,7 +88,7 @@ def test_verifier_fails_when_output_file_still_has_duplicates(tmp_path: Path) ->
     result = SpreadsheetDedupeVerifier()(request)
 
     assert result.passed is False
-    assert "1 duplicate row(s)" in result.findings[0]
+    assert "1 duplicate row" in result.findings[0]
     assert result.recommendations
 
 
@@ -570,7 +570,7 @@ def test_composite_verifier_reuses_spreadsheet_dedupe_verifier_unchanged(tmp_pat
     result = composite(request)
 
     assert result.passed is True
-    assert any("0 duplicate row(s)" in finding for finding in result.findings)
+    assert any("0 duplicate rows" in finding for finding in result.findings)
 
 
 # -- Inspector stage -----------------------------------------------------------------
@@ -743,7 +743,7 @@ def test_dedupe_verifier_passes_an_output_consistent_with_its_input(tmp_path: Pa
     result = SpreadsheetDedupeVerifier()(_step_request("spreadsheet.deduplicate", output, source))
 
     assert result.passed is True
-    assert result.findings == ("output has 3 row(s), 0 duplicate row(s) remaining",)
+    assert result.findings == ("output has 3 rows, 0 duplicate rows remaining",)
 
 
 def test_dedupe_verifier_fails_an_output_that_removed_a_row_it_should_have_kept(
@@ -757,7 +757,7 @@ def test_dedupe_verifier_fails_an_output_that_removed_a_row_it_should_have_kept(
     result = SpreadsheetDedupeVerifier()(_step_request("spreadsheet.deduplicate", output, source))
 
     assert result.passed is False
-    assert "expected 3 non-empty row(s) from its 4-row input, found 2" in result.findings[1]
+    assert "expected 3 non-empty rows from its 4-row input, found 2" in result.findings[1]
     assert result.recommendations
 
 
@@ -768,7 +768,7 @@ def test_dedupe_verifier_fails_an_output_with_a_row_not_in_its_input(tmp_path: P
     result = SpreadsheetDedupeVerifier()(_step_request("spreadsheet.deduplicate", output, source))
 
     assert result.passed is False
-    assert "1 output row(s) don't appear in its input" in result.findings[1]
+    assert "1 output row doesn't appear in its input" in result.findings[1]
 
 
 def test_dedupe_verifier_checks_only_the_output_when_it_has_no_input(tmp_path: Path) -> None:
@@ -811,7 +811,7 @@ def test_empty_rows_verifier_fails_an_output_that_removed_a_non_empty_row(tmp_pa
     )
 
     assert result.passed is False
-    assert "expected 2 non-empty row(s)" in result.findings[1]
+    assert "expected 2 non-empty rows" in result.findings[1]
 
 
 def test_analysis_verifier_reads_the_steps_own_input_over_the_active_file(
@@ -872,8 +872,8 @@ def test_composite_verifier_checks_the_final_file_against_every_chained_steps_cl
         "final_output",
     ]
     assert result.steps[-1].findings == (
-        "final file: output has 2 row(s), 0 duplicate row(s) remaining",
-        "final file: output has 2 row(s), 0 fully-empty row(s) remaining",
+        "final file: output has 2 rows, 0 duplicate rows remaining",
+        "final file: output has 2 rows, 0 fully-empty rows remaining",
     )
 
 
@@ -920,7 +920,7 @@ def test_composite_verifier_fails_a_final_file_that_breaks_an_earlier_steps_clai
     ]
     assert result.passed is False
     assert (
-        "[final_output] final file: output has 2 row(s), 1 duplicate row(s) remaining"
+        "[final_output] final file: output has 2 rows, 1 duplicate row remaining"
         in result.findings
     )
 
@@ -1138,7 +1138,7 @@ def test_dedupe_verifier_measures_what_it_confirmed(tmp_path: Path) -> None:
     assert (result.measurements[0].input_rows, result.measurements[0].removed) == (6, 2)
     assert (result.measurements[0].output_rows, result.measurements[0].remaining) == (4, 0)
     # The finding strings are unchanged.
-    assert result.findings == ("output has 4 row(s), 0 duplicate row(s) remaining",)
+    assert result.findings == ("output has 4 rows, 0 duplicate rows remaining",)
 
 
 def test_dedupe_verifier_measures_zero_removed_on_a_file_with_no_duplicates(

@@ -160,6 +160,7 @@ def _fully_populated_state() -> BuddyState:
     state.failure = StageFailure(stage="inspector", error_type="RuntimeError")
     state.turn_output_dir = "/data/outputs/session-1/t0001"
     state.earlier_deliveries = 2
+    state.file_refusal = "the workbook has 2 sheets, and only single-sheet workbooks are supported"
     return state
 
 

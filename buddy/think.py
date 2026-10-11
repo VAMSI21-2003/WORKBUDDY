@@ -43,6 +43,17 @@ class ThinkingRequest:
     user_message: str = ""
 
 
+# Why Think asks for clarification: a closed vocabulary. Think chooses one; the reply shows a
+# fixed question for it (``buddy.voice_catalog``), never Think's own words. Anything else is
+# ``CLARIFY_OTHER``. ``CLARIFY_FAILED`` is set by code, never by the model, when Think itself
+# couldn't produce a reading: that isn't a question for the user.
+CLARIFY_WHICH_ACTION = "which_action"
+CLARIFY_WHICH_FILE = "which_file"
+CLARIFY_OTHER = "other"
+CLARIFY_FAILED = "failed"
+CLARIFY_MODEL_REASONS = frozenset({CLARIFY_WHICH_ACTION, CLARIFY_WHICH_FILE, CLARIFY_OTHER})
+
+
 @dataclass(frozen=True)
 class Reasoning:
     """The result of reasoning about how to approach a request.
@@ -62,6 +73,9 @@ class Reasoning:
             confidence) to 1.0 (full confidence). Distinct from
             ``Understanding.confidence``, which reflects confidence in the
             inferred intent rather than in the strategy for handling it.
+        clarification_reason: Why clarification is required, one of the
+            ``CLARIFY_*`` codes; ``""`` when it isn't. Only the code is kept:
+            the reply's question is fixed text chosen for it.
     """
 
     objective: str = ""
@@ -72,6 +86,7 @@ class Reasoning:
     recommended_strategy: str = ""
     clarification_required: bool = False
     confidence: float = 0.0
+    clarification_reason: str = ""
 
 
 class Thinker(Protocol):
@@ -112,6 +127,7 @@ class NullThinker:
             risks=("no thinker has been configured",),
             clarification_required=True,
             confidence=0.0,
+            clarification_reason=CLARIFY_FAILED,
         )
 
 
@@ -261,7 +277,9 @@ rest don't run:
   missing values, numeric outliers, mixed date formats, rows that share an
   identifier but disagree on other values, and likely near-duplicates. It
   changes nothing; it only reports. Buddy runs it automatically before other
-  work, so never plan for it or ask about it.
+  work, so never plan for it or ask about it. A request for a report, summary
+  or overview of the file is answered with its findings; it needs no question
+  either.
 
 Set "clarification_required" to true only when the user's answer would
 change what one of these capabilities actually does. If the user asks for
@@ -293,8 +311,14 @@ Respond with a single JSON object and nothing else, matching this shape:
   "risks": [<risk strings>],
   "recommended_strategy": "<plain-language description of the approach>",
   "clarification_required": <true|false>,
+  "clarification_reason": "which_action" | "which_file" | "other" | "",
   "confidence": <number between 0.0 and 1.0>
 }
+
+"clarification_reason" is empty unless "clarification_required" is true. Then it says what
+the user must tell you, and only that: "which_action" when you cannot tell which of the
+capabilities above they want, "which_file" when you cannot tell which file they mean, "other"
+for anything else. Do not write the question: the user is shown a fixed one for the reason.
 """
 
 
@@ -345,6 +369,7 @@ class ClaudeThinker:
                 risks=("the language model call failed",),
                 clarification_required=True,
                 confidence=0.0,
+                clarification_reason=CLARIFY_FAILED,
             )
         return self._parse_reply(raw_reply)
 
@@ -412,9 +437,12 @@ class ClaudeThinker:
                 risks=("the model's reply was not valid JSON",),
                 clarification_required=True,
                 confidence=0.0,
+                clarification_reason=CLARIFY_FAILED,
             )
 
         try:
+            clarification_required = bool(data.get("clarification_required", False))
+            reason = data.get("clarification_reason")
             return Reasoning(
                 objective=data.get("objective") or "",
                 summary=data.get("summary") or "",
@@ -422,13 +450,28 @@ class ClaudeThinker:
                 constraints=tuple(data.get("constraints") or ()),
                 risks=tuple(data.get("risks") or ()),
                 recommended_strategy=data.get("recommended_strategy") or "",
-                clarification_required=bool(data.get("clarification_required", False)),
+                clarification_required=clarification_required,
                 confidence=float(data.get("confidence", 0.0)),
+                clarification_reason=_clarification_reason(clarification_required, reason),
             )
-        except (TypeError, ValueError):
+        except (AttributeError, TypeError, ValueError):
             logger.warning("ClaudeThinker: reply JSON had an unexpected shape: %r", data)
             return Reasoning(
                 risks=("the model's reply had an unexpected shape",),
                 clarification_required=True,
                 confidence=0.0,
+                clarification_reason=CLARIFY_FAILED,
             )
+
+
+def _clarification_reason(clarification_required: bool, raw_reason: object) -> str:
+    """The reason code for a parsed reply: empty if no clarification, else a known code.
+
+    Whatever the model wrote outside the closed vocabulary becomes ``CLARIFY_OTHER``, so the
+    reply never carries its words.
+    """
+    if not clarification_required:
+        return ""
+    if isinstance(raw_reason, str) and raw_reason.strip().casefold() in CLARIFY_MODEL_REASONS:
+        return raw_reason.strip().casefold()
+    return CLARIFY_OTHER

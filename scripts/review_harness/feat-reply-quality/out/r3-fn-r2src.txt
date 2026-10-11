@@ -1,0 +1,21 @@
+[template] 'give me a summary so I can review it' (Brain phrase 'give me a summary') orig_ok=True flags=[]
+    Report on your original file: 2 rows repeat an earlier row exactly; name: 1 missing value (16.7%); amount: 1 missing value (16.7%). No changes were made to any file this turn.
+
+[template] "I can't check the file myself, give me a report" (Brain phrase 'give me a report') orig_ok=True flags=[]
+    Report on your original file: 2 rows repeat an earlier row exactly; name: 1 missing value (16.7%); amount: 1 missing value (16.7%). No changes were made to any file this turn.
+
+[template] "please don't forget to send me a summary" (Brain phrase 'send me a summary') orig_ok=True flags=[]
+    I can't do that yet: “send me a summary”. I can remove duplicate rows, remove empty rows, and look a spreadsheet over for possible problems. Here's what I noticed when I looked it over: 2 rows repeat an earlier row exactly; name: 1 missing value (16.7%); amount: 1 missing value (16.7%). Want me to tackle any of these? No changes were made to any file this turn.
+
+[template] 'analyze my file; I can fix the rest myself' (Brain phrase 'analyze my file') orig_ok=True flags=[]
+    Report on your original file: 2 rows repeat an earlier row exactly; name: 1 missing value (16.7%); amount: 1 missing value (16.7%). No changes were made to any file this turn.
+
+[template] 'summarize the file so I can look at the problems' (Brain phrase 'summarize the file') orig_ok=True flags=[]
+    Report on your original file: 2 rows repeat an earlier row exactly; name: 1 missing value (16.7%); amount: 1 missing value (16.7%). No changes were made to any file this turn.
+
+[template] 'give me a report on the empty rows' (Brain phrase 'give me a report on the empty rows') orig_ok=True flags=[]
+    I read your request as something I can't do yet. Your message mentions empty rows, but I didn't run the empty-row removal. I can remove duplicate rows, remove empty rows, and look a spreadsheet over for possible problems. Report on your original file: 2 rows repeat an earlier row exactly; name: 1 missing value (16.7%); amount: 1 missing value (16.7%). No changes were made to any file this turn.
+
+[template] 'check my file for blank rows' (Brain phrase 'check my file for blank rows') orig_ok=True flags=[]
+    I read your request as something I can't do yet. Your message mentions empty rows, but I didn't run the empty-row removal. I can remove duplicate rows, remove empty rows, and look a spreadsheet over for possible problems. Report on your original file: 2 rows repeat an earlier row exactly; name: 1 missing value (16.7%); amount: 1 missing value (16.7%). No changes were made to any file this turn.
+

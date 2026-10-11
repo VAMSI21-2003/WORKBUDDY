@@ -4,10 +4,16 @@ import json
 import logging
 import os
 import re
+from collections.abc import Sequence
 from dataclasses import dataclass, replace
 from typing import Protocol
 
-from buddy.actions import INTENT_CAPABILITIES
+from buddy.actions import (
+    INTENT_CAPABILITIES,
+    asks_for_report,
+    is_conversation,
+    report_phrases,
+)
 from buddy.llm import LLMMessage, LLMProvider
 from buddy.models import PlanningStep, Understanding
 from buddy.state import BuddyState
@@ -61,6 +67,7 @@ class PlanningRequest:
     active_file: str | None
     user_message: str
     unanalyzed_spreadsheet_files: tuple[str, ...] = ()
+    file_refusal: str | None = None
 
 
 class PlanningStrategy(Protocol):
@@ -245,23 +252,28 @@ class ProactiveAnalysisPlanner:
 _ANALYZE_CAPABILITY = "spreadsheet.analyze"
 
 
-def _cleaning_skills_would_refuse(file_reference: str) -> bool:
-    """Whether the row-cleaning skills would refuse this workbook.
+def cleaning_refusal(file_reference: str) -> str | None:
+    """Why the row-cleaning skills would refuse this workbook, in the skills' own words.
 
-    True for a workbook with more than one sheet, for one whose sheets can't
-    be listed (password-protected, legacy, damaged), and for one whose sheet
-    isn't a plain table (merged cells, a header that isn't on the first row,
-    a column with no header, equal headers). A file that isn't on disk says
-    nothing, so it's not counted as refused.
+    The refusal's fixed text (``skills.excel.workbook.WorkbookRefused``) for a
+    workbook with more than one sheet, one whose sheets can't be listed
+    (password-protected, legacy, damaged), and one whose sheet isn't a plain
+    table (merged cells, a header that isn't on the first row, a column with
+    no header, equal headers, cells read as empty). ``None`` when they would
+    accept it. A file that isn't on disk says nothing, so it's not refused.
     """
     if not os.path.exists(file_reference):
-        return False
+        return None
     try:
-        if len(sheet_names(file_reference)) != 1:
-            return True
-        return plain_table_problem(file_reference) is not None
-    except WorkbookRefused:
-        return True
+        names = sheet_names(file_reference)
+        if len(names) != 1:
+            return (
+                f"the workbook has {len(names)} sheets, and only single-sheet workbooks "
+                "are supported for now"
+            )
+        return plain_table_problem(file_reference)
+    except WorkbookRefused as refused:
+        return str(refused)
 
 
 def _drop_redundant_analysis(
@@ -369,6 +381,12 @@ _PUNCTUATION = re.compile(r"[^\w\s]")
 def _normalize_connector(text: str) -> str:
     """``text`` lowercased, punctuation removed, whitespace collapsed."""
     return " ".join(_PUNCTUATION.sub(" ", text.lower()).split())
+
+
+def _same_words(phrase: str, others: Sequence[str]) -> bool:
+    """Whether ``phrase`` is, ignoring case and spacing, one of ``others``. Nothing is read."""
+    key = " ".join(phrase.casefold().split())
+    return bool(key) and any(key == " ".join(other.casefold().split()) for other in others)
 
 
 def _quotes_nothing(raw_step: object) -> bool:
@@ -537,17 +555,21 @@ class Planner:
         Returns:
             The request to hand to the configured strategy.
         """
+        unanalyzed, refusal = Planner._resolve_analysis_target(state)
+        # Recorded for Voice: when nothing runs, the reply says why.
+        state.file_refusal = refusal
         return PlanningRequest(
             understanding=state.understanding or Understanding(),
             reasoning=state.reasoning or Reasoning(),
             uploaded_files=tuple(state.uploaded_files),
             active_file=state.context.active_file,
             user_message=state.user_message,
-            unanalyzed_spreadsheet_files=Planner._resolve_unanalyzed_spreadsheet_files(state),
+            unanalyzed_spreadsheet_files=unanalyzed,
+            file_refusal=refusal,
         )
 
     @staticmethod
-    def _resolve_unanalyzed_spreadsheet_files(state: BuddyState) -> tuple[str, ...]:
+    def _resolve_analysis_target(state: BuddyState) -> tuple[tuple[str, ...], str | None]:
         """Resolve this turn's target file, if it needs proactive analysis.
 
         Mirrors the exact ``active_file or uploaded_files[-1]`` resolution
@@ -560,25 +582,42 @@ class Planner:
             state: The current ``BuddyState`` for this turn.
 
         Returns:
-            A 0-or-1-element tuple containing the resolved target file, if
-            it's a spreadsheet and hasn't already been analyzed this
-            session; otherwise an empty tuple.
+            ``(files, refusal)``. ``files`` is a 0-or-1-element tuple with the
+            resolved target file, if it's a spreadsheet to analyse this turn.
+            ``refusal`` is the row-cleaning skills' own refusal text for that
+            file, or ``None`` (also when the file wasn't checked).
+
+            A file is analysed when it hasn't been this session, or when the
+            message asks for a report on it. Never when the turn is only
+            conversation or waits for the user's answer to a question: nobody
+            asked for the file to be looked at, and the findings would be used
+            up (a file is analysed once) before the user's real request. A
+            report is asked for only when Brain's reading has it
+            (``asks_for_report``); no word of the message is read here.
         """
         target_file = state.context.active_file or (
             state.uploaded_files[-1] if state.uploaded_files else None
         )
         if target_file is None:
-            return ()
+            return (), None
         if not target_file.lower().endswith(_SUPPORTED_ANALYSIS_EXTENSIONS):
-            return ()
-        if target_file in state.context.analyzed_files:
-            return ()
-        if _cleaning_skills_would_refuse(target_file):
+            return (), None
+        understanding = state.understanding or Understanding()
+        report_asked = asks_for_report(understanding)
+        if target_file in state.context.analyzed_files and not report_asked:
+            return (), None
+        if not report_asked and (
+            is_conversation(understanding, state.user_message or "")
+            or (state.reasoning is not None and state.reasoning.clarification_required)
+        ):
+            return (), None
+        refusal = cleaning_refusal(target_file)
+        if refusal is not None:
             # The analysis reads the first sheet only (and misreads a sheet that
             # isn't a plain table) and ends by offering to fix what it found,
             # work the skills would refuse on this file.
-            return ()
-        return (target_file,)
+            return (), refusal
+        return (target_file,), None
 
     @staticmethod
     def _apply(state: BuddyState, steps: tuple[PlanningStep, ...]) -> None:
@@ -613,10 +652,11 @@ skill able to perform them. Prefer those exact capability strings when a
 step matches one. If a requested action does not match any capability in
 that list, still include the step — name the most sensible capability
 string for what's being asked, following the same dot-separated
-domain.action pattern already in use (e.g. "spreadsheet.report",
-"spreadsheet.dashboard"). Never omit a requested action just because no
-matching capability is listed; the system already handles telling the
-user a capability isn't supported yet.
+domain.action pattern already in use (e.g. "spreadsheet.sort",
+"spreadsheet.dashboard"). A request for a report, summary, analysis or overview
+of the file is the capability "spreadsheet.analyze". Never omit a requested action
+just because no matching capability is listed; the system already handles telling
+the user a capability isn't supported yet.
 
 Respond with a single JSON object and nothing else, matching this shape:
 {
@@ -721,7 +761,9 @@ class ClaudePlanner:
         except Exception:
             logger.exception("ClaudePlanner: LLM call failed")
             return ()
-        return self._parse_reply(raw_reply, request.user_message)
+        return self._parse_reply(
+            raw_reply, request.user_message, report_phrases(request.understanding)
+        )
 
     def _build_user_prompt(self, request: PlanningRequest, target_file: str) -> str:
         """Build the user-turn prompt from ``request``.
@@ -757,7 +799,9 @@ class ClaudePlanner:
         return "\n".join(lines)
 
     @staticmethod
-    def _parse_reply(raw_reply: str, user_message: str) -> tuple[PlanningStep, ...]:
+    def _parse_reply(
+        raw_reply: str, user_message: str, report_phrases: Sequence[str] = ()
+    ) -> tuple[PlanningStep, ...]:
         """Parse the model's raw JSON reply into an ordered step sequence.
 
         Steps are put in the order the user stated them whenever that can
@@ -768,6 +812,9 @@ class ClaudePlanner:
             raw_reply: The model's raw text reply.
             user_message: The user's own message, to check the order
                 against.
+            report_phrases: The words Brain gave to the report (``buddy.actions
+                .report_phrases``). A step that quotes exactly one of them, under a
+                capability no skill has, is the report: its analysis. Compared as text.
 
         Returns:
             The parsed steps, or ``()`` if ``raw_reply`` is not valid
@@ -828,11 +875,21 @@ class ClaudePlanner:
                     and number in position_of
                     and position_of[number] < index
                 )
+                capability = str(raw_step["capability"])
+                if (
+                    capability != _ANALYZE_CAPABILITY
+                    and capability not in INTENT_CAPABILITIES.values()
+                    and _same_words(str(raw_step.get("source_phrase") or ""), report_phrases)
+                ):
+                    # Brain read this phrase as the report and Buddy has one: its analysis. A
+                    # model's own name for it ("spreadsheet.report") must not stop the chain as
+                    # a step no skill can run.
+                    capability = _ANALYZE_CAPABILITY
                 steps.append(
                     PlanningStep(
                         id=step_ids[index],
                         description=str(raw_step["description"]),
-                        capability=str(raw_step["capability"]),
+                        capability=capability,
                         priority=index,
                         dependencies=dependencies,
                         order_confirmed=order_confirmed,

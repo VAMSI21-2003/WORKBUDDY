@@ -246,7 +246,11 @@ def test_a_download_of_a_file_that_changed_or_is_gone_is_410_and_an_upload_is_40
     assert ui.client.get(href).status_code == 200
 
     delivered_name = ui.api_turn(sid, "t0001")["delivered_files"][0]["name"]
-    path = next(app.state.settings.outputs_dir.rglob(delivered_name))  # not step 1's file
+    assert delivered_name == "report_deduplicated_cleaned.xlsx"  # no internal ids
+    # The chain's final file on disk (the last step's), not step 1's.
+    path = next(
+        p for p in app.state.settings.outputs_dir.rglob("*.xlsx") if "no_empty_rows" in p.name
+    )
     path.chmod(0o644)
     path.write_bytes(b"changed")
 

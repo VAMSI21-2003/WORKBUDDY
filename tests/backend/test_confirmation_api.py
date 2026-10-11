@@ -339,10 +339,15 @@ def test_a_turn_without_a_file_changing_step_never_waits_for_an_answer(
     settings: Settings,
 ) -> None:
     """Only the read-only analysis runs: no plan, no ``awaiting_confirmation``."""
-    factory = PipelineFactory(QueuedProvider(_unclear()))
+    # Brain can't tell what is wanted and Think doesn't ask: the analysis runs, nothing else.
+    replies = _unclear()
+    replies[1] = json.dumps(
+        {"objective": "", "summary": "Vague.", "clarification_required": False, "confidence": 0.2}
+    )
+    factory = PipelineFactory(QueuedProvider(replies))
     client = _app(settings, factory)
     session_id, _ = _session_with_upload(client)
-    turn_id = _start(client, session_id, "hi, what can you do?")
+    turn_id = _start(client, session_id, "look at my file")
 
     statuses = set()
     deadline = time.monotonic() + 30
