@@ -35,6 +35,7 @@ from buddy.voice_catalog import (
     NEXT_STEP_WITHOUT_FILE,
     NO_FILE_SENTENCE,
     NOT_UNDERSTOOD_SENTENCE,
+    REPORT_ANALYSIS_FAILED_SENTENCE,
     REPORT_LEAD_COPY,
     REPORT_LEAD_ORIGINAL,
     REPORT_NOT_PRODUCED_SENTENCE,
@@ -746,6 +747,27 @@ def test_a_report_the_analysis_could_not_make_is_stated_as_not_available(
 
 
 @pytest.mark.parametrize("speaker", SPEAKERS)
+def test_a_report_whose_analysis_skill_fails_uses_the_report_sentence(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, speaker: str
+) -> None:
+    """RQ-R5-3: the analysis of the original fails; the reply says the report failed, once."""
+
+    def failing(self: SpreadsheetAnalysisSkill, task: Any) -> Any:
+        from skills.base import SkillResult, SkillStatus
+
+        return SkillResult(status=SkillStatus.FAILURE, errors=["could not read the workbook"])
+
+    monkeypatch.setattr(SpreadsheetAnalysisSkill, "execute", failing)
+    provider = Routed(brain("report_on_file", ("report_on_file", "give me a report")), think())
+
+    turn = run_turn(tmp_path, speaker, "give me a report", provider, monkeypatch=monkeypatch)
+
+    assert not turn.delivered and turn.original_unchanged
+    assert turn.reply == f"{REPORT_ANALYSIS_FAILED_SENTENCE} {NO_CHANGES_SENTENCE}"
+    assert "confirm that worked" not in turn.reply
+
+
+@pytest.mark.parametrize("speaker", SPEAKERS)
 def test_no_report_is_given_when_brain_did_not_read_one_whatever_the_message_says(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch, speaker: str
 ) -> None:
@@ -1162,9 +1184,14 @@ def test_the_mention_detector_never_adds_or_confirms_a_report(
 
 
 @pytest.mark.parametrize("speaker", SPEAKERS)
-def test_what_the_report_is_about_is_not_a_request_for_it_when_brain_gave_it_the_phrase(
+def test_a_removal_named_inside_the_reports_phrase_is_still_found_by_the_cross_check(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch, speaker: str
 ) -> None:
+    """Round 5's H1(a): the mention check reads the whole message, report phrase included.
+
+    "give me a report on the duplicate rows" now gets the true "I didn't run the duplicate-row
+    removal", the cost of a check that cannot be blinded by Brain's phrase for the report.
+    """
     turn = run_turn(
         tmp_path,
         speaker,
@@ -1176,11 +1203,40 @@ def test_what_the_report_is_about_is_not_a_request_for_it_when_brain_gave_it_the
         monkeypatch=monkeypatch,
     )
 
-    assert turn.reply.startswith(REPORT_LEAD_ORIGINAL)
-    assert "mentions" not in turn.reply and "didn't run" not in turn.reply
-    assert "remove_duplicate_rows" not in {
+    assert "Your message mentions duplicate rows, but I didn't run the duplicate-row removal" in (
+        turn.reply
+    )
+    assert not turn.delivered and turn.original_unchanged
+    assert "remove_duplicate_rows" in {
         entry.action for entry in turn.state.understanding.requested_actions
     }
+
+
+@pytest.mark.parametrize("speaker", SPEAKERS)
+def test_a_removal_swallowed_by_the_reports_phrase_is_not_claimed_as_done(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, speaker: str
+) -> None:
+    """Round 5's H1(a) scenario: Brain's report phrase covers "remove the empty rows"."""
+    provider = Routed(
+        brain(
+            "remove_duplicate_rows",
+            ("remove_duplicate_rows", "remove the duplicate rows"),
+            ("report_on_file", "remove the empty rows and give me a report"),
+        ),
+        think(),
+    )
+
+    turn = run_turn(
+        tmp_path,
+        speaker,
+        "remove the duplicate rows, remove the empty rows and give me a report",
+        provider,
+        monkeypatch=monkeypatch,
+    )
+
+    assert turn.delivered and turn.original_unchanged
+    assert "Your message mentions empty rows, but I didn't run the empty-row removal" in turn.reply
+    assert not turn.reply.startswith("Done")
 
 
 @pytest.mark.parametrize("speaker", SPEAKERS)

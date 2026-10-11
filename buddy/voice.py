@@ -671,7 +671,17 @@ class TemplateSpeaker:
             elif verification_result is None:
                 reply = self._nothing_confirmed_message(execution_result)
             else:
-                reply = self._no_changes_message(execution_result, verification_result)
+                reply = self._no_changes_message(
+                    execution_result,
+                    verification_result,
+                    report_unavailable_sentence(
+                        build_outcome_report(
+                            execution_result, verification_result, request.understanding
+                        )
+                    )
+                    if request.report_requested
+                    else None,
+                )
         elif verification_result is None:
             reply = "I made the changes, but wasn't able to confirm the result."
         else:
@@ -840,6 +850,7 @@ class TemplateSpeaker:
     def _no_changes_message(
         execution_result: ExecutionResult | None,
         verification_result: VerificationResult,
+        report_unavailable: str | None = None,
     ) -> str:
         """Compose the reply for a turn in which no file was changed.
 
@@ -851,6 +862,9 @@ class TemplateSpeaker:
         Args:
             execution_result: The execution result, if any.
             verification_result: Inspector's verdict for this turn.
+            report_unavailable: Why the report Brain read can't be given
+                (``report_unavailable_sentence``), or ``None``. It states the failed analysis in
+                place of the generic "I wasn't able to confirm that worked".
 
         Returns:
             The reply text.
@@ -866,11 +880,20 @@ class TemplateSpeaker:
                 + ". Want me to tackle any of these?"
             )
         remaining = dataclasses.replace(verification_result, findings=other_findings)
-        if not remaining.passed:
+        only_analysis_failed = all(
+            v.passed or v.capability == _ANALYZE_CAPABILITY for v in verification_result.steps
+        )
+        if report_unavailable is not None and only_analysis_failed:
+            parts.append(report_unavailable)
+        elif not remaining.passed:
             parts.append(TemplateSpeaker._failure_message(remaining))
+            if report_unavailable is not None:
+                parts.append(report_unavailable)
         elif other_findings:
             joined = "; ".join(_strip_finding_tags(f) for f in other_findings)
             parts.append(joined[0].upper() + joined[1:] + ".")
+            if report_unavailable is not None:
+                parts.append(report_unavailable)
         parts.append(NO_CHANGES_SENTENCE)
         return " ".join(parts)
 

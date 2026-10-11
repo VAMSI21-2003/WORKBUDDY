@@ -13,7 +13,6 @@ from buddy.actions import (
     brain_ledger,
     find_phrase,
     mentioned_actions,
-    report_phrases,
 )
 from buddy.context import ConversationTurn
 from buddy.llm import LLMMessage, LLMProvider
@@ -250,6 +249,9 @@ the order the user asked for them, one entry per action, whatever the intent:
 a single request has one entry, a compound request has one per action. Use
 "report_on_file" for a request for a report, summary, analysis or overview of the file,
 whatever it is about ("a report on the duplicate rows" is a report, not a removal).
+Anything the user asks for around a report that Buddy cannot do (a file format such as
+pdf, a language, a place to put it, someone to send it to) is its own "unsupported" entry;
+the "source_phrase" of "report_on_file" is only the words that ask for the report itself.
 Use "unsupported" for an action that is none of those (for example sorting, a chart or
 sending the file somewhere).
 "source_phrase" must be copied character-for-character from the user's
@@ -457,10 +459,12 @@ class MentionCrossCheck:
 
     Independent of every model, and it can only add items to the "not done"
     side of a reply: see ``docs/design/verified-outcome-design.md`` Section
-    3.2. A mention inside the phrase Brain gave to the report ("a report on the duplicate
-    rows") is what the report is about, not a request to remove them, and is not added.
-    The report itself has no mention pattern, so this stage never adds or confirms one.
-    It never changes ``intent``, so routing is unaffected. It runs even when Brain
+    3.2. It reads the whole message, including the words Brain gave to the report: Brain's
+    phrase for a report can swallow a removal the user asked for ("remove the empty rows and
+    give me a report"), and a check that skipped those words could not see it. The price is
+    a true "I didn't run the duplicate-row removal" on "give me a report on the duplicate
+    rows". The report itself has no mention pattern, so this stage never adds or confirms
+    one. It never changes ``intent``, so routing is unaffected. It runs even when Brain
     failed; such turns deliver nothing and never use the ledger.
     """
 
@@ -492,9 +496,7 @@ class MentionCrossCheck:
                 source=LEDGER_FROM_MENTION,
                 phrase_found=True,
             )
-            for action, text in mentioned_actions(
-                request.user_message, except_inside=report_phrases(understanding)
-            )
+            for action, text in mentioned_actions(request.user_message)
             if action.name not in listed
         )
         if added:

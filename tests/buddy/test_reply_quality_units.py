@@ -162,6 +162,21 @@ def test_brains_prompt_names_the_report_action_and_does_not_file_a_report_as_uns
     assert "report" not in " ".join(unsupported_line).replace("report_on_file", "")
 
 
+def test_brains_prompt_makes_an_extra_around_a_report_its_own_unsupported_entry() -> None:
+    """Round 5's H1(b): "in pdf" folded into the report's phrase is a false "Done"."""
+    from buddy.brain import _SYSTEM_PROMPT
+
+    flat = " ".join(_SYSTEM_PROMPT.split())
+    assert (
+        "Anything the user asks for around a report that Buddy cannot do (a file format such "
+        "as pdf, a language, a place to put it, someone to send it to) is its own "
+        '"unsupported" entry; the "source_phrase" of "report_on_file" is only the words that '
+        "ask for the report itself."
+    ) in flat
+    # It sits with the report_on_file instruction, before the list of unsupported examples.
+    assert flat.index("is its own") < flat.index('Use "unsupported"')
+
+
 # -- Think's reason code ---------------------------------------------------------------------
 
 
