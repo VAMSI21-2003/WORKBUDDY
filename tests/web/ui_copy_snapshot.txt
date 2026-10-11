@@ -48,6 +48,8 @@ _copy.html text: Uploaded files
 _copy.html text: WorkBuddy demo
 _copy.html text: You
 _copy.html text: Your answer may not have reached the server.
+_copy.html text: Your next request will use {name}, the latest file Buddy handed back, unless you ask to start over.
+_copy.html text: Your next request will use {name}, your upload.
 _copy.html text: about {seconds} s left
 _copy.html text: active
 _parts.html attr:value: approve

@@ -35,6 +35,13 @@ Sessions and their files are deleted once a session has been idle for {{ hours }
 {%- macro uploads_empty() -%}No files uploaded yet.{%- endmacro -%}
 {%- macro active_tag() -%}active{%- endmacro -%}
 {%- macro delivered_heading() -%}Files from Buddy{%- endmacro -%}
+{%- macro next_file(name, delivered) -%}
+{%- if delivered -%}
+Your next request will use {{ name }}, the latest file Buddy handed back, unless you ask to start over.
+{%- else -%}
+Your next request will use {{ name }}, your upload.
+{%- endif -%}
+{%- endmacro -%}
 
 {#- the conversation -#}
 {%- macro conversation_heading() -%}Conversation{%- endmacro -%}

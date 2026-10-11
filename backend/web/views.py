@@ -119,6 +119,17 @@ class FileView:
 
 
 @dataclass(frozen=True)
+class NextFileView:
+    """The file the next request will use (``SessionState.next_request_file``): a name and a kind.
+
+    A plain statement of which file is on offer; the page says nothing about any result.
+    """
+
+    name: str
+    delivered: bool
+
+
+@dataclass(frozen=True)
 class FilesView:
     """The Files panel: uploads, the files Buddy delivered, and whether upload is open."""
 
@@ -128,6 +139,7 @@ class FilesView:
     upload_open: bool
     accept: str
     limit_text: str
+    next_file: NextFileView | None = None
 
 
 @dataclass(frozen=True)
@@ -259,6 +271,14 @@ def files_view(
         upload_open=upload_open,
         accept=",".join(state.limits.accepted_extensions),
         limit_text=limit_text(state, settings),
+        next_file=(
+            NextFileView(
+                name=state.next_request_file.name,
+                delivered=state.next_request_file.kind == "delivered",
+            )
+            if state.next_request_file is not None
+            else None
+        ),
     )
 
 
