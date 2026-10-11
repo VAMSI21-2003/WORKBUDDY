@@ -28,4 +28,7 @@ Round 5 (`docs/reviews/feat-reply-quality-review.md`, "Review round 5 (commit d6
 ## Checks
 
 - The 10 new test cases (3 + 3 + 3 + 1) fail on the previous `buddy/` code and pass on this one (run with `buddy/` stashed).
-- Suite and lint: see the end of this file.
+- `python -m pytest -q`: 3090 passed, 6 skipped (3083 before: 3 tests replaced by 10 new cases, net +7). No test skipped or xfailed.
+- `ruff check buddy tests`: 18 errors, the same as round 5's head; `scripts/check_ruff_baseline.py`: no errors beyond the baseline.
+- `origin/main` has not moved since the round-5 merge (`c9592ca`), so there is nothing to merge in.
+- Not run: live runs (none in this session, by the owner's instruction).
