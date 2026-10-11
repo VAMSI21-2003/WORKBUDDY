@@ -253,13 +253,16 @@ class SessionStore:
                 if confirmation is not None
                 else None
             ),
-            # Which file the turn worked on, so which file each file it delivered was made from.
-            "file_used": (
-                {"kind": used.kind, "file_id": used.file_id, "start_over": used.start_over}
-                if used is not None
-                else None
-            ),
         }
+        if used is not None:
+            # Which file the turn worked on, so which file each file it delivered was made from.
+            # Left out when there is none, so a record that says nothing about it is the same
+            # as one an older server wrote (and one that older server can still open).
+            data["file_used"] = {
+                "kind": used.kind,
+                "file_id": used.file_id,
+                "start_over": used.start_over,
+            }
         path = record.meta_dir(self._settings) / "turns" / f"{turn.turn_id}.json"
         atomic_write_json(path, data)
 

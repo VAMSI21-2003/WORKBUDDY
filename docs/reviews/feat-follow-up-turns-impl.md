@@ -24,7 +24,7 @@ Writer's note for the reviewer. Design: `docs/design/follow-up-turns.md`. Base: 
 
 1. **Nothing-left applies only when the turn worked on a copy.** A first request on an upload that has nothing to remove still delivers its copy ("there were no duplicate rows to remove"), as before. Making it uniform would change an existing, tested behaviour; flagged for the owner.
 2. **An explicit `file_id` on a request means "a file the person picked": the upload is used as itself.** The page never sends one. An API client that sends the active file's id on every turn therefore never chains, and the reply says it worked on the upload.
-3. **"Start over" is remembered.** A turn that ran to its end with Brain reading `original` drops the latest copy for later turns, even if that turn delivered nothing. A failed turn records nothing.
+3. **"Start over" is not remembered on its own** (changed after review round 1, F1). A start-over turn that delivers makes its file the latest; one that delivers nothing changes nothing for the next request.
 4. **The pipeline reads a copy of the delivered file**, not the delivered file: otherwise generated names grow ~54 characters per follow-up and a step fails after a few (`docs/design/follow-up-turns.md`).
 5. **Sentence for the copy** says "the latest copy I handed back", not "from your previous request", because a failed turn can sit between.
 6. A delivered file that is gone or changed on disk is not used; the reply says the upload was.

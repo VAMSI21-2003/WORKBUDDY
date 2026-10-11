@@ -601,7 +601,10 @@ class TurnRunner:
             logger.exception("Turn %s: finalization failed; using the fallback", turn.turn_id)
             result = Finalization(FAILED, FALLBACK_PIPELINE_ERROR, PIPELINE_FALLBACK)
         if result.outcome in (DELIVERED, NOT_DELIVERED) and state is not None:
-            result = dataclasses.replace(result, file_used=_file_used_record(job, state))
+            result = dataclasses.replace(
+                result,
+                file_used=_file_used_record(job, state, delivered=result.outcome == DELIVERED),
+            )
         if result.outcome == INTEGRITY_FAILURE:
             logger.critical(
                 "Turn %s for session %s: an upload changed; every file is held back",
@@ -730,19 +733,20 @@ class TurnRunner:
 WORK_INPUT_DIR = "input"
 
 
-def _file_used_record(job: _Job, state: BuddyState) -> FileUsedRecord | None:
+def _file_used_record(job: _Job, state: BuddyState, *, delivered: bool) -> FileUsedRecord | None:
     """The file the pipeline says it worked on, as a stored record; ``None`` if it can't be named.
 
     Matched by path against the two files the turn was offered, so a record never names a file the
-    turn wasn't given.
+    turn wasn't given. ``start_over`` is kept only for a turn that delivered a file: a turn that
+    handed nothing back made no change to what the next request builds on, and its reply says so.
     """
     used, offer = state.file_used, job.offer
     if used is None or offer is None:
         return None
     if used.path == str(offer.upload.path):
-        return FileUsedRecord(USED_UPLOAD, offer.upload.file_id, used.start_over)
+        return FileUsedRecord(USED_UPLOAD, offer.upload.file_id, used.start_over and delivered)
     if offer.source is not None and used.path == str(offer.work_input):
-        return FileUsedRecord(USED_DELIVERED, offer.source.file_id, used.start_over)
+        return FileUsedRecord(USED_DELIVERED, offer.source.file_id, used.start_over and delivered)
     logger.error("Turn %s worked on a file it wasn't offered", job.turn.turn_id)
     return None
 

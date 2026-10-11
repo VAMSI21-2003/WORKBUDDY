@@ -211,25 +211,98 @@ def test_start_over_works_on_the_upload_and_later_requests_build_on_that(make_ch
     assert f"`{copy_b['name']}`, the latest copy I handed back" in third["reply"]
 
 
-def test_asking_to_use_the_original_without_a_request_resets_what_comes_next(make_chat) -> None:  # type: ignore[no-untyped-def]
-    """A start-over turn that delivers nothing still sends the next request back to the upload."""
+@pytest.mark.parametrize("speaker", SPEAKERS)
+@pytest.mark.parametrize("intent", ["unclear", "conversation", "report_on_file"])
+def test_a_turn_that_hands_nothing_back_never_changes_what_comes_next(
+    make_chat, speaker: str, intent: str  # type: ignore[no-untyped-def]
+) -> None:
+    """Review round 1, F1: "use my original file" alone is answered as a turn that did nothing,
+    and it is one. The next request still builds on the latest copy; the page's line agrees."""
     chat = make_chat(
         single("remove_duplicate_rows")
-        + single("unclear", file_to_use="original")
-        + single("remove_empty_rows")
+        + single(intent, file_to_use="original")
+        + single("remove_empty_rows"),
+        speaker,
     )
     chat.upload()
-    chat.turn("remove the duplicate rows")
+    (copy_1,) = chat.turn("remove the duplicate rows")["delivered_files"]
 
     nothing = chat.turn("use my original file")
-    assert nothing["outcome"] == "not_delivered"
-    assert chat.state()["next_request_file"]["kind"] == "upload"
+    assert nothing["outcome"] == "not_delivered" and nothing["delivered_files"] == []
+    assert chat.state()["next_request_file"]["file_id"] == copy_1["file_id"]
 
     after = chat.turn("remove the empty rows")
     (copy,) = after["delivered_files"]
 
-    assert facts(chat.download(copy)) == (5, 2, 0)
-    assert WORKED_ON_ORIGINAL_SENTENCE in after["reply"]
+    assert facts(chat.download(copy)) == (3, 0, 0)  # built on the copy
+    assert f"`{copy_1['name']}`, the latest copy I handed back" in after["reply"]
+
+
+@pytest.mark.parametrize("speaker", SPEAKERS)
+def test_a_declined_start_over_changes_nothing_either(make_chat, speaker: str) -> None:  # type: ignore[no-untyped-def]
+    chat = make_chat(
+        single("remove_duplicate_rows")
+        + single("remove_empty_rows", file_to_use="original")
+        + single("remove_empty_rows"),
+        speaker,
+    )
+    chat.upload()
+    (copy_1,) = chat.turn("remove the duplicate rows")["delivered_files"]
+
+    declined = chat.turn("start over and remove the empty rows", decision="reject")
+    assert declined["outcome"] == "not_delivered"
+    after = chat.turn("remove the empty rows")
+
+    assert f"`{copy_1['name']}`, the latest copy I handed back" in after["reply"]
+
+
+@pytest.mark.parametrize("speaker", SPEAKERS)
+def test_a_failed_turn_that_read_start_over_changes_nothing(make_chat, speaker: str) -> None:  # type: ignore[no-untyped-def]
+    calls = {"n": 0}
+
+    def wrap(cycle: Any) -> Any:
+        calls["n"] += 1
+        return raise_in("inspector", after=True)(cycle) if calls["n"] == 2 else cycle
+
+    chat = make_chat(
+        single("remove_duplicate_rows")
+        + single("remove_empty_rows", file_to_use="original")
+        + single("remove_empty_rows"),
+        speaker,
+        wrap=wrap,
+    )
+    chat.upload()
+    (copy_1,) = chat.turn("remove the duplicate rows")["delivered_files"]
+
+    failed = chat.turn("start over and remove the empty rows")
+    assert failed["outcome"] == "failed"
+    after = chat.turn("remove the empty rows")
+
+    assert f"`{copy_1['name']}`, the latest copy I handed back" in after["reply"]
+    assert facts(chat.download(after["delivered_files"][0])) == (3, 0, 0)
+
+
+@pytest.mark.parametrize("speaker", ["friend", "focus"])
+def test_the_reply_names_the_file_the_turn_worked_on_when_two_deliveries_share_a_name(
+    make_chat, speaker: str  # type: ignore[no-untyped-def]
+) -> None:
+    """Review round 1, F2: both sentences of the reply name the same file."""
+    chat = make_chat(
+        single("remove_duplicate_rows")
+        + single("remove_duplicate_rows", file_to_use="original")
+        + single("remove_empty_rows"),
+        speaker,
+    )
+    chat.upload()
+    chat.turn("remove the duplicate rows")
+    (second,) = chat.turn("start over, remove the duplicate rows")["delivered_files"]
+    assert second["name"] == "report_deduplicated (2).xlsx"
+
+    third = chat.turn("now remove the empty rows")
+
+    assert "Your cleaned copy of report_deduplicated (2).xlsx is ready." in third["reply"]
+    assert "`report_deduplicated (2).xlsx`, the latest copy I handed back" in third["reply"]
+    assert "report_deduplicated.xlsx" not in third["reply"]
 
 
 def test_a_new_upload_in_the_middle_is_used_as_itself(make_chat) -> None:  # type: ignore[no-untyped-def]
@@ -494,3 +567,84 @@ def test_a_stored_turn_naming_a_file_that_doesnt_exist_is_not_restored(settings:
         json.dumps({k: v for k, v in record.items() if k != "file_used"}), encoding="utf-8"
     )
     assert SessionStore(settings).load_session(key) is not None
+
+
+# -- Guards a mutation must not get past (review round 1, F3) -----------------------------------
+
+
+class _Touch:
+    """A stage that runs the real one and then appends a byte to files it is given (a breach)."""
+
+    def __init__(self, inner: Any, paths: Any) -> None:
+        self._inner = inner
+        self._paths = paths
+
+    def __call__(self, state: Any) -> Any:
+        state = self._inner(state)
+        for path in self._paths(state):
+            path.chmod(0o644)
+            with open(path, "ab") as handle:
+                handle.write(b"\0")
+        return state
+
+
+def _touching(paths: Any) -> Any:
+    import dataclasses
+
+    def wrap(cycle: Any) -> Any:
+        return dataclasses.replace(cycle, hands=_Touch(cycle.hands, paths))
+
+    return wrap
+
+
+def _breach(make_chat, which: str) -> tuple[Any, dict[str, Any]]:  # type: ignore[no-untyped-def]
+    armed = {"on": False}
+
+    def paths(state: Any) -> list[Path]:
+        if not armed["on"] or state.file_choice is None or state.file_choice.copy is None:
+            return []
+        work = Path(state.file_choice.copy)
+        if which == "the turn's copy":
+            return [work]
+        (delivered,) = (p for p in work.parents[2].rglob("*.xlsx") if p.parent.name == "t0001")
+        return [delivered]
+
+    chat = make_chat(single("remove_duplicate_rows") + single("remove_empty_rows") * 2,
+                     wrap=_touching(paths))
+    chat.upload()
+    first = chat.turn("remove the duplicate rows")
+    armed["on"] = True
+    return chat, first
+
+
+@pytest.mark.parametrize("which", ["the turn's copy", "the earlier delivered file"])
+def test_a_skill_that_rewrites_the_copy_or_the_delivered_file_hands_nothing_back(
+    make_chat, which: str  # type: ignore[no-untyped-def]
+) -> None:
+    chat, _ = _breach(make_chat, which)
+
+    breached = chat.turn("now remove the empty rows")
+
+    assert breached["outcome"] == "integrity_failure" and breached["delivered_files"] == []
+
+
+def test_a_follow_up_on_a_copy_leaves_a_session_a_restart_can_open(settings: Settings) -> None:
+    """The saved context names uploads only: a copy's path or its analysis must not reach it."""
+    provider = QueuedProvider(single("remove_duplicate_rows") + single("remove_empty_rows"))
+    factory = PipelineFactory(provider, speaker="friend")
+    chat = Chat(TestClient(create_app(settings, factory)), factory)
+    chat.upload()
+    chat.turn("remove the duplicate rows")
+    (copy_2,) = chat.turn("now the empty rows")["delivered_files"]
+
+    restarted = TestClient(create_app(settings, PipelineFactory(QueuedProvider([]))))
+    state = restarted.get(f"/api/v1/sessions/{chat.session_id}")
+
+    assert state.status_code == 200
+    assert state.json()["next_request_file"]["file_id"] == copy_2["file_id"]
+    saved = json.loads(
+        (settings.sessions_dir / session_key(chat.session_id) / "session.json").read_text()
+    )
+    uploads = {str(p) for p in settings.uploads_dir.rglob("report.xlsx")}
+    assert saved["context"]["active_file"] in uploads
+    assert set(saved["context"]["analyzed_files"]) <= uploads

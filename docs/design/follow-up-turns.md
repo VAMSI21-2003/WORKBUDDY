@@ -24,7 +24,7 @@ Rule 1 (never claim an outcome that didn't happen) and rule 2 (never modify an u
 3. **Why a copy in the turn folder.** Skills name their output `<input stem>_<operation>_<session>-task-<n>.xlsx`. Reading the delivered file directly would put the previous output's whole generated name in the stem of the next, 54 characters longer each time, until a name passed the file system's limit and the step failed. The copy is named as the person sees the file (`backend.names.download_name`: `report_deduplicated.xlsx`), so the next name is `report_deduplicated_no_empty_rows_<key>-task-1.xlsx`, shown as `report_deduplicated_cleaned.xlsx`, and the growth is bounded.
 4. **After the run** (`_record_in_session`). The session's focus is set back to the upload and `analyzed_files` loses any copy path, because what `session.json` stores names uploads only.
 
-"Start over" is a turn that ran to its end with Brain reading `original` (`FileUsedRecord.start_over`). It drops whatever was latest, so only files delivered from that turn on count, **even when the turn itself delivers nothing** ("use my original file" alone). A failed turn records nothing, so it changes nothing.
+"Start over" needs no memory of its own. A turn that starts over and delivers makes its own file the latest, so the next request builds on that. A turn that starts over and **delivers nothing** ("use my original file" alone, a declined plan, a report) changes nothing for the next request, and its reply, which says nothing ran, is true (review round 1, F1). `start_over` is recorded on the turn only when the turn delivered. A failed turn records nothing.
 
 ## The reply
 
@@ -42,7 +42,7 @@ A report on a copy (no file changed) is labelled "Report on the file I worked on
 
 ## On-disk format (migration)
 
-The turn record gains an optional key, `file_used`: `{"kind": "upload" | "delivered", "file_id": <id>, "start_over": bool}` or `null`. `FORMAT_VERSION` stays 1, as it did when `confirmation` was added; the store accepts a record with or without either key (`_TURN_OPTIONAL_KEYS`) and checks a stored `file_used` (shape, and that it names an upload of the session, equal to the turn's `target_file_id`, or a file delivered by an earlier turn).
+The turn record gains an optional key, `file_used`: `{"kind": "upload" | "delivered", "file_id": <id>, "start_over": bool}`; the key is left out when the turn has none (a failed turn, a record from before). `FORMAT_VERSION` stays 1, as it did when `confirmation` was added; the store accepts a record with or without either key (`_TURN_OPTIONAL_KEYS`) and checks a stored `file_used` (shape, and that it names an upload of the session, equal to the turn's `target_file_id`, or a file delivered by an earlier turn).
 
 - **Old sessions keep working.** A turn without `file_used` delivered files that were made from its `target_file_id` upload, and `latest_copy` reads it that way. `tests/deploy/test_saved_data_survives.py` opens `data-v2` and checks that a new request on it builds on what it delivered, and that it can start over.
 - **Fixtures.** `data-v1` and `data-v2` are as they were. `data-v3` (`python scripts/make_data_fixture.py 3`) holds a delivered turn and a rejected turn that used the delivered copy. The shape guard now compares today's output with `data-v3`.

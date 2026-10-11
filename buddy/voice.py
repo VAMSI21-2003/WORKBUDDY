@@ -214,6 +214,11 @@ def _delivered_file_name(request: "SpeakingRequest") -> str | None:
     if _nothing_delivered(request):
         return None
     assert request.execution_result is not None
+    used = request.file_used
+    if used is not None and used.kind == FILE_KIND_COPY and _name_in_reply(used.copy_name):
+        # The name the person sees for the copy the turn worked on, the same one the reply's
+        # "I worked on ..." sentence gives (not the turn's private working name for it).
+        return _name_in_reply(used.copy_name)
     for step in request.execution_result.steps:
         if _is_action_step(step) and step.input_reference:
             return Path(step.input_reference).name
