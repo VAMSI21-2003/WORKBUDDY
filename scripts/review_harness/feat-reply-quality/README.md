@@ -138,3 +138,16 @@ historical; the round-1 probes (`probe_a` ... `probe_i`) still run, but they han
     python r5_cmp.py out/a-base.json out/a-head.json        # head vs base for any probe output, grouped by changed sentence
     python r5_harness_check.py base.json head.json         # harness.py / rereview3.py / round5.py pair: delivered, originals, voice calls, forbidden text
     # shared harnesses (not edited): python scripts/review_harness/{harness,rereview3,round5}.py --out X.json   and the same with --tree $BASE
+
+
+## Round 6 (head `c176d26`; scope: the diff since `5fc73c6`, round 5's H1, regression against `origin/main`)
+
+Round 6 reused the round-5 scripts unchanged (`r5_fold2.py`, `r5_fold.py`, `r5_shapes.py`, `r5_files_faults.py`, `r5_hostile.py`, `r5_wordings.py`, `r5_fuzz.py`,
+`r5_sessions.py`, `r5_api.py`, `probe_a.py`, `probe_e_more.py`, `check_numbers.py`), each with `--tree` for a worktree of `origin/main` (base) or `5fc73c6` (previous head), and added:
+
+    python r6_cmp.py A.json B.json [--show N]        # two probe outputs turn by turn: identical / different replies, delivered flips, changed originals, flags
+    python r6_voice_branch.py [--tree DIR] --out F   # the RQ-R5-3 branch (_no_changes_message): 103 scenarios x 3 speakers, analysis failing in 6 ways x 6 file kinds + extras
+    python r6_ordinary.py [--tree DIR]               # ordinary report wordings that name a removal ("report on the empty rows"), faithful Brain
+    python r6_mutations.py --tree $THROWAWAY_HEAD_WORKTREE   # 10 mutations of the code changed since 5fc73c6 (restores each file); 6 test files
+
+Outputs go to `out/` (git-ignored). Typical use: `for t in head prev base: python r5_shapes.py --tree <tree> --out out/r6-shapes-<t>.json`, then `r6_cmp.py prev head`.

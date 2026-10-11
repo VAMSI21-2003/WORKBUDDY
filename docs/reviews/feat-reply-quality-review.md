@@ -317,3 +317,55 @@ A reviewer that prototyped a fix must not review it: round 6 needs a new agent.
 - A real browser; Windows; `round2_probe.py`; the three `values_only_probe` fixtures that do not build here.
 - The `r2_*`, `r3_*` and `r4_*` probes (they import functions the head deleted). The base's suite count (2792) was not re-run.
 - Mutations of the page templates and of `deploy/`.
+
+
+# Review round 6 (commit c176d26)
+
+**Verdict: MERGE (code), on the condition that the owner's live check of H1(b) comes out clean. No HIGH; no MEDIUM an ordinary request can reach.** Scope as set by the owner: the diff since `5fc73c6` (`buddy/brain.py`, `buddy/voice.py`, `CLAUDE.md`, three test files, the fixes file), round 5's H1, regression against `origin/main`. No live runs (no key; none wanted). I wrote no prototype fix; I mutated code only in a throwaway worktree, since removed.
+
+## What I ran
+
+| # | What | Result |
+|---|---|---|
+| 1 | `python -m pytest -q` | 3090 passed, 6 skipped (491 s). Same as the fixes file. |
+| 2 | `ruff check buddy tests`, by file and rule, head vs `origin/main` | 18 errors on head, 22 on base. Nothing new; the 4 gone are `buddy/brain.py` E501, `buddy/inspector.py` E501, `buddy/state.py` UP037, `tests/buddy/test_voice.py` E501. `scripts/check_ruff_baseline.py`: no errors beyond the baseline. |
+| 3 | The 10 new test cases against `5fc73c6`'s `buddy/` (scratch copy of head with `buddy/` checked out from `5fc73c6`) | All 10 fail (3 analysis-sentence, 3 cross-check, 3 swallowed removal, 1 prompt pin). They test the new behaviour. |
+| 4 | `r5_fold2.py`: Brain folds "remove the empty rows" into the report's phrase (G1, G2, G3, G4), 3 speakers | **H1(a) is closed.** G1 and G4: "Removed 2 duplicate rows. Your message mentions empty rows, but I didn't run the empty-row removal. I read your request as: remove duplicate rows and report on the file. The copy has 4 rows ... It still has 1 fully-empty row." No "Done". My read of the copy (4 rows, 1 empty row) matches. G2 (planner plans both): the empty row is removed and said ("I also removed 1 fully-empty row, though I didn't read that as part of your request"). G3 (split): "Partly done ... I didn't run the empty-row removal". Delivered in G1/G3/G4: 4 rows as stated. |
+| 5 | `r5_fold.py`: 11 report + extra wordings x folded / split / all-unsupported x alone / after a dedupe x 3 speakers (159 turns), head vs `5fc73c6` | 0 differences in 159 turns (the code does not change this path). Folded: "Done" with the extra unmentioned, 11 of 11 after a dedupe; report only, extra unmentioned, 11 of 11 alone. Split and all-unsupported: the extra is named in 31 of 31 (template; the same for friend and focus). **H1(b) is a prompt-only fix: when Brain still folds, the reply is the same false "Done" as in round 5** (see H1(b) below). |
+| 6 | `r5_shapes.py` (54 x 3 = 162 turns), `r5_files_faults.py` (76 x 3 = 228), `r5_hostile.py` (72), `r5_wordings.py` (180), on head, `5fc73c6` and base | Head vs `5fc73c6`: shapes 15 differ (D01, D03, D05 ... "Your message mentions duplicate rows, but I didn't run the duplicate-row removal. I read your request as: report on the file." then the report: the intended H1(a) cost; each is true); files_faults 6 differ (the RQ-R5-3 sentence); hostile 0; wordings 6 differ (W11, W28, same cost); 0 delivered flips; 0 changed originals; 0 errors; 0 new flags. `secret_or_file_text` 12 and the "claim words" 3 in files_faults are identical on `5fc73c6` (L11, pre-existing). |
+| 7 | `r6_voice_branch.py` (mine): the new `_no_changes_message` branch, 103 scenarios x 3 speakers = 309 turns: 6 file kinds (plain, clean, blanks, multi-sheet, merged, header-only) x report alone / dedupe + report x 6 fault settings (analyzer raises all / 1st; analysis verifier fails all / 1st; pandas read raises all; none), report + an unsupported sort, Think asking, report + empty rows, report as intent only, report twice, dedupe verifier failing | vs `5fc73c6`: 24 differ, all of them `read-excel-raises-all` with a report requested: "I wasn't able to confirm that worked. The analysis reported failure." became "I couldn't produce the report you asked for: the analysis of your file failed." True; no file was handed back in any of them. RQ-R5-3 is **closed**. Verifier-failure turns already used that sentence. Multi-sheet and merged-cell files still get the file refusal. 0 changed originals. |
+| 8 | `r6_ordinary.py` (mine): 6 ordinary wordings that name a removal beside a report, faithful Brain, 3 speakers | "remove the duplicate rows and give me a report on the empty rows": "Removed 2 duplicate rows. Your message mentions empty rows, but I didn't run the empty-row removal ... It still has 1 fully-empty row." (true, and the lead is not "Done"). "... a report on what you removed" and "... on the duplicates" after a dedupe: "Done — removed 2 duplicate rows ... Report on the copy: ..." (the dedupe ran; true). "give me a report on the empty rows" and "report on how many empty rows there are" alone: "Your message mentions empty rows, but I didn't run the empty-row removal. I read your request as: report on the file. ... Report on your original file: ..." (true, the report is given; reads as if a removal was asked: the decided cost, L1 below). |
+| 9 | `r5_fuzz.py` seeds 11 (750 turns), 12 (510), 21 `--bias delivered` (600), 31 (750); `r5_sessions.py` (10 sessions); `r5_api.py` (HTTP app, friend and focus) | 0 invariant violations in 2,610 fuzz turns; no error, no voice-model call (0); the sessions and the API give the expected names and replies. `check_numbers.py` over 11 outputs: 3,414 stated counts, 0 mismatches against the independent openpyxl read. |
+| 10 | Head vs base, `probe_a.py` (468 turns) and `probe_e_more.py` (96) | Same turns deliver a file; flags on the base only (`(s)`, plural, "verifier") are gone on head; the only head flag is `secret_or_file_text` (6 turns, the L11 column-header case, same on base). |
+| 11 | `r6_mutations.py`: 10 one-place mutations of the changed code, 6 test files | 6 killed (the cross-check blind again; `only_analysis_failed` always false; the report gate inverted; first branch condition dropped; prompt sentence removed; prompt sentence weakened). 4 survive: `only_analysis_failed` always true; the report sentence not added after `_failure_message`; not added after the other-findings sentence; the `request.report_requested` gate removed (cannot be observed: `report_unavailable_sentence` returns `None` when no report was asked). The first three: I ran the "always true" mutation through 1,287 turns (`r6_voice_branch`, `r5_files_faults`, fuzz seed 11): 0 differing replies, so those branches are probably unreachable today (RQ-R6-3). |
+| 12 | Rule 2 | SHA-256 of the original before and after: 0 changes in every turn of every probe above that had an original (the rest had no file). |
+| 13 | Rule 1, every reply of the above | No reply claims something that did not happen. The only false-"Done" family is H1(b) when Brain folds (below). Numbers checked (row 9). |
+
+## H1 (round 5): state
+
+- **H1(a) [Certain] closed.** `MentionCrossCheck` reads the whole message again; my own G1/G4 replies above say the empty-row removal did not run, in all three speakers. The mutation that restores `except_inside` fails a test.
+- **H1(b) closed as prescribed, residual not testable here.** The sentence is in Brain's prompt exactly as the round-5 reviewer wrote it, and a pin test checks it. Nothing in code catches a Brain that folds "in pdf" into the report's phrase; I re-ran the folded shapes and the reply is the same as in round 5. The prompt lowers the odds; I cannot measure by how much without the real model. [Possible] reach for pdf / language / place wordings, as before. This is the condition on the verdict: before merge, the owner's live runs must include "remove the duplicate rows and give me a report in pdf" (and "give me a report", "remove the duplicate rows and then give me a report"); a "Done" that omits "in pdf" is a stop and means the Brain-field alternative from round 5 is needed.
+
+## New findings (LOW, all Deferred, added to `docs/backlog.md` under "round 6")
+
+| ID | What | Evidence |
+|---|---|---|
+| L1 | A plain report request that mentions what the report is about gets a true but misleading "Your message mentions empty rows, but I didn't run the empty-row removal. I read your request as: report on the file." (RQ-R5-1 / RQ-R4-2, now by design). [Certain] / reach: ordinary ("report on the duplicates", "how many empty rows are there"). Not worse than the base's detector. | `r6_ordinary.py` O4, O5; `r5_shapes.py` D01, D03, D05 |
+| RQ-R6-1 | `docs/design/reply-quality.md` line 52 still describes the `except_inside` exclusion; `mentioned_actions(..., except_inside=)` and its two unit tests are dead code (the fixes file says so). | `grep except_inside buddy` |
+| RQ-R6-2 | When the analysis fails and nothing is delivered, the reply states only the report sentence and drops Think's question and a "can't do that yet: sort by amount" beside it. Not false; the older sentence dropped them too. | `r6_voice_branch.py` V3, V4 with `read-excel-raises-all` |
+| RQ-R6-3 | Test gaps, row 11. | `r6_mutations.py` |
+| RQ-R6-4 | The prompt pin test checks the text, not the model's behaviour. | |
+
+## Earlier findings
+
+RQ-R5-3 closed (row 7). RQ-R5-1 and RQ-R4-2 are by design (L1). RQ-R5-2, RQ-R5-4 to RQ-R5-8, RQ-R3-4 and L11 are unchanged: the code they concern was not touched, and their probes give the same replies on `5fc73c6` and head. L11 (a column header or exception text reaching a reply) fits the HIGH definition and is the same on the base; not counted against this branch, still unscheduled.
+
+## Deviations from the design (`docs/design/reply-quality.md`)
+
+Line 52 (the mention exclusion) no longer matches the code (RQ-R6-1). D4 "When unsure, the honest side" holds for H1(a); for H1(b) it depends on Brain following its prompt.
+
+## Not run
+
+- Live runs with the real model (none wanted); a Brain-only measurement of how often it folds "in pdf" into the report phrase.
+- `round2_probe.py`, the shared `harness.py` / `rereview3.py` / `round5.py` / `values_only_probe.py` head-vs-base comparison (they ran in round 5 on code this round did not touch outside the two edits above); a real browser; Windows; mutations of the page templates and `deploy/`.
+- The `r2_*`, `r3_*`, `r4_*` probes (they import functions the head deleted).

@@ -374,6 +374,11 @@ Each item has its own acceptance criterion: fixed with a test, or explicitly clo
   - RQ-R5-6: test gaps (10 surviving mutations of the report mechanism): the planner's exact-equality rule (`_same_words`), `report_phrases` ignoring a phrase not in the message, the end of a mention span, the exact replies of dedupe + report, re-check failing and analysis failing alone, the `not outcome.report_asked` guard in `_no_change_reply`, and the three prompt sentences (Brain's `report_on_file` action line, the planner's and Think's report sentences). `scripts/review_harness/feat-reply-quality/r5_mutations.py`.
   - RQ-R5-7: `buddy/outcome.py` has no blank lines between `_TWO_REQUESTS` and `def _no_skill_outcome`.
   - Still open from before: RQ-R3-4 (a header-only workbook gets "Report on your original file: none of the issues I check for were found." although the analyzer raised) and L11 (a column header or a verifier's exception text reaches a reply; same on the base).
+- **feat/reply-quality review, round 6, deferred LOWs** (`docs/reviews/feat-reply-quality-review.md`, "Review round 6"; RQ-R5-1, RQ-R4-2 and RQ-R5-3 are closed by round 6):
+  - RQ-R6-1: `docs/design/reply-quality.md` line 52 still describes the `except_inside` exclusion that the code no longer uses; `buddy.actions.mentioned_actions(..., except_inside=)` and its two unit tests are dead code.
+  - RQ-R6-2: when the analysis fails (the pandas read raises), the `_no_changes_message` reply says only "I couldn't produce the report you asked for ..." and drops Think's question ("Do you want me to remove duplicate rows ...") and a beside-it "I can't do that yet: sort by amount". Not false; the same dropping happened with the older sentence. `r6_voice_branch.py` V3, V4.
+  - RQ-R6-3: test gaps from `r6_mutations.py`: the `only_analysis_failed` condition (always-true survives; no scenario of 1,287 turns reaches the other branches, so the `elif` branches may be dead), the report sentence added after `_failure_message` and after the other-findings sentence.
+  - RQ-R6-4: the pin test for the new Brain prompt sentence checks the text, not what a model does with it. A live check of "remove the duplicate rows and give me a report in pdf" is the only evidence for H1(b).
 
 ## 6. Decide the supported Python version
 
