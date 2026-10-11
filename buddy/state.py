@@ -11,6 +11,8 @@ from buddy.context import Context
 from buddy.models import (
     CapabilityRequest,
     ExecutionResult,
+    FileChoice,
+    FileUsed,
     PlanningStep,
     Understanding,
     VerificationResult,
@@ -127,12 +129,14 @@ class BuddyState:
             keeps each skill's legacy path. A caller that runs several
             turns in one session sets a fresh folder per turn, so a later
             turn can't overwrite a file handed back earlier.
-        earlier_deliveries: How many files the session had handed back
-            before this turn, set by a caller that runs several turns in
-            one session (the backend API). Every turn works from the
-            original upload, so when this is above 0 a delivered reply says
-            the copy was made from the original
-            (``buddy.voice_catalog.FROM_ORIGINAL_SENTENCE``).
+        file_choice: The files on offer this turn (the upload, and the latest copy
+            handed back from it), set by a caller that runs several turns in one
+            session (the backend API). ``None`` for a caller that offers only
+            ``context.active_file``. Brain's reading decides which is used
+            (``buddy.source.choose_file``).
+        file_used: Which file this turn worked on, set right after Brain
+            (``buddy.source.choose_file``). A delivered reply says which in one
+            fixed sentence (``buddy.voice_catalog``).
         file_refusal: Set by the Planner when the row-cleaning skills would
             refuse this turn's target file: the refusal's own fixed text
             (``skills.excel.workbook.WorkbookRefused``), e.g. "the workbook
@@ -160,7 +164,8 @@ class BuddyState:
     reply: str | None = None
     failure: StageFailure | None = None
     turn_output_dir: str | None = None
-    earlier_deliveries: int = 0
+    file_choice: FileChoice | None = None
+    file_used: FileUsed | None = None
     file_refusal: str | None = None
 
     @classmethod
@@ -253,5 +258,6 @@ class BuddyState:
         self.reply = None
         self.failure = None
         self.turn_output_dir = None
-        self.earlier_deliveries = 0
+        self.file_choice = None
+        self.file_used = None
         self.file_refusal = None

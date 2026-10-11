@@ -13,8 +13,10 @@ from buddy.inspector import FINAL_OUTPUT_CAPABILITY, NO_ANALYSIS_FINDINGS, SKIPP
 from buddy.llm import LLMProvider
 from buddy.models import (
     DECLINED_STATUS,
+    FILE_KIND_COPY,
     SKIPPED_STATUS,
     ExecutionResult,
+    FileUsed,
     StepResult,
     Understanding,
     VerificationResult,
@@ -26,6 +28,7 @@ from buddy.outcome import (
     _describe_capability,
     _is_action_step,
     _step_passed,
+    already_satisfied,
     build_outcome_report,
     not_done_sentences,
     render_outcome,
@@ -35,15 +38,19 @@ from buddy.state import BuddyState, StageFailure
 from buddy.think import CLARIFY_FAILED, Reasoning
 from buddy.voice_catalog import (
     CAPABILITIES,
-    FROM_ORIGINAL_SENTENCE,
     NO_FILE_SENTENCE,
     NOT_UNDERSTOOD_SENTENCE,
+    NOTHING_LEFT_TEMPLATE,
     REFUSED_TEMPLATE,
     REPORT_LEAD_COPY,
     REPORT_LEAD_ORIGINAL,
+    REPORT_LEAD_USED,
     REPORT_NOT_PRODUCED_SENTENCE,
     STYLE_PLAIN,
     UNDERSTANDING_FAILED_SENTENCE,
+    WORKED_ON_COPY_TEMPLATE,
+    WORKED_ON_ORIGINAL_SENTENCE,
+    WORKED_ON_ORIGINAL_SKIPPING_COPY_SENTENCE,
     clarification_question,
     failure_reply,
     greeting_reply,
@@ -169,11 +176,29 @@ def _no_changes_made(
     return not _action_passed_verification(execution_result, verification_result)
 
 
+def _nothing_left(request: "SpeakingRequest") -> bool:
+    """Whether the copy this turn worked on already satisfied the request.
+
+    The turn worked on a copy Buddy handed back earlier, and every file-changing step passed its
+    check with the verifier's own count of 0 rows to remove (``buddy.outcome.already_satisfied``).
+    No new file is handed back then: it would be the same as the file the person already has.
+    Never judged from the user's words.
+    """
+    used = request.file_used
+    return (
+        request.failure is None
+        and used is not None
+        and used.kind == FILE_KIND_COPY
+        and bool(already_satisfied(request.execution_result, request.verification_result))
+    )
+
+
 def _nothing_delivered(request: "SpeakingRequest") -> bool:
     """Whether this turn handed the user no verified result at all."""
     execution_result = request.execution_result
     return (
-        _no_changes_made(execution_result, request.verification_result)
+        _nothing_left(request)
+        or _no_changes_made(execution_result, request.verification_result)
         or execution_result is None
         or not execution_result.outputs
         or execution_result.stopped_at is not None
@@ -301,6 +326,18 @@ def _verified_delivery(request: "SpeakingRequest") -> bool:
 
 
 INITIAL_ANALYSIS_FAILED_SENTENCE = "The initial analysis of your original file couldn't run."
+# The same, for a turn that worked on a copy handed back earlier: the analysis was of that copy.
+INITIAL_ANALYSIS_FAILED_COPY_SENTENCE = (
+    "The initial analysis of the file I worked on couldn't run."
+)
+
+
+def _initial_analysis_failed_sentence(request: "SpeakingRequest") -> str:
+    """Which file the failed initial analysis was of: the upload, or the copy the turn used."""
+    used = request.file_used
+    if used is not None and used.kind == FILE_KIND_COPY:
+        return INITIAL_ANALYSIS_FAILED_COPY_SENTENCE
+    return INITIAL_ANALYSIS_FAILED_SENTENCE
 
 
 def _order_used_sentence(request: "SpeakingRequest") -> str | None:
@@ -425,8 +462,9 @@ class SpeakingRequest:
             choice of catalog phrases (``buddy.voice_catalog``).
         failure: The stage that raised this turn, if one did. The reply
             is then ``buddy.voice_catalog.failure_reply``, nothing else.
-        earlier_deliveries: ``BuddyState.earlier_deliveries``: how many
-            files the session handed back before this turn.
+        file_used: ``BuddyState.file_used``: which file the turn worked on (the person's
+            upload, or a copy handed back earlier). A delivered reply says which in one fixed
+            sentence; ``None`` for a caller that doesn't say, which then gets no such sentence.
         user_message: The user's own message. Only deterministic detectors read
             it (a greeting, a report request); it is never put in a reply.
         reasoning: Think's result: whether it asked for clarification and why
@@ -448,7 +486,7 @@ class SpeakingRequest:
     session_id: str = ""
     turn_index: int = 0
     failure: StageFailure | None = None
-    earlier_deliveries: int = 0
+    file_used: FileUsed | None = None
     user_message: str = ""
     reasoning: Reasoning | None = None
     has_file: bool = True
@@ -532,8 +570,7 @@ def _verified_delivery_reply(
         opener, closer = opener_phrase.text, closer_phrase.text
 
     parts = [opener, render_outcome(report, file_style)]
-    if request.earlier_deliveries > 0:
-        parts.append(FROM_ORIGINAL_SENTENCE)
+    parts.append(_file_used_sentence(request.file_used))
     if report.report_asked:
         # A requested report is the analysis findings on the final file, labelled as the
         # report. When it can't be given, the outcome block already says why (a not-done
@@ -550,11 +587,40 @@ def _verified_delivery_reply(
             parts.append(joined[0].upper() + joined[1:] + ".")
     if not report.report_asked or report.report_given:
         if _initial_analysis_failed(verification_result):
-            parts.append(INITIAL_ANALYSIS_FAILED_SENTENCE)
+            parts.append(_initial_analysis_failed_sentence(request))
         if _recheck_failed(verification_result):
             parts.append(RECHECK_FAILED_SENTENCE)
     parts.append(closer)
     return _plain_words(" ".join(part for part in parts if part))
+
+
+def _name_in_reply(name: str | None) -> str:
+    """A file name safe to put between backticks in a reply: one line, no backticks, quotes or
+    control characters, at most 120 characters."""
+    cleaned = " ".join(re.sub(r"[`\"“”\x00-\x1f\x7f]", " ", name or "").split())
+    return cleaned[:119].rstrip() + "…" if len(cleaned) > 120 else cleaned
+
+
+def _file_label(name: str | None) -> str:
+    """A copy's name between backticks, or "the copy" if it has none to show."""
+    cleaned = _name_in_reply(name)
+    return f"`{cleaned}`" if cleaned else "the copy"
+
+
+def _file_used_sentence(used: FileUsed | None) -> str:
+    """Which file the turn worked on, in one fixed sentence chosen by code; ``""`` if unknown.
+
+    The sentence follows ``FileUsed`` and nothing else: the person's upload, the upload when a
+    copy had been handed back and wasn't used, or the latest copy by its name. It claims nothing
+    about what the work did.
+    """
+    if used is None:
+        return ""
+    if used.kind == FILE_KIND_COPY:
+        return WORKED_ON_COPY_TEMPLATE.format(file=_file_label(used.copy_name))
+    if used.copy_skipped:
+        return WORKED_ON_ORIGINAL_SKIPPING_COPY_SENTENCE
+    return WORKED_ON_ORIGINAL_SENTENCE
 
 
 def _report_text(open_findings: Sequence[str], notes: Sequence[str], lead: str) -> str:
@@ -566,7 +632,8 @@ def _report_text(open_findings: Sequence[str], notes: Sequence[str], lead: str) 
     Args:
         open_findings: The analysis findings Buddy could act on or ask about.
         notes: Findings with no category (the analyzer's all-clear).
-        lead: ``REPORT_LEAD_COPY`` or ``REPORT_LEAD_ORIGINAL``: which file they describe.
+        lead: ``REPORT_LEAD_COPY``, ``REPORT_LEAD_ORIGINAL`` or ``REPORT_LEAD_USED``: which file
+            they describe.
     """
     return lead + "; ".join((*open_findings, *notes)) + "."
 
@@ -659,6 +726,8 @@ class TemplateSpeaker:
         # or no verified file came back, no later branch may run — they
         # can say "Done" because an earlier step passed.
         if _nothing_delivered(request):
+            if _nothing_left(request):
+                return self._nothing_left_reply(request)
             if execution_result is not None and execution_result.stopped_at is not None:
                 reply = self._stopped_message(
                     execution_result, verification_result, request.report_requested
@@ -692,13 +761,40 @@ class TemplateSpeaker:
             else:
                 reply = self._failure_message(verification_result)
             if _initial_analysis_failed(verification_result):
-                reply = f"{reply} {INITIAL_ANALYSIS_FAILED_SENTENCE}"
+                reply = f"{reply} {_initial_analysis_failed_sentence(request)}"
             if _recheck_failed(verification_result):
                 reply = f"{reply} {RECHECK_FAILED_SENTENCE}"
         order_sentence = _order_used_sentence(request)
         if order_sentence is not None:
             reply = f"{reply} {order_sentence}"
         return _plain_words(reply)
+
+    @staticmethod
+    def _nothing_left_reply(request: SpeakingRequest) -> str:
+        """The reply when the latest copy already satisfies the request: no new file.
+
+        Fixed text from the verifier's own count (``buddy.outcome.already_satisfied``) and the
+        copy's name. A requested report is the analysis of that same file, or why it can't be
+        given; anything else the message asked for that Buddy didn't run is stated as in any
+        other reply. No count, and nothing about the file's contents, is put in it.
+        """
+        used = request.file_used
+        assert used is not None
+        actions = already_satisfied(request.execution_result, request.verification_result)
+        rows = " or ".join(dict.fromkeys(action.rows for action in actions))
+        parts = [NOTHING_LEFT_TEMPLATE.format(file=_file_label(used.copy_name), rows=rows)]
+        outcome = build_outcome_report(
+            request.execution_result, request.verification_result, request.understanding
+        )
+        parts.extend(not_done_sentences(outcome, include_report=False))
+        if outcome.report_asked:
+            findings = _analysis_findings(request)
+            if outcome.report_given and findings is not None:
+                parts.append(_report_text(findings[0], findings[1], REPORT_LEAD_USED))
+            else:
+                parts.append(report_unavailable_sentence(outcome) or REPORT_NOT_RUN_SENTENCE)
+        parts.append(NO_CHANGES_SENTENCE)
+        return _plain_words(" ".join(parts))
 
     @staticmethod
     def _no_change_reply(request: SpeakingRequest, style: str) -> str:
@@ -757,7 +853,9 @@ class TemplateSpeaker:
             findings = _analysis_findings(request)
             unavailable = report_unavailable_sentence(outcome)
             if outcome.report_given and findings is not None:
-                parts.append(_report_text(findings[0], findings[1], REPORT_LEAD_ORIGINAL))
+                on_copy = request.file_used is not None and request.file_used.kind == FILE_KIND_COPY
+                lead = REPORT_LEAD_USED if on_copy else REPORT_LEAD_ORIGINAL
+                parts.append(_report_text(findings[0], findings[1], lead))
             else:
                 parts.append(unavailable or REPORT_NOT_RUN_SENTENCE)
         else:
@@ -769,7 +867,7 @@ class TemplateSpeaker:
                 if open_findings:
                     parts.append(ANALYSIS_QUESTION)
         if _initial_analysis_failed(request.verification_result) and not outcome.report_asked:
-            parts.append(INITIAL_ANALYSIS_FAILED_SENTENCE)
+            parts.append(_initial_analysis_failed_sentence(request))
         if not asked:
             parts.append(NO_CHANGES_SENTENCE)
         return _plain_words(" ".join(parts))
@@ -1070,7 +1168,7 @@ class Voice:
             session_id=state.session_id,
             turn_index=state.context.buddy_reply_count(),
             failure=state.failure,
-            earlier_deliveries=state.earlier_deliveries,
+            file_used=state.file_used,
             user_message=state.user_message or "",
             reasoning=state.reasoning,
             has_file=bool(state.uploaded_files or state.context.active_file),

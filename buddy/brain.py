@@ -8,6 +8,7 @@ from typing import Protocol
 from buddy.actions import (
     ACTION_VOCABULARY,
     CONVERSATION,
+    FILE_VOCABULARY,
     REPORT_ON_FILE,
     UNSUPPORTED,
     brain_ledger,
@@ -16,7 +17,14 @@ from buddy.actions import (
 )
 from buddy.context import ConversationTurn
 from buddy.llm import LLMMessage, LLMProvider
-from buddy.models import LEDGER_FROM_BRAIN, LEDGER_FROM_MENTION, RequestedAction, Understanding
+from buddy.models import (
+    FILE_LATEST,
+    LEDGER_FROM_BRAIN,
+    LEDGER_FROM_MENTION,
+    RequestedAction,
+    Understanding,
+)
+from buddy.source import choose_file
 from buddy.state import BuddyState
 
 logger = logging.getLogger(__name__)
@@ -42,6 +50,9 @@ class UnderstandingRequest:
         recent_conversation: Recent conversation turns, oldest first,
             available for resolving references such as "it" or "that
             file" against what was just said.
+        copy_available: Whether a copy Buddy handed back earlier is on offer for this
+            turn (``BuddyState.file_choice``). Only that fact is sent to the model, never
+            the copy's name or path.
     """
 
     user_message: str
@@ -50,6 +61,7 @@ class UnderstandingRequest:
     active_task: str | None
     active_file: str | None
     recent_conversation: tuple[ConversationTurn, ...]
+    copy_available: bool = False
 
 
 class Interpreter(Protocol):
@@ -146,6 +158,8 @@ class Brain:
         request = self._build_request(state)
         understanding = self._interpreter(request)
         self._apply(state, understanding)
+        # Which file the rest of the turn works on follows Brain's reading (its ``file_to_use``).
+        choose_file(state, understanding)
         logger.debug(
             "Brain recorded intent=%r confidence=%.2f for session %r",
             understanding.intent,
@@ -176,6 +190,7 @@ class Brain:
             active_task=context.active_task,
             active_file=context.active_file,
             recent_conversation=tuple(context.recent_conversation()),
+            copy_available=state.file_choice is not None and state.file_choice.copy is not None,
         )
 
     @staticmethod
@@ -241,7 +256,8 @@ Respond with a single JSON object and nothing else, matching this shape:
   "requested_actions": [
     {"action": "remove_duplicate_rows" | "remove_empty_rows" | "report_on_file" | "unsupported",
      "source_phrase": "<the exact words from the user's message that ask for it>"}
-  ]
+  ],
+  "file_to_use": "latest" | "original"
 }
 
 "requested_actions" lists every action the message asks you to carry out, in
@@ -258,6 +274,13 @@ sending the file somewhere).
 message, not paraphrased. Don't list anything the user says to keep or not to
 do. A message that asks for no action (a greeting, a question) gets an empty
 list.
+
+"file_to_use" says which file the request is about. Buddy hands back a cleaned copy after each
+request, and by default the next request builds on the latest copy, so "now remove the empty
+rows too" adds to the work already done: answer "latest". Answer "original" only when the user
+asks to start over or to work from their original file, the one they uploaded, instead of from
+the copy ("start over", "use my original file", "go back to the file I uploaded"). Never answer
+"original" for any other reason, and answer "latest" when you are unsure.
 """
 
 
@@ -332,6 +355,8 @@ class ClaudeInterpreter:
             lines.append(f"Currently active file: {request.active_file}")
         if request.active_task:
             lines.append(f"Currently active task: {request.active_task}")
+        if request.copy_available:
+            lines.append("A copy of the file that Buddy handed back earlier is available.")
         if request.recent_conversation:
             lines.append("Recent conversation:")
             for turn in request.recent_conversation:
@@ -378,6 +403,7 @@ class ClaudeInterpreter:
                 requested_actions=_parse_requested_actions(
                     data.get("requested_actions"), user_message
                 ),
+                file_to_use=_parse_file_to_use(data.get("file_to_use")),
             )
         except (AttributeError, TypeError, ValueError):
             logger.warning("ClaudeInterpreter: reply JSON had an unexpected shape: %r", data)
@@ -386,6 +412,20 @@ class ClaudeInterpreter:
                 confidence=0.0,
                 missing_information=("the model's reply had an unexpected shape",),
             )
+
+
+def _parse_file_to_use(raw: object) -> str:
+    """Brain's ``file_to_use`` if it is in the closed vocabulary, else ``FILE_LATEST``.
+
+    Spelling slips (casing, stray whitespace) are not a different answer. Anything else
+    (missing, another word, another type) is the default: the work builds on the latest copy,
+    which never discards what was done. Only Brain's own value can start over.
+    """
+    if isinstance(raw, str) and raw.strip().casefold() in FILE_VOCABULARY:
+        return raw.strip().casefold()
+    if raw is not None:
+        logger.warning("ClaudeInterpreter: file_to_use outside the vocabulary: %r", raw)
+    return FILE_LATEST
 
 
 def _parse_requested_actions(raw: object, user_message: str) -> tuple[RequestedAction, ...]:

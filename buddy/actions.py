@@ -25,6 +25,8 @@ from dataclasses import dataclass
 from buddy.models import (
     DUPLICATE_ROWS_TARGET,
     EMPTY_ROWS_TARGET,
+    FILE_LATEST,
+    FILE_ORIGINAL,
     LEDGER_FROM_BRAIN,
     LEDGER_FROM_INTENT,
     LEDGER_FROM_MENTION,
@@ -114,6 +116,12 @@ REPORT_ON_FILE = "report_on_file"
 
 # A request Brain recognised as an action Buddy has no capability for.
 UNSUPPORTED = "unsupported"
+
+# Which file the request is about, in Brain's closed vocabulary: ``Understanding.file_to_use``.
+# "latest" (the default) builds on the latest copy Buddy handed back from the same upload;
+# "original" is only for a person asking to start over or to use their original file. No code
+# reads the message for it: if Brain's reply says anything else, the value is "latest".
+FILE_VOCABULARY = frozenset({FILE_LATEST, FILE_ORIGINAL})
 
 # What Brain's ``requested_actions`` may name. Anything else becomes UNSUPPORTED.
 ACTION_VOCABULARY = frozenset({a.name for a in ACTIONS} | {UNSUPPORTED})
