@@ -130,6 +130,9 @@ historical; the round-1 probes (`probe_a` ... `probe_i`) still run, but they han
     python r5_hostile.py                         # 24 odd inputs: empty/regex/backslash phrases, 1000 entries, wrong JSON types, planner steps quoting the report phrase
     python r5_api.py [--tree DIR]                # the HTTP app (friend, focus): report alone, dedupe + report, download names, original hash
     python r5_fuzz.py --seed 11 --n 250 [--bias delivered]   # seeded random Brain/Think/planner/file/fault combinations, 8 invariants on every turn (header of the file); --bias: mostly sound dedupe+report readings with faults
+    python r5_fold.py [--tree DIR]               # round 3's H1 under the new mechanism: a report + an extra (in pdf, to my boss ...), Brain FOLDS the extra into the report phrase / SPLITS it / files all as `unsupported`
+    python r5_fold2.py [--tree DIR]              # Brain folds a FILE-CHANGING clause ("remove the empty rows") into the report phrase: the mention cross-check is blind inside it
+    python r5_wordings.py                        # 30 wordings that broke rounds 1-3 handed over as `report_on_file`: one distinct reply per speaker and shape (no word of the message is read)
     python r5_l11.py [--tree DIR]                # exception text in a stopped-chain reply: same on head and base (pre-existing L11)
     python r5_mutations.py --tree $THROWAWAY     # 53 one-place mutations of the new mechanism (and the three prompts); prints KILLED / SURVIVED
     python r5_cmp.py out/a-base.json out/a-head.json        # head vs base for any probe output, grouped by changed sentence
