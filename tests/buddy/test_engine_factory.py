@@ -1682,7 +1682,7 @@ def test_h1_removed_counts_repeated_blank_rows_and_every_number_matches_pandas(
     outcome = reply.partition("I also noticed:")[0]
 
     # The rendered "Removed N ..." sentences add up to rows in minus rows out.
-    removed_sentences = re.findall(r"[Rr]emoved (\d+) ([a-z-]+ rows?)", outcome)
+    removed_sentences = re.findall(r"[Rr]emoved (\d+) ([a-z -]+? rows?)", outcome)
     assert sum(int(n) for n, _ in removed_sentences) == rows_in - rows_out
     duplicate_sentence = re.search(
         r"(?:Done — )?[Rr]emoved (\d+) exact duplicate rows?"

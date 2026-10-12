@@ -207,7 +207,7 @@ _MAIN_REPLIES = {
     ),
     ("chain", "template"): (
         "Removed 1 exact duplicate row. Removed 1 fully-empty row. The copy has 3 rows, with 0 "
-        "duplicate rows and 0 fully-empty rows remaining. Saved as "
+        "exact duplicate rows and 0 fully-empty rows remaining. Saved as "
         "`report_deduplicated_session-1-task-1_no_empty_rows_session-1-task-2.xlsx`. None of "
         "the issues I check for were found."
     ),
@@ -219,7 +219,7 @@ _MAIN_REPLIES = {
     ),
     ("chain", "focus"): (
         "Removed 1 exact duplicate row. Removed 1 fully-empty row. The copy has 3 rows, with 0 "
-        "duplicate rows and 0 fully-empty rows remaining. Your cleaned copy of "
+        "exact duplicate rows and 0 fully-empty rows remaining. Your cleaned copy of "
         "report.xlsx is ready. None of the issues I check for were found."
     ),
 }

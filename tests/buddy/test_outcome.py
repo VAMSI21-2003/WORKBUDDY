@@ -430,7 +430,7 @@ def test_the_reply_never_uses_a_skills_self_reported_count(tmp_path: Path) -> No
 
     assert "99" not in reply
     original = pd.read_excel(source)
-    assert f"Done — removed {int(original.duplicated().sum())} duplicate rows." in reply
+    assert f"Done — removed {int(original.duplicated().sum())} exact duplicate rows." in reply
     assert f"The copy has {len(pd.read_excel(output))} rows" in reply
 
 

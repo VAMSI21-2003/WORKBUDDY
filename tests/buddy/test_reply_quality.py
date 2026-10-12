@@ -329,7 +329,10 @@ def test_the_capability_lines_name_every_action_buddy_has() -> None:
     for style, line in CAPABILITIES.items():
         for action in ACTIONS:
             if action.changes_file:
-                assert action.request in line, (style, action.name)
+                # The line says what Buddy removes: "exact duplicate rows" holds the action's
+                # object ("duplicate rows"), and says the exactness the skill really has.
+                verb, _, rest = action.request.partition(" ")
+                assert f"{verb} " in line and action.object in line, (style, action.name)
         # The report is the analysis: the line says Buddy looks a spreadsheet over.
         assert re.search(r"look|check", line), style
 
@@ -830,7 +833,7 @@ def test_counts_use_the_right_plural(
     reply = state.reply or ""
     noun = "row" if removed == 1 else "rows"
     if removed:
-        assert f"removed {removed} duplicate {noun}" in reply.lower()
+        assert f"removed {removed} exact duplicate {noun}" in reply.lower()
     else:
         assert "no exact duplicate rows" in reply
     assert f"The copy has {left} rows, with 0 exact duplicate rows remaining." in reply
