@@ -95,12 +95,19 @@ class NameMatch:
         indices: Positions (in the names given) of the one file the message names. Several only
             when those files have the same name (the same file uploaded twice): the caller
             chooses among them. Empty when nothing was named, or the naming is unclear.
-        unclear: The message names a spreadsheet file and it is not one of the names, or it is
-            as close to two different names. Buddy asks which file is meant.
+        unclear: The message names a file as close to two different names that a slip can't
+            tell them apart. ``close`` holds every one of them; the caller may find they are
+            all of one upload.
+        close: Positions of the names that were close, when ``unclear``.
+        unknown: The message names a spreadsheet file (a stem and a spreadsheet-like extension)
+            and it is none of the names. Whether that matters is the caller's: with one upload
+            there is nothing to choose, with several Buddy asks which file is meant.
     """
 
     indices: tuple[int, ...] = ()
     unclear: bool = False
+    close: tuple[int, ...] = ()
+    unknown: bool = False
 
 
 def match_file_name(message: str, names: Sequence[str]) -> NameMatch:
@@ -134,9 +141,10 @@ def match_file_name(message: str, names: Sequence[str]) -> NameMatch:
         # two near ones within the margin, are not told apart.
         floor = best if best == 1.0 else best - NAME_MATCH_MARGIN
         if any(score >= floor for score, _ in close[1:]):
-            return NameMatch(unclear=True)
+            together = sorted(i for score, n in close if score >= floor for i in by_name[n])
+            return NameMatch(unclear=True, close=tuple(together))
         return NameMatch(indices=tuple(by_name[name]))
-    return NameMatch(unclear=any(_looks_like_spreadsheet(t) for t in tokens))
+    return NameMatch(unknown=any(_looks_like_spreadsheet(t) for t in tokens))
 
 
 def _alike(window: str, name: str) -> float:

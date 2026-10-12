@@ -167,6 +167,7 @@ class Brain:
             # The message only said which file; the request that was waiting is the one this
             # turn carries out, so every later stage reads that.
             state.user_message = state.pending_request
+            state.resumed_request = True
             state.add_observation("resumed_request: the message answered an earlier question")
         # Which file the rest of the turn works on follows Brain's reading (its ``file_to_use``).
         choose_file(state, understanding)
@@ -374,7 +375,7 @@ class ClaudeInterpreter:
         except Exception as exc:
             # The exception's class says what failed (a timeout, a rate limit); its message
             # isn't logged, and the logging filter masks any key that got into it.
-            logger.debug("ClaudeInterpreter: LLM call raised", exc_info=True)
+            logger.debug("ClaudeInterpreter: LLM call raised")
             return None, f"{FAILURE_CALL}: {type(exc).__name__}"
         return _parse(raw_reply, user_message, pending_request)
 
@@ -608,23 +609,25 @@ class MentionCrossCheck:
         understanding = self._inner(request)
         # When Brain read the message as only the answer to a waiting question, the request
         # being carried out is the waiting one, so that is the text to look in.
-        message = (
-            request.pending_request
-            if understanding.answers_pending and request.pending_request
-            else request.user_message
-        )
+        # But a model that misreads a request of its own as only an answer must not switch the
+        # safety net off, so the message itself is read too: anything it mentions that Brain's
+        # reading lacks is stated as not run.
+        texts = [request.user_message]
+        if understanding.answers_pending and request.pending_request:
+            texts.insert(0, request.pending_request)
         brain = brain_ledger(understanding)
         listed = {entry.action for entry in brain}
-        added = tuple(
-            RequestedAction(
-                action=action.name,
-                source_phrase=text,
-                source=LEDGER_FROM_MENTION,
-                phrase_found=True,
-            )
-            for action, text in mentioned_actions(message)
-            if action.name not in listed
-        )
+        found: dict[str, RequestedAction] = {}
+        for message in texts:
+            for action, text in mentioned_actions(message):
+                if action.name not in listed and action.name not in found:
+                    found[action.name] = RequestedAction(
+                        action=action.name,
+                        source_phrase=text,
+                        source=LEDGER_FROM_MENTION,
+                        phrase_found=True,
+                    )
+        added = tuple(found.values())
         if added:
             logger.info(
                 "MentionCrossCheck: the message also mentions %s, which Brain didn't list",

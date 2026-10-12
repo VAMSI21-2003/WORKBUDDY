@@ -63,14 +63,14 @@ def test_a_message_that_names_no_spreadsheet_file_matches_nothing_and_is_clear(
 ) -> None:
     found = match_file_name(message, NAMES)
 
-    assert found.indices == () and not found.unclear
+    assert found.indices == () and not found.unclear and not found.unknown
 
 
 @pytest.mark.parametrize("message", ["use sales.xlsx", "remove dupes in totals.csv", "q3.xlsm"])
-def test_a_spreadsheet_name_that_matches_no_file_is_unclear(message: str) -> None:
+def test_a_spreadsheet_name_that_matches_no_file_is_unknown(message: str) -> None:
     found = match_file_name(message, NAMES)
 
-    assert found.indices == () and found.unclear
+    assert found.indices == () and found.unknown and not found.unclear
 
 
 def test_a_stem_alone_is_not_a_file_name() -> None:
@@ -84,18 +84,35 @@ def test_two_different_names_equally_close_are_unclear() -> None:
 
     found = match_file_name("report_x.xlsx", names)
 
-    assert found.unclear and found.indices == ()
+    assert found.unclear and found.indices == () and found.close == (0, 1)
+
+
+def test_two_names_a_hair_apart_in_closeness_still_ask() -> None:
+    """Not equal, but within the margin: a slip can't tell them apart."""
+    found = match_file_name("report_ac.xlsx", ["report_a.xlsx", "report_ab.xlsx"])
+
+    assert found.unclear and found.close == (0, 1)
 
 
 def test_an_exact_name_beats_a_near_one() -> None:
-    names = ["data.xlsx", "data1.xlsx"]
+    """The names are so alike (0.98) that only being exact tells them apart."""
+    names = ["quarterly_sales_2024.xlsx", "quarterly_sales_2024b.xlsx"]
 
-    assert match_file_name("clean data.xlsx please", names).indices == (0,)
-    assert match_file_name("clean data1.xlsx please", names).indices == (1,)
+    assert match_file_name("clean quarterly_sales_2024.xlsx", names).indices == (0,)
+    assert match_file_name("clean quarterly_sales_2024b.xlsx", names).indices == (1,)
+
+
+def test_a_name_only_somewhat_alike_does_not_match() -> None:
+    """0.75 alike is a different file, not a slip."""
+    found = match_file_name("clean sales_q3.xlsx", ["sales_q4_final.xlsx"])
+
+    assert found.indices == () and found.unknown
 
 
 def test_two_exact_names_in_one_message_are_unclear() -> None:
-    assert match_file_name("merge messy-data.xlsx and other.xlsx", NAMES).unclear
+    found = match_file_name("merge messy-data.xlsx and other.xlsx", NAMES)
+
+    assert found.unclear and found.close == (0, 1)
 
 
 def test_files_with_the_same_name_are_returned_together_for_the_caller_to_choose() -> None:

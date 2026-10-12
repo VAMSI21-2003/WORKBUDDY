@@ -394,6 +394,11 @@ WORKED_ON_ORIGINAL_SKIPPING_COPY_TEMPLATE = (
 WORKED_ON_COPY_TEMPLATE = (
     "I worked on {file}, the latest copy I handed back, not on your original upload."
 )
+# Added to a reply when Brain read the message as only the answer to "which file?" and the request
+# that was waiting was carried out: it makes a wrong reading visible. Claims nothing about results.
+RESUMED_SENTENCE = (
+    "I took your last message as the answer to my question and went on with your earlier request."
+)
 # The reply when a follow-up finds the latest copy already satisfies the request: no new file.
 NOTHING_LEFT_TEMPLATE = (
     "The latest copy, {file}, already has no {rows}, so there was nothing to remove and I "

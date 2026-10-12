@@ -75,6 +75,7 @@ from buddy.hands import ConfirmationProvider
 from buddy.models import FileChoice, StepResult, VerificationResult
 from buddy.source import match_file_name
 from buddy.state import BuddyState
+from buddy.think import CLARIFY_FAILED
 from buddy.voice import asked_which_file, is_verified_delivery
 from buddy.voice_catalog import FALLBACK_INTEGRITY_FAILURE, FALLBACK_PIPELINE_ERROR
 from core.engine import Engine
@@ -314,8 +315,8 @@ class TurnRunner:
                 # A file the message names (typos allowed) is the one the turn is about; with no
                 # name, the session's active upload. A name that matches nothing, or two files
                 # equally, leaves the file unsettled and Buddy asks (``FileChoice.unclear``).
-                named_id, unclear = (
-                    _named_upload(record, message) if file_id is None else (None, False)
+                named_id, unclear, names_a_file = (
+                    _named_upload(record, message) if file_id is None else (None, False, False)
                 )
                 target_id = (
                     file_id
@@ -325,10 +326,11 @@ class TurnRunner:
                 upload = record.files.get(target_id) if target_id is not None else None
                 if named_id is not None and upload is not None:
                     work.context.switch_active_file(str(upload.path))
-                    # The request Buddy asked about is offered to Brain only when this message
-                    # names a file of the session; Brain decides whether it answers it.
-                    if record.pending is not None:
-                        work.pending_request = record.pending.message
+                # The request Buddy asked about is offered to Brain when this message names a
+                # file (even one it can't find: a wrong name then the right one must still
+                # resume); Brain decides whether the message answers it.
+                if names_a_file and record.pending is not None:
+                    work.pending_request = record.pending.message
                 # Which files the turn is offered; Brain's reading decides which it works on
                 # (``buddy.source.choose_file``).
                 offer = (
@@ -717,11 +719,12 @@ class TurnRunner:
         if result.commit and state is not None:
             # The request this reply asked "which file?" about, if it did: the words that were
             # carried out this turn (an answered question's request, not its answer).
-            record.pending = (
-                PendingRequest(message=state.user_message, turn_id=turn.turn_id)
-                if state.user_message and asked_which_file(state)
-                else None
-            )
+            if _read_nothing(state):
+                pass  # a turn that couldn't read the request leaves the waiting one as it was
+            elif state.user_message and asked_which_file(state):
+                record.pending = PendingRequest(message=state.user_message, turn_id=turn.turn_id)
+            else:
+                record.pending = None
             state.context.record_buddy_reply(result.reply)
             state.reset_transient()
             _restore_upload_focus(
@@ -822,14 +825,31 @@ def _restore_upload_focus(
     context.analyzed_files = frozenset(kept)
 
 
-def _named_upload(record: SessionRecord, message: str) -> tuple[str | None, bool]:
-    """``(the id of the upload the message names, whether the naming is unclear)``.
+def _read_nothing(state: BuddyState) -> bool:
+    """Whether the turn couldn't read the request: a stage failed, or Think or Brain gave no
+    reading (both calls failed). Such a turn says nothing about what was asked, so it must not
+    replace or clear the request that is waiting on an answer."""
+    reasoning, understanding = state.reasoning, state.understanding
+    return (
+        state.failure is not None
+        or (reasoning is not None and reasoning.clarification_reason == CLARIFY_FAILED)
+        or understanding is None
+        or understanding.intent is None
+    )
+
+
+def _named_upload(record: SessionRecord, message: str) -> tuple[str | None, bool, bool]:
+    """``(the id of the upload the message names, whether the naming is unclear, whether the
+    message names a spreadsheet file at all)``.
 
     Matched against the session's own file names, the uploads' and the delivered files' as the
     person sees them (``backend.names``); a delivered file means the upload it was made from, as
     a follow-up builds on that upload's latest copy. Same-named files (one upload twice) resolve
-    to the active upload if it is among them, else the latest. Nothing is read from the words
-    around a name; Brain reads what is asked.
+    to the active upload if it is among them, else the latest, and so do names that are close but
+    all of one upload. A spreadsheet-shaped name that is none of the files is unclear only when
+    the session has more than one upload: with one there is nothing to choose, and the reply
+    names the file it used. Nothing is read from the words around a name; Brain reads what is
+    asked.
     """
     shown = display_names(record.key, record.delivered())
     entries: list[tuple[str, str]] = [(f.name, f.file_id) for f in record.files.values()]
@@ -838,15 +858,18 @@ def _named_upload(record: SessionRecord, message: str) -> tuple[str | None, bool
         if upload_id is not None and upload_id in record.files:
             entries.append((shown.get(delivered.file_id, delivered.name), upload_id))
     found = match_file_name(message, [name for name, _ in entries])
-    if found.unclear:
-        return None, True
-    ids = list(dict.fromkeys(entries[i][1] for i in found.indices))
+    if found.unknown:
+        return None, len(record.files) > 1, True
+    positions = found.close if found.unclear else found.indices
+    ids = list(dict.fromkeys(entries[i][1] for i in positions))
     if not ids:
-        return None, False
+        return None, False, False
+    if len(ids) > 1 and found.unclear:
+        return None, True, True
     if record.active_file_id in ids:
-        return record.active_file_id, False
+        return record.active_file_id, False, True
     order = list(record.files)
-    return max(ids, key=order.index), False
+    return max(ids, key=order.index), False, True
 
 
 def _file_id_for(record: SessionRecord, path: str | None) -> str | None:

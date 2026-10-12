@@ -46,6 +46,7 @@ from buddy.voice_catalog import (
     REPORT_LEAD_ORIGINAL,
     REPORT_LEAD_USED,
     REPORT_NOT_PRODUCED_SENTENCE,
+    RESUMED_SENTENCE,
     STYLE_PLAIN,
     UNDERSTANDING_FAILED_SENTENCE,
     WORKED_ON_COPY_TEMPLATE,
@@ -497,6 +498,7 @@ class SpeakingRequest:
     has_file: bool = True
     file_refusal: str | None = None
     report_requested: bool = False
+    resumed: bool = False
 
 
 # Leads the analysis findings on a delivered turn, after the outcome.
@@ -576,6 +578,8 @@ def _verified_delivery_reply(
 
     parts = [opener, render_outcome(report, file_style)]
     parts.append(_file_used_sentence(request.file_used))
+    if request.resumed:
+        parts.append(RESUMED_SENTENCE)
     if report.report_asked:
         # A requested report is the analysis findings on the final file, labelled as the
         # report. When it can't be given, the outcome block already says why (a not-done
@@ -801,6 +805,8 @@ class TemplateSpeaker:
                 parts.append(_report_text(findings[0], findings[1], REPORT_LEAD_USED))
             else:
                 parts.append(report_unavailable_sentence(outcome) or REPORT_NOT_RUN_SENTENCE)
+        if request.resumed:
+            parts.append(RESUMED_SENTENCE)
         parts.append(NO_CHANGES_SENTENCE)
         return _plain_words(" ".join(parts))
 
@@ -876,6 +882,8 @@ class TemplateSpeaker:
                     parts.append(ANALYSIS_QUESTION)
         if _initial_analysis_failed(request.verification_result) and not outcome.report_asked:
             parts.append(_initial_analysis_failed_sentence(request))
+        if request.resumed and not asked:
+            parts.append(RESUMED_SENTENCE)  # not when the reply asks again: nothing went on
         if not asked:
             parts.append(NO_CHANGES_SENTENCE)
         return _plain_words(" ".join(parts))
@@ -1182,6 +1190,7 @@ class Voice:
             has_file=bool(state.uploaded_files or state.context.active_file),
             file_refusal=state.file_refusal,
             report_requested=asks_for_report(state.understanding or Understanding()),
+            resumed=state.resumed_request,
         )
 
     @staticmethod

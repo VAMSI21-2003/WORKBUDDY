@@ -167,6 +167,7 @@ def _fully_populated_state() -> BuddyState:
     state.file_refusal = "the workbook has 2 sheets, and only single-sheet workbooks are supported"
     state.turn_id = "t0001"
     state.pending_request = "remove duplicate rows"
+    state.resumed_request = True
     return state
 
 

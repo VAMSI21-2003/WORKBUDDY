@@ -446,7 +446,7 @@ class ClaudeThinker:
         except Exception as exc:
             # The exception's class says what failed (a timeout, a rate limit); its message
             # isn't logged, and the logging filter masks any key that got into it.
-            logger.debug("ClaudeThinker: LLM call raised", exc_info=True)
+            logger.debug("ClaudeThinker: LLM call raised")
             return None, f"{FAILURE_CALL}: {type(exc).__name__}"
         return _parse(raw_reply)
 

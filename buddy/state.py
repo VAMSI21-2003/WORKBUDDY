@@ -144,6 +144,9 @@ class BuddyState:
             message names a file of the session). Brain decides whether this message answers
             it; if so ``user_message`` becomes that earlier message, so the rest of the turn
             works on the request that was waiting. ``None`` when nothing is waiting.
+        resumed_request: Brain read the message as only the answer to "which file?", and
+            ``user_message`` is now the request that was waiting. Voice says so in one fixed
+            sentence, so a wrong reading is visible.
         file_refusal: Set by the Planner when the row-cleaning skills would
             refuse this turn's target file: the refusal's own fixed text
             (``skills.excel.workbook.WorkbookRefused``), e.g. "the workbook
@@ -176,6 +179,7 @@ class BuddyState:
     file_refusal: str | None = None
     turn_id: str | None = None
     pending_request: str | None = None
+    resumed_request: bool = False
 
     @classmethod
     def new(cls, session_id: str, workspace_id: str) -> BuddyState:
@@ -272,3 +276,4 @@ class BuddyState:
         self.file_refusal = None
         self.turn_id = None
         self.pending_request = None
+        self.resumed_request = False
