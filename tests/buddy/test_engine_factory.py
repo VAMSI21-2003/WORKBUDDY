@@ -1499,7 +1499,7 @@ def test_n2_end_to_end_says_there_was_nothing_to_remove(
     assert "Done — there were no exact duplicate rows to remove." in reply
     assert (
         f"The copy has {_n(len(delivered), 'row')}, with "
-        f"{_n(int(delivered.duplicated().sum()), 'duplicate row')} remaining."
+        f"{_n(int(delivered.duplicated().sum()), 'exact duplicate row')} remaining."
     ) in reply
     output_name = Path(result.outputs[0]).name
     # Every number in the reply is one the independent read confirms.
@@ -1531,8 +1531,8 @@ def test_a_single_step_verified_turn_still_says_done_and_names_the_file(
     reply = state.reply
     assert reply is not None
     block = (
-        f"Done — removed {_n(removed, 'duplicate row')}. The copy has {_n(len(delivered), 'row')}, "
-        f"with {_n(int(delivered.duplicated().sum()), 'duplicate row')} remaining."
+        f"Done — removed {_n(removed, 'exact duplicate row')}. The copy has {_n(len(delivered), 'row')}, "
+        f"with {_n(int(delivered.duplicated().sum()), 'exact duplicate row')} remaining."
     )
     if speaker_kind == "template":
         assert reply.startswith(block)
@@ -1607,7 +1607,7 @@ def test_a_dropped_second_action_never_yields_a_nothing_to_remove_opener(
     percent = {round(100 * m / len(delivered)) for m in missing}
     assert {int(n) for n in re.findall(r"\d+", findings)} <= missing | percent | {0}  # "20.0%"
     assert f"The copy has {_n(len(delivered), 'row')}" in reply
-    assert f"{_n(int(delivered.duplicated().sum()), 'duplicate row')} remaining" in reply
+    assert f"{_n(int(delivered.duplicated().sum()), 'exact duplicate row')} remaining" in reply
     assert (tmp_path / input_path).read_bytes() == original_bytes  # rule 2
 
 
@@ -1950,7 +1950,7 @@ def test_n1_misclassified_dedupe_request_says_what_ran_and_what_didnt(
         "rows, but I didn't run the duplicate-row removal. I read your request as: remove empty "
         f"rows. The copy has {_n(rows_out, 'row')}, "
         f"with {_n(empty_out, 'fully-empty row')} remaining. "
-        f"It still has {_n(dups_out, 'duplicate row')}."
+        f"It still has {_n(dups_out, 'exact duplicate row')}."
     )
     reply = _check_delivered_reply(
         state, provider, model_reply, original_path, original_bytes, speaker_kind, block,
@@ -1987,9 +1987,9 @@ def test_c1_c2_a_step_the_planner_dropped_is_stated_as_not_run(
     rows_out, dups_out, empty_out = _counts(state.execution_result.outputs[0])
     assert (rows_in - rows_out, dups_in, dups_out, empty_out) == (2, 2, 0, 1)
     block = (
-        f"Partly done — removed {_n(rows_in - rows_out, 'duplicate row')}. I didn't run the "
+        f"Partly done — removed {_n(rows_in - rows_out, 'exact duplicate row')}. I didn't run the "
         "empty-row removal, though I read it as part of your request. The copy has "
-        f"{_n(rows_out, 'row')}, with {_n(dups_out, 'duplicate row')} remaining. "
+        f"{_n(rows_out, 'row')}, with {_n(dups_out, 'exact duplicate row')} remaining. "
         f"It still has {_n(empty_out, 'fully-empty row')}."
     )
     reply = _check_delivered_reply(
@@ -2037,10 +2037,10 @@ def test_c3_a_compound_request_brain_read_as_one_action(
     rows_out, dups_out, empty_out = _counts(state.execution_result.outputs[0])
     assert (rows_in - rows_out, empty_out) == (2, 1)
     block = (
-        f"Removed {_n(rows_in - rows_out, 'duplicate row')}. Your message mentions empty rows, "
+        f"Removed {_n(rows_in - rows_out, 'exact duplicate row')}. Your message mentions empty rows, "
         "but I didn't run the empty-row removal. I read your request as: remove duplicate rows. "
         f"The copy has {_n(rows_out, 'row')}, "
-        f"with {_n(dups_out, 'duplicate row')} remaining. It still has "
+        f"with {_n(dups_out, 'exact duplicate row')} remaining. It still has "
         f"{_n(empty_out, 'fully-empty row')}."
     )
     _check_delivered_reply(
@@ -2075,11 +2075,11 @@ def test_n5_unrequested_work_is_stated_as_such_and_the_request_as_not_run(
     rows_out, dups_out, empty_out = _counts(state.execution_result.outputs[0])
     assert (rows_in - rows_out, empty_out) == (2, 1)
     block = (
-        f"I removed {_n(rows_in - rows_out, 'duplicate row')}, "
+        f"I removed {_n(rows_in - rows_out, 'exact duplicate row')}, "
         "though I didn't read that as part of "
         "your request. I didn't run the empty-row removal, though I read it as part of your "
         f"request. The copy has {_n(rows_out, 'row')}, "
-        f"with {_n(dups_out, 'duplicate row')} remaining. "
+        f"with {_n(dups_out, 'exact duplicate row')} remaining. "
         f"It still has {_n(empty_out, 'fully-empty row')}."
     )
     reply = _check_delivered_reply(
@@ -2110,9 +2110,9 @@ def test_n5_without_a_brain_ledger_claims_nothing_about_the_request(
     rows_in, _, _ = _counts(original_path)
     rows_out, dups_out, empty_out = _counts(state.execution_result.outputs[0])
     block = (
-        f"Removed {_n(rows_in - rows_out, 'duplicate row')}. Your message mentions empty rows, "
+        f"Removed {_n(rows_in - rows_out, 'exact duplicate row')}. Your message mentions empty rows, "
         "but I didn't run the empty-row removal. The copy has "
-        f"{_n(rows_out, 'row')}, with {_n(dups_out, 'duplicate row')} remaining. "
+        f"{_n(rows_out, 'row')}, with {_n(dups_out, 'exact duplicate row')} remaining. "
         f"It still has {_n(empty_out, 'fully-empty row')}."
     )
     reply = _check_delivered_reply(
@@ -2158,9 +2158,9 @@ def test_dedupe_and_sort_says_the_sort_part_cant_be_done(
     rows_in, _, _ = _counts(original_path)
     rows_out, dups_out, _ = _counts(state.execution_result.outputs[0])
     block = (
-        f"Partly done — removed {_n(rows_in - rows_out, 'duplicate row')}. "
+        f"Partly done — removed {_n(rows_in - rows_out, 'exact duplicate row')}. "
         f"{expected_line} The copy "
-        f"has {_n(rows_out, 'row')}, with {_n(dups_out, 'duplicate row')} remaining."
+        f"has {_n(rows_out, 'row')}, with {_n(dups_out, 'exact duplicate row')} remaining."
     )
     _check_delivered_reply(
         state, provider, model_reply, original_path, original_bytes, speaker_kind, block,
@@ -2231,7 +2231,7 @@ def test_remove_the_empty_rows_but_keep_the_duplicates(
         "rows, but I didn't run the duplicate-row removal. I read your request as: remove empty "
         f"rows. The copy has {_n(rows_out, 'row')}, "
         f"with {_n(empty_out, 'fully-empty row')} remaining. "
-        f"It still has {_n(dups_out, 'duplicate row')}."
+        f"It still has {_n(dups_out, 'exact duplicate row')}."
     )
     reply = _check_delivered_reply(
         state, provider, model_reply, original_path, original_bytes, speaker_kind, block,
@@ -2271,7 +2271,7 @@ def test_a_fully_done_chain_says_done_and_may_close(
     assert provider._replies == ["Both done!"]
     assert (
         f"Done — removed 2 exact duplicate rows. Removed 1 fully-empty row. The copy has "
-        f"{_n(rows_out, 'row')}, with {_n(dups_out, 'duplicate row')} and "
+        f"{_n(rows_out, 'row')}, with {_n(dups_out, 'exact duplicate row')} and "
         f"{_n(empty_out, 'fully-empty row')} remaining."
     ) in reply
     assert "still has" not in reply and "didn't run" not in reply
