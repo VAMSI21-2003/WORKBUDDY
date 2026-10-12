@@ -1,4 +1,4 @@
-# fix/conversation-repair: reviewer's probes (round 1, head `556d30d`, base `a4c959b`)
+# fix/conversation-repair: reviewer's probes (round 1, head `556d30d`; round 2, head `15f5c92`; base `a4c959b`)
 
 Real app (`backend.main.create_app`) + real `build_engine` (real skills, Hands, Inspector, Voice), fake LLM only. No key, no network.
 `cr.py` is the library (imports `../feat-follow-up-turns/fu.py`, which imports `pr3.py` / `harness.py` from other branches' folders; none edited).
@@ -18,3 +18,15 @@ Add `2>/dev/null` to hide the Splink training noise. Every probe prints the repl
 
 Also run (shared, not edited): `scripts/review_harness/harness.py --out X.json` on head and base, then `feat-reply-quality/cmp_harness.py base.json head.json`
 (532 turns: delivered files identical on all, originals unchanged on all; the only differences are "exact duplicate row(s)" and the file name in the "I worked on" sentence).
+
+## Round 2 (head `15f5c92`)
+
+Rerun unchanged on the new head: `probe_a`, `probe_b` (`--all`), `probe_c`, `probe_d`, `probe_f`, `probe_h`, `probe_i` (F1 to F4 are fixed). New:
+
+    python probe_j_resumed_replies.py    # where the fixed "I took your last message as the answer ... went on with your earlier request." sentence appears, and is it true there (Think fails twice, Brain says answers_pending but unclear, plan declined, Think asks another question, follow-up already satisfied)
+    python probe_k_name_keywords.py      # a correct resume whose message is a file name containing an action phrase ("duplicate rows jan.xlsx"): the F3 cross-check now reads the message too
+    python probe_l_more.py               # resumed report; resumed unsupported; one upload + "save it as cleaned.xlsx" / an unknown name
+    python probe_m_brain_fails_twice.py  # Brain returns non-JSON twice on the answering turn: pending kept? (realistic Brain on the retry; mutation n04 survives the suite)
+    python mutations2.py $WT             # 20 one-place mutations of the round-2 code; $WT = throwaway `git worktree add --detach $WT HEAD`; output out/mutations2.txt
+
+A prototype fix for the sentence (scratch worktree, not in the branch): in `TemplateSpeaker._no_change_reply` replace `if request.resumed and not asked:` by `if request.resumed and outcome.report_asked and outcome.report_given:`; `probe_j` then shows no sentence for the unread/unrun cases and `tests/backend/test_conversation_repair.py`, `test_voice.py`, `test_reply_quality.py` still pass (415).

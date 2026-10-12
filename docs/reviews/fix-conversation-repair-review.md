@@ -93,3 +93,86 @@ No false claim; an honest question, but it blocks a clear request and implies Bu
 - `shellcheck` (not installed).
 - Retention / purge interaction with `pending_request` (turns are never pruned in this code, so the `turn_id` check on restore cannot fail through retention; I did not run a purge).
 - A multi-user check of `pending` (it lives in the session record, keyed by session).
+
+
+---
+
+## Review round 2 (commit 15f5c92)
+
+**Verdict: DON'T MERGE.** Head `15f5c92`, last reviewed `556d30d`, base `origin/main` `a4c959b`. F1, F2, F3 (as I described it) and F4 are fixed and confirmed with my own runs. One new MEDIUM (F5) that the F3 fix introduced and an ordinary provider failure reaches: the fixed sentence "I took your last message as the answer to my question and went on with your earlier request." is added to replies where nothing went on. No HIGH. Rules 1 and 2 held except for F5's wording (every original's SHA-256 unchanged in every run).
+
+### What I ran (round 2)
+
+Probes are in `scripts/review_harness/fix-conversation-repair/` (README updated; raw output in git-ignored `out/`). Real app, real `build_engine`, real skills and verifiers; only the LLM is faked. Template, friend and focus in every probe unless noted.
+
+| # | What | Result |
+|---|---|---|
+| 1 | `python -m pytest -q` on head | 3292 passed, 6 skipped, 0 failed (543 s) |
+| 2 | `ruff check buddy tests` head vs base, by file and rule | 18 errors on both, identical; `ruff check backend` clean |
+| 3 | Shared `harness.py` (532 turns) on head and base, `feat-reply-quality/cmp_harness.py` | delivered files identical on all 532; originals unchanged on all; 0 Voice calls; 518 differ only by "exact duplicate row(s)", the capabilities line, and the file name in "I worked on `report.xlsx`, your original upload." |
+| 4 | `probe_f` (F1) | unknown name twice, then the right one: turn 3 delivers `messy-data_deduplicated.xlsx`, all three speakers. **F1 fixed** |
+| 5 | `probe_i` (F2), 6 stages x 3 speakers, plus the realistic-Brain retry | pending `KEPT` after a failure in brain, think, planner, hands, inspector and voice; the retry delivers in every case (also with a Brain that treats a bare name with nothing waiting as not a request). No secret in any reply. **F2 fixed** |
+| 6 | `probe_b` b3 (Brain misreads a new request as the answer), `probe_k` | "Your message mentions empty rows, but I didn't run the empty-row removal. I read your request as: remove duplicate rows." plus the resumed sentence. **F3 fixed** (but see F5, F6) |
+| 7 | `probe_d`, `probe_h`, `probe_c` | one upload: "save it as cleaned.xlsx", "export to results.csv", "thanks for budget.xlsx" no longer ask; two uploads still ask (the design's stated behaviour). Hostile upload names (backtick, markdown, newline, escape, bidi, 100 chars) never reach the reply unsanitised. **F4 fixed** |
+| 8 | `probe_a` (owner's transcript), `probe_e` (retry/log), `probe_g`-style counts | same results as round 1; no key and no message text in logs; no `exc_info` left in `buddy/` (L1 fixed) |
+| 9 | `probe_j`, `probe_l` (new) | F5 found (below) |
+| 10 | New tests against `556d30d` (head's `tests/` copied over, `RESUMED_SENTENCE` constant added so it imports) | `test_conversation_repair.py`: F1, F2 (x5 stages), two-failed-reads, F3, F4 (x3), resumed-in-every-speaker all fail on the old code; `test_file_names.py` fails on the old code by construction (`NameMatch.unknown`). Guards that pass on old code: `..._with_several_uploads_...still_asks`, `..._file_and_its_copy_...`, `..._greeting_..._remembers_no_request` |
+| 11 | Mutations of the round-2 code (`mutations2.py`, 20, scratch worktree) | 13 killed, 7 survived: `n04` (Brain fails twice no longer keeps pending), `n08`/`n10` (the resumed sentence on the nothing-left and no-change replies), `n15` (file-and-copy exemption), `n18` (`exc_info` back), `n19` (`resumed_request` not reset), `n20` (all near names counted). `out/mutations2.txt` |
+| 12 | Original upload SHA-256 before/after, every turn of every probe | unchanged in all (`uploads_unchanged: true`) |
+
+### Findings
+
+#### F5 (MEDIUM, [Certain]): the "went on with your earlier request" sentence is added to replies where nothing went on
+
+**Where.** `buddy/voice.py` `TemplateSpeaker._no_change_reply`: `if request.resumed and not asked: parts.append(RESUMED_SENTENCE)`. It is appended to every no-change reply that is not a re-asked question, including "Buddy couldn't read the request" and "nothing was run" replies. (`_verified_delivery_reply` and `_nothing_left_reply` are right: the request was carried out or checked there.)
+
+**Scenarios** (`probe_j_resumed_replies.py` j1, j2; `probe_l_more.py` l2; `probe_b` b7):
+1. "remove duplicate rows in budget.xlsx" -> "Which file?". Then "messy-data.xlsx" while Think fails twice (the failure the owner's transcript turn 1 showed). Brain says `answers_pending: true`.
+   **Reply, all three speakers:** "I couldn't work out what you asked for just now. Please try again. I took your last message as the answer to my question and went on with your earlier request. No changes were made to any file this turn."
+   It says Buddy couldn't read the request and that it went on with it, in one breath. The second statement didn't happen.
+2. Same, with Brain answering `answers_pending: true` but reading the waiting request as `unsupported` or `unclear` (a model misreading, the case the sentence exists to expose):
+   "Your message mentions duplicate rows, but I didn't run the duplicate-row removal. I can remove ... I took your last message as the answer to my question and went on with your earlier request. No changes were made to any file this turn."
+
+**Reachability.** Case 1 needs only Think failing twice on the turn that answers "which file?": a provider hiccup on the one turn the whole change is about. Case 2 needs a Brain misreading. The retry that case 1 invites ("Please try again") works (F2), so the person is then told it was carried out twice.
+
+**Rule 1.** The sentence implies an action that did not happen (MEDIUM: contradicts itself; the next sentence says no change was made).
+
+**Design.** Section 1 says the sentence is "not on a reply that asks again". It is also wrong on these two.
+
+**Fix (verified in a scratch copy, not in the branch).** In `_no_change_reply` replace `if request.resumed and not asked:` with `if request.resumed and outcome.report_asked and outcome.report_given:` (the one no-change reply where the earlier request was carried out: the report). `probe_j` then shows no sentence in j1, j2, l2; it stays on every delivered reply, the nothing-left reply and the resumed report (l1); `test_conversation_repair.py`, `test_voice.py`, `test_reply_quality.py` still pass (415). Add tests: Think fails twice on the answering turn -> reply has no `RESUMED_SENTENCE`; Brain `answers_pending` with `unsupported` -> no sentence; and one that pins the sentence on the nothing-left reply (`n08`, `n10` survive today because nothing tests the sentence outside a delivery).
+
+#### F6 (LOW, [Certain]): the F3 cross-check now reads a bare file name as part of the request
+
+**Where.** `buddy/brain.py` `MentionCrossCheck.__call__` reads `request.user_message` also when Brain resumed the waiting request.
+**Scenario** (`probe_k_name_keywords.py`). Two uploads, one named `duplicates.xlsx` (also `dupes.xlsx`, `empty rows jan.xlsx`, `blank rows.xlsx`). "remove the empty rows in budget.xlsx" -> "Which file?" -> "duplicates.xlsx". Correct resume, empty rows removed, then: "Your message mentions duplicate rows, but I didn't run the duplicate-row removal." The same sentence already appears on `main` when a single message says "remove empty rows in duplicates.xlsx", and it is true that the text contains the word, so I rate it LOW; but the resume path was clean before this round.
+**Fix.** Pass the session's file names as `except_inside` to `mentioned_actions` when cross-checking the answering message (the argument exists for this: "compared as text, not read").
+
+### Confirmation of each round-1 finding
+
+| Finding | Status | My evidence |
+|---|---|---|
+| F1 | Fixed | probe 4; mutation `n01`, `n17` killed |
+| F2 | Fixed | probe 5; `n02`, `n03` killed; `n04` survives (Brain failing twice: `probe_m_brain_fails_twice.py` shows that with the mutant the pending request is lost and a realistic Brain's retry gets nothing) |
+| F3 | Fixed, with F5 and F6 as side effects | probe 6; `n05`, `n06`, `n07`, `n11` killed |
+| F4 | Fixed (one upload: no question; two uploads: question, as designed) | probe 7; `n12`, `n13`, `n14`, `n16` killed; the file-and-copy exemption is untested, see below |
+| L1 | Fixed | no `exc_info` in `buddy/`; log probe clean |
+| L7 | Partly | thresholds now have behavioural tests; skill-side `LooseDuplicateRowAnalyzer` and the refused-file condition still untested (as the writer says) |
+
+### Deferred (LOW; added to `docs/backlog.md`)
+
+- **L9.** F6 above.
+- **L10.** With one upload, a request naming a file that is not there ("remove duplicate rows in sales_2024.xlsx", `probe_l` l4) runs on the only upload. The reply names the file it used but does not say the named one wasn't found. True, and what the design chose; owner may want one fixed sentence.
+- **L11.** Test strength of the round-2 code: `n04` (Brain failing twice keeps pending), `n08`/`n10` (resumed sentence outside a delivery), `n15` (`test_a_name_close_to_a_file_and_its_copy_is_not_ambiguous` types a name that only the copy is close to, so it never reaches the "several names, one upload" branch), `n18` (`exc_info` back), `n19` (`resumed_request` not cleared by `reset_transient`; head is correct, `probe` of three turns shows no leak), `n20`.
+- **L12.** `docs/backlog.md` still lists round-1 L1 as open (fixed) and L7 as written (partly fixed).
+- Round-1 L2 to L6 and L8 are unchanged.
+
+### Deviations from the design document (round 2)
+
+1. Section 1, the resumed sentence "(not on a reply that asks again)": also appears on replies that couldn't read the request or ran nothing (F5).
+2. No other deviation. The pending request lifetime now matches the text (stage errors, double Think/Brain failure, deadline keep it). On-disk format unchanged since `556d30d` (no change to `backend/store.py`; `data-v1` to `data-v4` fixtures untouched).
+
+### Not run
+
+- No live runs with Groq (none in the session by the owner's instruction). How the real Brain answers `answers_pending`, and how often Think fails twice, are modelled, not measured. F5 case 1 does not depend on Brain's wording.
+- `deploy/release.sh` and the log folder: unchanged since round 1, not rerun.
+- The multi-user and retention checks of round 1 stay not run.
