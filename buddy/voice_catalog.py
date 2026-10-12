@@ -293,15 +293,16 @@ GREETINGS: dict[str, tuple[str, ...]] = {
 # if a skill is added without this line.
 CAPABILITIES: dict[str, str] = {
     STYLE_PLAIN: (
-        "I can remove duplicate rows, remove empty rows, and look a spreadsheet over for "
+        "I can remove exact duplicate rows, remove empty rows, and look a spreadsheet over for "
         "possible problems."
     ),
     "friend": (
-        "I can remove duplicate rows, remove empty rows, and look a spreadsheet over for "
+        "I can remove exact duplicate rows, remove empty rows, and look a spreadsheet over for "
         "anything that seems off."
     ),
     "focus": (
-        "I can remove duplicate rows, remove empty rows, and check a spreadsheet for problems."
+        "I can remove exact duplicate rows, remove empty rows, and check a spreadsheet for "
+        "problems."
     ),
 }
 
@@ -386,9 +387,9 @@ def clarification_question(reason: str, style: str, seed: str) -> str:
 # Added to a delivered reply: which file the turn worked on. One fixed sentence, chosen by code
 # from the turn's ``FileUsed``; it claims nothing about the result. The copy's name is the one the
 # person sees (the Files panel and the download).
-WORKED_ON_ORIGINAL_SENTENCE = "I worked on your original upload."
-WORKED_ON_ORIGINAL_SKIPPING_COPY_SENTENCE = (
-    "I worked on your original upload, not on a copy I handed back earlier."
+WORKED_ON_ORIGINAL_TEMPLATE = "I worked on {file}, your original upload."
+WORKED_ON_ORIGINAL_SKIPPING_COPY_TEMPLATE = (
+    "I worked on {file}, your original upload, not on a copy I handed back earlier."
 )
 WORKED_ON_COPY_TEMPLATE = (
     "I worked on {file}, the latest copy I handed back, not on your original upload."

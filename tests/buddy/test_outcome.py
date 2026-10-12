@@ -91,7 +91,7 @@ def _m(
                 delivered_file="report.xlsx",
             ),
             FILE_STYLE_GENERATED,
-            "Done — removed 2 duplicate rows. The copy has 4 rows, with 0 duplicate rows "
+            "Done — removed 2 exact duplicate rows. The copy has 4 rows, with 0 exact duplicate rows "
             "remaining. Saved as `report_deduplicated_S-task-1.xlsx`.",
         ),
         (  # H1: identical blank rows are removed too, and the reply says so
@@ -115,8 +115,8 @@ def _m(
                 delivered_file="report.xlsx",
             ),
             FILE_STYLE_PLAIN,
-            "Done — removed 2 duplicate rows, including 1 repeated blank row. "
-            "The copy has 4 rows, with 0 duplicate rows remaining. "
+            "Done — removed 2 exact duplicate rows, including 1 repeated blank row. "
+            "The copy has 4 rows, with 0 exact duplicate rows remaining. "
             "Your cleaned copy of report.xlsx is ready.",
         ),
         (  # H1: only repeated blank rows were removed, several of them
@@ -139,7 +139,7 @@ def _m(
                 output_names=("out.xlsx",),
             ),
             FILE_STYLE_GENERATED,
-            "Done — removed 2 duplicate rows, including 2 repeated blank rows. "
+            "Done — removed 2 exact duplicate rows, including 2 repeated blank rows. "
             "Saved as `out.xlsx`.",
         ),
         (  # N2: nothing to remove is said as such, with no invented count
@@ -151,8 +151,8 @@ def _m(
                 delivered_file="report.xlsx",
             ),
             FILE_STYLE_PLAIN,
-            "Done — there were no duplicate rows to remove. The copy has 3 rows, "
-            "with 0 duplicate rows remaining. Your cleaned copy of report.xlsx is ready.",
+            "Done — there were no exact duplicate rows to remove. The copy has 3 rows, "
+            "with 0 exact duplicate rows remaining. Your cleaned copy of report.xlsx is ready.",
         ),
         (  # no measurement: no count at all
             OutcomeReport(
@@ -183,8 +183,8 @@ def _m(
                 delivered_file="report.xlsx",
             ),
             FILE_STYLE_PLAIN,
-            "Removed 1 fully-empty row. There were no duplicate rows left to remove. "
-            f"The copy has 5 rows, with 0 fully-empty rows and 0 duplicate rows remaining. "
+            "Removed 1 fully-empty row. There were no exact duplicate rows left to remove. "
+            f"The copy has 5 rows, with 0 fully-empty rows and 0 exact duplicate rows remaining. "
             f"{_ORDER} Your cleaned copy of report.xlsx is ready.",
         ),
         (  # final-file counts that disagree on the row count are not stated
@@ -409,7 +409,7 @@ def test_the_reply_never_uses_a_skills_self_reported_count(tmp_path: Path) -> No
         skill="excel.deduplicate",
         status="success",
         outputs=(str(output),),
-        summary="Removed 99 duplicate rows",
+        summary="Removed 99 exact duplicate rows",
         self_reported_findings=("removed_count=99",),
         input_reference=str(source),
         permission_tier="write",
@@ -575,7 +575,7 @@ _C1_BLOCK_FINAL = StepMeasurement(DUPLICATE_ROWS_TARGET, output_rows=4, remainin
                 residuals=(StepMeasurement(EMPTY_ROWS_TARGET, 4, 1),),
                 output_names=("out.xlsx",),
             ),
-            "Partly done — removed 2 duplicate rows. I didn't run the empty-row removal, "
+            "Partly done — removed 2 exact duplicate rows. I didn't run the empty-row removal, "
             "though I read it as part of your request. The copy has 4 rows, with 0 duplicate "
             "rows remaining. It still has 1 fully-empty row. Saved as `out.xlsx`.",
         ),
@@ -608,9 +608,9 @@ _C1_BLOCK_FINAL = StepMeasurement(DUPLICATE_ROWS_TARGET, output_rows=4, remainin
                 residuals=(StepMeasurement(EMPTY_ROWS_TARGET, 4, 1),),
                 output_names=("out.xlsx",),
             ),
-            "I removed 2 duplicate rows, though I didn't read that as part of your request. "
+            "I removed 2 exact duplicate rows, though I didn't read that as part of your request. "
             "I didn't run the empty-row removal, though I read it as part of your request. "
-            "The copy has 4 rows, with 0 duplicate rows remaining. It still has 1 fully-empty "
+            "The copy has 4 rows, with 0 exact duplicate rows remaining. It still has 1 fully-empty "
             "row. Saved as `out.xlsx`.",
         ),
         (  # NO_SKILL with the user's own words; an unrequested step after a done one
@@ -630,7 +630,7 @@ _C1_BLOCK_FINAL = StepMeasurement(DUPLICATE_ROWS_TARGET, output_rows=4, remainin
             ),
             "Partly done — there were no fully-empty rows to remove. I also ran the "
             "duplicate-row removal, though I didn't read that as part of your request; there "
-            "were no duplicate rows left to remove. I can't do this part yet: “sort by amount”.",
+            "were no exact duplicate rows left to remove. I can't do this part yet: “sort by amount”.",
         ),
         (  # NO_SKILL whose phrase isn't the user's: nothing is quoted
             OutcomeReport(
@@ -662,7 +662,7 @@ _C1_BLOCK_FINAL = StepMeasurement(DUPLICATE_ROWS_TARGET, output_rows=4, remainin
                 ),
                 residuals=(StepMeasurement(EMPTY_ROWS_TARGET, 5, 1),),
             ),
-            "There were no duplicate rows to remove. Your message mentions empty rows, but "
+            "There were no exact duplicate rows to remove. Your message mentions empty rows, but "
             "I didn't run the empty-row removal. The copy still has 1 fully-empty row.",
         ),
     ],
@@ -773,7 +773,7 @@ def test_h1_a_mention_only_step_is_unrequested_when_brain_gave_a_reading() -> No
         (_EMPTY, NOT_DONE, NOT_PLANNED, _BRAIN),
     ]
     assert report.lead_word is None and not report.request_complete
-    assert "I removed 2 duplicate rows, though I didn't read that as part of your request." in (
+    assert "I removed 2 exact duplicate rows, though I didn't read that as part of your request." in (
         render_outcome(report, FILE_STYLE_GENERATED)
     )
 
@@ -844,8 +844,8 @@ def test_residuals_are_kept_only_for_actions_that_were_not_done() -> None:
 
     assert report.residuals == (StepMeasurement(EMPTY_ROWS_TARGET, 4, 1),)
     assert render_outcome(report, FILE_STYLE_GENERATED) == (
-        "Partly done — removed 2 duplicate rows. I didn't run the empty-row removal, though I "
-        "read it as part of your request. The copy has 4 rows, with 0 duplicate rows remaining. "
+        "Partly done — removed 2 exact duplicate rows. I didn't run the empty-row removal, though I "
+        "read it as part of your request. The copy has 4 rows, with 0 exact duplicate rows remaining. "
         "It still has 1 fully-empty row. Saved as `out.xlsx`. " + VALUES_ONLY_SENTENCE
     )
 

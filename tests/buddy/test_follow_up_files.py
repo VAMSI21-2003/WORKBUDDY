@@ -24,16 +24,13 @@ from buddy.engine_factory import build_engine
 from buddy.models import FILE_KIND_COPY, FILE_KIND_ORIGINAL, FileChoice
 from buddy.state import BuddyState
 from buddy.voice import _COMPLETION_CLAIM, PersonalityVoice, is_verified_delivery
-from buddy.voice_catalog import (
-    NO_FILE_SENTENCE,
-    WORKED_ON_ORIGINAL_SENTENCE,
-    WORKED_ON_ORIGINAL_SKIPPING_COPY_SENTENCE,
-)
+from buddy.voice_catalog import NO_FILE_SENTENCE
 from tests.buddy.test_engine_factory import _chain_replies, _QueuedLLMProvider
+from tests.file_sentences import worked_on_original, worked_on_original_skipping_copy
 
 SPEAKERS = ["template", "friend", "focus"]
 
-# 6 rows: Alice and Bob each appear twice (2 duplicate rows), one fully-empty row.
+# 6 rows: Alice and Bob each appear twice (2 exact duplicate rows), one fully-empty row.
 ROWS = [
     ["Alice", 10],
     ["Bob", 20],
@@ -186,7 +183,7 @@ def test_a_follow_up_builds_on_the_latest_copy_so_two_requests_add_up(
     assert facts(session.upload) == Facts(rows=6, duplicates=2, empties=1)
     assert facts(c1) == Facts(rows=4, duplicates=0, empties=1)
     assert first.file_used is not None and first.file_used.kind == FILE_KIND_ORIGINAL
-    assert WORKED_ON_ORIGINAL_SENTENCE in (first.reply or "")
+    assert worked_on_original() in (first.reply or "")
     session.copy = c1
     c1_hash = _sha(c1)
 
@@ -202,7 +199,7 @@ def test_a_follow_up_builds_on_the_latest_copy_so_two_requests_add_up(
     assert facts(c2) == Facts(rows=3, duplicates=0, empties=0)
     reply = second.reply or ""
     assert f"`{c1.name}`, the latest copy I handed back" in reply
-    assert WORKED_ON_ORIGINAL_SENTENCE not in reply
+    assert worked_on_original() not in reply
     # Every number matches a read of the file the turn used (the copy), not of the upload.
     assert numbers_in(reply) <= allowed_numbers(facts(c1), facts(c2))
     assert 6 not in numbers_in(reply)
@@ -264,7 +261,7 @@ def test_start_over_uses_the_original_upload_when_brain_reads_it(
     # Only the empty row is gone: the upload's duplicates are still there.
     assert facts(out) == Facts(rows=5, duplicates=2, empties=0)
     reply = again.reply or ""
-    assert WORKED_ON_ORIGINAL_SKIPPING_COPY_SENTENCE in reply
+    assert worked_on_original_skipping_copy() in reply
     assert numbers_in(reply) <= allowed_numbers(facts(session.upload), facts(out))
 
 
@@ -321,7 +318,7 @@ def test_a_new_upload_is_used_as_itself(tmp_path: Path, monkeypatch: pytest.Monk
     assert third.file_used is not None
     assert third.file_used.path == str(other) and third.file_used.kind == FILE_KIND_ORIGINAL
     assert not third.file_used.copy_skipped
-    assert WORKED_ON_ORIGINAL_SENTENCE in (third.reply or "")
+    assert worked_on_original("other.xlsx") in (third.reply or "")
     assert facts(out) == Facts(rows=3, duplicates=0, empties=1)
     assert numbers_in(third.reply or "") <= allowed_numbers(facts(other), facts(out))
 
@@ -339,7 +336,7 @@ def test_a_file_the_person_picked_is_used_as_itself(
     assert picked.file_used is not None
     assert picked.file_used.path == str(session.upload)
     assert picked.file_used.copy_skipped
-    assert WORKED_ON_ORIGINAL_SKIPPING_COPY_SENTENCE in (picked.reply or "")
+    assert worked_on_original_skipping_copy() in (picked.reply or "")
 
 
 def test_a_copy_that_cant_be_offered_is_said_not_silently_dropped(
@@ -356,7 +353,7 @@ def test_a_copy_that_cant_be_offered_is_said_not_silently_dropped(
     )
 
     assert turn.file_used is not None and turn.file_used.copy_skipped
-    assert WORKED_ON_ORIGINAL_SKIPPING_COPY_SENTENCE in (turn.reply or "")
+    assert worked_on_original_skipping_copy() in (turn.reply or "")
 
 
 # -- Nothing left to do -------------------------------------------------------------------------
@@ -381,7 +378,7 @@ def test_a_copy_that_already_satisfies_the_request_says_so_and_makes_no_new_file
     assert session.delivered(second) is None
     assert facts(c1).duplicates == 0  # the independent read agrees: nothing was left to remove
     assert (
-        f"The latest copy, `{c1.name}`, already has no duplicate rows, so there "
+        f"The latest copy, `{c1.name}`, already has no exact duplicate rows, so there "
         "was nothing to remove and I handed back no new file."
     ) in reply
     assert "No changes were made to any file this turn." in reply
@@ -408,7 +405,7 @@ def test_nothing_left_for_two_requests_names_both(
     third = session.turn("remove duplicate rows and empty rows", replies)
 
     assert not is_verified_delivery(third)
-    assert "already has no duplicate rows or fully-empty rows" in (third.reply or "")
+    assert "already has no exact duplicate rows or fully-empty rows" in (third.reply or "")
     assert session.delivered(third) is None
 
 
@@ -431,7 +428,7 @@ def test_a_follow_up_that_changes_something_is_still_delivered(
     assert out is not None
     assert facts(out) == Facts(rows=3, duplicates=0, empties=0)
     reply = second.reply or ""
-    assert "There were no duplicate rows to remove." in reply
+    assert "There were no exact duplicate rows to remove." in reply
     assert "handed back no new file" not in reply
     assert numbers_in(reply) <= allowed_numbers(facts(session.copy), facts(out))
 
@@ -447,7 +444,7 @@ def test_the_original_with_nothing_to_remove_is_still_delivered_as_before(
     turn = session.turn("remove the duplicate rows", brain("remove_duplicate_rows"))
 
     assert session.delivered(turn) is not None
-    assert "there were no duplicate rows to remove." in (turn.reply or "")
+    assert "there were no exact duplicate rows to remove." in (turn.reply or "")
 
 
 # -- A report on a copy -------------------------------------------------------------------------
@@ -490,7 +487,7 @@ def test_a_caller_that_offers_no_choice_gets_the_upload_and_says_so(
     build_engine(llm_provider=_QueuedLLMProvider(brain("remove_duplicate_rows"))).run(state)
 
     assert state.file_used is not None and state.file_used.path == str(upload)
-    assert WORKED_ON_ORIGINAL_SENTENCE in (state.reply or "")
+    assert worked_on_original() in (state.reply or "")
 
 
 def test_a_turn_with_no_file_says_nothing_about_a_file_worked_on(
@@ -537,8 +534,8 @@ def test_the_new_sentences_claim_nothing_and_carry_no_number() -> None:
     from buddy import voice_catalog as catalog
 
     for text in (
-        catalog.WORKED_ON_ORIGINAL_SENTENCE,
-        catalog.WORKED_ON_ORIGINAL_SKIPPING_COPY_SENTENCE,
+        catalog.WORKED_ON_ORIGINAL_TEMPLATE.format(file="`x.xlsx`"),
+        catalog.WORKED_ON_ORIGINAL_SKIPPING_COPY_TEMPLATE.format(file="`x.xlsx`"),
         catalog.WORKED_ON_COPY_TEMPLATE.format(file="`x.xlsx`"),
         catalog.NOTHING_LEFT_TEMPLATE.format(file="`x.xlsx`", rows="duplicate rows"),
     ):

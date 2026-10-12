@@ -125,6 +125,24 @@ class FileUsedRecord:
     start_over: bool = False
 
 
+@dataclass(frozen=True)
+class PendingRequest:
+    """A request Buddy asked "which file?" about and is waiting on.
+
+    Kept in the session (``session.json``, key ``pending_request``) so the next message, which
+    names one of the session's files, can carry it out (``buddy.brain``: Brain decides whether
+    that message answers it or is a request of its own). It lives for one turn: any turn that
+    finishes replaces it with its own, or with nothing.
+
+    Attributes:
+        message: The request's words, as the person typed them.
+        turn_id: The turn that asked.
+    """
+
+    message: str
+    turn_id: str
+
+
 @dataclass
 class TurnRecord:
     """One turn. Finished exactly once; immutable afterwards.
@@ -182,6 +200,8 @@ class SessionRecord:
     files: dict[str, UploadRecord] = field(default_factory=dict)
     turns: list[TurnRecord] = field(default_factory=list)
     active_file_id: str | None = None
+    # The request the last turn asked "which file?" about, if any (``PendingRequest``).
+    pending: PendingRequest | None = None
     next_seq: int = 1
     running_turn_id: str | None = None
     lock: threading.RLock = field(default_factory=threading.RLock, repr=False, compare=False)
@@ -210,6 +230,17 @@ class SessionRecord:
             if t.finished and t.outcome == "delivered"
             for f in t.delivered_files
         ]
+
+    def upload_of_delivered(self, delivered_id: str) -> str | None:
+        """The id of the upload a delivered file was made from, or ``None`` if it is unknown.
+
+        A delivered file was made from the upload its turn was about (``target_file_id``): a
+        follow-up builds on the latest copy of that upload, and a copy of a copy is still of it.
+        """
+        for turn in self.turns:
+            if turn.finished and any(f.file_id == delivered_id for f in turn.delivered_files):
+                return turn.target_file_id
+        return None
 
     def latest_copy(self, upload_id: str) -> DeliveredFile | None:
         """The file a follow-up on upload ``upload_id`` builds on: the latest one delivered from it.

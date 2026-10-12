@@ -35,7 +35,7 @@ from buddy.outcome import (
     report_unavailable_sentence,
 )
 from buddy.state import BuddyState, StageFailure
-from buddy.think import CLARIFY_FAILED, Reasoning
+from buddy.think import CLARIFY_FAILED, CLARIFY_WHICH_FILE, Reasoning
 from buddy.voice_catalog import (
     CAPABILITIES,
     NO_FILE_SENTENCE,
@@ -49,8 +49,8 @@ from buddy.voice_catalog import (
     STYLE_PLAIN,
     UNDERSTANDING_FAILED_SENTENCE,
     WORKED_ON_COPY_TEMPLATE,
-    WORKED_ON_ORIGINAL_SENTENCE,
-    WORKED_ON_ORIGINAL_SKIPPING_COPY_SENTENCE,
+    WORKED_ON_ORIGINAL_SKIPPING_COPY_TEMPLATE,
+    WORKED_ON_ORIGINAL_TEMPLATE,
     clarification_question,
     failure_reply,
     greeting_reply,
@@ -606,26 +606,29 @@ def _name_in_reply(name: str | None) -> str:
     return cleaned[:119].rstrip() + "…" if len(cleaned) > 120 else cleaned
 
 
-def _file_label(name: str | None) -> str:
-    """A copy's name between backticks, or "the copy" if it has none to show."""
+def _file_label(name: str | None, fallback: str = "the copy") -> str:
+    """A file's name between backticks, or ``fallback`` if it has none to show."""
     cleaned = _name_in_reply(name)
-    return f"`{cleaned}`" if cleaned else "the copy"
+    return f"`{cleaned}`" if cleaned else fallback
 
 
 def _file_used_sentence(used: FileUsed | None) -> str:
     """Which file the turn worked on, in one fixed sentence chosen by code; ``""`` if unknown.
 
-    The sentence follows ``FileUsed`` and nothing else: the person's upload, the upload when a
-    copy had been handed back and wasn't used, or the latest copy by its name. It claims nothing
-    about what the work did.
+    The sentence follows ``FileUsed`` and nothing else, and names the file: the person's upload,
+    the upload when a copy had been handed back and wasn't used, or the latest copy. It claims
+    nothing about what the work did.
     """
     if used is None:
         return ""
     if used.kind == FILE_KIND_COPY:
         return WORKED_ON_COPY_TEMPLATE.format(file=_file_label(used.copy_name))
-    if used.copy_skipped:
-        return WORKED_ON_ORIGINAL_SKIPPING_COPY_SENTENCE
-    return WORKED_ON_ORIGINAL_SENTENCE
+    template = (
+        WORKED_ON_ORIGINAL_SKIPPING_COPY_TEMPLATE
+        if used.copy_skipped
+        else WORKED_ON_ORIGINAL_TEMPLATE
+    )
+    return template.format(file=_file_label(Path(used.path).name, fallback="your file"))
 
 
 def _report_text(open_findings: Sequence[str], notes: Sequence[str], lead: str) -> str:
@@ -1201,6 +1204,30 @@ def is_verified_delivery(state: BuddyState) -> bool:
     disagree with what the reply says. False whenever a stage raised.
     """
     return _verified_delivery(Voice._build_request(state))
+
+
+def asked_which_file(state: BuddyState) -> bool:
+    """Whether the reply for ``state``'s turn is the question "which file?".
+
+    The same order as ``TemplateSpeaker._no_change_reply``: a greeting, no file, or a file the
+    skills refuse each come before the question, and a failed stage gives no question. A caller
+    that remembers the request the question was about (the backend API) uses this, so it never
+    remembers one the reply didn't ask about.
+    """
+    reasoning = state.reasoning
+    if (
+        state.failure is not None
+        or reasoning is None
+        or not reasoning.clarification_required
+        or reasoning.clarification_reason != CLARIFY_WHICH_FILE
+    ):
+        return False
+    request = Voice._build_request(state)
+    return (
+        request.has_file
+        and request.file_refusal is None
+        and not is_conversation(request.understanding, request.user_message)
+    )
 
 
 class PersonalityVoice:

@@ -49,6 +49,7 @@ from backend.sessions import (
     USED_UPLOAD,
     DeliveredFile,
     FileUsedRecord,
+    PendingRequest,
     SessionRecord,
     TurnRecord,
     UploadRecord,
@@ -81,6 +82,13 @@ _TURN_KEYS = {
     "detail",
 }
 _TURN_OPTIONAL_KEYS = {"confirmation", "file_used"}
+# A session record's keys. Every server before the conversation repair wrote it without
+# "pending_request"; a record with or without it restores.
+_SESSION_KEYS = {
+    "version", "created_at", "next_seq", "active_file_id", "files", "turn_ids", "context",
+}
+_SESSION_OPTIONAL_KEYS = {"pending_request"}
+MAX_PENDING_CHARS = 20_000
 
 
 @dataclass(frozen=True)
@@ -202,6 +210,14 @@ class SessionStore:
             ],
             "turn_ids": [t.turn_id for t in record.turns],
             "context": record.state.context.to_dict(),
+            # The request waiting on an answer to "which file?", or null. Always written, so a
+            # record says whether one is waiting; one without the key (an earlier server's)
+            # reads as none.
+            "pending_request": (
+                {"message": record.pending.message, "turn_id": record.pending.turn_id}
+                if record.pending is not None
+                else None
+            ),
         }
         atomic_write_json(record.meta_dir(self._settings) / "session.json", data)
 
@@ -297,10 +313,10 @@ class SessionStore:
 
     def _restore(self, key: str, folder: Path) -> SessionRecord:
         data = _read_json(folder / "session.json")
-        _expect_keys(
-            data,
-            "session",
-            {"version", "created_at", "next_seq", "active_file_id", "files", "turn_ids", "context"},
+        _check(
+            isinstance(data, dict)
+            and _SESSION_KEYS <= set(data) <= _SESSION_KEYS | _SESSION_OPTIONAL_KEYS,
+            "session: keys",
         )
         _check(data["version"] == FORMAT_VERSION and _is_int(data["version"]), "version")
         created_at = _aware(data["created_at"], "created_at")
@@ -337,6 +353,12 @@ class SessionStore:
         used = [t.seq for t in turns] + self._turn_folders_in_use(key)
         next_seq = max([next_seq, *(seq + 1 for seq in used)])
 
+        pending = _pending_request(
+            data.get("pending_request"),
+            {t.turn_id for t in turns},
+            max(MAX_PENDING_CHARS, self._settings.max_message_chars),
+        )
+
         state = BuddyState(context=context)
         owned = self.read_owner(key)
         return SessionRecord(
@@ -348,6 +370,7 @@ class SessionStore:
             files=files,
             turns=turns,
             active_file_id=active_file_id,
+            pending=pending,
             next_seq=next_seq,
         )
 
@@ -514,6 +537,22 @@ def _file_used(data: Any) -> FileUsedRecord | None:
     _check(isinstance(file_id, str) and valid_id(file_id), "turn: file_used: file_id")
     _check(isinstance(data["start_over"], bool), "turn: file_used: start_over")
     return FileUsedRecord(kind=data["kind"], file_id=file_id, start_over=data["start_over"])
+
+
+def _pending_request(data: Any, turn_ids: set[str], limit: int) -> PendingRequest | None:
+    """A stored ``pending_request``, checked: ``None`` for none, and for a record without one."""
+    if data is None:
+        return None
+    _expect_keys(data, "session: pending_request", {"message", "turn_id"})
+    message, turn_id = data["message"], data["turn_id"]
+    _check(
+        isinstance(message, str) and 0 < len(message) <= limit,
+        "session: pending_request: message",
+    )
+    _check(
+        isinstance(turn_id, str) and turn_id in turn_ids, "session: pending_request: turn_id"
+    )
+    return PendingRequest(message=message, turn_id=turn_id)
 
 
 def _check_files_used(turns: list[TurnRecord], files: dict[str, UploadRecord]) -> None:

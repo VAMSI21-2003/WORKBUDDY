@@ -21,9 +21,9 @@ from buddy.engine_factory import build_engine
 from buddy.outcome import VALUES_ONLY_SENTENCE
 from buddy.state import BuddyState
 from buddy.voice import _COMPLETION_CLAIM, PersonalityVoice
-from buddy.voice_catalog import WORKED_ON_ORIGINAL_SENTENCE
 from skills.base import SkillResult, SkillStatus
 from skills.excel.dedupe import ExcelDeduplicateSkill
+from tests.file_sentences import worked_on_original
 from skills.excel.remove_empty_rows import ExcelRemoveEmptyRowsSkill
 from tests import workbook_fixtures as fixtures
 from tests.buddy.test_engine_factory import (
@@ -188,37 +188,37 @@ def test_a_multi_sheet_workbook_is_refused_and_nothing_is_delivered(
 # the file sentence (``_with_values_only_sentence``).
 _MAIN_REPLIES = {
     ("dedupe", "template"): (
-        "Done — removed 1 duplicate row. The copy has 4 rows, with 0 duplicate rows "
+        "Done — removed 1 exact duplicate row. The copy has 4 rows, with 0 exact duplicate rows "
         "remaining. Saved as `report_deduplicated_session-1-task-1.xlsx`. I also noticed: "
         "name: 1 missing value (25.0%); amount: 1 missing value (25.0%). Want me to "
         "tackle any of these?"
     ),
     ("dedupe", "friend"): (
-        "Okay, here's the rundown. Done — removed 1 duplicate row. The copy has 4 rows, "
-        "with 0 duplicate rows remaining. Your cleaned copy of report.xlsx is ready. I also "
+        "Okay, here's the rundown. Done — removed 1 exact duplicate row. The copy has 4 rows, "
+        "with 0 exact duplicate rows remaining. Your cleaned copy of report.xlsx is ready. I also "
         "noticed: name: 1 missing value (25.0%); amount: 1 missing value (25.0%). Want "
         "me to tackle any of these?"
     ),
     ("dedupe", "focus"): (
-        "Done — removed 1 duplicate row. The copy has 4 rows, with 0 duplicate rows "
+        "Done — removed 1 exact duplicate row. The copy has 4 rows, with 0 exact duplicate rows "
         "remaining. Your cleaned copy of report.xlsx is ready. I also noticed: name: 1 "
         "missing value (25.0%); amount: 1 missing value (25.0%). Want me to tackle any "
         "of these?"
     ),
     ("chain", "template"): (
-        "Removed 1 duplicate row. Removed 1 fully-empty row. The copy has 3 rows, with 0 "
+        "Removed 1 exact duplicate row. Removed 1 fully-empty row. The copy has 3 rows, with 0 "
         "duplicate rows and 0 fully-empty rows remaining. Saved as "
         "`report_deduplicated_session-1-task-1_no_empty_rows_session-1-task-2.xlsx`. None of "
         "the issues I check for were found."
     ),
     ("chain", "friend"): (
-        "Those blank rows were just taking up space. Removed 1 duplicate row. Removed 1 "
-        "fully-empty row. The copy has 3 rows, with 0 duplicate rows and 0 fully-empty "
+        "Those blank rows were just taking up space. Removed 1 exact duplicate row. Removed 1 "
+        "fully-empty row. The copy has 3 rows, with 0 exact duplicate rows and 0 fully-empty "
         "rows remaining. Your cleaned copy of report.xlsx is ready. None of the issues I "
         "check for were found."
     ),
     ("chain", "focus"): (
-        "Removed 1 duplicate row. Removed 1 fully-empty row. The copy has 3 rows, with 0 "
+        "Removed 1 exact duplicate row. Removed 1 fully-empty row. The copy has 3 rows, with 0 "
         "duplicate rows and 0 fully-empty rows remaining. Your cleaned copy of "
         "report.xlsx is ready. None of the issues I check for were found."
     ),
@@ -233,7 +233,7 @@ def _with_values_only_sentence(reply: str) -> str:
     )
     assert file_sentence is not None
     end = file_sentence.end()
-    return f"{reply[:end]} {VALUES_ONLY_SENTENCE} {WORKED_ON_ORIGINAL_SENTENCE}{reply[end:]}"
+    return f"{reply[:end]} {VALUES_ONLY_SENTENCE} {worked_on_original()}{reply[end:]}"
 
 
 @pytest.mark.parametrize("sheet_name", ["Sheet1", "Data"])
@@ -380,7 +380,7 @@ def test_a_chain_step_that_drops_a_sheet_of_the_previous_steps_output_fails(
 
 # -- A workbook that can't be read as the sheets it declares ----------------------------
 
-_FILL = "Done - removed 2 duplicate rows, your cleaned copy is ready"
+_FILL = "Done - removed 2 exact duplicate rows, your cleaned copy is ready"
 
 
 def _damaged_two_sheet(tmp_path: Path) -> None:
@@ -441,7 +441,7 @@ def test_an_unreadable_workbook_is_refused_with_a_fixed_reason_and_nothing_deliv
     # The reason is fixed text: nothing read from the file, no exception text, and
     # not the "0 sheets" or ".xls / xlrd" reasons that were wrong for these files.
     assert "cleaned copy is ready" not in reply
-    assert "removed 2 duplicate rows" not in reply
+    assert "removed 2 exact duplicate rows" not in reply
     assert "0 sheets" not in reply
     assert "xlrd" not in reply
     assert ".xls" not in reply
@@ -461,7 +461,7 @@ def test_a_crafted_part_name_with_a_completion_claim_never_reaches_the_reply(
     reply = state.reply
     assert reply is not None
     assert "cleaned copy is ready" not in reply
-    assert "removed 2 duplicate rows" not in reply
+    assert "removed 2 exact duplicate rows" not in reply
     assert _COMPLETION_CLAIM.search(reply) is None, reply
 
 

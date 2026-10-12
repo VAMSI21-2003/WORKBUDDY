@@ -62,6 +62,7 @@ from backend.sessions import (
     USED_UPLOAD,
     DeliveredFile,
     FileUsedRecord,
+    PendingRequest,
     SessionRecord,
     SessionRegistry,
     TurnRecord,
@@ -72,8 +73,9 @@ from backend.settings import Settings
 from buddy.context import Context
 from buddy.hands import ConfirmationProvider
 from buddy.models import FileChoice, StepResult, VerificationResult
+from buddy.source import match_file_name
 from buddy.state import BuddyState
-from buddy.voice import is_verified_delivery
+from buddy.voice import asked_which_file, is_verified_delivery
 from buddy.voice_catalog import FALLBACK_INTEGRITY_FAILURE, FALLBACK_PIPELINE_ERROR
 from core.engine import Engine
 
@@ -303,17 +305,36 @@ class TurnRunner:
                 work = copy.deepcopy(record.state)
                 work.reset_transient()  # never let a stale failure skip this turn's stages
                 work.user_message = message
+                work.turn_id = turn_id
                 if mode is not None:
                     work.context.set_mode(mode)
                 if target is not None:
                     work.context.switch_active_file(str(target.path))
                 work.turn_output_dir = str(turn_dir)
-                target_id = file_id if file_id is not None else record.active_file_id
+                # A file the message names (typos allowed) is the one the turn is about; with no
+                # name, the session's active upload. A name that matches nothing, or two files
+                # equally, leaves the file unsettled and Buddy asks (``FileChoice.unclear``).
+                named_id, unclear = (
+                    _named_upload(record, message) if file_id is None else (None, False)
+                )
+                target_id = (
+                    file_id
+                    if file_id is not None
+                    else named_id if named_id is not None else record.active_file_id
+                )
                 upload = record.files.get(target_id) if target_id is not None else None
+                if named_id is not None and upload is not None:
+                    work.context.switch_active_file(str(upload.path))
+                    # The request Buddy asked about is offered to Brain only when this message
+                    # names a file of the session; Brain decides whether it answers it.
+                    if record.pending is not None:
+                        work.pending_request = record.pending.message
                 # Which files the turn is offered; Brain's reading decides which it works on
                 # (``buddy.source.choose_file``).
                 offer = (
-                    self._offer(record, upload, turn_dir, pinned=file_id is not None)
+                    self._offer(
+                        record, upload, turn_dir, pinned=file_id is not None, unclear=unclear
+                    )
                     if upload is not None
                     else None
                 )
@@ -381,7 +402,13 @@ class TurnRunner:
         return turn
 
     def _offer(
-        self, record: SessionRecord, upload: UploadRecord, turn_dir: Path, *, pinned: bool
+        self,
+        record: SessionRecord,
+        upload: UploadRecord,
+        turn_dir: Path,
+        *,
+        pinned: bool,
+        unclear: bool = False,
     ) -> _Offer:
         """What the turn may work on: ``upload``, and the latest file delivered from it, if any.
 
@@ -393,9 +420,17 @@ class TurnRunner:
         """
         latest = record.latest_copy(upload.file_id)
         if latest is None:
-            return _Offer(FileChoice(original=str(upload.path), pinned=pinned), upload)
+            return _Offer(
+                FileChoice(original=str(upload.path), pinned=pinned, unclear=unclear), upload
+            )
         unavailable = _Offer(
-            FileChoice(original=str(upload.path), copy_unavailable=True, pinned=pinned), upload
+            FileChoice(
+                original=str(upload.path),
+                copy_unavailable=True,
+                pinned=pinned,
+                unclear=unclear,
+            ),
+            upload,
         )
         checked = check_turn_file(latest.path, record.turn_dir(self._settings, latest.turn_id))
         if checked is None or hashlib.sha256(checked[1]).hexdigest() != latest.sha256:
@@ -420,7 +455,11 @@ class TurnRunner:
         shown = display_names(record.key, record.delivered()).get(latest.file_id, name)
         return _Offer(
             FileChoice(
-                original=str(upload.path), copy=str(work_path), copy_name=shown, pinned=pinned
+                original=str(upload.path),
+                copy=str(work_path),
+                copy_name=shown,
+                pinned=pinned,
+                unclear=unclear,
             ),
             upload,
             source=latest,
@@ -676,9 +715,18 @@ class TurnRunner:
         """Commit the turn's state, or keep the pre-turn state (under the session lock)."""
         record, turn = job.record, job.turn
         if result.commit and state is not None:
+            # The request this reply asked "which file?" about, if it did: the words that were
+            # carried out this turn (an answered question's request, not its answer).
+            record.pending = (
+                PendingRequest(message=state.user_message, turn_id=turn.turn_id)
+                if state.user_message and asked_which_file(state)
+                else None
+            )
             state.context.record_buddy_reply(result.reply)
             state.reset_transient()
-            _restore_upload_focus(job, state.context, record)
+            _restore_upload_focus(
+                job, state.context, record, delivered=result.outcome == DELIVERED
+            )
             record.state = state
             record.active_file_id = _file_id_for(record, state.context.active_file)
             return
@@ -751,16 +799,54 @@ def _file_used_record(job: _Job, state: BuddyState, *, delivered: bool) -> FileU
     return None
 
 
-def _restore_upload_focus(job: _Job, context: Context, record: SessionRecord) -> None:
+def _restore_upload_focus(
+    job: _Job, context: Context, record: SessionRecord, *, delivered: bool
+) -> None:
     """After a turn, the session's focus is an upload again, never the turn's copy of a delivery.
 
     What is saved of the context (``backend.store``) names uploads only, so the turn's working
     file, and any analysis of it, are dropped from it: the next turn is offered its files afresh.
+
+    A turn that delivered a file also makes its upload "not yet analysed" again. A file is
+    analysed once, so that a question or a declined plan doesn't repeat the same findings; but a
+    delivery is a new file, and a later turn that goes back to the upload (a start-over) hands
+    back another new file, whose reply must say what that file still has (conversation repair,
+    turn 8). Every follow-up on a copy is analysed already, since a copy's path is dropped here.
     """
     uploads = {str(f.path) for f in record.files.values()}
     if job.offer is not None and context.active_file not in uploads:
         context.switch_active_file(str(job.offer.upload.path))
-    context.analyzed_files = frozenset(p for p in context.analyzed_files if p in uploads)
+    kept = {p for p in context.analyzed_files if p in uploads}
+    if delivered and job.offer is not None:
+        kept.discard(str(job.offer.upload.path))
+    context.analyzed_files = frozenset(kept)
+
+
+def _named_upload(record: SessionRecord, message: str) -> tuple[str | None, bool]:
+    """``(the id of the upload the message names, whether the naming is unclear)``.
+
+    Matched against the session's own file names, the uploads' and the delivered files' as the
+    person sees them (``backend.names``); a delivered file means the upload it was made from, as
+    a follow-up builds on that upload's latest copy. Same-named files (one upload twice) resolve
+    to the active upload if it is among them, else the latest. Nothing is read from the words
+    around a name; Brain reads what is asked.
+    """
+    shown = display_names(record.key, record.delivered())
+    entries: list[tuple[str, str]] = [(f.name, f.file_id) for f in record.files.values()]
+    for delivered in record.delivered():
+        upload_id = record.upload_of_delivered(delivered.file_id)
+        if upload_id is not None and upload_id in record.files:
+            entries.append((shown.get(delivered.file_id, delivered.name), upload_id))
+    found = match_file_name(message, [name for name, _ in entries])
+    if found.unclear:
+        return None, True
+    ids = list(dict.fromkeys(entries[i][1] for i in found.indices))
+    if not ids:
+        return None, False
+    if record.active_file_id in ids:
+        return record.active_file_id, False
+    order = list(record.files)
+    return max(ids, key=order.index), False
 
 
 def _file_id_for(record: SessionRecord, path: str | None) -> str | None:

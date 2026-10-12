@@ -27,13 +27,10 @@ from backend.main import create_app
 from backend.sessions import session_key
 from backend.settings import Settings
 from backend.store import SessionStore
-from buddy.voice_catalog import (
-    WORKED_ON_ORIGINAL_SENTENCE,
-    WORKED_ON_ORIGINAL_SKIPPING_COPY_SENTENCE,
-)
 from tests.backend.factories import SPEAKERS, PipelineFactory, QueuedProvider, raise_in, single
 from tests.backend.helpers import new_session, start_turn, upload, wait_finished, xlsx_bytes
 from tests.backend.signin_helpers import ALICE, BOB, Rig
+from tests.file_sentences import worked_on_original, worked_on_original_skipping_copy
 
 SIX_ROWS = xlsx_bytes()  # 6 rows: 2 duplicates (Alice, Bob), 1 fully-empty row
 
@@ -132,7 +129,7 @@ def test_two_requests_add_up_in_one_file(make_chat, speaker: str) -> None:  # ty
     first = chat.turn("remove the duplicate rows")
     (copy_1,) = first["delivered_files"]
     assert facts(chat.download(copy_1)) == (4, 0, 1)
-    assert WORKED_ON_ORIGINAL_SENTENCE in first["reply"]
+    assert worked_on_original() in first["reply"]
     assert chat.state()["next_request_file"] == {
         "kind": "delivered",
         "file_id": copy_1["file_id"],
@@ -175,7 +172,7 @@ def test_three_requests_in_a_row_the_last_has_nothing_left(make_chat, speaker: s
 
     assert third["outcome"] == "not_delivered" and third["delivered_files"] == []
     assert (
-        f"The latest copy, `{copy_2['name']}`, already has no duplicate rows, so there was "
+        f"The latest copy, `{copy_2['name']}`, already has no exact duplicate rows, so there was "
         "nothing to remove and I handed back no new file."
     ) in third["reply"]
     assert not numbers_in(third["reply"])
@@ -199,7 +196,7 @@ def test_start_over_works_on_the_upload_and_later_requests_build_on_that(make_ch
     (copy_b,) = again["delivered_files"]
 
     assert facts(chat.download(copy_b)) == (5, 2, 0)  # the upload's duplicates are all still there
-    assert WORKED_ON_ORIGINAL_SKIPPING_COPY_SENTENCE in again["reply"]
+    assert worked_on_original_skipping_copy() in again["reply"]
     assert numbers_in(again["reply"]) <= allowed((6, 2, 1), (5, 2, 0))
     assert chat.state()["next_request_file"]["file_id"] == copy_b["file_id"]
     assert first["delivered_files"][0]["file_id"] != copy_b["file_id"]
@@ -326,7 +323,7 @@ def test_a_new_upload_in_the_middle_is_used_as_itself(make_chat) -> None:  # typ
     (copy_o,) = second["delivered_files"]
 
     assert facts(chat.download(copy_o)) == (3, 0, 1)
-    assert WORKED_ON_ORIGINAL_SENTENCE in second["reply"]
+    assert worked_on_original("other.xlsx") in second["reply"]
     assert numbers_in(second["reply"]) <= allowed((4, 1, 1), (3, 0, 1))
 
     third = chat.turn("remove the empty rows")  # the new upload's own follow-up
@@ -335,7 +332,7 @@ def test_a_new_upload_in_the_middle_is_used_as_itself(make_chat) -> None:  # typ
 
     # The person picks the first upload again: it is used as itself, not its copy.
     picked = chat.turn("remove the duplicate rows", file_id=first_upload["file_id"])
-    assert WORKED_ON_ORIGINAL_SKIPPING_COPY_SENTENCE in picked["reply"]
+    assert worked_on_original_skipping_copy() in picked["reply"]
     (copy_p,) = picked["delivered_files"]
     assert facts(chat.download(copy_p)) == (4, 0, 1)
     assert chat.state()["active_file_id"] == first_upload["file_id"]
@@ -423,7 +420,7 @@ def test_another_persons_session_neither_offers_nor_receives_a_copy(tmp_path: Pa
     # Bob's first request works on his own upload, however Alice's session stands.
     bobs = bob.turn("remove the duplicate rows")
     (bobs_copy,) = bobs["delivered_files"]
-    assert WORKED_ON_ORIGINAL_SENTENCE in bobs["reply"]
+    assert worked_on_original() in bobs["reply"]
     assert alice.session_id not in json.dumps(bob.state())
     assert [t["turn_id"] for t in bob.state()["turns"]] == ["t0001"]
     assert bob.state()["next_request_file"]["name"] == bobs_copy["name"]
@@ -521,7 +518,7 @@ def test_a_delivered_file_that_is_gone_is_not_pretended_to_be_used(make_chat) ->
     second = chat.turn("now the empty rows")
     (copy_2,) = second["delivered_files"]
 
-    assert WORKED_ON_ORIGINAL_SKIPPING_COPY_SENTENCE in second["reply"]
+    assert worked_on_original_skipping_copy() in second["reply"]
     assert "the latest copy I handed back" not in second["reply"]
     assert facts(chat.download(copy_2)) == (5, 2, 0)  # it worked on the upload, as the reply says
 
@@ -537,7 +534,7 @@ def test_a_delivered_file_that_changed_on_disk_is_not_used(make_chat) -> None:  
 
     second = chat.turn("now the empty rows")
 
-    assert WORKED_ON_ORIGINAL_SKIPPING_COPY_SENTENCE in second["reply"]
+    assert worked_on_original_skipping_copy() in second["reply"]
     assert second["outcome"] == "delivered"
 
 

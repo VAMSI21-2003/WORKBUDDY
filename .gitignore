@@ -79,6 +79,7 @@ deploy/current.env
 deploy/previous.env
 deploy/.env
 deploy/backups/
+deploy/logs/
 deploy/releases.log
 deploy/docker-compose.override.yml
 

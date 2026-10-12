@@ -31,7 +31,7 @@ def general_factory() -> PipelineFactory:
 # -- Upload ---------------------------------------------------------------------------------------
 
 
-def test_an_upload_re_renders_the_list_with_the_servers_name_and_makes_it_active(
+def test_an_upload_re_renders_the_list_with_the_servers_name_and_names_the_next_file_once(
     tmp_path: Path,
 ) -> None:
     _, client = make_app(tmp_path, general_factory())
@@ -47,7 +47,11 @@ def test_an_upload_re_renders_the_list_with_the_servers_name_and_makes_it_active
     assert panel is not None and panel.get("hx-swap-oob") is None  # the response itself
     names = [e.text() for e in panel.find_all("span", **{"class": "file-name"})]
     assert names == ["Q3 report_.xlsx"]  # the server's sanitized name, not the browser's
-    assert panel.find("span", **{"class": "tag"}).text() == "active"  # type: ignore[union-attr]
+    # One statement of which file is current, never two: the list has no "active" tag.
+    assert panel.find("span", **{"class": "tag"}) is None
+    assert "Your next request will use Q3 report_.xlsx, your upload." in panel.find(  # type: ignore[union-attr]
+        "p", id="next-file"
+    ).text()
     form = panel.find("form", id="upload-form")
     assert form is not None and form.find("input", type="file").get("accept") == ".xlsx"  # type: ignore[union-attr]
     assert "Accepts .xlsx up to 2 MB." in first.text
@@ -59,8 +63,10 @@ def test_an_upload_re_renders_the_list_with_the_servers_name_and_makes_it_active
         "Q3 report_.xlsx",
         "second.xlsx",
     ]
-    active = [r for r in rows if r.find("span", **{"class": "tag"}) is not None]
-    assert [r.find("span", **{"class": "file-name"}).text() for r in active] == ["second.xlsx"]  # type: ignore[union-attr]
+    assert not [r for r in rows if r.find("span", **{"class": "tag"}) is not None]
+    assert "Your next request will use second.xlsx, your upload." in after.find(  # type: ignore[union-attr]
+        "p", id="next-file"
+    ).text()
 
 
 @pytest.mark.parametrize(

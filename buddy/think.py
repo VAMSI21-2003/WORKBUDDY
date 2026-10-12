@@ -2,7 +2,7 @@
 
 import json
 import logging
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from typing import Protocol
 
 from buddy.context import ConversationTurn
@@ -33,6 +33,10 @@ class ThinkingRequest:
         user_message: The current turn's message, in the user's own
             words. The classified intent alone doesn't say which actions a
             compound request asks for.
+        turn_id: The turn this reasoning is for, only so a failure can be logged against it.
+        file_settled: Whether which file this turn works on is settled
+            (``BuddyState.file_used`` and ``FileChoice``); the model is told so, so it doesn't
+            ask. Its name is not sent: nothing about a copy but that one exists reaches a model.
     """
 
     understanding: Understanding
@@ -41,6 +45,8 @@ class ThinkingRequest:
     active_task: str | None
     recent_conversation: tuple[ConversationTurn, ...]
     user_message: str = ""
+    turn_id: str = ""
+    file_settled: bool = False
 
 
 # Why Think asks for clarification: a closed vocabulary. Think chooses one; the reply shows a
@@ -87,6 +93,14 @@ class Reasoning:
     clarification_required: bool = False
     confidence: float = 0.0
     clarification_reason: str = ""
+
+
+# How many times Think asks the model before it gives up (one retry).
+ATTEMPTS = 2
+# The kinds of failure, as logged. None carries any of the reply's words.
+FAILURE_CALL = "the call raised"
+FAILURE_NOT_JSON = "the reply was not valid JSON"
+FAILURE_SHAPE = "the reply had an unexpected shape"
 
 
 class Thinker(Protocol):
@@ -179,7 +193,7 @@ class Think:
             the legacy ``state.reasoning_trace``.
         """
         request = self._build_request(state)
-        reasoning = self._thinker(request)
+        reasoning = settle_file_question(state, self._thinker(request))
         self._apply(state, reasoning)
         logger.debug(
             "Think recorded objective=%r clarification_required=%s for session %r",
@@ -214,6 +228,8 @@ class Think:
             active_task=context.active_task,
             recent_conversation=tuple(context.recent_conversation()),
             user_message=state.user_message or "",
+            turn_id=state.turn_id or "",
+            file_settled=_file_settled(state),
         )
 
     @staticmethod
@@ -237,6 +253,43 @@ class Think:
         state.reasoning = reasoning
         if reasoning.summary:
             state.add_reasoning_step(reasoning.summary)
+
+
+def _file_settled(state: BuddyState) -> bool:
+    """Whether which file this turn works on is settled.
+
+    Settled means Brain's turn picked one (``BuddyState.file_used``) and the message doesn't
+    name a file that couldn't be found or told apart (``FileChoice.unclear``).
+    """
+    choice = state.file_choice
+    return state.file_used is not None and not (choice is not None and choice.unclear)
+
+
+def settle_file_question(state: BuddyState, reasoning: Reasoning) -> Reasoning:
+    """Make Think's "which file?" agree with what code knows about the turn's file.
+
+    The file is code's to settle, not the model's (owner's decision, ``docs/design/
+    conversation-repair.md``): the latest copy handed back, or the one or active upload, and the
+    reply says which was used. So a "which file?" from the model is dropped when the file is
+    settled, and is asked, in the fixed words, when the message names a file that can't be
+    found or told apart. A Think that failed stays failed: that isn't a question for the user.
+    """
+    if reasoning.clarification_reason == CLARIFY_FAILED:
+        return reasoning
+    asks_file = (
+        reasoning.clarification_required and reasoning.clarification_reason == CLARIFY_WHICH_FILE
+    )
+    choice = state.file_choice
+    if choice is not None and choice.unclear:
+        if asks_file:
+            return reasoning
+        return replace(
+            reasoning, clarification_required=True, clarification_reason=CLARIFY_WHICH_FILE
+        )
+    if asks_file and state.file_used is not None:
+        logger.info("Turn %s: Think asked which file; the file is settled", state.turn_id)
+        return replace(reasoning, clarification_required=False, clarification_reason="")
+    return reasoning
 
 
 _SYSTEM_PROMPT = """You are the reasoning stage for WorkBuddy, an AI coworker.
@@ -315,6 +368,8 @@ Respond with a single JSON object and nothing else, matching this shape:
   "confidence": <number between 0.0 and 1.0>
 }
 
+When a line says which file this turn works on is already settled, never ask which file.
+
 "clarification_reason" is empty unless "clarification_required" is true. Then it says what
 the user must tell you, and only that: "which_action" when you cannot tell which of the
 capabilities above they want, "which_file" when you cannot tell which file they mean, "other"
@@ -350,28 +405,50 @@ class ClaudeThinker:
     def __call__(self, request: ThinkingRequest) -> Reasoning:
         """Reason about ``request`` and return the resulting strategy.
 
+        A failed attempt (the call raised, the reply wasn't JSON, or it had the wrong shape) is
+        tried once more: the call has no side effects, and a model that misfires once usually
+        doesn't twice. Each failure is logged at WARNING with the turn and the kind of failure,
+        never the reply, the message or a key.
+
         Args:
             request: The request to reason about.
 
         Returns:
-            The resulting ``Reasoning``, or a conservative fallback if the
-            model call fails or its reply can't be parsed.
+            The resulting ``Reasoning``, or, when both attempts failed, a conservative result
+            flagged as requiring clarification for reason ``CLARIFY_FAILED``.
         """
         user_prompt = self._build_user_prompt(request)
+        failure = FAILURE_CALL
+        for attempt in range(1, ATTEMPTS + 1):
+            reasoning, failure = self._attempt(user_prompt)
+            if reasoning is not None:
+                if attempt > 1:
+                    logger.info(
+                        "Turn %s: Think succeeded on attempt %d", request.turn_id or "-", attempt
+                    )
+                return reasoning
+            logger.warning(
+                "Turn %s: Think failed (%s), attempt %d of %d",
+                request.turn_id or "-",
+                failure,
+                attempt,
+                ATTEMPTS,
+            )
+        return _failed_reasoning(failure)
+
+    def _attempt(self, user_prompt: str) -> tuple[Reasoning | None, str]:
+        """One call and parse: the reasoning, or ``None`` and the kind of failure."""
         try:
             raw_reply = self._provider.complete(
                 system=_SYSTEM_PROMPT,
                 messages=(LLMMessage(role="user", content=user_prompt),),
             )
-        except Exception:
-            logger.exception("ClaudeThinker: LLM call failed")
-            return Reasoning(
-                risks=("the language model call failed",),
-                clarification_required=True,
-                confidence=0.0,
-                clarification_reason=CLARIFY_FAILED,
-            )
-        return self._parse_reply(raw_reply)
+        except Exception as exc:
+            # The exception's class says what failed (a timeout, a rate limit); its message
+            # isn't logged, and the logging filter masks any key that got into it.
+            logger.debug("ClaudeThinker: LLM call raised", exc_info=True)
+            return None, f"{FAILURE_CALL}: {type(exc).__name__}"
+        return _parse(raw_reply)
 
     @staticmethod
     def _build_user_prompt(request: ThinkingRequest) -> str:
@@ -409,6 +486,8 @@ class ClaudeThinker:
             lines.append("Uploaded files (names only): " + ", ".join(request.uploaded_files))
         else:
             lines.append("Uploaded files: none")
+        if request.file_settled:
+            lines.append("Which file this turn works on is already settled.")
         if request.active_task:
             lines.append(f"Currently active task: {request.active_task}")
         if request.recent_conversation:
@@ -429,21 +508,35 @@ class ClaudeThinker:
             ``raw_reply`` is not valid JSON or doesn't match the expected
             shape.
         """
-        try:
-            data = json.loads(raw_reply)
-        except json.JSONDecodeError:
-            logger.warning("ClaudeThinker: reply was not valid JSON: %r", raw_reply)
-            return Reasoning(
-                risks=("the model's reply was not valid JSON",),
-                clarification_required=True,
-                confidence=0.0,
-                clarification_reason=CLARIFY_FAILED,
-            )
+        reasoning, failure = _parse(raw_reply)
+        return reasoning if reasoning is not None else _failed_reasoning(failure)
 
-        try:
-            clarification_required = bool(data.get("clarification_required", False))
-            reason = data.get("clarification_reason")
-            return Reasoning(
+
+def _failed_reasoning(failure: str) -> Reasoning:
+    """The conservative result for a Think that produced no reading: not a question for the user."""
+    risks = {
+        FAILURE_NOT_JSON: "the model's reply was not valid JSON",
+        FAILURE_SHAPE: "the model's reply had an unexpected shape",
+    }
+    return Reasoning(
+        risks=(risks.get(failure, "the language model call failed"),),
+        clarification_required=True,
+        confidence=0.0,
+        clarification_reason=CLARIFY_FAILED,
+    )
+
+
+def _parse(raw_reply: str) -> tuple[Reasoning | None, str]:
+    """``raw_reply`` as a ``Reasoning``, or ``None`` and the kind of failure."""
+    try:
+        data = json.loads(raw_reply)
+    except (json.JSONDecodeError, TypeError):
+        return None, FAILURE_NOT_JSON
+    try:
+        clarification_required = bool(data.get("clarification_required", False))
+        reason = data.get("clarification_reason")
+        return (
+            Reasoning(
                 objective=data.get("objective") or "",
                 summary=data.get("summary") or "",
                 assumptions=tuple(data.get("assumptions") or ()),
@@ -453,15 +546,11 @@ class ClaudeThinker:
                 clarification_required=clarification_required,
                 confidence=float(data.get("confidence", 0.0)),
                 clarification_reason=_clarification_reason(clarification_required, reason),
-            )
-        except (AttributeError, TypeError, ValueError):
-            logger.warning("ClaudeThinker: reply JSON had an unexpected shape: %r", data)
-            return Reasoning(
-                risks=("the model's reply had an unexpected shape",),
-                clarification_required=True,
-                confidence=0.0,
-                clarification_reason=CLARIFY_FAILED,
-            )
+            ),
+            "",
+        )
+    except (AttributeError, TypeError, ValueError):
+        return None, FAILURE_SHAPE
 
 
 def _clarification_reason(clarification_required: bool, raw_reason: object) -> str:

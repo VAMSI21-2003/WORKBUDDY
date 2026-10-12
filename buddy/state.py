@@ -137,6 +137,13 @@ class BuddyState:
         file_used: Which file this turn worked on, set right after Brain
             (``buddy.source.choose_file``). A delivered reply says which in one
             fixed sentence (``buddy.voice_catalog``).
+        turn_id: The id of the turn this state is running for (a caller that has turns, the
+            backend API), only so a stage can log a failure against it. ``None`` otherwise.
+        pending_request: The earlier message that Buddy asked "which file?" about and has been
+            waiting on (a caller that has sessions, the backend API, sets it when the new
+            message names a file of the session). Brain decides whether this message answers
+            it; if so ``user_message`` becomes that earlier message, so the rest of the turn
+            works on the request that was waiting. ``None`` when nothing is waiting.
         file_refusal: Set by the Planner when the row-cleaning skills would
             refuse this turn's target file: the refusal's own fixed text
             (``skills.excel.workbook.WorkbookRefused``), e.g. "the workbook
@@ -167,6 +174,8 @@ class BuddyState:
     file_choice: FileChoice | None = None
     file_used: FileUsed | None = None
     file_refusal: str | None = None
+    turn_id: str | None = None
+    pending_request: str | None = None
 
     @classmethod
     def new(cls, session_id: str, workspace_id: str) -> BuddyState:
@@ -261,3 +270,5 @@ class BuddyState:
         self.file_choice = None
         self.file_used = None
         self.file_refusal = None
+        self.turn_id = None
+        self.pending_request = None

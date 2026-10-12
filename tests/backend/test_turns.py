@@ -30,10 +30,9 @@ from buddy.voice_catalog import (
     FALLBACK_INTEGRITY_FAILURE,
     FALLBACK_PIPELINE_ERROR,
     NO_FILE_SENTENCE,
-    WORKED_ON_ORIGINAL_SENTENCE,
-    WORKED_ON_ORIGINAL_SKIPPING_COPY_SENTENCE,
     failure_reply,
 )
+from tests.file_sentences import worked_on_original, worked_on_original_skipping_copy
 from tests.backend.factories import (
     DEDUPE_THEN_EMPTY,
     SPEAKERS,
@@ -455,7 +454,7 @@ def test_the_deadline_fails_the_turn_and_a_late_worker_changes_nothing(tmp_path:
         auto_approve=True,
         rate_limits=RELAXED_LIMITS,
     )
-    factory = BlockingFactory(reply="Done — removed 2 duplicate rows.")
+    factory = BlockingFactory(reply="Done — removed 2 exact duplicate rows.")
     client = _app(settings, factory)
     session_id, _ = _session_with_upload(client)
     record = _context_of(client)
@@ -894,7 +893,7 @@ def test_a_follow_up_delivery_builds_on_the_first_and_says_so(
     second = _turn(client, session_id, "now remove the empty rows too")
 
     assert first["outcome"] == second["outcome"] == "delivered"
-    assert WORKED_ON_ORIGINAL_SENTENCE in first["reply"]
+    assert worked_on_original() in first["reply"]
     copy = first["delivered_files"][0]["name"]
     assert f"`{copy}`, the latest copy I handed back" in second["reply"]
     assert second["reply"] == factory.runs[1].reply
@@ -1057,7 +1056,7 @@ def test_a_re_uploaded_copy_gets_no_from_original_sentence(
     second = _turn(client, session_id, "now remove the empty rows")
 
     assert second["outcome"] == "delivered"
-    assert WORKED_ON_ORIGINAL_SENTENCE in second["reply"]
+    assert worked_on_original() in second["reply"]
     assert "the latest copy I handed back" not in second["reply"]
     written = pd.read_excel(Path(factory.runs[1].outputs[0]))
     assert len(written) == 3 and int(written.duplicated().sum()) == 0  # it built on the copy
@@ -1089,8 +1088,8 @@ def test_a_first_delivery_after_a_turn_that_delivered_nothing_gets_no_sentence(
 
     assert before["outcome"] in ("not_delivered", "failed")
     assert turn["outcome"] == "delivered"
-    assert WORKED_ON_ORIGINAL_SENTENCE in turn["reply"]
-    assert WORKED_ON_ORIGINAL_SKIPPING_COPY_SENTENCE not in turn["reply"]
+    assert worked_on_original() in turn["reply"]
+    assert worked_on_original_skipping_copy() not in turn["reply"]
 
 
 @pytest.mark.parametrize("speaker", SPEAKERS)
@@ -1107,8 +1106,8 @@ def test_a_delivery_on_another_upload_gets_no_sentence(settings: Settings, speak
     turn = _turn(client, session_id, "remove duplicate rows")
 
     assert turn["outcome"] == "delivered"
-    assert WORKED_ON_ORIGINAL_SENTENCE in turn["reply"]
-    assert WORKED_ON_ORIGINAL_SKIPPING_COPY_SENTENCE not in turn["reply"]
+    assert worked_on_original() in turn["reply"]
+    assert worked_on_original_skipping_copy() not in turn["reply"]
 
 
 class _Halt(BaseException):

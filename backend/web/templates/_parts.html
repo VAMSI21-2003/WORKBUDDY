@@ -21,7 +21,7 @@
   <h3>{{ copy.uploads_heading() }}</h3>
   <ul class="file-list">
     {% for u in f.uploads %}
-    <li><span class="file-name">{{ u.name }}</span> <span class="file-size">{{ u.size }}</span>{% if u.active %} <span class="tag">{{ copy.active_tag() }}</span>{% endif %}</li>
+    <li><span class="file-name">{{ u.name }}</span> <span class="file-size">{{ u.size }}</span></li>
     {% else %}
     <li class="empty">{{ copy.uploads_empty() }}</li>
     {% endfor %}

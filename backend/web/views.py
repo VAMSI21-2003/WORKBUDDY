@@ -115,7 +115,6 @@ class FileView:
     file_id: str
     name: str
     size: str
-    active: bool
 
 
 @dataclass(frozen=True)
@@ -263,7 +262,6 @@ def files_view(
                 file_id=f.file_id,
                 name=f.name,
                 size=format_size(f.size),
-                active=f.file_id == state.active_file_id,
             )
             for f in state.files
         ),

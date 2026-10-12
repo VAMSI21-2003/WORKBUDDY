@@ -398,14 +398,14 @@ git pull --ff-only
 `git pull` brings this checkout to the version you want to release (the compose file, the Caddyfile and the scripts come from the checkout; the image comes from the commit), and `release.sh` refuses to run if the `deploy/` folder in the checkout differs from the one in the commit it's asked to release, telling you to check that commit out first. Any commit id you've fetched and checked out works in place of `HEAD`. It does five things in order, and stops at the first that fails:
 
 1. **Builds the image** from exactly that commit, tagged with the commit id. If the build fails, nothing has changed: the live version keeps running, and no backup was taken.
-2. **Backs up `/data`.** If the backup fails, nothing else happens.
+2. **Backs up `/data`**, and **saves the running app's logs** to `deploy/logs/app-<commit>-<time>.log`. If the backup fails, nothing else happens. Docker deletes a container's logs when the container is replaced, so without this a problem seen just before a release could not be looked into afterwards. The logs are passed through the app's own logging filter (`backend/logging_filter.py`, run from the new image) before they are kept, so a key, a token or a session id is masked; if the filter can't run, nothing is kept. The folder is private to you (mode 700, files 600), is git-ignored, and holds the newest 20 files (`WORKBUDDY_LOG_KEEP`). A failure to save is a warning, never a reason to stop the release. If a release fails and rolls back, the failed release's own logs are saved the same way before they are replaced.
 3. **Starts it** in place of the old one. The site is unavailable for a few seconds while the app container is replaced (one instance, so there's no overlap).
 4. **Waits until it reports healthy.**
 5. **Runs `smoke.sh`:** authenticate with the operator token, upload, a real message, approve, download, and a hash check, through the real HTTPS address. (A script can't sign in with Google: the operator token is its credential, and the operator reaches only the sessions it creates.)
 
 If step 3, 4 or 5 fails, **it rolls back by itself**: it puts the previous image back (kept on the VM, so no build or download), waits for it to be healthy, runs `smoke.sh` again, and prints `!! ROLLED BACK to <previous>. Release <new> failed at: <step>. The site is serving the previous release.` The exit status is non-zero, so a script that calls it sees the failure. On the very first release there is no previous image: it stops the app and says so.
 
-`deploy/releases.log` records every release, rollback and failure with the time.
+`deploy/releases.log` records every release, rollback and failure with the time. `deploy/logs/` holds the logs of the containers that were replaced (step 2).
 
 **Rolling back doesn't restore data.** It changes the program, not `/data`. A new version that ran for a minute may have saved sessions in the new format. Versions are required to read everything older versions saved (`CLAUDE.md`, "Working method"; `tests/deploy/test_saved_data_survives.py`), but an older version isn't required to read what a newer one saved. If after a rollback sessions are missing or the page says a session no longer exists, restore the backup that the release took first (below).
 

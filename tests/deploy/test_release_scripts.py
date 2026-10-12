@@ -19,6 +19,8 @@ from pathlib import Path
 
 import pytest
 
+from backend.logging_filter import redact
+
 ROOT = Path(__file__).resolve().parents[2]
 DEPLOY = ROOT / "deploy"
 HELPER_IMAGE = "python:3.11-slim"
@@ -26,7 +28,9 @@ PASSWORD = "plain-Password_123"
 
 # Answers the docker commands that release.sh, lib.sh and compose.sh ask. State is in $SHIM_DIR:
 # images/<tag> (images that exist), volume (a data volume exists), appstate (one line per
-# `docker inspect`; the last repeats), calls (the compose commands run).
+# `docker inspect`; the last repeats), calls (the compose commands run), applogs (what `docker logs`
+# prints for the app container). `docker run` is only ever the log filter, which runs the app's real
+# one (backend.logging_filter) from $SHIM_ROOT; SHIM_FILTER_FAILS=1 makes it fail.
 DOCKER_SHIM = r"""#!/usr/bin/env bash
 state="${SHIM_DIR:?}"
 case "$1" in
@@ -50,6 +54,11 @@ case "$1" in
     if [ "$(wc -l < "$state/appstate")" -gt 1 ]; then
       head -n 1 "$state/appstate"; sed -i 1d "$state/appstate"
     else cat "$state/appstate"; fi ;;
+  logs) echo "logs" >> "$state/calls"; cat "$state/applogs" 2>/dev/null || true ;;
+  run)
+    echo "filter" >> "$state/calls"
+    [ "${SHIM_FILTER_FAILS:-0}" = 1 ] && { cat > /dev/null; exit 1; }
+    cd "${SHIM_ROOT:?}" && exec python -m backend.logging_filter ;;
   images) ls "$state/images" 2>/dev/null || true ;;
   rmi) rm -f "$state/images/${2#workbuddy:}" ;;
   *) echo "unexpected docker $*" >> "$state/calls"; exit 1 ;;
@@ -118,7 +127,8 @@ class Site:
         self, command: list[str], *, real_docker: bool = False, **env: str
     ) -> subprocess.CompletedProcess[str]:
         path = os.environ["PATH"] if real_docker else f"{self.bin}:{os.environ['PATH']}"
-        full_env = {**os.environ, "PATH": path, "SHIM_DIR": str(self.state), **env}
+        full_env = {**os.environ, "PATH": path, "SHIM_DIR": str(self.state),
+                    "SHIM_ROOT": str(ROOT), **env}
         return subprocess.run(command, cwd=self.repo, capture_output=True, text=True,
                               env=full_env, check=False, timeout=120)
 
@@ -212,6 +222,125 @@ def test_a_release_refuses_when_deploy_differs_from_the_commit(site: Site) -> No
 
     git(site.repo, "checkout", "-q", second)
     assert site.release(second).returncode == 0
+
+
+# -- the running app's logs are saved before a release replaces it ----------------------------
+
+KEY = "gsk_" + "Z" * 30  # a placeholder shaped like a key
+LOG_TEXT = (
+    "INFO ordinary line one\n"
+    f"WARNING the key was {KEY}\n"
+    "INFO GET /sessions/s_AbCdEf123456 200\n"
+    "INFO Authorization: Bearer abc.def.ghi\n"
+    "INFO ordinary line two\n"
+)
+
+
+def second_release(site: Site, **env: str) -> tuple[str, subprocess.CompletedProcess[str]]:
+    """Release a first commit, then a second: the first's 12-character tag, and the second's run."""
+    site.stub("smoke.sh", "exit 0")
+    first = git(site.repo, "rev-parse", "HEAD")[:12]
+    assert site.release().returncode == 0
+    (site.state / "applogs").write_text(LOG_TEXT)
+    (site.repo / "NOTES").write_text("a change outside deploy/\n")
+    site.commit("second")
+    return first, site.release(**env)
+
+
+def test_the_running_apps_logs_are_saved_before_it_is_replaced(site: Site) -> None:
+    first, done = second_release(site)
+
+    assert done.returncode == 0, out(done)
+    (saved,) = (site.deploy / "logs").glob("app-*.log")
+    assert saved.name.startswith(f"app-{first}-") and saved.name.endswith("Z.log")
+    assert oct(saved.stat().st_mode & 0o777) == "0o600"
+    assert oct((site.deploy / "logs").stat().st_mode & 0o777) == "0o700"
+    text = saved.read_text()
+    assert "ordinary line one" in text and "ordinary line two" in text
+    # No secret is kept, and the file passes the app's own logging filter unchanged.
+    assert KEY not in text and "s_AbCdEf123456" not in text and "abc.def.ghi" not in text
+    assert redact(text) == text
+    calls = site.calls()
+    last_up = max(i for i, c in enumerate(calls) if c.startswith("compose up"))
+    assert calls.index("logs") < last_up  # saved before the second release replaced the container
+
+
+def test_the_first_release_has_no_running_app_to_save(site: Site) -> None:
+    site.stub("smoke.sh", "exit 0")
+    (site.state / "applogs").write_text(LOG_TEXT)
+
+    done = site.release()
+
+    assert done.returncode == 0, out(done)
+    assert not (site.deploy / "logs").exists() and "logs" not in site.calls()
+
+
+def test_only_the_newest_twenty_log_files_are_kept(site: Site) -> None:
+    site.stub("smoke.sh", "exit 0")
+    assert site.release().returncode == 0
+    (site.state / "applogs").write_text(LOG_TEXT)
+    logs = site.deploy / "logs"
+    logs.mkdir()
+    for number in range(25):
+        old = logs / f"app-old-2020010{number % 10}T0000{number:02d}Z.log"
+        old.write_text("old\n")
+        os.utime(old, (1_000_000 + number, 1_000_000 + number))
+    (site.repo / "NOTES").write_text("x\n")
+    site.commit("second")
+
+    done = site.release()
+
+    assert done.returncode == 0, out(done)
+    kept = sorted(logs.glob("app-*.log"), key=lambda p: p.stat().st_mtime)
+    assert len(kept) == 20
+    assert any("ordinary line one" in p.read_text() for p in kept)  # the new one is among them
+    assert not (logs / "app-old-20200100T000000Z.log").exists()  # the oldest went
+
+
+def test_a_filter_that_cant_run_keeps_nothing_and_does_not_stop_the_release(site: Site) -> None:
+    _, done = second_release(site, SHIM_FILTER_FAILS="1")
+
+    assert done.returncode == 0 and "RELEASED" in out(done), out(done)
+    assert "WARNING: logs" in out(done)
+    assert list((site.deploy / "logs").glob("*")) == []  # not the raw logs, not a partial file
+
+
+def test_a_failed_release_saves_its_own_logs_before_the_rollback_replaces_them(site: Site) -> None:
+    site.stub("smoke.sh", "exit 0")
+    assert site.release().returncode == 0
+    (site.state / "applogs").write_text(LOG_TEXT)
+    # The smoke test fails only for the release whose tag is in $SHIM_DIR/failtag.
+    site.stub(
+        "smoke.sh",
+        'grep -qF "$(cat "$SHIM_DIR/failtag")" "$(dirname "$0")/current.env" && exit 1; exit 0',
+    )
+    failed_tag = git(site.repo, "rev-parse", "HEAD")[:12]
+    (site.state / "failtag").write_text(f"WORKBUDDY_TAG={failed_tag}")
+
+    done = site.release()
+
+    assert done.returncode == 1 and "ROLLED BACK" in out(done), out(done)
+    names = sorted(p.name for p in (site.deploy / "logs").glob("app-*.log"))
+    assert any(n.startswith(f"app-{failed_tag}-") for n in names), names
+    assert all(KEY not in p.read_text() for p in (site.deploy / "logs").glob("*.log"))
+
+
+def test_the_logs_folder_is_git_ignored() -> None:
+    done = subprocess.run(
+        ["git", "check-ignore", "deploy/logs/app-0123456789ab-20260101T000000Z.log"],
+        cwd=ROOT, capture_output=True, text=True, check=False,
+    )
+    assert done.returncode == 0, "deploy/logs/ must be git-ignored"
+
+
+def test_the_filter_command_masks_what_the_app_filter_masks() -> None:
+    done = subprocess.run(
+        ["python", "-m", "backend.logging_filter"], cwd=ROOT, input=LOG_TEXT,
+        capture_output=True, text=True, check=True,
+    )
+
+    assert done.stdout == redact(LOG_TEXT) and done.stdout != LOG_TEXT
+    assert KEY not in done.stdout
 
 
 # -- the .env syntax guard --------------------------------------------------------------------
