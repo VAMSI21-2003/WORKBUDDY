@@ -10,8 +10,11 @@ import pytest
 
 from buddy.context import Context
 from buddy.models import (
+    FILE_KIND_COPY,
     CapabilityRequest,
     ExecutionResult,
+    FileChoice,
+    FileUsed,
     PlanningStep,
     StepMeasurement,
     StepResult,
@@ -159,7 +162,8 @@ def _fully_populated_state() -> BuddyState:
     state.reply = "a reply"
     state.failure = StageFailure(stage="inspector", error_type="RuntimeError")
     state.turn_output_dir = "/data/outputs/session-1/t0001"
-    state.earlier_deliveries = 2
+    state.file_choice = FileChoice(original="/data/uploads/a.xlsx", copy="/data/outputs/b.xlsx")
+    state.file_used = FileUsed(path="/data/outputs/b.xlsx", kind=FILE_KIND_COPY, copy_name="b.xlsx")
     state.file_refusal = "the workbook has 2 sheets, and only single-sheet workbooks are supported"
     return state
 

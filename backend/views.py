@@ -20,6 +20,7 @@ from backend.schemas import (
     FinishedTurn,
     FinishedTurnSummary,
     Limits,
+    NextFile,
     PendingConfirmation,
     PlanStep,
     RunningTurn,
@@ -32,6 +33,8 @@ from backend.schemas import (
 )
 from backend.sessions import (
     AWAITING_CONFIRMATION,
+    USED_DELIVERED,
+    USED_UPLOAD,
     DeliveredFile,
     SessionRecord,
     TurnRecord,
@@ -66,12 +69,27 @@ def session_state(session_id: str, record: SessionRecord, settings: Settings) ->
         mode=record.mode,  # type: ignore[arg-type]
         busy=record.busy,
         active_file_id=record.active_file_id,
+        next_request_file=next_request_file(record, names),
         files=[uploaded_file(f) for f in record.files.values()],
         turns=[turn_summary(session_id, t, names) for t in record.turns],
         pending_confirmation=_waiting_plan(running) if running is not None else None,
         limits=limits(settings),
         retention_hours=settings.retention_hours,
     )
+
+
+def next_request_file(record: SessionRecord, names: Mapping[str, str]) -> NextFile | None:
+    """The file the next request is offered by default: the latest delivered from the active
+    upload (``SessionRecord.latest_copy``), else the upload. ``None`` with no upload."""
+    upload = record.files.get(record.active_file_id) if record.active_file_id else None
+    if upload is None:
+        return None
+    latest = record.latest_copy(upload.file_id)
+    if latest is not None:
+        return NextFile(
+            kind=USED_DELIVERED, file_id=latest.file_id, name=names.get(latest.file_id, latest.name)
+        )
+    return NextFile(kind=USED_UPLOAD, file_id=upload.file_id, name=upload.name)
 
 
 def pending_confirmation(plan: PendingPlan) -> PendingConfirmation:

@@ -26,6 +26,9 @@
     <li class="empty">{{ copy.uploads_empty() }}</li>
     {% endfor %}
   </ul>
+  {% if f.next_file %}
+  <p id="next-file" class="hint next-file">{{ copy.next_file(f.next_file.name, f.next_file.delivered) }}</p>
+  {% endif %}
   {% if f.delivered %}
   <h3>{{ copy.delivered_heading() }}</h3>
   <ul class="file-list">

@@ -238,11 +238,30 @@ Turn = Annotated[
 ]
 
 
+class NextFile(BaseModel):
+    """The file the session's next request will work on, unless the person asks to start over.
+
+    The latest file Buddy delivered from the active upload, or that upload itself when nothing
+    was delivered from it. It says which file is on offer; it says nothing about any result.
+    """
+
+    kind: Literal["upload", "delivered"]
+    file_id: str
+    name: str
+
+
 class SessionState(BaseModel):
     session_id: str
     mode: Mode
     busy: bool
     active_file_id: str | None
+    next_request_file: NextFile | None = Field(
+        description=(
+            "The file the next request will work on (null with no upload): the latest file "
+            "delivered from the active upload, else the upload. A request that names another "
+            "file, or that asks to start over, works on that one instead."
+        )
+    )
     files: list[UploadedFile]
     turns: list[TurnSummary]
     pending_confirmation: PendingConfirmation | None = Field(

@@ -9,6 +9,7 @@ state afterwards, so the values are copied, not the object).
 from __future__ import annotations
 
 import dataclasses
+import json
 import threading
 from collections.abc import Callable
 from dataclasses import dataclass, field
@@ -49,8 +50,13 @@ class QueuedProvider:
             return self._replies.pop(0)
 
 
-def single(intent: str) -> list[str]:
-    return _single_intent_replies(intent)
+def single(intent: str, file_to_use: str | None = None) -> list[str]:
+    """Brain's and Think's canned replies for one action; ``file_to_use="original"`` is Brain
+    reading the person asking to start over from the upload."""
+    brain, think = _single_intent_replies(intent)
+    if file_to_use is not None:
+        brain = json.dumps({**json.loads(brain), "file_to_use": file_to_use})
+    return [brain, think]
 
 
 def chain(*planned: tuple[str, str]) -> list[str]:

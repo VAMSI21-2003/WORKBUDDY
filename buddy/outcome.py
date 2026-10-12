@@ -36,6 +36,7 @@ from buddy.actions import (
     BRAIN_SOURCES,
     REPORT_ON_FILE,
     UNSUPPORTED,
+    Action,
     requested_ledger,
 )
 from buddy.inspector import FINAL_OUTPUT_CAPABILITY
@@ -127,6 +128,45 @@ def _verdict_is_for(verdict: StepVerification, step: StepResult) -> bool:
         or not step.input_reference
         or verdict.input_reference == step.input_reference
     )
+
+
+def already_satisfied(
+    execution_result: ExecutionResult | None, verification_result: VerificationResult | None
+) -> tuple[Action, ...]:
+    """The file-changing actions this turn ran that had nothing to do, or ``()`` if any had.
+
+    A follow-up on a copy Buddy handed back earlier may find that the copy already satisfies the
+    request ("remove the duplicates" from a copy that has none). That is judged by the
+    verifier's own count, never by words: every file-changing step passed its check, and its
+    measurement says it removed exactly 0 rows (``StepMeasurement.removed``, confirmed by
+    reading the step's input and output fresh). One step that removed anything, or whose count
+    the verifier couldn't confirm, or that didn't pass, gives ``()``: the file is delivered as
+    usual.
+
+    Args:
+        execution_result: What Hands ran.
+        verification_result: Inspector's verdicts and measurements.
+
+    Returns:
+        The actions, in the order their steps ran; ``()`` when there is no such turn.
+    """
+    if execution_result is None or verification_result is None or not verification_result.passed:
+        return ()
+    if execution_result.stopped_at is not None:
+        return ()
+    steps = [s for s in execution_result.steps if _is_action_step(s)]
+    if not steps:
+        return ()
+    actions: list[Action] = []
+    for step in steps:
+        action = ACTIONS_BY_CAPABILITY.get(step.capability)
+        if action is None or not action.changes_file or not _step_passed(step, verification_result):
+            return ()
+        measurement = _measurement_for(step, verification_result, len(steps))
+        if measurement is None or measurement.removed != 0:
+            return ()
+        actions.append(action)
+    return tuple(actions)
 
 
 # -- The report ------------------------------------------------------------------------

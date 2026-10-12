@@ -45,7 +45,10 @@ from backend.schemas import TurnDetail
 from backend.sessions import (
     FINISHED,
     RUNNING,
+    USED_DELIVERED,
+    USED_UPLOAD,
     DeliveredFile,
+    FileUsedRecord,
     SessionRecord,
     TurnRecord,
     UploadRecord,
@@ -70,12 +73,14 @@ _SHA256 = re.compile(r"^[0-9a-f]{64}$")
 _MODES = ("friend", "focus")
 _OUTCOMES = ("delivered", "not_delivered", "failed", "integrity_failure")
 _REPLY_SOURCES = ("pipeline", "pipeline_fallback")
-# A turn record's keys. PR-2 wrote them without "confirmation"; both restore.
+# A turn record's keys. PR-2 wrote them without "confirmation", and every server before the
+# follow-up turns without "file_used"; a record with either, both or neither restores.
 _TURN_KEYS = {
     "version", "turn_id", "seq", "message", "mode", "started_at", "target_file_id",
     "status", "outcome", "finished_at", "reply", "reply_source", "delivered_files",
     "detail",
 }
+_TURN_OPTIONAL_KEYS = {"confirmation", "file_used"}
 
 
 @dataclass(frozen=True)
@@ -218,6 +223,7 @@ class SessionStore:
         state only, and a restart ends the turn as failed either way.
         """
         confirmation = turn.confirmation
+        used = turn.file_used
         data = {
             "version": FORMAT_VERSION,
             "turn_id": turn.turn_id,
@@ -248,6 +254,15 @@ class SessionStore:
                 else None
             ),
         }
+        if used is not None:
+            # Which file the turn worked on, so which file each file it delivered was made from.
+            # Left out when there is none, so a record that says nothing about it is the same
+            # as one an older server wrote (and one that older server can still open).
+            data["file_used"] = {
+                "kind": used.kind,
+                "file_id": used.file_id,
+                "start_over": used.start_over,
+            }
         path = record.meta_dir(self._settings) / "turns" / f"{turn.turn_id}.json"
         atomic_write_json(path, data)
 
@@ -315,6 +330,7 @@ class SessionStore:
         all_ids = sorted(set(turn_ids) | set(on_disk), key=_seq_of)
         turns = [self._turn(key, folder, turn_id) for turn_id in all_ids]
         _check(len({t.seq for t in turns}) == len(turns), "turns: repeated number")
+        _check_files_used(turns, files)
 
         next_seq = data["next_seq"]
         _check(_is_int(next_seq) and next_seq >= 1, "next_seq")
@@ -355,7 +371,8 @@ class SessionStore:
         _check(bool(_TURN_ID.match(turn_id)), "turn id")
         data = _read_json(folder / "turns" / f"{turn_id}.json")
         _check(
-            isinstance(data, dict) and set(data) in (_TURN_KEYS, _TURN_KEYS | {"confirmation"}),
+            isinstance(data, dict)
+            and _TURN_KEYS <= set(data) <= _TURN_KEYS | _TURN_OPTIONAL_KEYS,
             "turn: keys",
         )
         _check(data["version"] == FORMAT_VERSION and _is_int(data["version"]), "turn: version")
@@ -377,13 +394,16 @@ class SessionStore:
             status=status,
         )
         confirmation = data.get("confirmation")
+        file_used = _file_used(data.get("file_used"))
         if status == RUNNING:
             for name in ("outcome", "finished_at", "reply", "reply_source", "detail"):
                 _check(data[name] is None, f"turn: {name} on a running turn")
             _check(data["delivered_files"] == [], "turn: files on a running turn")
             _check(confirmation is None, "turn: confirmation on a running turn")
+            _check(file_used is None, "turn: file_used on a running turn")
             return turn
         turn.confirmation = _confirmation(confirmation)
+        turn.file_used = file_used
         _check(data["outcome"] in _OUTCOMES, "turn: outcome")
         _check(data["reply_source"] in _REPLY_SOURCES, "turn: reply_source")
         _check(isinstance(data["reply"], str) and bool(data["reply"].strip()), "turn: reply")
@@ -482,6 +502,36 @@ def _confirmation(data: Any) -> ConfirmationOutcome | None:
     _check(data["decision"] in DECISIONS, "turn: confirmation: decision")
     _check(data["decision_source"] in DECISION_SOURCES, "turn: confirmation: decision_source")
     return ConfirmationOutcome(decision=data["decision"], source=data["decision_source"])
+
+
+def _file_used(data: Any) -> FileUsedRecord | None:
+    """A stored ``file_used``, checked: ``None`` for a turn saved without one."""
+    if data is None:
+        return None
+    _expect_keys(data, "turn: file_used", {"kind", "file_id", "start_over"})
+    _check(data["kind"] in (USED_UPLOAD, USED_DELIVERED), "turn: file_used: kind")
+    file_id = data["file_id"]
+    _check(isinstance(file_id, str) and valid_id(file_id), "turn: file_used: file_id")
+    _check(isinstance(data["start_over"], bool), "turn: file_used: start_over")
+    return FileUsedRecord(kind=data["kind"], file_id=file_id, start_over=data["start_over"])
+
+
+def _check_files_used(turns: list[TurnRecord], files: dict[str, UploadRecord]) -> None:
+    """Every ``file_used`` names a file that exists: the turn's upload, or an earlier delivery."""
+    delivered_by = {d.file_id: t.seq for t in turns for d in t.delivered_files}
+    for turn in turns:
+        used = turn.file_used
+        if used is None:
+            continue
+        if used.kind == USED_UPLOAD:
+            _check(
+                used.file_id in files and used.file_id == turn.target_file_id,
+                "turn: file_used: upload",
+            )
+        else:
+            _check(
+                delivered_by.get(used.file_id, turn.seq) < turn.seq, "turn: file_used: delivered"
+            )
 
 
 def _valid_detail(detail: Any) -> bool:

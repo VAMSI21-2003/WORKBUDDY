@@ -21,6 +21,7 @@ from buddy.engine_factory import build_engine
 from buddy.outcome import VALUES_ONLY_SENTENCE
 from buddy.state import BuddyState
 from buddy.voice import _COMPLETION_CLAIM, PersonalityVoice
+from buddy.voice_catalog import WORKED_ON_ORIGINAL_SENTENCE
 from skills.base import SkillResult, SkillStatus
 from skills.excel.dedupe import ExcelDeduplicateSkill
 from skills.excel.remove_empty_rows import ExcelRemoveEmptyRowsSkill
@@ -225,13 +226,14 @@ _MAIN_REPLIES = {
 
 
 def _with_values_only_sentence(reply: str) -> str:
-    """``reply`` with the values-only sentence after its file sentence."""
+    """``reply`` with the values-only sentence after its file sentence, then the sentence saying
+    which file the turn worked on (the person's upload: no copy was offered)."""
     file_sentence = re.search(
         r"Saved as `[^`]+`\.|Your cleaned copy of report\.xlsx is ready\.", reply
     )
     assert file_sentence is not None
     end = file_sentence.end()
-    return f"{reply[:end]} {VALUES_ONLY_SENTENCE}{reply[end:]}"
+    return f"{reply[:end]} {VALUES_ONLY_SENTENCE} {WORKED_ON_ORIGINAL_SENTENCE}{reply[end:]}"
 
 
 @pytest.mark.parametrize("sheet_name", ["Sheet1", "Data"])

@@ -8,6 +8,15 @@ LEDGER_FROM_BRAIN = "brain"  # Brain's ``requested_actions``
 LEDGER_FROM_INTENT = "intent"  # Brain's single-action intent, not in ``requested_actions``
 LEDGER_FROM_MENTION = "mention"  # only the deterministic mention detector found it
 
+# ``Understanding.file_to_use`` values: which file Brain reads the request to be about, when a copy
+# Buddy handed back earlier is on offer. A closed vocabulary (``buddy.actions.FILE_VOCABULARY``).
+FILE_LATEST = "latest"  # build on the latest copy handed back (the default)
+FILE_ORIGINAL = "original"  # start over from the upload: "start over", "use my original file"
+
+# ``FileUsed.kind`` values: which file the turn worked on.
+FILE_KIND_ORIGINAL = "original"  # the person's upload, as uploaded
+FILE_KIND_COPY = "copy"  # a copy Buddy handed back in an earlier turn
+
 
 @dataclass(frozen=True)
 class RequestedAction:
@@ -56,6 +65,11 @@ class Understanding:
         ambiguity_flags: Plain-language descriptions of points in the
             request that are ambiguous.
         notes: Free-form annotation that doesn't fit any other field.
+        file_to_use: Which file the request is about, when a copy handed back earlier is on
+            offer: ``FILE_ORIGINAL`` only when Brain reads the person asking to start over or to
+            use their original file; otherwise ``FILE_LATEST``. Never read from the words of the
+            message by code: it is Brain's field, in a closed vocabulary. Anything else in
+            Brain's reply becomes ``FILE_LATEST``.
         requested_actions: The ledger of actions the message asks for, in
             the user's order: Brain's ``requested_actions`` and, after
             ``buddy.brain.MentionCrossCheck``, what only the mention
@@ -72,6 +86,51 @@ class Understanding:
     ambiguity_flags: tuple[str, ...] = ()
     notes: str = ""
     requested_actions: tuple[RequestedAction, ...] = ()
+    file_to_use: str = FILE_LATEST
+
+
+@dataclass(frozen=True)
+class FileChoice:
+    """The files a caller offers a turn to work on, set before the run (``BuddyState.file_choice``).
+
+    A caller that runs several turns in one session (the backend API) says which upload the
+    turn is about and which copy of it, if any, Buddy handed back last. Which of the two the
+    turn works on is decided after Brain has read the request (``buddy.source.choose_file``).
+
+    Attributes:
+        original: The upload's path.
+        copy: The path of the latest copy handed back from that upload, or ``None``.
+        copy_name: The name the person sees for the copy (``copy`` is set).
+        copy_unavailable: A copy was handed back from this upload, but it can't be read now, so
+            ``copy`` is ``None`` and the turn works on the upload; the reply says so.
+        pinned: The person picked this upload for the turn: it is used as itself.
+    """
+
+    original: str
+    copy: str | None = None
+    copy_name: str | None = None
+    copy_unavailable: bool = False
+    pinned: bool = False
+
+
+@dataclass(frozen=True)
+class FileUsed:
+    """Which file a turn worked on, set by ``buddy.source.choose_file``.
+
+    Attributes:
+        path: The file the pipeline reads (``Context.active_file`` for this turn).
+        kind: ``FILE_KIND_ORIGINAL`` or ``FILE_KIND_COPY``.
+        copy_name: The copy's name as the person sees it (``FILE_KIND_COPY`` only).
+        copy_skipped: ``FILE_KIND_ORIGINAL`` only: a copy had been handed back from this upload
+            and the turn worked on the upload instead.
+        start_over: Brain read the person asking to start over (``FILE_ORIGINAL``).
+    """
+
+    path: str
+    kind: str
+    copy_name: str | None = None
+    copy_skipped: bool = False
+    start_over: bool = False
 
 
 @dataclass(frozen=True)

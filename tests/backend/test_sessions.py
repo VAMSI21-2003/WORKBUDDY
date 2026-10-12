@@ -79,6 +79,7 @@ def test_get_session_returns_the_whole_empty_session(
         "mode": "focus",
         "busy": False,
         "active_file_id": None,
+        "next_request_file": None,
         "files": [],
         "turns": [],
         "pending_confirmation": None,

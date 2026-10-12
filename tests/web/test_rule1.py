@@ -239,6 +239,7 @@ def test_a_turn_that_wasnt_delivered_shows_no_link_even_if_files_are_listed(outc
     state = SimpleNamespace(
         session_id=SESSION,
         active_file_id=None,
+        next_request_file=None,
         files=[],
         turns=[finished(outcome, files=FILES)],
         limits=schemas.Limits(

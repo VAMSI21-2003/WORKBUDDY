@@ -819,7 +819,9 @@ def test_a_raise_inside_finalization_still_finishes_the_turn(
     error: type[BaseException],
 ) -> None:
     """Review round 3, R3-L4: finished as failed, nothing handed back, the session free."""
-    provider = QueuedProvider(single("remove_duplicate_rows") + single("remove_duplicate_rows"))
+    provider = QueuedProvider(
+        single("remove_duplicate_rows") + single("remove_duplicate_rows", file_to_use="original")
+    )
     client = _app(settings, PipelineFactory(provider))
     session_id, _ = _session_with_upload(client)
 
@@ -848,7 +850,9 @@ def test_a_raise_while_finishing_still_finishes_the_turn_as_decided(
     settings: Settings, monkeypatch: pytest.MonkeyPatch, target: str
 ) -> None:
     """The finishing block's bookkeeping can't leave the turn running either."""
-    provider = QueuedProvider(single("remove_duplicate_rows") + single("remove_duplicate_rows"))
+    provider = QueuedProvider(
+        single("remove_duplicate_rows") + single("remove_duplicate_rows", file_to_use="original")
+    )
     client = _app(settings, PipelineFactory(provider))
     session_id, _ = _session_with_upload(client)
 

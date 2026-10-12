@@ -362,6 +362,7 @@ REPORT_NOT_PRODUCED_SENTENCE = (
 # Leads the findings of a requested report, by which file they describe.
 REPORT_LEAD_COPY = "Report on the copy: "
 REPORT_LEAD_ORIGINAL = "Report on your original file: "
+REPORT_LEAD_USED = "Report on the file I worked on: "
 
 
 def pick_text(options: tuple[str, ...], seed: str, slot: str) -> str:
@@ -382,12 +383,20 @@ def clarification_question(reason: str, style: str, seed: str) -> str:
     return pick_text(by_style[style], seed, "question")
 
 
-# Added to a delivered reply when the session had already handed back a file in
-# an earlier turn. Every turn works from the original upload, never from a file
-# handed back before, so a "now ... too" request doesn't build on earlier
-# changes; this says so. Fixed text: it names no file and claims no change.
-FROM_ORIGINAL_SENTENCE = (
-    "I made this copy from your original upload, not from a file I handed back earlier."
+# Added to a delivered reply: which file the turn worked on. One fixed sentence, chosen by code
+# from the turn's ``FileUsed``; it claims nothing about the result. The copy's name is the one the
+# person sees (the Files panel and the download).
+WORKED_ON_ORIGINAL_SENTENCE = "I worked on your original upload."
+WORKED_ON_ORIGINAL_SKIPPING_COPY_SENTENCE = (
+    "I worked on your original upload, not on a copy I handed back earlier."
+)
+WORKED_ON_COPY_TEMPLATE = (
+    "I worked on {file}, the latest copy I handed back, not on your original upload."
+)
+# The reply when a follow-up finds the latest copy already satisfies the request: no new file.
+NOTHING_LEFT_TEMPLATE = (
+    "The latest copy, {file}, already has no {rows}, so there was nothing to remove and I "
+    "handed back no new file."
 )
 
 

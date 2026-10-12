@@ -100,6 +100,31 @@ class DeliveredFile:
     delivered_at: datetime
 
 
+# ``FileUsedRecord.kind``: the file a turn worked on was an upload, or a file an earlier turn
+# delivered.
+USED_UPLOAD = "upload"
+USED_DELIVERED = "delivered"
+
+
+@dataclass(frozen=True)
+class FileUsedRecord:
+    """Which file a finished turn worked on; every file the turn delivered was made from it.
+
+    Written with the turn (``backend.store``); a turn saved before follow-up turns existed has
+    none, and then every file it delivered was made from its ``target_file_id`` upload.
+
+    Attributes:
+        kind: ``USED_UPLOAD`` or ``USED_DELIVERED``.
+        file_id: The upload's id (``f_...``), or the delivered file's id (``d_t0001_1``).
+        start_over: Brain read the person asking to start over from the upload, and the turn
+            delivered a file made from it. Recorded for the record; it changes no later turn.
+    """
+
+    kind: str
+    file_id: str
+    start_over: bool = False
+
+
 @dataclass
 class TurnRecord:
     """One turn. Finished exactly once; immutable afterwards.
@@ -122,6 +147,9 @@ class TurnRecord:
     mode: str
     started_at: datetime
     target_file_id: str | None = None
+    # The file the turn worked on; ``None`` for a turn saved before follow-up turns, and for a
+    # turn that failed (its state is never read).
+    file_used: FileUsedRecord | None = None
     status: str = RUNNING
     outcome: str | None = None
     finished_at: datetime | None = None
@@ -182,6 +210,23 @@ class SessionRecord:
             if t.finished and t.outcome == "delivered"
             for f in t.delivered_files
         ]
+
+    def latest_copy(self, upload_id: str) -> DeliveredFile | None:
+        """The file a follow-up on upload ``upload_id`` builds on: the latest one delivered from it.
+
+        Turns are read oldest first; a turn on this upload (``target_file_id``) that delivered
+        files makes its last one the latest. Asking to start over needs no memory of its own: a
+        turn that starts over and delivers makes its own file the latest, and one that delivers
+        nothing ("use my original file" alone, a declined plan, a failed turn) changes nothing,
+        which is what its reply says. A turn saved before follow-up turns delivered files made
+        from its ``target_file_id`` upload.
+        """
+        latest: DeliveredFile | None = None
+        for turn in self.turns:
+            if turn.finished and turn.target_file_id == upload_id:
+                if turn.outcome == "delivered" and turn.delivered_files:
+                    latest = turn.delivered_files[-1]
+        return latest
 
     def upload_dir(self, settings: Settings, file_id: str) -> Path:
         return settings.uploads_dir / self.key / file_id

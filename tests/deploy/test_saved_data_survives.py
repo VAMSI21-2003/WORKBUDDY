@@ -66,7 +66,12 @@ def opened(request: pytest.FixtureRequest, tmp_path: Path) -> tuple[TestClient, 
     who owns the session (their sign-in survived the "restart": it is read from the data)."""
     data, manifest = _copy(request.param, tmp_path)
     settings = production_settings(tmp_path, data_dir=data, rate_limits=RELAXED_LIMITS)
-    factory = PipelineFactory(QueuedProvider(single("remove_duplicate_rows")), speaker="friend")
+    # Two sets of replies: a request as it is, then the same request with Brain reading "start
+    # over" (a test uses the second only after a turn has used the first).
+    provider = QueuedProvider(
+        single("remove_duplicate_rows") + single("remove_duplicate_rows", file_to_use="original")
+    )
+    factory = PipelineFactory(provider, speaker="friend")
     app = create_app(
         settings,
         factory,
@@ -201,29 +206,62 @@ def test_the_saved_files_have_the_same_hash(
     ).status_code == 404
 
 
-def test_the_saved_session_still_takes_a_new_turn(
-    opened: tuple[TestClient, Settings, Any],
-) -> None:
-    """Not only readable: the restored context and files work for the next message."""
-    client, settings, manifest = opened
-    session_id = manifest["session_id"]
+def _saved_original(settings: Settings, manifest: dict[str, Any]) -> Path:
     (original,) = [
         p
         for p in settings.uploads_dir.rglob(manifest["upload"]["name"])
         if p.parent.name == manifest["upload"]["file_id"]
     ]
+    return original
+
+
+def test_the_saved_session_still_takes_a_new_turn_and_builds_on_what_it_delivered(
+    opened: tuple[TestClient, Settings, Any],
+) -> None:
+    """Not only readable: the restored context and files work for the next message.
+
+    A session saved before follow-up turns has no record of which file each turn worked on; the
+    file its first turn delivered was made from its upload, so a new request builds on it. That
+    file has no duplicate rows left, so the reply says so and hands back nothing.
+    """
+    client, settings, manifest = opened
+    session_id = manifest["session_id"]
+    original = _saved_original(settings, manifest)
     before = scenario.sha256_of(original)
     assert before == manifest["upload"]["sha256"]
+    delivered = manifest["turns"][0]["delivered_files"][0]
 
     started = start_turn(client, session_id, "remove duplicate rows")
     assert started.status_code == 202, started.text
     turn = wait_finished(client, session_id, started.json()["turn_id"], decision="approve")
 
     assert turn["turn_id"] == f"t{len(manifest['turns']) + 1:04d}"
-    assert turn["outcome"] == "delivered"
+    assert turn["outcome"] == "not_delivered" and turn["delivered_files"] == []
+    assert "already has no duplicate rows" in turn["reply"]
     assert scenario.sha256_of(original) == before
+    download = client.get(f"/api/v1/sessions/{session_id}/files/{delivered['file_id']}/download")
+    assert hashlib.sha256(download.content).hexdigest() == delivered["sha256"]
     state = client.get(f"/api/v1/sessions/{session_id}").json()
     assert len(state["turns"]) == len(manifest["turns"]) + 1
+    assert state["next_request_file"]["file_id"] == delivered["file_id"]
+
+
+def test_the_saved_session_can_start_over_from_its_upload(
+    opened: tuple[TestClient, Settings, Any],
+) -> None:
+    client, settings, manifest = opened
+    session_id = manifest["session_id"]
+    original = _saved_original(settings, manifest)
+    before = scenario.sha256_of(original)
+    first = start_turn(client, session_id, "remove duplicate rows")
+    wait_finished(client, session_id, first.json()["turn_id"], decision="approve")
+
+    started = start_turn(client, session_id, "start over and remove duplicate rows")
+    turn = wait_finished(client, session_id, started.json()["turn_id"], decision="approve")
+
+    assert turn["outcome"] == "delivered"
+    assert "I worked on your original upload, not on a copy I handed back earlier." in turn["reply"]
+    assert scenario.sha256_of(original) == before
 
 
 # -- Sessions saved before sign-in existed -----------------------------------------------------
