@@ -870,6 +870,11 @@ class TemplateSpeaker:
                 on_copy = request.file_used is not None and request.file_used.kind == FILE_KIND_COPY
                 lead = REPORT_LEAD_USED if on_copy else REPORT_LEAD_ORIGINAL
                 parts.append(_report_text(findings[0], findings[1], lead))
+                if request.resumed:
+                    # The one no-change reply in which the earlier request was carried out. On
+                    # every other (a question, a read that failed, a request Buddy can't do)
+                    # nothing went on, so the sentence would be false (review round 2, F5).
+                    parts.append(RESUMED_SENTENCE)
             else:
                 parts.append(unavailable or REPORT_NOT_RUN_SENTENCE)
         else:
@@ -882,8 +887,6 @@ class TemplateSpeaker:
                     parts.append(ANALYSIS_QUESTION)
         if _initial_analysis_failed(request.verification_result) and not outcome.report_asked:
             parts.append(_initial_analysis_failed_sentence(request))
-        if request.resumed and not asked:
-            parts.append(RESUMED_SENTENCE)  # not when the reply asks again: nothing went on
         if not asked:
             parts.append(NO_CHANGES_SENTENCE)
         return _plain_words(" ".join(parts))

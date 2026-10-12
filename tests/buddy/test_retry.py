@@ -158,7 +158,9 @@ def test_a_failure_is_logged_without_the_reply_the_message_or_a_key(
     assert "t0007" in text
     for forbidden in (SECRET, "4111", "Sure!", "remove duplicate rows", "429 from"):
         assert forbidden not in text
-    assert all(r.exc_info is None for r in caplog.records if r.levelno >= logging.WARNING)
+    # No level carries a traceback: at DEBUG it would hold the exception's message.
+    assert all(r.exc_info is None for r in caplog.records)
+    assert SECRET not in caplog.text and "429 from" not in caplog.text
 
 
 def test_the_retry_does_not_widen_what_is_sent() -> None:

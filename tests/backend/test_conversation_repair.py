@@ -719,3 +719,168 @@ def test_a_resumed_reply_says_so_in_every_speaker(make_chat) -> None:  # type: i
         resumed = chat.turn("messy-data.xlsx")
 
         assert resumed["outcome"] == "delivered" and RESUMED_SENTENCE in resumed["reply"], speaker
+
+
+# -- Review round 2 -----------------------------------------------------------------------------
+
+
+def unsupported_answer() -> str:
+    """Brain says the message is only the answer, but reads the waiting request as no action."""
+    return json.dumps({"intent": "unclear", "confidence": 0.4, "answers_pending": True})
+
+
+def test_think_failing_twice_on_the_answer_does_not_claim_the_request_went_on(make_chat) -> None:  # type: ignore[no-untyped-def]
+    """F5: the sentence "went on with your earlier request" sat beside "I couldn't work out..."."""
+    chat = make_chat(
+        ByStage(
+            [
+                brain(phrase="remove duplicate rows"),
+                brain(phrase="remove duplicate rows", answers_pending=True),
+            ],
+            [think(), "nope", "still nope"],
+        )
+    )
+    two_uploads(chat)
+    asks_then_waits(chat)
+
+    failed = chat.turn("messy-data.xlsx")
+
+    assert UNDERSTANDING_FAILED_SENTENCE in failed["reply"]
+    assert RESUMED_SENTENCE not in failed["reply"]
+
+
+def test_a_brain_that_reads_the_answer_as_no_action_does_not_claim_the_request_went_on(  # type: ignore[no-untyped-def]
+    make_chat,
+) -> None:
+    chat = make_chat(
+        ByStage([brain(phrase="remove duplicate rows"), unsupported_answer()], [think()])
+    )
+    two_uploads(chat)
+    asks_then_waits(chat)
+
+    turn = chat.turn("messy-data.xlsx")
+
+    assert turn["outcome"] == "not_delivered"
+    assert RESUMED_SENTENCE not in turn["reply"]
+
+
+def test_the_resumed_sentence_is_on_a_nothing_left_reply(make_chat) -> None:  # type: ignore[no-untyped-def]
+    """The request was carried out (it found nothing to remove), so the sentence is true there."""
+    chat = make_chat(
+        ByStage(
+            [
+                brain(phrase="remove duplicate rows"),
+                brain(phrase="remove duplicate rows"),
+                brain(phrase="remove duplicate rows", answers_pending=True),
+            ],
+            [think()],
+        )
+    )
+    two_uploads(chat)
+    chat.turn("remove duplicate rows in messy-data.xlsx")  # delivers a copy with none left
+    asks = chat.turn("remove duplicate rows in sales.xlsx")
+    assert asks["reply"] in FRIEND_QUESTIONS
+
+    turn = chat.turn("messy-data.xlsx")
+
+    assert turn["outcome"] == "not_delivered"
+    assert "already has no exact duplicate rows" in turn["reply"]
+    assert RESUMED_SENTENCE in turn["reply"]
+
+
+def test_the_resumed_sentence_is_on_a_report_that_was_given(make_chat) -> None:  # type: ignore[no-untyped-def]
+    report = brain("report_on_file", phrase="give me a report")
+    chat = make_chat(ByStage([report, report_answer(report)], [think()]))
+    two_uploads(chat)
+    chat.turn("give me a report on sales.xlsx")
+
+    turn = chat.turn("messy-data.xlsx")
+
+    assert "Report on" in turn["reply"] and RESUMED_SENTENCE in turn["reply"]
+
+
+def report_answer(reply: str) -> str:
+    return json.dumps({**json.loads(reply), "answers_pending": True})
+
+
+def test_two_brain_failures_on_the_answer_keep_the_waiting_request(make_chat) -> None:  # type: ignore[no-untyped-def]
+    chat = make_chat(
+        ByStage(
+            [
+                brain(phrase="remove duplicate rows"),
+                "nope",
+                "still nope",
+                brain(phrase="remove duplicate rows", answers_pending=True),
+            ],
+            [think()],
+        )
+    )
+    two_uploads(chat)
+    asks_then_waits(chat)
+
+    failed = chat.turn("messy-data.xlsx")
+
+    assert UNDERSTANDING_FAILED_SENTENCE in failed["reply"]
+    assert session_json(chat)["pending_request"] is not None
+    retry = chat.turn("messy-data.xlsx")
+    assert retry["outcome"] == "delivered", retry["reply"]
+
+
+def test_the_turn_after_a_resumed_one_does_not_say_it_resumed(make_chat) -> None:  # type: ignore[no-untyped-def]
+    chat = make_chat(
+        ByStage(
+            [
+                brain(phrase="remove duplicate rows"),
+                brain(phrase="remove duplicate rows", answers_pending=True),
+                brain("remove_empty_rows"),
+            ],
+            [think()],
+        )
+    )
+    two_uploads(chat)
+    asks_then_waits(chat)
+    assert RESUMED_SENTENCE in chat.turn("messy-data.xlsx")["reply"]
+
+    next_turn = chat.turn("now remove the empty rows")
+
+    assert next_turn["outcome"] == "delivered" and RESUMED_SENTENCE not in next_turn["reply"]
+
+
+@pytest.mark.parametrize("name", ["duplicates.xlsx", "empty rows jan.xlsx"])
+def test_a_file_name_with_a_request_word_in_it_is_not_a_request(make_chat, name: str) -> None:  # type: ignore[no-untyped-def]
+    """F6: answering with the name of a file called "duplicates.xlsx" is not asking for them."""
+    chat = make_chat(
+        ByStage(
+            [
+                brain("remove_empty_rows", phrase="remove the empty rows"),
+                brain("remove_empty_rows", phrase="remove the empty rows", answers_pending=True),
+            ],
+            [think()],
+        )
+    )
+    chat.upload(xlsx_bytes(OTHER), name)
+    chat.upload(xlsx_bytes(MESSY), "messy-data.xlsx")
+    asked = chat.turn("remove the empty rows in budget.xlsx")
+    assert asked["reply"] in FRIEND_QUESTIONS
+
+    turn = chat.turn(name)
+
+    assert turn["outcome"] == "delivered", turn["reply"]
+    assert "Your message mentions" not in turn["reply"]
+
+
+def test_names_between_a_files_two_copies_are_not_a_question(make_chat) -> None:  # type: ignore[no-untyped-def]
+    """The name is equally close to both copies, which are the one lineage: not ambiguous."""
+    chat = make_chat(
+        ByStage([brain(), brain("remove_empty_rows"), brain("remove_empty_rows")], [think()])
+    )
+    chat.upload(xlsx_bytes(MESSY), "report.xlsx")
+    chat.turn("remove duplicate rows")
+    second = chat.turn("now remove the empty rows too")
+    assert second["outcome"] == "delivered"
+    names = chat.delivered_names()
+    assert names == ["report_deduplicated.xlsx", "report_deduplicated_cleaned.xlsx"]
+
+    turn = chat.turn("remove the empty rows in report_deduplicated_cle.xlsx")
+
+    assert turn["reply"] not in FRIEND_QUESTIONS

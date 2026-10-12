@@ -3,6 +3,7 @@
 import json
 import logging
 from dataclasses import dataclass, replace
+from pathlib import Path
 from typing import Protocol
 
 from buddy.actions import (
@@ -56,6 +57,8 @@ class UnderstandingRequest:
         turn_id: The turn this reading is for, only so a failure can be logged against it.
         pending_request: An earlier request that Buddy asked "which file?" about and is still
             waiting on, when this message names a file of the session; else ``None``.
+        file_names: The names of the session's files. A word inside one ("duplicates.xlsx") is a
+            name, not a request, so the mention check compares them as text and doesn't read them.
     """
 
     user_message: str
@@ -67,6 +70,7 @@ class UnderstandingRequest:
     copy_available: bool = False
     turn_id: str = ""
     pending_request: str | None = None
+    file_names: tuple[str, ...] = ()
 
 
 class Interpreter(Protocol):
@@ -204,6 +208,7 @@ class Brain:
             copy_available=state.file_choice is not None and state.file_choice.copy is not None,
             turn_id=state.turn_id or "",
             pending_request=state.pending_request,
+            file_names=tuple(Path(p).name for p in state.uploaded_files),
         )
 
     @staticmethod
@@ -619,7 +624,7 @@ class MentionCrossCheck:
         listed = {entry.action for entry in brain}
         found: dict[str, RequestedAction] = {}
         for message in texts:
-            for action, text in mentioned_actions(message):
+            for action, text in mentioned_actions(message, except_inside=request.file_names):
                 if action.name not in listed and action.name not in found:
                     found[action.name] = RequestedAction(
                         action=action.name,
