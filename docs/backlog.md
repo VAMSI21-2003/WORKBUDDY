@@ -389,3 +389,8 @@ Each item has its own acceptance criterion: fixed with a test, or explicitly clo
 ## feat/follow-up-turns review round 1: deferred
 - **follow-up-turns F3 (Low, tests):** no test fails when `_offer`'s integrity entries (delivered file, turn's copy), `_restore_upload_focus`'s `analyzed_files` filter, or `_finalize`'s outcome guard on `file_used` are removed (mutations survive; the filter's removal makes the session unreadable after a restart). See `docs/reviews/feat-follow-up-turns-review.md`.
 - **follow-up-turns F4 (Low):** the Files-panel line names a copy that has become unreadable; a copy is re-analysed every turn so leftover findings repeat; integrity-failure text says "your original file" for a delivered file or the turn's copy; `file_used: null` is written on every finished turn (a rollback makes those sessions unreadable).
+
+## feat/follow-up-turns review round 2: deferred
+- **follow-up-turns N1 (Low, tests):** nothing fails if `save_turn` writes `file_used: null` again for a failed turn (round-1 F4 fix is untested).
+- **follow-up-turns N2 (Low, product):** a message of only "use my original file" now changes nothing (honest reply), while Brain's prompt still lists it as an example of `original`; owner to decide whether it should take effect on the next request.
+- **follow-up-turns N3 (Low):** equivalent or redundant guards that survive mutation (`latest_copy` start-over reset, `start_over` stored on undelivered turns, `_name_in_reply` on `copy_name`, `already_satisfied` passed/stopped checks). See `docs/reviews/feat-follow-up-turns-review.md`.

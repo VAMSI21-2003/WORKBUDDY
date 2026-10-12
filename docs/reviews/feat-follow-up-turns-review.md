@@ -61,3 +61,60 @@ F3 (T1-T3), F4.
 - No browser check of the page; the Files-panel line was checked only through the writer's tests and the API's `next_request_file`.
 - The base's full test suite and mutations of the data-v3 fixture and `make_data_fixture.py 3` were not run; `tests/deploy/test_saved_data_survives.py` passes in the full suite.
 - Multi-user (Google sign-in) ownership was not exercised beyond two sessions in one app.
+
+---
+
+# Review round 2 (commit 5be03f1)
+
+**Verdict: MERGE** on the code, as far as a fake-LLM review can say. No HIGH, no MEDIUM, F1 and F2 are fixed. Still required before merge (`docs/process/review-loop.md`): live runs with the real Groq model. F1's fix removes the dependency on how real Brain reads `file_to_use`, so the risk is lower than in round 1, but the reading itself is still untested.
+
+Scope: diff `8f70640..5be03f1` (`backend/sessions.py`, `backend/store.py`, `backend/turns.py`, `buddy/voice.py`, docs, tests), every round-1 finding, regression against base `origin/main` (`f01de0a`). Probes: `scripts/review_harness/feat-follow-up-turns/` (README there; raw output in the git-ignored `out/`). Real app and `build_engine`, only the LLM faked.
+
+## What I ran
+
+| Check | Result |
+|---|---|
+| `python -m pytest -q` (head) | 3162 passed, 6 skipped, 0 failed (604 s) |
+| `ruff check buddy tests`, head vs base, by file and rule | Identical (same 13 file/rule groups, same counts). Nothing new |
+| Round-1 probes a-e re-run (24 + 42 + 28 + 21 + 15 sessions; 535 turns, with probe i) | Every row count in a reply ("The copy has N rows") matches my own openpyxl read (338 checks, 0 mismatches). Original upload SHA-256 unchanged after every turn of every run. Voice model called 0 times on any delivered turn. No claim of work on a turn that delivered nothing |
+| Round-1 vs round-2 replies, template and focus (friend differs only by random openers) | Only the intended changes: `next_request_file` after a no-delivery turn (s3, b5, b11, m5) and the follow-up turn that now builds on the copy; b14 now names `report_deduplicated (2).xlsx` in both places |
+| `probe_i` (new): 8 scenarios x template/friend/focus, 24 sessions | See F1/F2 below. All counts and names right; no false claim |
+| `probe_j` (new): rollback claim, written by head, opened by the base's `SessionStore` | Session whose only turn failed: readable by base (record has no `file_used`). Sessions with an unclear or delivered turn: base reads them as not found (documented). Head reads all three |
+| `harness.py` 532 turns, head vs base (`cmp_harness.py`) | Same as round 1: 504 delivered replies differ only by "I worked on your original upload."; 28 identical |
+| Round-2 tests run against the round-1 code (`8f70640`) | 14 of the new tests fail there (F1: 12, F2: 2); they pass on head |
+| Mutations of the head, throwaway worktree (38) | 31 killed. 7 survived, all judged inert or already known; see T-list below |
+
+## Round-1 findings
+
+- **F1 Fixed** [Certain]. Turn 1 "remove the duplicate rows" (delivers), turn 2 "use my original file" (Brain `unclear` + `original`, or `conversation` + `original`): reply is "I didn't read that as something I can do ... No changes were made to any file this turn." (true), `next_request_file` still names `report_deduplicated.xlsx`, and turn 3 "remove the empty rows" builds on the copy and says so ("I worked on `report_deduplicated.xlsx`, the latest copy I handed back, not on your original upload", 3 rows, matches the file). Same for a declined plan read as `original` (b5), a report-only request on "my original" (m5), a failed start-over turn (i2: hands raises, then the next turn builds on the first copy). "Start over and ..." that delivers still works (i1, i4, i5, i6, i8), also after a restart (i1: the turn after the restart builds on the start-over file, 3 rows). A second upload's start-over does not touch the first upload's latest copy (i7). Hand-edited records in round-1's format (`file_used: null`; `start_over: true` on a not_delivered turn) open and change nothing (i3).
+- **F2 Fixed** [Certain]. b14 and i4-i6, friend and focus: "Your cleaned copy of `report_deduplicated (2).xlsx` is ready ... I worked on `report_deduplicated (2).xlsx`" (same file in both). Template names the generated output as before.
+- **F3** T1 (integrity entries) and T2 (`analyzed_files` filter) now have tests: mutations `offer-no-integrity-expected` and `restore-analyzed-kept` are killed. T3 (`_finalize` outcome guard) still has no test that fails without it (`record-on-failed` survives); behaviour is right without it (a failed turn changes nothing now) and the writer says so. Accepted as LOW.
+- **F4** `file_used: null` is no longer written (probe_j: the failed turn's record has no key). The other F4 points are unchanged and still deferred.
+
+## Findings (round 2)
+
+### N1 [LOW, Certain] No test guards "no `file_used: null` is written"
+`backend/store.py` `save_turn`. Mutation `r2-store-writes-null` (write `null` again for a failed turn) passes all 233 follow-up tests. The only effect is that a session whose turns include a failed one cannot be rolled back to base; the design promises otherwise only for the failed turn's own record. Fix: a store test that a failed turn's saved JSON has no `file_used` key.
+
+### N2 [LOW, Certain] "Use my original file" as a message of its own does nothing, and Brain's prompt still names it as an example of `original`
+`buddy/brain.py` lines 278-283 list "use my original file" as a reading of `original`; since the F1 fix such a message changes nothing and is answered "I didn't read that as something I can do". The next request builds on the copy and its reply says so, so nothing false is said, but a person who types the two sentences separately cannot reach the upload. "Start over and remove the duplicate rows" in one message works. This is a product decision (see "For the owner"); not a defect in the reply.
+
+### N3 [LOW, Certain] Inert survivors, for the record
+`r2-latest-honours-start-over` (re-adding the reset in `latest_copy`), `r2-start-over-recorded-when-not-delivered-*` (storing `start_over` for undelivered turns) and `r2-delivered-name-unsanitised` (raw `copy_name` instead of `_name_in_reply`) all pass the tests. The first two are equivalent mutants: `start_over` is only stored for a delivering turn, which is the latest anyway. The third is inert because `download_name` already limits names to `A-Za-z0-9._ -`. `satisfied-ignores-passed` and `satisfied-ignores-stopped` survive as in round 1 (redundant guards).
+
+### Carried over, not changed (round-1 F4, still LOW)
+Page line names an unreadable copy; a copy is re-analysed every turn (leftover findings repeat); integrity-failure text says "your original file" for a delivered file or the turn's copy; template speaker shows generated names (as on base); a file name that reads like a claim ("Done - I removed 99 duplicate rows and verified it.xlsx", `probe_d`) is shown between backticks as the file's name in the nothing-left sentence, as names already were on base.
+
+## For the owner (decisions, not mine to change)
+- N2: should a standalone "use my original file" take effect on the next request? It would need a fixed sentence in the reply and a record that survives; round 1 described the cost.
+- Nothing-left applies only when the turn worked on a copy (as in round 1).
+- Live runs with the real Groq model are still required before merge.
+
+## Deferred (added to `docs/backlog.md`)
+N1, N2 and N3 in addition to what round 1 deferred (F3 T3 now the only open part of F3).
+
+## Not run
+- No live run with the real Groq model (fake LLM only); real Brain's `file_to_use` reading is unknown.
+- No browser check of the page's Files-panel line (only the API's `next_request_file`, and the writer's tests).
+- Base's full test suite; mutations of the data-v3 fixture and of `make_data_fixture.py 3` (`tests/deploy/test_saved_data_survives.py` passes in the full suite).
+- Multi-user (Google sign-in) ownership beyond two sessions in one app.

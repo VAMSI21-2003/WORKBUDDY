@@ -29,8 +29,7 @@ M = {
  "sentence-copy-as-original": ("buddy/voice.py", "    if used.kind == FILE_KIND_COPY:\n        return WORKED_ON_COPY_TEMPLATE", "    if False:\n        return WORKED_ON_COPY_TEMPLATE"),
  "sentence-skipped-ignored": ("buddy/voice.py", "    if used.copy_skipped:\n        return WORKED_ON_ORIGINAL_SKIPPING_COPY_SENTENCE", "    if False:\n        return WORKED_ON_ORIGINAL_SKIPPING_COPY_SENTENCE"),
  "report-lead-original-on-copy": ("buddy/voice.py", "lead = REPORT_LEAD_USED if on_copy else REPORT_LEAD_ORIGINAL", "lead = REPORT_LEAD_ORIGINAL"),
- "latest-start-over-ignored": ("backend/sessions.py", "            if turn.file_used is not None and turn.file_used.start_over:\n                latest = None", "            pass"),
- "latest-any-upload": ("backend/sessions.py", "if not turn.finished or turn.target_file_id != upload_id:", "if not turn.finished:"),
+ "latest-any-upload": ("backend/sessions.py", "if turn.finished and turn.target_file_id == upload_id:", "if turn.finished:"),
  "latest-takes-first": ("backend/sessions.py", "latest = turn.delivered_files[-1]", "latest = latest or turn.delivered_files[-1]"),
  "offer-no-sha-check": ("backend/turns.py", "if checked is None or hashlib.sha256(checked[1]).hexdigest() != latest.sha256:", "if checked is None:"),
  "offer-reads-delivered-directly": ("backend/turns.py", "copy=str(work_path), copy_name=shown, pinned=pinned", "copy=str(latest.path), copy_name=shown, pinned=pinned"),
@@ -39,12 +38,18 @@ M = {
  "offer-pinned-false": ("backend/turns.py", "self._offer(record, upload, turn_dir, pinned=file_id is not None)", "self._offer(record, upload, turn_dir, pinned=False)"),
  "restore-focus-removed": ("backend/turns.py", "    _restore_upload_focus(job, state.context, record)\n", "    pass\n"),
  "restore-analyzed-kept": ("backend/turns.py", "    context.analyzed_files = frozenset(p for p in context.analyzed_files if p in uploads)", "    pass"),
- "record-kind-swapped": ("backend/turns.py", "return FileUsedRecord(USED_UPLOAD, offer.upload.file_id, used.start_over)", "return FileUsedRecord(USED_UPLOAD, offer.upload.file_id, False)"),
  "record-on-failed": ("backend/turns.py", "if result.outcome in (DELIVERED, NOT_DELIVERED) and state is not None:", "if state is not None:"),
  "store-no-files-used-check": ("backend/store.py", "    _check_files_used(turns, files)\n", ""),
- "store-file-used-not-saved": ("backend/store.py", "if used is not None\n                else None\n            ),\n        }", "if False\n                else None\n            ),\n        }"),
  "view-next-ignores-latest": ("backend/views.py", "    if latest is not None:\n        return NextFile(", "    if False:\n        return NextFile("),
  "workdir-name-raw": ("backend/turns.py", "name = download_name(latest.name, record.key)", "name = latest.name"),
+ # round 2 (head 5be03f1)
+ "r2-latest-honours-start-over": ("backend/sessions.py", "            if turn.finished and turn.target_file_id == upload_id:\n                if turn.outcome", "            if turn.finished and turn.target_file_id == upload_id:\n                if turn.file_used is not None and turn.file_used.start_over:\n                    latest = None\n                if turn.outcome"),
+ "r2-start-over-recorded-when-not-delivered-upload": ("backend/turns.py", "FileUsedRecord(USED_UPLOAD, offer.upload.file_id, used.start_over and delivered)", "FileUsedRecord(USED_UPLOAD, offer.upload.file_id, used.start_over)"),
+ "r2-start-over-recorded-when-not-delivered-copy": ("backend/turns.py", "FileUsedRecord(USED_DELIVERED, offer.source.file_id, used.start_over and delivered)", "FileUsedRecord(USED_DELIVERED, offer.source.file_id, used.start_over)"),
+ "r2-record-never-start-over": ("backend/turns.py", "FileUsedRecord(USED_UPLOAD, offer.upload.file_id, used.start_over and delivered)", "FileUsedRecord(USED_UPLOAD, offer.upload.file_id, False)"),
+ "r2-delivered-name-from-input-ref": ("buddy/voice.py", "    if used is not None and used.kind == FILE_KIND_COPY and _name_in_reply(used.copy_name):", "    if False:"),
+ "r2-delivered-name-unsanitised": ("buddy/voice.py", "        return _name_in_reply(used.copy_name)\n    for step", "        return used.copy_name\n    for step"),
+ "r2-store-writes-null": ("backend/store.py", "        if used is not None:\n            # Which file", "        data[\"file_used\"] = None\n        if used is not None:\n            # Which file"),
 }
 
 def run(name):
