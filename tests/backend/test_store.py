@@ -92,7 +92,14 @@ def test_a_new_app_on_the_same_data_root_restores_everything(settings: Settings)
 
 
 def test_restored_context_keeps_analyzed_files(settings: Settings) -> None:
-    session_id, _, _ = _delivered_session(settings)
+    # A turn that hands nothing back (a declined plan) leaves the upload analysed; one that
+    # delivers a file does not (``backend.turns._restore_upload_focus``).
+    client = _client(settings, PipelineFactory(QueuedProvider(single("remove_duplicate_rows"))))
+    session_id = new_session(client, "focus")
+    upload(client, session_id, xlsx_bytes())
+    turn_id = start_turn(client, session_id, "remove duplicate rows").json()["turn_id"]
+    declined = wait_finished(client, session_id, turn_id, decision="reject")
+    assert declined["outcome"] == "not_delivered"
     data = json.loads(_session_json(settings, session_id).read_text())
     assert data["context"]["analyzed_files"]  # the first turn analyzed the upload
 
@@ -341,3 +348,88 @@ def test_a_failed_write_at_upload_keeps_nothing(
     state = client.get(f"/api/v1/sessions/{session_id}").json()
     assert state["files"] == [] and state["active_file_id"] is None
     assert not [p for p in settings.uploads_dir.rglob("*") if p.is_file()]
+
+
+# -- The request waiting on "which file?" (conversation repair) ----------------------------------
+
+
+def _pending_session(settings: Settings) -> str:
+    session_id, _, _ = _delivered_session(settings)
+    return session_id
+
+
+def _rewrite(settings: Settings, session_id: str, change: Any) -> None:
+    path = _session_json(settings, session_id)
+    data = json.loads(path.read_text())
+    change(data)
+    path.write_text(json.dumps(data))
+
+
+def test_a_session_saved_before_pending_requests_existed_still_opens_with_none(
+    settings: Settings,
+) -> None:
+    session_id = _pending_session(settings)
+    _rewrite(settings, session_id, lambda data: data.pop("pending_request"))
+
+    restarted = _client(settings)
+
+    assert restarted.get(f"/api/v1/sessions/{session_id}").status_code == 200
+    (record,) = restarted.app.state.registry._sessions.values()  # type: ignore[attr-defined]
+    assert record.pending is None
+
+
+def test_the_session_record_always_says_whether_a_request_is_waiting(settings: Settings) -> None:
+    session_id = _pending_session(settings)
+
+    data = json.loads(_session_json(settings, session_id).read_text())
+
+    assert "pending_request" in data and data["pending_request"] is None
+
+
+def test_a_waiting_request_is_saved_and_restored(settings: Settings) -> None:
+    session_id = _pending_session(settings)
+    _rewrite(
+        settings,
+        session_id,
+        lambda data: data.update(
+            pending_request={"message": "remove duplicate rows in x.xlsx", "turn_id": "t0001"}
+        ),
+    )
+
+    restarted = _client(settings)
+    restarted.get(f"/api/v1/sessions/{session_id}")
+    (record,) = restarted.app.state.registry._sessions.values()  # type: ignore[attr-defined]
+
+    assert record.pending is not None
+    assert (record.pending.message, record.pending.turn_id) == (
+        "remove duplicate rows in x.xlsx",
+        "t0001",
+    )
+    # ...and writing the session back keeps it.
+    restarted.app.state.registry.save_session(record)  # type: ignore[attr-defined]
+    saved = json.loads(_session_json(settings, session_id).read_text())["pending_request"]
+    assert saved == {"message": "remove duplicate rows in x.xlsx", "turn_id": "t0001"}
+
+
+@pytest.mark.parametrize(
+    "bad",
+    [
+        "a string",
+        ["list"],
+        {"message": "x"},
+        {"message": "x", "turn_id": "t0001", "extra": 1},
+        {"message": "", "turn_id": "t0001"},
+        {"message": 5, "turn_id": "t0001"},
+        {"message": "x" * 20_001, "turn_id": "t0001"},
+        {"message": "x", "turn_id": "t0099"},
+        {"message": "x", "turn_id": "../../t0001"},
+        {"message": "x", "turn_id": 1},
+    ],
+)
+def test_a_corrupt_waiting_request_is_a_clean_404(settings: Settings, bad: Any) -> None:
+    session_id = _pending_session(settings)
+    _rewrite(settings, session_id, lambda data: data.update(pending_request=bad))
+
+    restarted = _client(settings)
+
+    assert restarted.get(f"/api/v1/sessions/{session_id}").status_code == 404

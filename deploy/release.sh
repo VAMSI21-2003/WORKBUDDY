@@ -4,6 +4,8 @@
 #
 # 1. build the image from that commit, tagged with the commit id   (a failure here changes nothing)
 # 2. back up /data                       (a failure here stops everything; nothing has changed)
+#    and save the running app's logs to deploy/logs/ (Docker deletes them with the container;
+#    best effort, never stops a release)
 # 3. start it                            \
 # 4. wait until it reports healthy        > any failure: roll back to the previous image
 # 5. run smoke.sh (a real turn)          /
@@ -25,6 +27,7 @@ require_settings
 full="$(git -C "$REPO_DIR" rev-parse --verify --quiet "$1^{commit}")" || die "'$1' isn't a commit in this repository (did you run git fetch?)"
 tag="${full:0:12}"
 previous="$(env_value "$DEPLOY_DIR/current.env" WORKBUDDY_TAG)"
+live="$previous"  # the commit the running container is of, whatever happens to $previous below
 log() { printf '%s %s %s\n' "$(date -u +%FT%TZ)" "$tag" "$*" >> "$DEPLOY_DIR/releases.log"; }
 
 if ! git -C "$REPO_DIR" diff --quiet "$full" -- deploy/; then
@@ -64,9 +67,14 @@ else
   say "no data yet: nothing to back up"
 fi
 
+# The running container's logs go before it is replaced (Docker deletes them with it).
+if [ -n "$live" ]; then save_app_logs "$live" "workbuddy:$tag"; fi
+
 rollback() {  # rollback "what failed"
   local failed="$1"
   printf '\n!! RELEASE %s FAILED at: %s\n' "$tag" "$failed"
+  # The failed release's own logs say why it failed, and the rollback replaces its container.
+  save_app_logs "$tag" "workbuddy:$tag"
   if [ -z "$previous" ]; then
     say "There was no earlier release to go back to. Stopping the app so a broken one isn't left serving."
     compose stop app >/dev/null 2>&1 || true

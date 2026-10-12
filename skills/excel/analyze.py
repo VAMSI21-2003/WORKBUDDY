@@ -1,6 +1,7 @@
 """Analyze — proactively looks over an uploaded spreadsheet for missing
 values, outliers, inconsistent date formats, grouped-key conflicts, and
-near-duplicate and exact-duplicate rows, independent of whatever the user asked for.
+near-duplicate, exact-duplicate and trim/case-duplicate rows, independent of whatever the user
+asked for.
 
 See ``docs/design/proactive-analysis-design.md`` for the full design this
 implements, and ``scripts/spike_tools_test.py`` for the real-tool spike
@@ -99,6 +100,36 @@ class ExactDuplicateRowAnalyzer:
             return ()
         verb = "repeats" if count == 1 else "repeat"
         return (f"{count} {'row' if count == 1 else 'rows'} {verb} an earlier row exactly",)
+
+
+class LooseDuplicateRowAnalyzer:
+    """Flags rows that match an earlier row once spaces and capital letters are ignored.
+
+    Only rows that are *not* exact repeats: those are ``ExactDuplicateRowAnalyzer``'s, and the
+    cleaning skill removes them. These it keeps, because it removes only rows identical in every
+    cell; a finding says so, so a person isn't left to think "remove duplicates" got them.
+    Text cells are compared with the spaces at both ends trimmed and the case folded; every other
+    cell as it is.
+    """
+
+    def __call__(self, df: pd.DataFrame) -> tuple[str, ...]:
+        loosened = df.apply(
+            lambda column: column.map(
+                lambda value: value.strip().casefold() if isinstance(value, str) else value
+            )
+        )
+        count = int((loosened.duplicated() & ~df.duplicated()).sum())
+        if count == 0:
+            return ()
+        if count == 1:
+            return (
+                "1 row matches an earlier row once spaces around the text and capital letters "
+                "are ignored, but isn't an exact repeat",
+            )
+        return (
+            f"{count} rows match an earlier row once spaces around the text and capital "
+            "letters are ignored, but aren't exact repeats",
+        )
 
 
 class IQROutlierAnalyzer:
@@ -287,6 +318,7 @@ class NearDuplicateAnalyzer:
 _ANALYZERS: tuple[tuple[str, Analyzer], ...] = (
     ("missing_and_distribution", MissingValueAndDistributionAnalyzer()),
     ("duplicate_rows", ExactDuplicateRowAnalyzer()),
+    ("loose_duplicate_rows", LooseDuplicateRowAnalyzer()),
     ("outliers", IQROutlierAnalyzer()),
     ("date_format_consistency", DateFormatConsistencyAnalyzer()),
     ("grouped_key_conflicts", GroupedKeyConflictAnalyzer()),

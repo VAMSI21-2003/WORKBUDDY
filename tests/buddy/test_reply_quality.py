@@ -329,7 +329,10 @@ def test_the_capability_lines_name_every_action_buddy_has() -> None:
     for style, line in CAPABILITIES.items():
         for action in ACTIONS:
             if action.changes_file:
-                assert action.request in line, (style, action.name)
+                # The line says what Buddy removes: "exact duplicate rows" holds the action's
+                # object ("duplicate rows"), and says the exactness the skill really has.
+                verb, _, rest = action.request.partition(" ")
+                assert f"{verb} " in line and action.object in line, (style, action.name)
         # The report is the analysis: the line says Buddy looks a spreadsheet over.
         assert re.search(r"look|check", line), style
 
@@ -463,7 +466,7 @@ def test_a_greeting_the_model_calls_unclear_still_claims_nothing(
 
 
 @pytest.mark.parametrize("speaker", SPEAKERS)
-@pytest.mark.parametrize("reason", ["which_action", "which_file", "other"])
+@pytest.mark.parametrize("reason", ["which_action", "other"])
 def test_think_asking_for_clarification_shows_a_fixed_question_not_its_words(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch, speaker: str, reason: str
 ) -> None:
@@ -631,7 +634,7 @@ def test_a_report_on_a_file_that_cannot_be_analysed_says_why_not(
 def test_exact_duplicates_that_remain_are_in_the_report_and_never_contradicted(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch, speaker: str
 ) -> None:
-    """The case of backlog item 3: "still has 2 duplicate rows" beside an all-clear."""
+    """The case of backlog item 3: "still has 2 exact duplicate rows" beside an all-clear."""
     message = "remove the empty rows and remove the duplicate rows and give me a report"
     provider = Routed(
         brain(
@@ -676,7 +679,7 @@ def test_a_remaining_duplicate_count_and_the_analysis_always_agree(
 
     final = _file_facts(turn.state.execution_result.outputs[0])  # type: ignore[union-attr]
     assert final["duplicates"] == 2
-    assert "2 duplicate rows" in turn.reply  # the verifier's residual count
+    assert "2 exact duplicate rows" in turn.reply  # the verifier's residual count
     assert "2 rows repeat an earlier row exactly" in turn.reply  # the analysis, same number
     assert "none of the issues" not in turn.reply.lower()
 
@@ -795,7 +798,7 @@ def test_no_report_is_given_when_brain_did_not_read_one_whatever_the_message_say
 @pytest.mark.parametrize(
     ("rows", "removed", "left"),
     [
-        ({"a": [1, 1, 2]}, 1, 2),  # one duplicate: "1 duplicate row", "2 rows"
+        ({"a": [1, 1, 2]}, 1, 2),  # one duplicate: "1 exact duplicate row", "2 rows"
         ({"a": [1, 1, 1, 2]}, 2, 2),
         ({"a": [1, 2, 3]}, 0, 3),
     ],
@@ -830,10 +833,10 @@ def test_counts_use_the_right_plural(
     reply = state.reply or ""
     noun = "row" if removed == 1 else "rows"
     if removed:
-        assert f"removed {removed} duplicate {noun}" in reply.lower()
+        assert f"removed {removed} exact duplicate {noun}" in reply.lower()
     else:
-        assert "no duplicate rows" in reply
-    assert f"The copy has {left} rows, with 0 duplicate rows remaining." in reply
+        assert "no exact duplicate rows" in reply
+    assert f"The copy has {left} rows, with 0 exact duplicate rows remaining." in reply
     assert "(s)" not in reply
     assert len(pd.read_excel(state.execution_result.outputs[0])) == left  # type: ignore[union-attr]
 
@@ -892,7 +895,7 @@ def test_an_all_clear_is_still_qualified_next_to_a_residual_if_the_analysis_miss
     )
 
     assert turn.delivered
-    assert "It still has 1 duplicate row." in turn.reply
+    assert "It still has 1 exact duplicate row." in turn.reply
     assert "None of the other issues I check for were found." in turn.reply
     assert "None of the issues I check for were found" not in turn.reply
 

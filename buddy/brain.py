@@ -3,6 +3,7 @@
 import json
 import logging
 from dataclasses import dataclass, replace
+from pathlib import Path
 from typing import Protocol
 
 from buddy.actions import (
@@ -53,6 +54,11 @@ class UnderstandingRequest:
         copy_available: Whether a copy Buddy handed back earlier is on offer for this
             turn (``BuddyState.file_choice``). Only that fact is sent to the model, never
             the copy's name or path.
+        turn_id: The turn this reading is for, only so a failure can be logged against it.
+        pending_request: An earlier request that Buddy asked "which file?" about and is still
+            waiting on, when this message names a file of the session; else ``None``.
+        file_names: The names of the session's files. A word inside one ("duplicates.xlsx") is a
+            name, not a request, so the mention check compares them as text and doesn't read them.
     """
 
     user_message: str
@@ -62,6 +68,9 @@ class UnderstandingRequest:
     active_file: str | None
     recent_conversation: tuple[ConversationTurn, ...]
     copy_available: bool = False
+    turn_id: str = ""
+    pending_request: str | None = None
+    file_names: tuple[str, ...] = ()
 
 
 class Interpreter(Protocol):
@@ -158,6 +167,12 @@ class Brain:
         request = self._build_request(state)
         understanding = self._interpreter(request)
         self._apply(state, understanding)
+        if understanding.answers_pending and state.pending_request is not None:
+            # The message only said which file; the request that was waiting is the one this
+            # turn carries out, so every later stage reads that.
+            state.user_message = state.pending_request
+            state.resumed_request = True
+            state.add_observation("resumed_request: the message answered an earlier question")
         # Which file the rest of the turn works on follows Brain's reading (its ``file_to_use``).
         choose_file(state, understanding)
         logger.debug(
@@ -191,6 +206,9 @@ class Brain:
             active_file=context.active_file,
             recent_conversation=tuple(context.recent_conversation()),
             copy_available=state.file_choice is not None and state.file_choice.copy is not None,
+            turn_id=state.turn_id or "",
+            pending_request=state.pending_request,
+            file_names=tuple(Path(p).name for p in state.uploaded_files),
         )
 
     @staticmethod
@@ -257,7 +275,8 @@ Respond with a single JSON object and nothing else, matching this shape:
     {"action": "remove_duplicate_rows" | "remove_empty_rows" | "report_on_file" | "unsupported",
      "source_phrase": "<the exact words from the user's message that ask for it>"}
   ],
-  "file_to_use": "latest" | "original"
+  "file_to_use": "latest" | "original",
+  "answers_pending": true | false
 }
 
 "requested_actions" lists every action the message asks you to carry out, in
@@ -274,6 +293,13 @@ sending the file somewhere).
 message, not paraphrased. Don't list anything the user says to keep or not to
 do. A message that asks for no action (a greeting, a question) gets an empty
 list.
+
+"answers_pending" is false unless the prompt shows an earlier request that is waiting for the
+user to say which file it is about. Then answer true only when the user's message just says
+which file (it names a file and asks for nothing else); fill in "intent" and
+"requested_actions" for the earlier request in that case, and copy each "source_phrase" from the
+earlier request's words. If the message is a request of its own, answer false and read it as
+usual.
 
 "file_to_use" says which file the request is about. Buddy hands back a cleaned copy after each
 request, and by default the next request builds on the latest copy, so "now remove the empty
@@ -315,23 +341,48 @@ class ClaudeInterpreter:
             request: The request to interpret.
 
         Returns:
-            The classified ``Understanding``, or a conservative fallback if
-            the model call fails or its reply can't be parsed.
+            The classified ``Understanding``, or, when both attempts failed, a conservative
+            one with no intent. A failed attempt (the call raised, the reply wasn't JSON, or it
+            had the wrong shape) is tried once more: the call has no side effects. Each
+            failure is logged at WARNING with the turn and the kind of failure, never the
+            reply, the message or a key.
         """
         user_prompt = self._build_user_prompt(request)
+        failure = FAILURE_CALL
+        for attempt in range(1, ATTEMPTS + 1):
+            understanding, failure = self._attempt(
+                user_prompt, request.user_message, request.pending_request
+            )
+            if understanding is not None:
+                if attempt > 1:
+                    logger.info(
+                        "Turn %s: Brain succeeded on attempt %d", request.turn_id or "-", attempt
+                    )
+                return understanding
+            logger.warning(
+                "Turn %s: Brain failed (%s), attempt %d of %d",
+                request.turn_id or "-",
+                failure,
+                attempt,
+                ATTEMPTS,
+            )
+        return _failed_understanding(failure)
+
+    def _attempt(
+        self, user_prompt: str, user_message: str, pending_request: str | None
+    ) -> tuple[Understanding | None, str]:
+        """One call and parse: the understanding, or ``None`` and the kind of failure."""
         try:
             raw_reply = self._provider.complete(
                 system=_SYSTEM_PROMPT,
                 messages=(LLMMessage(role="user", content=user_prompt),),
             )
-        except Exception:
-            logger.exception("ClaudeInterpreter: LLM call failed")
-            return Understanding(
-                intent=None,
-                confidence=0.0,
-                missing_information=("the language model call failed",),
-            )
-        return self._parse_reply(raw_reply, request.user_message)
+        except Exception as exc:
+            # The exception's class says what failed (a timeout, a rate limit); its message
+            # isn't logged, and the logging filter masks any key that got into it.
+            logger.debug("ClaudeInterpreter: LLM call raised")
+            return None, f"{FAILURE_CALL}: {type(exc).__name__}"
+        return _parse(raw_reply, user_message, pending_request)
 
     @staticmethod
     def _build_user_prompt(request: UnderstandingRequest) -> str:
@@ -357,6 +408,11 @@ class ClaudeInterpreter:
             lines.append(f"Currently active task: {request.active_task}")
         if request.copy_available:
             lines.append("A copy of the file that Buddy handed back earlier is available.")
+        if request.pending_request:
+            lines.append(
+                "An earlier request is waiting for the user to say which file it is about: "
+                f'"{request.pending_request}"'
+            )
         if request.recent_conversation:
             lines.append("Recent conversation:")
             for turn in request.recent_conversation:
@@ -364,35 +420,66 @@ class ClaudeInterpreter:
         return "\n".join(lines)
 
     @staticmethod
-    def _parse_reply(raw_reply: str, user_message: str = "") -> Understanding:
+    def _parse_reply(
+        raw_reply: str, user_message: str = "", pending_request: str | None = None
+    ) -> Understanding:
         """Parse the model's raw JSON reply into an ``Understanding``.
 
         Args:
             raw_reply: The model's raw text reply.
             user_message: The user's message, to check each
                 ``requested_actions`` phrase against.
+            pending_request: The earlier request that is waiting, if any; the phrases are
+                checked against it instead when Brain says the message only answers it.
 
         Returns:
             The parsed ``Understanding``, or a conservative fallback if
             ``raw_reply`` is not valid JSON or doesn't match the expected
             shape.
         """
-        try:
-            data = json.loads(raw_reply)
-        except json.JSONDecodeError:
-            logger.warning("ClaudeInterpreter: reply was not valid JSON: %r", raw_reply)
-            return Understanding(
-                intent=None,
-                confidence=0.0,
-                missing_information=("the model's reply was not valid JSON",),
-            )
+        understanding, failure = _parse(raw_reply, user_message, pending_request)
+        return understanding if understanding is not None else _failed_understanding(failure)
 
-        try:
-            intent = data.get("intent")
-            if intent not in INTENT_VOCABULARY:
-                logger.warning("ClaudeInterpreter: intent outside the vocabulary: %r", intent)
-                intent = "unclear"
-            return Understanding(
+
+# How many times Brain asks the model before it gives up (one retry).
+ATTEMPTS = 2
+# The kinds of failure, as logged. None carries any of the reply's words.
+FAILURE_CALL = "the call raised"
+FAILURE_NOT_JSON = "the reply was not valid JSON"
+FAILURE_SHAPE = "the reply had an unexpected shape"
+
+
+def _failed_understanding(failure: str) -> Understanding:
+    """The conservative reading when Brain produced none: no intent, zero confidence."""
+    missing = {
+        FAILURE_NOT_JSON: "the model's reply was not valid JSON",
+        FAILURE_SHAPE: "the model's reply had an unexpected shape",
+    }
+    return Understanding(
+        intent=None,
+        confidence=0.0,
+        missing_information=(missing.get(failure, "the language model call failed"),),
+    )
+
+
+def _parse(
+    raw_reply: str, user_message: str, pending_request: str | None = None
+) -> tuple[Understanding | None, str]:
+    """``raw_reply`` as an ``Understanding``, or ``None`` and the kind of failure."""
+    try:
+        data = json.loads(raw_reply)
+    except (json.JSONDecodeError, TypeError):
+        return None, FAILURE_NOT_JSON
+    try:
+        intent = data.get("intent")
+        if intent not in INTENT_VOCABULARY:
+            logger.warning("ClaudeInterpreter: intent outside the vocabulary")
+            intent = "unclear"
+        # Only a request that was really waiting can be answered; anything but a true is no.
+        answers_pending = data.get("answers_pending") is True and pending_request is not None
+        phrases_from = pending_request if answers_pending and pending_request else user_message
+        return (
+            Understanding(
                 intent=intent,
                 confidence=float(data.get("confidence", 0.0)),
                 referenced_files=tuple(data.get("referenced_files") or ()),
@@ -401,17 +488,15 @@ class ClaudeInterpreter:
                 ambiguity_flags=tuple(data.get("ambiguity_flags") or ()),
                 notes=data.get("notes") or "",
                 requested_actions=_parse_requested_actions(
-                    data.get("requested_actions"), user_message
+                    data.get("requested_actions"), phrases_from
                 ),
                 file_to_use=_parse_file_to_use(data.get("file_to_use")),
-            )
-        except (AttributeError, TypeError, ValueError):
-            logger.warning("ClaudeInterpreter: reply JSON had an unexpected shape: %r", data)
-            return Understanding(
-                intent=None,
-                confidence=0.0,
-                missing_information=("the model's reply had an unexpected shape",),
-            )
+                answers_pending=answers_pending,
+            ),
+            "",
+        )
+    except (AttributeError, TypeError, ValueError):
+        return None, FAILURE_SHAPE
 
 
 def _parse_file_to_use(raw: object) -> str:
@@ -527,18 +612,27 @@ class MentionCrossCheck:
             Brain's reading followed by the mention-only entries.
         """
         understanding = self._inner(request)
+        # When Brain read the message as only the answer to a waiting question, the request
+        # being carried out is the waiting one, so that is the text to look in.
+        # But a model that misreads a request of its own as only an answer must not switch the
+        # safety net off, so the message itself is read too: anything it mentions that Brain's
+        # reading lacks is stated as not run.
+        texts = [request.user_message]
+        if understanding.answers_pending and request.pending_request:
+            texts.insert(0, request.pending_request)
         brain = brain_ledger(understanding)
         listed = {entry.action for entry in brain}
-        added = tuple(
-            RequestedAction(
-                action=action.name,
-                source_phrase=text,
-                source=LEDGER_FROM_MENTION,
-                phrase_found=True,
-            )
-            for action, text in mentioned_actions(request.user_message)
-            if action.name not in listed
-        )
+        found: dict[str, RequestedAction] = {}
+        for message in texts:
+            for action, text in mentioned_actions(message, except_inside=request.file_names):
+                if action.name not in listed and action.name not in found:
+                    found[action.name] = RequestedAction(
+                        action=action.name,
+                        source_phrase=text,
+                        source=LEDGER_FROM_MENTION,
+                        phrase_found=True,
+                    )
+        added = tuple(found.values())
         if added:
             logger.info(
                 "MentionCrossCheck: the message also mentions %s, which Brain didn't list",

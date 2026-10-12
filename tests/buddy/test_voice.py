@@ -101,7 +101,7 @@ def test_template_speaker_success_message_mentions_output_file_and_finding() -> 
             passed=True,
             confidence=1.0,
             findings=(
-                "[spreadsheet.deduplicate] output has 3 rows, 0 duplicate rows remaining",
+                "[spreadsheet.deduplicate] output has 3 rows, 0 exact duplicate rows remaining",
             ),
             steps=(
                 StepVerification(
@@ -116,7 +116,7 @@ def test_template_speaker_success_message_mentions_output_file_and_finding() -> 
     reply = TemplateSpeaker()(request)
 
     assert reply == (
-        "Done — removed 2 duplicate rows. The copy has 3 rows, with 0 duplicate rows "
+        "Done — removed 2 exact duplicate rows. The copy has 3 rows, with 0 exact duplicate rows "
         "remaining. Saved as `report_deduplicated.xlsx`. " + VALUES_ONLY_SENTENCE
     )
 
@@ -159,7 +159,7 @@ def test_template_speaker_success_message_covers_every_steps_output_and_finding(
 
     assert "report_deduplicated.xlsx" in reply
     assert "report_no_empty_rows.xlsx" in reply
-    assert "Removed 2 duplicate rows." in reply
+    assert "Removed 2 exact duplicate rows." in reply
     assert "There were no fully-empty rows left to remove." in reply
 
 
@@ -174,7 +174,7 @@ def test_template_speaker_states_no_count_for_a_result_without_measurements() ->
         verification_result=VerificationResult(
             passed=True,
             confidence=1.0,
-            findings=("output has 3 rows, 0 duplicate rows remaining",),
+            findings=("output has 3 rows, 0 exact duplicate rows remaining",),
         ),
     )
 
@@ -190,7 +190,7 @@ def test_template_speaker_failure_message_covers_every_steps_finding() -> None:
             passed=False,
             confidence=1.0,
             findings=(
-                "[spreadsheet.deduplicate] output has 3 rows, 1 duplicate row remaining",
+                "[spreadsheet.deduplicate] output has 3 rows, 1 exact duplicate row remaining",
                 "[spreadsheet.remove_empty_rows] output has 4 rows, "
                 "1 fully-empty row remaining",
             ),
@@ -203,7 +203,7 @@ def test_template_speaker_failure_message_covers_every_steps_finding() -> None:
 
     reply = TemplateSpeaker()(request)
 
-    assert "1 duplicate row" in reply
+    assert "1 exact duplicate row" in reply
     assert "1 fully-empty row" in reply
     assert "re-run deduplication" in reply
     assert "re-run empty-row removal" in reply
@@ -215,7 +215,7 @@ def test_template_speaker_failure_message_includes_findings_and_recommendations(
         verification_result=VerificationResult(
             passed=False,
             confidence=1.0,
-            findings=("output has 3 rows, 1 duplicate row remaining",),
+            findings=("output has 3 rows, 1 exact duplicate row remaining",),
             recommendations=("re-run deduplication; duplicates remain",),
         ),
     )
@@ -223,7 +223,7 @@ def test_template_speaker_failure_message_includes_findings_and_recommendations(
     reply = TemplateSpeaker()(request)
 
     assert "wasn't able to confirm" in reply.lower()
-    assert "1 duplicate row" in reply
+    assert "1 exact duplicate row" in reply
     assert "re-run deduplication" in reply
 
 
@@ -359,7 +359,7 @@ def test_template_speaker_analysis_preface_still_reports_other_steps_outcome() -
             confidence=1.0,
             findings=(
                 "[spreadsheet.analyze] [outliers] amount: 1 unusually high value",
-                "[spreadsheet.deduplicate] output has 3 rows, 0 duplicate rows remaining",
+                "[spreadsheet.deduplicate] output has 3 rows, 0 exact duplicate rows remaining",
             ),
             steps=(
                 StepVerification(capability="spreadsheet.analyze", passed=True),
@@ -416,7 +416,7 @@ def test_template_speaker_does_not_fold_a_near_duplicate_finding_into_an_exact_d
             findings=(
                 "[spreadsheet.analyze] [near_duplicates] Alice Johnson and Alice Johnston "
                 "might be the same (self-reported, not independently re-checked)",
-                "[spreadsheet.deduplicate] output has 3 rows, 0 duplicate rows remaining",
+                "[spreadsheet.deduplicate] output has 3 rows, 0 exact duplicate rows remaining",
             ),
             steps=(
                 StepVerification(capability="spreadsheet.analyze", passed=True),
@@ -479,7 +479,7 @@ def test_personality_voice_makes_no_model_call_on_a_verified_delivery(mode: str)
     reply = PersonalityVoice(provider)(_delivered_request(mode))
 
     assert provider.last_messages is None
-    assert "Removed 1 fully-empty row. Removed 2 duplicate rows." in reply
+    assert "Removed 1 fully-empty row. Removed 2 exact duplicate rows." in reply
 
 
 def test_personality_voice_never_returns_the_models_reply_for_a_verified_delivery() -> None:
@@ -514,7 +514,7 @@ def test_personality_voice_reply_contains_only_understanding_execution_and_verif
         verification_result=VerificationResult(
             passed=True,
             confidence=1.0,
-            findings=("output has 3 rows, 0 duplicate rows remaining",),
+            findings=("output has 3 rows, 0 exact duplicate rows remaining",),
             measurements=(_dedupe_measurement(),),
         ),
     )
@@ -527,8 +527,8 @@ def test_personality_voice_reply_contains_only_understanding_execution_and_verif
     # generated name.
     assert "Your cleaned copy of report.xlsx is ready." in reply
     assert "report_deduplicated_task-1" not in reply
-    assert "Done — removed 2 duplicate rows." in reply
-    assert "0 duplicate rows remaining" in reply
+    assert "Done — removed 2 exact duplicate rows." in reply
+    assert "0 exact duplicate rows remaining" in reply
 
 
 def _clarification_turn_request(mode: str) -> SpeakingRequest:
@@ -669,7 +669,7 @@ def _tagged_findings_request(mode: str = "friend") -> SpeakingRequest:
             findings=(
                 "[spreadsheet.analyze] none of the issues I check for were found",
                 "[spreadsheet.analyze] [outliers] amount: 1 unusually high value",
-                "[spreadsheet.deduplicate] output has 3 rows, 0 duplicate rows remaining",
+                "[spreadsheet.deduplicate] output has 3 rows, 0 exact duplicate rows remaining",
             ),
             steps=(
                 StepVerification(capability="spreadsheet.analyze", passed=True),
@@ -685,7 +685,7 @@ def _tagged_findings_request(mode: str = "friend") -> SpeakingRequest:
         _tagged_findings_request().verification_result,
         VerificationResult(
             passed=False,
-            findings=("[spreadsheet.deduplicate] output still has 1 duplicate row",),
+            findings=("[spreadsheet.deduplicate] output still has 1 exact duplicate row",),
             recommendations=("re-run deduplication",),
         ),
     ],
@@ -845,7 +845,7 @@ def _stopped_chain_request(mode: str = "focus") -> SpeakingRequest:
         verification_result=VerificationResult(
             passed=False,
             findings=(
-                "[spreadsheet.deduplicate] output has 2 rows, 0 duplicate rows remaining",
+                "[spreadsheet.deduplicate] output has 2 rows, 0 exact duplicate rows remaining",
                 "[spreadsheet.deduplicate] expected 3 non-empty rows from its 4-row input, "
                 "found 2",
                 "[spreadsheet.remove_empty_rows] skipped because an earlier step failed",
@@ -1027,9 +1027,9 @@ def _delivered_request(mode: str) -> SpeakingRequest:
             findings=(
                 "[spreadsheet.analyze] [missing_values] name: 1 missing (16.7%)",
                 "[spreadsheet.remove_empty_rows] output has 5 rows, 0 fully-empty rows remaining",
-                "[spreadsheet.deduplicate] output has 3 rows, 0 duplicate rows remaining",
+                "[spreadsheet.deduplicate] output has 3 rows, 0 exact duplicate rows remaining",
                 "[spreadsheet.analyze] none of the issues I check for were found",
-                "[final_output] final file: output has 3 rows, 0 duplicate rows remaining",
+                "[final_output] final file: output has 3 rows, 0 exact duplicate rows remaining",
             ),
             steps=(
                 StepVerification(
@@ -1068,8 +1068,8 @@ def _delivered_request(mode: str) -> SpeakingRequest:
 
 
 _DELIVERED_BLOCK = (
-    "Removed 1 fully-empty row. Removed 2 duplicate rows. The copy has 3 rows, "
-    "with 0 fully-empty rows and 0 duplicate rows remaining."
+    "Removed 1 fully-empty row. Removed 2 exact duplicate rows. The copy has 3 rows, "
+    "with 0 fully-empty rows and 0 exact duplicate rows remaining."
 )
 
 
@@ -1176,14 +1176,14 @@ def _passed_then_stopped_request(last: StepResult, mode: str = "friend") -> Spea
             passed=False,
             confidence=1.0,
             findings=(
-                "[spreadsheet.deduplicate] output has 2 rows, 0 duplicate rows remaining",
+                "[spreadsheet.deduplicate] output has 2 rows, 0 exact duplicate rows remaining",
                 f"[{last.capability}] {last.failure_reason}",
             ),
             steps=(
                 StepVerification(
                     capability="spreadsheet.deduplicate",
                     passed=True,
-                    findings=("output has 2 rows, 0 duplicate rows remaining",),
+                    findings=("output has 2 rows, 0 exact duplicate rows remaining",),
                     input_reference="uploads/report.xlsx",
                 ),
                 StepVerification(
@@ -1243,7 +1243,7 @@ def test_template_speaker_never_says_done_when_the_last_step_stopped_the_chain(
     assert reason in reply
     _assert_no_completion_claim(reply, stopped_step)
     # The earlier step's findings describe a file that was never handed back.
-    assert "0 duplicate rows remaining" not in reply
+    assert "0 exact duplicate rows remaining" not in reply
 
 
 def _declined_plan_request(mode: str = "friend") -> SpeakingRequest:
@@ -1387,7 +1387,7 @@ def _recheck_failed_request(mode: str = "friend") -> SpeakingRequest:
             confidence=1.0,
             findings=(
                 "[spreadsheet.analyze] [missing_values] name: 1 missing (16.7%)",
-                "[spreadsheet.deduplicate] output has 3 rows, 0 duplicate rows remaining",
+                "[spreadsheet.deduplicate] output has 3 rows, 0 exact duplicate rows remaining",
                 "[spreadsheet.analyze] the final file couldn't be re-checked after the changes",
             ),
             steps=(
@@ -1594,7 +1594,7 @@ def _final_file_failed_request(verification_passed: bool | None) -> SpeakingRequ
         verification = VerificationResult(
             passed=verification_passed,
             findings=(
-                "[final_output] final file: output has 4 rows, 1 duplicate row remaining",
+                "[final_output] final file: output has 4 rows, 1 exact duplicate row remaining",
             ),
             steps=(
                 StepVerification(
@@ -1608,7 +1608,7 @@ def _final_file_failed_request(verification_passed: bool | None) -> SpeakingRequ
                 StepVerification(
                     capability="final_output",
                     passed=verification_passed,
-                    findings=("final file: output has 4 rows, 1 duplicate row remaining",),
+                    findings=("final file: output has 4 rows, 1 exact duplicate row remaining",),
                 ),
             ),
         )
@@ -1766,7 +1766,7 @@ def test_voice_names_the_delivered_file_when_the_initial_analysis_failed() -> No
             passed=True,
             findings=(
                 "[spreadsheet.analyze] the analysis reported failure",
-                "[spreadsheet.deduplicate] output has 3 rows, 0 duplicate rows remaining",
+                "[spreadsheet.deduplicate] output has 3 rows, 0 exact duplicate rows remaining",
             ),
             steps=(
                 StepVerification(
@@ -1875,7 +1875,7 @@ _REVIEW_MODEL_REPLIES = (
     "All done — duplicates removed.",
     "Duplicates are gone and your sheet is spotless now.",
     "Got rid of those pesky dupes for you — enjoy the tidy sheet!",
-    "Removed 3 duplicate rows — your sheet is clean.",
+    "Removed 3 exact duplicate rows — your sheet is clean.",
     "Done — duplicates and empty rows are gone from report.",
     "Both done: empty rows and duplicates are gone.",
     "Done, both cleanups are finished.",
@@ -1925,8 +1925,8 @@ def test_the_reviews_model_replies_can_never_appear_in_a_delivered_reply(
 
 def test_n2_reply_says_there_was_nothing_to_remove() -> None:
     assert TemplateSpeaker()(_n2_request("focus")) == (
-        "Done — there were no duplicate rows to remove. The copy has 4 rows, "
-        "with 0 duplicate rows remaining. Saved as `report_deduplicated_s-task-1.xlsx`. "
+        "Done — there were no exact duplicate rows to remove. The copy has 4 rows, "
+        "with 0 exact duplicate rows remaining. Saved as `report_deduplicated_s-task-1.xlsx`. "
         + VALUES_ONLY_SENTENCE
     )
 
@@ -1972,8 +1972,8 @@ def test_delivered_reply_order_is_opener_outcome_findings_closer() -> None:
     )
     assert opener.text and closer.text == ""
     assert reply == (
-        f"{opener.text} Done — removed 2 duplicate rows. The copy has 3 rows, "
-        "with 0 duplicate rows remaining. Your cleaned copy of report.xlsx is ready. "
+        f"{opener.text} Done — removed 2 exact duplicate rows. The copy has 3 rows, "
+        "with 0 exact duplicate rows remaining. Your cleaned copy of report.xlsx is ready. "
         f"{VALUES_ONLY_SENTENCE} "
         "I also noticed: amount: 1 unusually high value. Want me to tackle any of these?"
     )

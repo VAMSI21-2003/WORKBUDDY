@@ -371,15 +371,6 @@ fieldset:disabled {
   font-size: 0.8125rem;
 }
 
-.tag {
-  padding: 0.05rem 0.45rem;
-  color: var(--text);
-  background: var(--accent-soft);
-  border-radius: 999px;
-  font-size: 0.75rem;
-  font-weight: 600;
-}
-
 /* -- Conversation -------------------------------------------------------------------------- */
 
 .transcript {

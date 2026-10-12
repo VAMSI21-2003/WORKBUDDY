@@ -150,7 +150,7 @@ class SpreadsheetDedupeVerifier:
         duplicate_count = _duplicate_rows(written)  # recomputed from scratch
         findings = [
             f"output has {count_noun(len(written), 'row')}, "
-            f"{count_noun(duplicate_count, 'duplicate row')} remaining"
+            f"{count_noun(duplicate_count, 'exact duplicate row')} remaining"
         ]
         if duplicate_count:
             return VerificationResult(
@@ -468,6 +468,33 @@ def _independent_duplicate_row_findings(df: pd.DataFrame) -> tuple[str, ...]:
     return (f"{count_noun(count, 'row')} {verb} an earlier row exactly",)
 
 
+def _independent_loose_duplicate_row_findings(df: pd.DataFrame) -> tuple[str, ...]:
+    """Recompute how many rows match an earlier row once spaces and case are ignored.
+
+    Only rows that are not exact repeats (those are ``_independent_duplicate_row_findings``'s,
+    and the cleaning skill removes them). A text cell is compared with the spaces at both ends
+    trimmed and its case folded; any other cell as it is. Written separately from the skill's own
+    check, so the two can disagree and the verifier's count is the one that counts.
+    """
+    folded = df.copy()
+    for column in folded.columns:
+        folded[column] = [
+            cell.strip().casefold() if isinstance(cell, str) else cell for cell in folded[column]
+        ]
+    count = int((folded.duplicated() & ~df.duplicated()).sum())
+    if count == 0:
+        return ()
+    if count == 1:
+        return (
+            "1 row matches an earlier row once spaces around the text and capital letters are "
+            "ignored, but isn't an exact repeat",
+        )
+    return (
+        f"{count} rows match an earlier row once spaces around the text and capital letters "
+        "are ignored, but aren't exact repeats",
+    )
+
+
 def _independent_missing_value_findings(df: pd.DataFrame) -> tuple[str, ...]:
     """Recompute missing-value counts directly from ``df``.
 
@@ -645,6 +672,7 @@ class SpreadsheetAnalysisVerifier:
         findings: list[str] = []
         for category, category_findings in (
             ("duplicate_rows", _independent_duplicate_row_findings(df)),
+            ("loose_duplicate_rows", _independent_loose_duplicate_row_findings(df)),
             ("missing_values", _independent_missing_value_findings(df)),
             ("outliers", _independent_outlier_findings(df)),
             ("date_format", _independent_date_format_findings(df)),

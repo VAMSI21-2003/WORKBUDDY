@@ -1,0 +1,7 @@
+{
+ "email": "alice@example.test",
+ "expires_at": 1800043200.0,
+ "issued_at": 1800000000.0,
+ "owner": "google:sub-alice",
+ "version": 1
+}

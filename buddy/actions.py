@@ -46,9 +46,9 @@ class Action:
         target: The ``StepMeasurement.target`` its verifier measures.
         request: How the reply states it as a request: "remove duplicate rows".
         object: What it acts on, as the reply names it: "duplicate rows".
-        rows: The rows it removes, for "There were no … to remove": "duplicate rows".
+        rows: The rows it removes, for "There were no … to remove": "exact duplicate rows".
         row_noun: The singular noun for the rows it removes, which a count turns
-            into "1 duplicate row" or "2 duplicate rows" (``buddy.text.count_noun``).
+            into "1 exact duplicate row" or "2 exact duplicate rows" (``buddy.text.count_noun``).
         step: The step, as a noun: "duplicate-row removal".
         mention: Finds the action's object in a user's message (English only), or
             ``None`` for an action only Brain's reading can put in the ledger.
@@ -72,10 +72,13 @@ ACTIONS: tuple[Action, ...] = (
         name="remove_duplicate_rows",
         capability="spreadsheet.deduplicate",
         target=DUPLICATE_ROWS_TARGET,
+        # "Exact": the skill removes rows identical in every cell (``DataFrame.duplicated``), not
+        # ones that differ by a space or a capital letter. Every count of rows removed or left
+        # names them that way. The request and the object are the person's words, not a claim.
         request="remove duplicate rows",
         object="duplicate rows",
-        rows="duplicate rows",
-        row_noun="duplicate row",
+        rows="exact duplicate rows",
+        row_noun="exact duplicate row",
         step="duplicate-row removal",
         # Longest alternative first, so "duplicate rows" is recorded whole.
         mention=re.compile(

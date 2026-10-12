@@ -76,6 +76,11 @@ class Understanding:
             detector found. Read with ``buddy.actions.requested_ledger``,
             which also adds Brain's single-action intent. Doesn't affect
             routing: the planner follows ``intent``.
+        answers_pending: Brain reads this message as only the answer to "which file?" about the
+            earlier request that was waiting (``BuddyState.pending_request``), and everything
+            else in this understanding (intent, requested actions) is about that earlier
+            request. ``False`` when nothing was waiting, and when the message is a request of
+            its own. Brain's field, never read from the words by code.
     """
 
     intent: str | None = None
@@ -87,6 +92,7 @@ class Understanding:
     notes: str = ""
     requested_actions: tuple[RequestedAction, ...] = ()
     file_to_use: str = FILE_LATEST
+    answers_pending: bool = False
 
 
 @dataclass(frozen=True)
@@ -104,6 +110,9 @@ class FileChoice:
         copy_unavailable: A copy was handed back from this upload, but it can't be read now, so
             ``copy`` is ``None`` and the turn works on the upload; the reply says so.
         pinned: The person picked this upload for the turn: it is used as itself.
+        unclear: The message names a spreadsheet file that isn't one of the session's files, or
+            as close to two of them (``buddy.source.match_file_name``), so which file is meant
+            isn't settled and Buddy asks (``buddy.think.settle_file_question``).
     """
 
     original: str
@@ -111,6 +120,7 @@ class FileChoice:
     copy_name: str | None = None
     copy_unavailable: bool = False
     pinned: bool = False
+    unclear: bool = False
 
 
 @dataclass(frozen=True)

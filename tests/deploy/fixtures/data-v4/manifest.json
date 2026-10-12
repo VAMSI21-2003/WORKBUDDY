@@ -1,0 +1,48 @@
+{
+  "cookie_token": "q0FrBskHTlzhKkzpq2PP1Upo_sVQ3q3rZMP7HKt-1ek",
+  "data_dir_when_written": "/data",
+  "email": "alice@example.test",
+  "format_version": 1,
+  "mode": "friend",
+  "owner": "google:sub-alice",
+  "session_id": "s_y825S0vmj5anJbLiOi01pw",
+  "signed_in_at": 1800000000.0,
+  "turns": [
+    {
+      "confirmation": {
+        "decision": "approve",
+        "decision_source": "user"
+      },
+      "delivered_files": [
+        {
+          "file_id": "d_t0001_1",
+          "name": "report_deduplicated.xlsx",
+          "sha256": "1b028a46d39af4f659179da3a5e5584bda21b3523885a6cd74eba3aec04e0f44",
+          "size": 5440
+        }
+      ],
+      "message": "remove duplicate rows",
+      "outcome": "delivered",
+      "reply": "Okay, here's the rundown. Done \u2014 removed 2 exact duplicate rows. The copy has 4 rows, with 0 exact duplicate rows remaining. Your cleaned copy of report.xlsx is ready. The copy has the values only; formatting, column widths and other sheet settings aren't carried over. I worked on `report.xlsx`, your original upload. I also noticed: name: 1 missing value (25.0%); amount: 1 missing value (25.0%). Want me to tackle any of these?",
+      "turn_id": "t0001"
+    },
+    {
+      "confirmation": {
+        "decision": "reject",
+        "decision_source": "user"
+      },
+      "delivered_files": [],
+      "message": "remove empty rows",
+      "outcome": "not_delivered",
+      "reply": "Before anything else, here's what I noticed: name: 1 missing value (25.0%); amount: 1 missing value (25.0%). Want me to tackle any of these? The remove empty rows step: wasn't confirmed, so it didn't run. I stopped at the remove empty rows step and no file was handed back; your original file is unchanged.",
+      "turn_id": "t0002"
+    }
+  ],
+  "upload": {
+    "file_id": "f_U0qdcngCV-vsogIK",
+    "name": "report.xlsx",
+    "sha256": "f690c8f35f87f0957bd67cdf9bfb8cf6e49dcd397af36324d0016275719ba1c5",
+    "size": 5018
+  },
+  "written_by_commit": "b0d99e8a8091696ac3d3812683f276ea52092392"
+}

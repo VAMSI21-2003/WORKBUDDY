@@ -123,3 +123,21 @@ def _redacted_args(args: Any) -> Any:
     if isinstance(args, dict):
         return {k: redact(v) if isinstance(v, str) else v for k, v in args.items()}
     return args
+
+
+def main() -> int:
+    """Copy standard input to standard output with every secret masked.
+
+    ``deploy/release.sh`` passes a container's saved logs through this, in the image it is
+    releasing, before keeping them: ``python -m backend.logging_filter < raw.log > kept.log``.
+    Lines are redacted one at a time, so a log of any size streams through.
+    """
+    import sys
+
+    for line in sys.stdin:
+        sys.stdout.write(redact(line))
+    return 0
+
+
+if __name__ == "__main__":
+    raise SystemExit(main())

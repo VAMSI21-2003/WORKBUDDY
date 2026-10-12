@@ -1,0 +1,49 @@
+{
+ "confirmation": {
+  "decision": "reject",
+  "decision_source": "user"
+ },
+ "delivered_files": [],
+ "detail": {
+  "clarification_required": false,
+  "intent": "remove_empty_rows",
+  "steps": [
+   {
+    "capability": "spreadsheet.analyze",
+    "input_name": "report_deduplicated.xlsx",
+    "output_names": [],
+    "permission_tier": "read",
+    "recheck": false,
+    "status": "success",
+    "verified": true
+   },
+   {
+    "capability": "spreadsheet.remove_empty_rows",
+    "input_name": "report_deduplicated.xlsx",
+    "output_names": [],
+    "permission_tier": "write",
+    "recheck": false,
+    "status": "declined",
+    "verified": false
+   }
+  ],
+  "stopped_at": "spreadsheet.remove_empty_rows"
+ },
+ "file_used": {
+  "file_id": "d_t0001_1",
+  "kind": "delivered",
+  "start_over": false
+ },
+ "finished_at": "2026-10-12T16:10:58.955726+00:00",
+ "message": "remove empty rows",
+ "mode": "friend",
+ "outcome": "not_delivered",
+ "reply": "Before anything else, here's what I noticed: name: 1 missing value (25.0%); amount: 1 missing value (25.0%). Want me to tackle any of these? The remove empty rows step: wasn't confirmed, so it didn't run. I stopped at the remove empty rows step and no file was handed back; your original file is unchanged.",
+ "reply_source": "pipeline",
+ "seq": 2,
+ "started_at": "2026-10-12T16:10:58.867659+00:00",
+ "status": "finished",
+ "target_file_id": "f_U0qdcngCV-vsogIK",
+ "turn_id": "t0002",
+ "version": 1
+}

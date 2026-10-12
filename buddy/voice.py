@@ -35,7 +35,7 @@ from buddy.outcome import (
     report_unavailable_sentence,
 )
 from buddy.state import BuddyState, StageFailure
-from buddy.think import CLARIFY_FAILED, Reasoning
+from buddy.think import CLARIFY_FAILED, CLARIFY_WHICH_FILE, Reasoning
 from buddy.voice_catalog import (
     CAPABILITIES,
     NO_FILE_SENTENCE,
@@ -46,11 +46,12 @@ from buddy.voice_catalog import (
     REPORT_LEAD_ORIGINAL,
     REPORT_LEAD_USED,
     REPORT_NOT_PRODUCED_SENTENCE,
+    RESUMED_SENTENCE,
     STYLE_PLAIN,
     UNDERSTANDING_FAILED_SENTENCE,
     WORKED_ON_COPY_TEMPLATE,
-    WORKED_ON_ORIGINAL_SENTENCE,
-    WORKED_ON_ORIGINAL_SKIPPING_COPY_SENTENCE,
+    WORKED_ON_ORIGINAL_SKIPPING_COPY_TEMPLATE,
+    WORKED_ON_ORIGINAL_TEMPLATE,
     clarification_question,
     failure_reply,
     greeting_reply,
@@ -497,6 +498,7 @@ class SpeakingRequest:
     has_file: bool = True
     file_refusal: str | None = None
     report_requested: bool = False
+    resumed: bool = False
 
 
 # Leads the analysis findings on a delivered turn, after the outcome.
@@ -576,6 +578,8 @@ def _verified_delivery_reply(
 
     parts = [opener, render_outcome(report, file_style)]
     parts.append(_file_used_sentence(request.file_used))
+    if request.resumed:
+        parts.append(RESUMED_SENTENCE)
     if report.report_asked:
         # A requested report is the analysis findings on the final file, labelled as the
         # report. When it can't be given, the outcome block already says why (a not-done
@@ -606,26 +610,29 @@ def _name_in_reply(name: str | None) -> str:
     return cleaned[:119].rstrip() + "…" if len(cleaned) > 120 else cleaned
 
 
-def _file_label(name: str | None) -> str:
-    """A copy's name between backticks, or "the copy" if it has none to show."""
+def _file_label(name: str | None, fallback: str = "the copy") -> str:
+    """A file's name between backticks, or ``fallback`` if it has none to show."""
     cleaned = _name_in_reply(name)
-    return f"`{cleaned}`" if cleaned else "the copy"
+    return f"`{cleaned}`" if cleaned else fallback
 
 
 def _file_used_sentence(used: FileUsed | None) -> str:
     """Which file the turn worked on, in one fixed sentence chosen by code; ``""`` if unknown.
 
-    The sentence follows ``FileUsed`` and nothing else: the person's upload, the upload when a
-    copy had been handed back and wasn't used, or the latest copy by its name. It claims nothing
-    about what the work did.
+    The sentence follows ``FileUsed`` and nothing else, and names the file: the person's upload,
+    the upload when a copy had been handed back and wasn't used, or the latest copy. It claims
+    nothing about what the work did.
     """
     if used is None:
         return ""
     if used.kind == FILE_KIND_COPY:
         return WORKED_ON_COPY_TEMPLATE.format(file=_file_label(used.copy_name))
-    if used.copy_skipped:
-        return WORKED_ON_ORIGINAL_SKIPPING_COPY_SENTENCE
-    return WORKED_ON_ORIGINAL_SENTENCE
+    template = (
+        WORKED_ON_ORIGINAL_SKIPPING_COPY_TEMPLATE
+        if used.copy_skipped
+        else WORKED_ON_ORIGINAL_TEMPLATE
+    )
+    return template.format(file=_file_label(Path(used.path).name, fallback="your file"))
 
 
 def _report_text(open_findings: Sequence[str], notes: Sequence[str], lead: str) -> str:
@@ -798,6 +805,8 @@ class TemplateSpeaker:
                 parts.append(_report_text(findings[0], findings[1], REPORT_LEAD_USED))
             else:
                 parts.append(report_unavailable_sentence(outcome) or REPORT_NOT_RUN_SENTENCE)
+        if request.resumed:
+            parts.append(RESUMED_SENTENCE)
         parts.append(NO_CHANGES_SENTENCE)
         return _plain_words(" ".join(parts))
 
@@ -861,6 +870,11 @@ class TemplateSpeaker:
                 on_copy = request.file_used is not None and request.file_used.kind == FILE_KIND_COPY
                 lead = REPORT_LEAD_USED if on_copy else REPORT_LEAD_ORIGINAL
                 parts.append(_report_text(findings[0], findings[1], lead))
+                if request.resumed:
+                    # The one no-change reply in which the earlier request was carried out. On
+                    # every other (a question, a read that failed, a request Buddy can't do)
+                    # nothing went on, so the sentence would be false (review round 2, F5).
+                    parts.append(RESUMED_SENTENCE)
             else:
                 parts.append(unavailable or REPORT_NOT_RUN_SENTENCE)
         else:
@@ -1179,6 +1193,7 @@ class Voice:
             has_file=bool(state.uploaded_files or state.context.active_file),
             file_refusal=state.file_refusal,
             report_requested=asks_for_report(state.understanding or Understanding()),
+            resumed=state.resumed_request,
         )
 
     @staticmethod
@@ -1201,6 +1216,30 @@ def is_verified_delivery(state: BuddyState) -> bool:
     disagree with what the reply says. False whenever a stage raised.
     """
     return _verified_delivery(Voice._build_request(state))
+
+
+def asked_which_file(state: BuddyState) -> bool:
+    """Whether the reply for ``state``'s turn is the question "which file?".
+
+    The same order as ``TemplateSpeaker._no_change_reply``: a greeting, no file, or a file the
+    skills refuse each come before the question, and a failed stage gives no question. A caller
+    that remembers the request the question was about (the backend API) uses this, so it never
+    remembers one the reply didn't ask about.
+    """
+    reasoning = state.reasoning
+    if (
+        state.failure is not None
+        or reasoning is None
+        or not reasoning.clarification_required
+        or reasoning.clarification_reason != CLARIFY_WHICH_FILE
+    ):
+        return False
+    request = Voice._build_request(state)
+    return (
+        request.has_file
+        and request.file_refusal is None
+        and not is_conversation(request.understanding, request.user_message)
+    )
 
 
 class PersonalityVoice:

@@ -7,6 +7,8 @@ REPO_DIR="$(dirname "$DEPLOY_DIR")"
 DATA_VOLUME="${WORKBUDDY_DATA_VOLUME:-workbuddy-data}"
 BACKUP_DIR="${WORKBUDDY_BACKUP_DIR:-$DEPLOY_DIR/backups}"
 BACKUP_KEEP="${WORKBUDDY_BACKUP_KEEP:-7}"
+LOG_DIR="${WORKBUDDY_LOG_DIR:-$DEPLOY_DIR/logs}"
+LOG_KEEP="${WORKBUDDY_LOG_KEEP:-20}"
 
 say()  { printf '%s\n' "$*"; }
 step() { printf '\n== %s\n' "$*"; }
@@ -91,4 +93,39 @@ wait_healthy() {
   done
   say "the app wasn't healthy after ${timeout}s"
   return 1
+}
+
+# Save the app container's logs before a release replaces it (Docker deletes a container's logs
+# with it). save_app_logs <commit the container runs> <image holding the log filter>
+#   -> deploy/logs/app-<commit>-<UTC timestamp>.log   (folder 700, file 600, newest LOG_KEEP kept)
+# The logs are passed through the app's own logging filter (backend/logging_filter.py, run from the
+# given image) before they are kept, so a key, a token or a session id in a path is masked even if
+# one reached a log line; if the filter can't run, nothing is kept. Best effort: it never stops
+# a release, and says what happened. The folder is git-ignored.
+save_app_logs() {
+  local commit="${1:-unknown}" image="$2" id stamp file partial n=1
+  id="$(service_container app)"
+  if [ -z "$id" ]; then say "logs: no app container to save logs from"; return 0; fi
+  (umask 077; mkdir -p "$LOG_DIR") && chmod 700 "$LOG_DIR" 2>/dev/null \
+    || { say "WARNING: logs: couldn't make $LOG_DIR; the old logs are not saved"; return 0; }
+  stamp="$(date -u +%Y%m%dT%H%M%SZ)"
+  file="$LOG_DIR/app-$commit-$stamp.log"
+  while [ -e "$file" ]; do file="$LOG_DIR/app-$commit-$stamp-$n.log"; n=$((n + 1)); done
+  partial="$file.partial"
+  if (umask 077; docker logs "$id" 2>&1 \
+        | docker run --rm -i --network none --entrypoint python "$image" -m backend.logging_filter \
+        > "$partial") && [ -s "$partial" ]; then
+    chmod 600 "$partial" && mv "$partial" "$file"
+    say "logs: saved $file ($(wc -l < "$file" | tr -d ' ') lines)"
+  else
+    rm -f -- "$partial"
+    say "WARNING: logs: the old logs were not saved (they were empty, or the filter couldn't run)"
+    return 0
+  fi
+  # Keep the newest LOG_KEEP files.
+  # shellcheck disable=SC2012
+  ls -1t "$LOG_DIR"/app-*.log 2>/dev/null | tail -n +"$((LOG_KEEP + 1))" | while read -r old; do
+    rm -f -- "$old"
+  done
+  return 0
 }

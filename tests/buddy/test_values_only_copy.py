@@ -165,7 +165,7 @@ def test_a_delivered_copy_says_what_it_doesnt_keep(
 
     # The numbers in the reply agree with the files.
     removed_dupes, removed_empty, copy_rows = _expected(original_path, kind)
-    assert _number(r"[Rr]emoved (\d+) duplicate row", reply) == (removed_dupes or None)
+    assert _number(r"[Rr]emoved (\d+) exact duplicate row", reply) == (removed_dupes or None)
     assert _number(r"[Rr]emoved (\d+) fully-empty row", reply) == (removed_empty or None)
     assert _number(r"The copy has (\d+) rows?", reply) == copy_rows
     assert len(_rows(delivered)) == copy_rows
@@ -222,16 +222,18 @@ def test_a_plain_sheet_reply_is_the_old_reply_plus_the_values_only_sentence(
     assert reply.startswith(
         {
             "template": (
-                "Done — removed 1 duplicate row. The copy has 4 rows, with 0 duplicate rows "
+                "Done — removed 1 exact duplicate row. The copy has 4 rows, with 0 exact "
+                "duplicate rows "
                 "remaining. Saved as `report_deduplicated_session-1-task-1.xlsx`. "
             ),
             "friend": (
-                "Okay, here's the rundown. Done — removed 1 duplicate row. The copy has 4 "
-                "rows, with 0 duplicate rows remaining. Your cleaned copy of report.xlsx is "
+                "Okay, here's the rundown. Done — removed 1 exact duplicate row. The copy has 4 "
+                "rows, with 0 exact duplicate rows remaining. Your cleaned copy of report.xlsx is "
                 "ready. "
             ),
             "focus": (
-                "Done — removed 1 duplicate row. The copy has 4 rows, with 0 duplicate rows "
+                "Done — removed 1 exact duplicate row. The copy has 4 rows, with 0 exact "
+                "duplicate rows "
                 "remaining. Your cleaned copy of report.xlsx is ready. "
             ),
         }[speaker_kind]

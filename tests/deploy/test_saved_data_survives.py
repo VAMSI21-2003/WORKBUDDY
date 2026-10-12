@@ -35,6 +35,7 @@ from tests.backend.helpers import (
 )
 from tests.backend.signin_helpers import ACCESS_COOKIE, ALICE, BOB, browser, make_idp, signed_in
 from tests.deploy import data_scenario as scenario
+from tests.file_sentences import worked_on_original_skipping_copy
 
 FIXTURE_DIRS = sorted(scenario.FIXTURES.glob("data-v*"), key=lambda p: int(p.name[6:]))
 
@@ -222,7 +223,7 @@ def test_the_saved_session_still_takes_a_new_turn_and_builds_on_what_it_delivere
 
     A session saved before follow-up turns has no record of which file each turn worked on; the
     file its first turn delivered was made from its upload, so a new request builds on it. That
-    file has no duplicate rows left, so the reply says so and hands back nothing.
+    file has no exact duplicate rows left, so the reply says so and hands back nothing.
     """
     client, settings, manifest = opened
     session_id = manifest["session_id"]
@@ -237,7 +238,7 @@ def test_the_saved_session_still_takes_a_new_turn_and_builds_on_what_it_delivere
 
     assert turn["turn_id"] == f"t{len(manifest['turns']) + 1:04d}"
     assert turn["outcome"] == "not_delivered" and turn["delivered_files"] == []
-    assert "already has no duplicate rows" in turn["reply"]
+    assert "already has no exact duplicate rows" in turn["reply"]
     assert scenario.sha256_of(original) == before
     download = client.get(f"/api/v1/sessions/{session_id}/files/{delivered['file_id']}/download")
     assert hashlib.sha256(download.content).hexdigest() == delivered["sha256"]
@@ -260,7 +261,7 @@ def test_the_saved_session_can_start_over_from_its_upload(
     turn = wait_finished(client, session_id, started.json()["turn_id"], decision="approve")
 
     assert turn["outcome"] == "delivered"
-    assert "I worked on your original upload, not on a copy I handed back earlier." in turn["reply"]
+    assert worked_on_original_skipping_copy("report.xlsx") in turn["reply"]
     assert scenario.sha256_of(original) == before
 
 
