@@ -30,3 +30,13 @@ Rerun unchanged on the new head: `probe_a`, `probe_b` (`--all`), `probe_c`, `pro
     python mutations2.py $WT             # 20 one-place mutations of the round-2 code; $WT = throwaway `git worktree add --detach $WT HEAD`; output out/mutations2.txt
 
 A prototype fix for the sentence (scratch worktree, not in the branch): in `TemplateSpeaker._no_change_reply` replace `if request.resumed and not asked:` by `if request.resumed and outcome.report_asked and outcome.report_given:`; `probe_j` then shows no sentence for the unread/unrun cases and `tests/backend/test_conversation_repair.py`, `test_voice.py`, `test_reply_quality.py` still pass (415).
+
+## Round 3 (head `251d003`)
+
+Rerun unchanged: `probe_a`, `probe_b --all`, `probe_d`, `probe_e`, `probe_f`, `probe_h`, `probe_i`, `probe_j`, `probe_k`, `probe_l`, `probe_m`. New:
+
+    python probe_n_round3.py             # resumed sentence after the F5 narrowing (copy-name answer, report with Think failing, unsupported extra, dedupe+report, all-empty file, leak into the next turn, file named like the request, a real mention next to a keyword file name)
+    python probe_o_report_think_fails.py [--tree DIR]   # a report asked while Think fails: the same wording on base?
+    python mutations3.py $WT [name ...]  # 17 one-place mutations of the round-2 fixes; $WT = throwaway `git worktree add --detach $WT HEAD`; output out/mutations3.txt (p11's pattern needs the second form in the file; p02, p08, p11 survive)
+
+Shared harness for the 532-turn comparison: `python ../harness.py --out out/h_head.json` and `python ../harness.py --tree <base worktree> --out out/h_base.json`, then `python ../feat-reply-quality/cmp_harness.py out/h_base.json out/h_head.json`.

@@ -176,3 +176,75 @@ Probes are in `scripts/review_harness/fix-conversation-repair/` (README updated;
 - No live runs with Groq (none in the session by the owner's instruction). How the real Brain answers `answers_pending`, and how often Think fails twice, are modelled, not measured. F5 case 1 does not depend on Brain's wording.
 - `deploy/release.sh` and the log folder: unchanged since round 1, not rerun.
 - The multi-user and retention checks of round 1 stay not run.
+
+
+---
+
+## Review round 3 (commit 251d003)
+
+**Verdict: MERGE.** Head `251d003`, last reviewed `15f5c92`, base `origin/main` `a4c959b`. No HIGH and no MEDIUM. F5 (the "went on with your earlier request" sentence on replies where nothing went on) and F6 (a file name read as a request) are fixed, confirmed with my own runs. The sentence condition is the one a round-2 reviewer prototyped (`fixes2.md` says so); I checked the behaviour with new probes, not the writer's account. Rule 1 and rule 2 held in every run: every original's SHA-256 was unchanged before and after. Four LOW findings are deferred.
+
+### What I ran (round 3)
+
+Probes are in `scripts/review_harness/fix-conversation-repair/` (README updated; raw output in git-ignored `out/`). Real app, real `build_engine`, real skills and verifiers; only the LLM is faked. Template, friend and focus in every probe.
+
+| # | What | Result |
+|---|---|---|
+| 1 | `python -m pytest -q` on head | 3301 passed, 6 skipped, 0 failed (552 s) |
+| 2 | `ruff check buddy tests` head vs base, by file and rule | 18 errors on both, identical (`diff` of file:rule lists is empty); `ruff check backend` clean |
+| 3 | Shared `harness.py` (532 turns) on head and base, `feat-reply-quality/cmp_harness.py` | delivered files, final describes and steps identical on all 532; originals unchanged on all; 0 Voice calls; 518 differ only by "exact duplicate row(s)", the capabilities line and the file name in "I worked on `report.xlsx`, your original upload." (same as round 2); no resumed sentence in any of them |
+| 4 | `probe_j` (F5: Think fails twice, Brain says answers-pending but unclear, no phrase, plan declined, Think asks again, second round already satisfied) | no sentence on the failed-read reply (j1), the unread/unsupported reply (j2), the declined plan (j4) or the re-asked question (j5); present on the delivered reply (j3, j6) and the nothing-left reply (j6). **F5 fixed** |
+| 5 | `probe_l` l1 (resumed report) | "Report on your original file: ... I took your last message as the answer to my question and went on with your earlier request. No changes were made to any file this turn." The report is real and the sentence is true there |
+| 6 | `probe_k` (F6: answer is `duplicate rows jan.xlsx` / `empty rows jan.xlsx`) | correct resume, delivered, no "Your message mentions ..." line, all three speakers. **F6 fixed** |
+| 7 | `probe_n_round3.py` (new, 8 cases x 3 speakers) | see "Round-3 probes" below; no false claim |
+| 8 | `probe_a`, `probe_b --all`, `probe_d`, `probe_e`, `probe_f`, `probe_h`, `probe_i`, `probe_m` rerun | same results as round 2: F1 (wrong name twice, then right), F2 (pending kept after a failure in all six stages, retry delivers, no secret in a reply), F4, hostile upload names, Brain failing twice keeps pending, logs hold no key and no message text |
+| 9 | Round-2 tests against `15f5c92` code (head's `test_conversation_repair.py` and `test_retry.py` copied into a worktree of `15f5c92`) | three fail on the old code: the two F5 tests and `test_a_file_name_with_a_request_word_in_it_is_not_a_request[duplicates.xlsx]`. The other new tests pass on old code (guards), see mutations |
+| 10 | 17 one-place mutations of the round-2 fixes (`mutations3.py`, scratch worktree) | 14 killed, 3 survived: `p02`, `p08`, `p11` (below). `out/mutations3_first.txt`, `out/mutations3_second.txt` |
+| 11 | Original upload SHA-256 before and after, every turn of every probe | unchanged everywhere (`uploads_unchanged` true; `orig_unchanged` true on all 532 harness turns) |
+
+### Round-3 probes (`probe_n_round3.py`, `probe_o_report_think_fails.py`)
+
+| Case | What happened | Reply check |
+|---|---|---|
+| n1 answer is the name of a delivered copy (`report_deduplicated.xlsx`) after an empty-rows request | resumed, empty rows removed from the copy, 4 rows | numbers match my read (6 rows, minus the exact repeat, minus the empty row); sentence true; no mention line (generated copy names don't match the mention patterns) |
+| n2a resumed report, Think fails twice | report given, sentence present | see L13 |
+| n2b resumed report, Brain fails twice | "I couldn't work out ... Please try again." plus the findings; no sentence; pending kept | honest |
+| n3 resumed dedupe plus "translate it to french" | "Partly done ... I can't do this part yet", sentence present | true: the dedupe was carried out and the rest is stated |
+| n4 resumed "remove the duplicate rows and then give me a report" | delivered the copy and the report on the copy; sentence once | true |
+| n5 answer names an all-empty upload | delivered a 0-row copy, "there were no exact duplicate rows to remove" | true; sentence true |
+| n6 turn after a resumed one | no sentence | the flag does not leak |
+| n7 upload named `remove duplicate rows.xlsx`, answered by its name | resumed and delivered, sentence once, no mention line | fine |
+| n8 request wants dedupe and empty rows, file named `empty rows jan.xlsx`, Brain lists only the dedupe | "Your message mentions empty rows, but I didn't run the empty-row removal." still appears | the F6 exemption does not hide a real mention: only the span of the file name is set aside |
+| o: report asked, Think fails | same shape on base | pre-existing wording, see L13 |
+
+### Findings
+
+None HIGH or MEDIUM.
+
+### Confirmation of each earlier finding
+
+| Finding | Status | My evidence |
+|---|---|---|
+| F1, F2, F4, L1 | still fixed | probes `f`, `i`, `d`, `e` rerun on head (row 8) |
+| F3 | still fixed | `probe_b` b3 reply unchanged: "Your message mentions empty rows, but I didn't run ..." plus the sentence, which is now true because the earlier request was carried out |
+| F5 | Fixed | rows 4, 5, 9; mutations `p03` (old condition back), `p04`, `p05`, `p01` killed |
+| F6 | Fixed | rows 6, 9; `p06`, `p07`, `p09`, `p10` killed; n8 shows a real mention still reported |
+| L11 | Partly | the tests for `n04`, `n08`, `n10`, `n18`, `n19`, `n15`/`n20` exist and my mutation runs `p14`, `p15`, `p16`, `p17`, `p12`, `p13` are killed; the `empty rows jan.xlsx` parameter of the F6 test is vacuous (L14) |
+
+### Deferred (LOW; added to `docs/backlog.md`)
+
+- **L13 [Certain].** A resumed report while Think fails twice reads: "I couldn't work out what you asked for just now. Please try again. Report on your original file: ... I took your last message as the answer to my question and went on with your earlier request." Every sentence is true (the report was given), but the first and last pull against each other. The first sentence and the report beside it are the same on `main` (`probe_o`). Needs two failures of Think and a resumed report. Fix if wanted: omit `UNDERSTANDING_FAILED_SENTENCE` when a report was given.
+- **L14 [Certain, tests].** `test_a_file_name_with_a_request_word_in_it_is_not_a_request[empty rows jan.xlsx]` passes on the round-2 code: the waiting request is itself "remove the empty rows", which Brain lists, so the name's words add no unlisted action. Only the `duplicates.xlsx` parameter tests F6. Make the waiting request the other action for that name.
+- **L15 [Certain, tests].** Three mutations survive. `p02`: the resumed sentence also added when a requested report was not given (no test reaches a resumed report that fails). `p08`: only the first upload's name set aside (the F6 test uploads the keyword-named file first). `p11`: file-name comparison made case-sensitive. None is reachable as a wrong reply on head.
+- **L16 [Certain, base].** The template speaker says "Saved as `messy-data_deduplicated_<hash>-task-1.xlsx`" while the file handed back is `messy-data_deduplicated.xlsx` (the friend and focus speakers say "Your cleaned copy of messy-data.xlsx is ready"). Same on `main` (the 532-turn comparison shows no difference there); not part of this change. Worth a look by the owner.
+- Round-2 L10 (a named file that does not exist runs on the only upload; the reply names the file used) is unchanged and left to the owner.
+
+### Deviations from the design document (round 3)
+
+None. The sentence rule in section 1 ("a delivered file, a nothing-left reply, or a report that was given; not on a reply that asks again, nor on one where the request could not be read or Buddy could not do it") matches `buddy/voice.py` (`_verified_delivery_reply`, `_nothing_left_reply`, and the report branch of `_no_change_reply`). On-disk format unchanged since `15f5c92` (no change under `backend/`; `data-v1` to `data-v4` fixtures untouched).
+
+### Not run
+
+- No live runs with Groq (the owner's instruction for this loop: none in the session). How the real Brain answers `answers_pending` and how often Think fails twice are modelled, not measured; the F5 cases do not depend on Brain's wording.
+- `deploy/release.sh` and the log folder: unchanged since round 1, not rerun. The multi-user and retention checks of round 1 stay not run.
+- `shellcheck` (not installed).
