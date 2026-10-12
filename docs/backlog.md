@@ -400,6 +400,17 @@ Each of these is a refusal today (a fixed sentence, no file), never a wrong tabl
 - **Where the sandbox can't be built** (not Linux, a runtime that refuses `prctl`), PDFs are refused. Run `python -m skills.pdf` on the server after a release. Windows development machines skip the PDF tests.
 - **Concurrency**: two workers at once in the server, 1 GiB of address space each; a dense-text 20-page PDF used about 0.7 GiB resident and 12 s on the machine this was built on (`docs/reviews/feat-pdf-extract-impl.md`, "Parser process: peak memory"). Revisit when the VM is sized.
 
+## feat/pdf-extract review round 1: deferred
+From `docs/reviews/feat-pdf-extract-review.md` (LOW).
+- **pdf-extract L1:** an upload refused because the workers are busy or slow gets 422 "That file is empty or isn't a valid .xlsx workbook or PDF." (`backend/uploads.py` `check_pdf`). Busy and timeout need their own retry message.
+- **pdf-extract L2:** a landscape (`/Rotate`) table is refused with internal wording ("the spreadsheet is 3 rows by 2 columns, larger than the PDF's table as a second reading found it (2 by 3)").
+- **pdf-extract L3:** invisible text (render mode 3) and text under a white box are delivered into cells that look empty in the PDF.
+- **pdf-extract L4:** the values-only sentence ("The copy has the values only; ... sheet settings ...") is said of a table taken from a PDF.
+- **pdf-extract L5:** a text cell `=1+1` makes the follow-up dedupe write a formula; the Inspector stops it, but the reply's reason is internal.
+- **pdf-extract L6:** dedupe asked on a PDF says "no available skill can do it" rather than "extract the table first".
+- **pdf-extract L7:** Hebrew and Arabic tables are always refused (the two readings disagree on order).
+- **pdf-extract L8 (tests):** mutations m13 and m14 (Inspector and empty-rows skill without `dtype=object`), m04 and m23 survive the suite.
+
 ## feat/follow-up-turns review round 1: deferred
 - **follow-up-turns F3 (Low, tests):** no test fails when `_offer`'s integrity entries (delivered file, turn's copy), `_restore_upload_focus`'s `analyzed_files` filter, or `_finalize`'s outcome guard on `file_used` are removed (mutations survive; the filter's removal makes the session unreadable after a restart). See `docs/reviews/feat-follow-up-turns-review.md`.
 - **follow-up-turns F4 (Low):** the Files-panel line names a copy that has become unreadable; a copy is re-analysed every turn so leftover findings repeat; integrity-failure text says "your original file" for a delivered file or the turn's copy; `file_used: null` is written on every finished turn (a rollback makes those sessions unreadable).
