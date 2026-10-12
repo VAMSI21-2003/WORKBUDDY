@@ -22,4 +22,4 @@ Not fixed in this round, and not hidden: L1 to L7 of the review (deferred, in `d
 ## Checks
 
 - `python scripts/check_ruff_baseline.py`: nothing beyond the baseline.
-- Full suite: FULL_SUITE_RESULT
+- Full suite on the fixed head: 3579 passed, 7 skipped, 874 s.
