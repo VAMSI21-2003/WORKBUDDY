@@ -24,6 +24,7 @@ from buddy.brain import INTENT_VOCABULARY
 from buddy.engine_factory import _build_registry
 from buddy.inspector import _TARGET_COUNTERS
 from buddy.models import (
+    EXTRACTED_TABLE_TARGET,
     LEDGER_FROM_BRAIN,
     LEDGER_FROM_INTENT,
     LEDGER_FROM_MENTION,
@@ -42,9 +43,14 @@ def test_every_action_is_a_brain_intent_with_a_registered_skill_and_a_measured_t
     for action in ACTIONS:
         assert action.name in INTENT_VOCABULARY
         assert action.capability in registered
-        if action.changes_file:
+        if action.changes_file and action.removes_rows:
             assert action.target in _TARGET_COUNTERS
             assert action.mention is not None
+        elif action.changes_file:
+            # Taking a table out of a PDF: measured by its own verifier, and found by Brain's
+            # reading only (no word list).
+            assert action.extracts_table and action.target == EXTRACTED_TABLE_TARGET
+            assert action.mention is None
     assert ACTION_VOCABULARY == {a.name for a in ACTIONS} | {UNSUPPORTED}
 
 
@@ -63,6 +69,7 @@ def test_the_planner_routes_intents_with_the_same_table() -> None:
     assert INTENT_CAPABILITIES == {
         "remove_duplicate_rows": "spreadsheet.deduplicate",
         "remove_empty_rows": "spreadsheet.remove_empty_rows",
+        "extract_pdf_table": "pdf.extract_table",
     }
 
 

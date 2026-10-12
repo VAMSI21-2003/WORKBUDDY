@@ -29,7 +29,7 @@ def test_create_session_returns_201_with_limits_and_the_retention_period(
     datetime.fromisoformat(body["created_at"])
     assert body["limits"] == {
         "max_upload_bytes": settings.max_upload_bytes,
-        "accepted_extensions": [".xlsx"],
+        "accepted_extensions": [".xlsx", ".pdf"],
         "max_message_chars": settings.max_message_chars,
     }
     # PR-4: the sweep exists, so the period it enforces is advertised.

@@ -412,8 +412,10 @@ def test_entries_with_no_action_are_skipped_and_the_rest_kept() -> None:
 
 
 def test_the_prompt_offers_exactly_the_action_vocabulary() -> None:
-    line = next(ln for ln in _SYSTEM_PROMPT.splitlines() if '{"action":' in ln)
-    assert set(re.findall(r'"([a-z_]+)"', line.split(":", 1)[1])) == ACTION_VOCABULARY
+    # The list may run over two lines, so it is read from "action": up to "source_phrase".
+    listed = re.search(r'\{"action":(.*?)"source_phrase"', _SYSTEM_PROMPT, re.DOTALL)
+    assert listed is not None
+    assert set(re.findall(r'"([a-z_]+)"', listed.group(1))) == ACTION_VOCABULARY
     assert "remove_empty_rows" in INTENT_VOCABULARY  # a Brain intent as well as an action
 
 

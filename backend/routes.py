@@ -232,7 +232,7 @@ def get_session(request: Request, session_id: str) -> SessionState:
 async def upload_file(
     request: Request, session_id: str, file: Annotated[UploadFile, File()]
 ) -> UploadedFile:
-    """Upload one ``.xlsx`` (one part named ``file``). It becomes the active file.
+    """Upload one ``.xlsx`` or ``.pdf`` (one part named ``file``). It becomes the active file.
 
     The stored name is sanitized, so it may differ from what was sent. The
     file is never modified afterwards, and isn't downloadable through the

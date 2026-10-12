@@ -83,8 +83,8 @@ MESSAGES: dict[ErrorCode, str] = {
     ErrorCode.NOT_FOUND: "There's nothing at that address.",
     ErrorCode.METHOD_NOT_ALLOWED: "That method isn't allowed at this address.",
     ErrorCode.REQUEST_TOO_LARGE: "The request is too large.",
-    ErrorCode.UNSUPPORTED_FILE_TYPE: "Only .xlsx files can be uploaded.",
-    ErrorCode.INVALID_FILE: "That file is empty or isn't a valid .xlsx workbook.",
+    ErrorCode.UNSUPPORTED_FILE_TYPE: "Only .xlsx and .pdf files can be uploaded.",
+    ErrorCode.INVALID_FILE: "That file is empty or isn't a valid .xlsx workbook or PDF.",
     ErrorCode.MULTIPLE_SHEETS: (
         "This demo works on one sheet at a time, and this workbook has more than one. "
         "Save the sheet you want in its own workbook and upload that."
@@ -111,6 +111,14 @@ XLS_MESSAGE = (
     "Older .xls workbooks aren't supported. Save the file as .xlsx (Excel Workbook) "
     "and upload that."
 )
+
+
+def pdf_too_long_message(max_pages: int) -> str:
+    """The ``422 invalid_file`` message for a PDF with more pages than the limit."""
+    return f"That PDF has more than {max_pages} pages, which is the most it can have."
+
+
+PDF_UNAVAILABLE_MESSAGE = "PDFs can't be read on this server right now."
 
 
 def too_many_uploads_message(limit: int) -> str:

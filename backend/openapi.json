@@ -1729,7 +1729,7 @@
         ]
       },
       "post": {
-        "description": "Upload one ``.xlsx`` (one part named ``file``). It becomes the active file.\n\nThe stored name is sanitized, so it may differ from what was sent. The\nfile is never modified afterwards, and isn't downloadable through the\nAPI (the user already has it).",
+        "description": "Upload one ``.xlsx`` or ``.pdf`` (one part named ``file``). It becomes the active file.\n\nThe stored name is sanitized, so it may differ from what was sent. The\nfile is never modified afterwards, and isn't downloadable through the\nAPI (the user already has it).",
         "operationId": "upload_file_api_v1_sessions__session_id__files_post",
         "parameters": [
           {

@@ -1,10 +1,10 @@
 # WorkBuddy runtime dependencies: what the server needs, and what the Docker image installs
 # (Dockerfile). requirements.txt includes this file and adds the development tooling.
 #
-# Buddy's pipeline (buddy/, core/), the Excel skills (skills/excel/) and the
-# HTTP API and page (backend/, see docs/design/backend-api-design.md and
-# docs/design/frontend-design.md). Runtime dependencies for still-unbuilt
-# capabilities (PDF, Word) will be added in the work that introduces them.
+# Buddy's pipeline (buddy/, core/), the Excel skills (skills/excel/), the PDF skill
+# (skills/pdf/) and the HTTP API and page (backend/, see docs/design/backend-api-design.md and
+# docs/design/frontend-design.md). Runtime dependencies for still-unbuilt capabilities (Word)
+# will be added in the work that introduces them.
 
 # --- LLM (Understand/Think — see buddy/llm.py) ---
 anthropic>=0.40
@@ -48,3 +48,11 @@ jinja2>=3.1,<4
 # Verifies the ID token's signature, expiry, issuer and audience. cryptography (the "crypto" extra)
 # does the RSA check; httpx (above) makes the calls to Google.
 pyjwt[crypto]>=2.8,<3
+
+# --- Reading a table out of a PDF (skills/pdf/ — see docs/design/pdf-extract.md) ---
+# Both parse untrusted files, and only ever inside the sandboxed worker process
+# (skills/pdf/sandbox.py). Two different parsers on purpose: pdfplumber (built on pdfminer.six)
+# extracts the table, and pypdfium2 (Google's PDFium) re-extracts it independently for the
+# Inspector, so a bug in one parser can't make the skill and its check agree on a wrong answer.
+pdfplumber>=0.11,<0.12
+pypdfium2>=5,<6

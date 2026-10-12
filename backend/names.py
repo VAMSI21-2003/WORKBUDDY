@@ -25,8 +25,8 @@ from backend.uploads import MAX_NAME_CHARS
 _SAFE_CHARS = re.compile(r"[^A-Za-z0-9._ -]")
 
 # The operation word each skill puts in the name of the file it writes
-# (``skills/excel/*._build_output_path``), and how a person reads it.
-_OPERATION_WORDS = {"deduplicated": "deduplicated", "no_empty_rows": "cleaned"}
+# (``skills/*/*._build_output_path``), and how a person reads it.
+_OPERATION_WORDS = {"deduplicated": "deduplicated", "no_empty_rows": "cleaned", "table": "table"}
 
 
 def download_name(stored_name: str, session_key: str) -> str:

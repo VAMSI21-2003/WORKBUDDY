@@ -342,7 +342,7 @@ def test_upload_errors_appear_verbatim_beside_the_control_and_leave_the_list_alo
 
     page.set_input_files("#file", {"name": "notes.txt", "mimeType": "text/plain", "buffer": b"hi"})
     page.click("#upload-form button[type=submit]")
-    expect(page.locator("#upload-error")).to_have_text("Only .xlsx files can be uploaded.")
+    expect(page.locator("#upload-error")).to_have_text("Only .xlsx and .pdf files can be uploaded.")
     page.set_input_files("#file", {"name": "two.xlsx", "mimeType": "x", "buffer": two_sheets()})
     page.click("#upload-form button[type=submit]")
     expect(page.locator("#upload-error")).to_have_text(

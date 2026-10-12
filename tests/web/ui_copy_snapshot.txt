@@ -34,7 +34,7 @@ _copy.html text: Sign in again
 _copy.html text: Sign out
 _copy.html text: Sign-in didn't work. Try again.
 _copy.html text: Signed in as {email}
-_copy.html text: Spreadsheet to upload
+_copy.html text: Spreadsheet or PDF to upload
 _copy.html text: Taking you to the page…
 _copy.html text: That Google account isn't on the list of people who may use this demo.
 _copy.html text: That session no longer exists on the server, so this is a new one.

@@ -90,7 +90,7 @@ def test_settings_defaults_match_the_design(tmp_path: Path) -> None:
     assert settings.data_dir == tmp_path.resolve()
     assert settings.max_upload_bytes == 2 * 1024 * 1024  # "Decisions (2026-10-04)", item 3
     assert settings.max_message_chars == 4000
-    assert settings.accepted_extensions == (".xlsx",)
+    assert settings.accepted_extensions == (".xlsx", ".pdf")
     assert settings.turn_deadline_s == 180
     assert settings.max_concurrent_turns == 2
     assert settings.busy_retry_after_s == 10

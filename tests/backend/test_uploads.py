@@ -33,6 +33,7 @@ from tests.backend.helpers import (
     xlsx_bytes,
     zip_bytes,
 )
+from tests.pdf_fixtures import hand_table_pdf
 
 
 def _client(settings: Settings) -> TestClient:
@@ -352,8 +353,10 @@ def test_an_unlisted_extension_is_415(client: TestClient, name: str) -> None:
 def test_every_accepted_extension_passes_the_type_check(
     client: TestClient, settings: Settings
 ) -> None:
+    contents = {".xlsx": xlsx_bytes(), ".pdf": hand_table_pdf([["a", "b"], ["1", "2"]])}
+    assert set(contents) == set(settings.accepted_extensions)
     for extension in settings.accepted_extensions:
-        response = upload(client, new_session(client), xlsx_bytes(), name="r" + extension)
+        response = upload(client, new_session(client), contents[extension], name="r" + extension)
         assert response.status_code == 201
 
 

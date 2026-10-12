@@ -18,6 +18,7 @@ from collections.abc import Sequence
 from dataclasses import dataclass
 from difflib import SequenceMatcher
 
+from buddy.actions import ACTIONS_BY_NAME, brain_ledger
 from buddy.models import (
     FILE_KIND_COPY,
     FILE_KIND_ORIGINAL,
@@ -35,6 +36,9 @@ def choose_file(state: BuddyState, understanding: Understanding) -> None:
       itself.
     - Brain's ``file_to_use`` of ``FILE_ORIGINAL`` ("start over", "use my original file") uses the
       upload.
+    - So does a request Brain read as an action that reads the upload itself (a table taken out
+      of a PDF: ``Action.reads_upload``): the copy handed back from a PDF is a spreadsheet, and
+      the request is about the PDF. The reply then says the copy was not used.
     - Otherwise the latest copy handed back from the upload is used, when there is one.
 
     With no ``FileChoice`` the file is whatever ``Context.active_file`` is, and counts as the
@@ -49,7 +53,12 @@ def choose_file(state: BuddyState, understanding: Understanding) -> None:
         )
         return
     copy_offered = choice.copy is not None
-    if copy_offered and not (choice.pinned or start_over):
+    reads_upload = any(
+        ACTIONS_BY_NAME[entry.action].reads_upload
+        for entry in brain_ledger(understanding)
+        if entry.action in ACTIONS_BY_NAME
+    )
+    if copy_offered and not (choice.pinned or start_over or reads_upload):
         assert choice.copy is not None
         used = FileUsed(
             path=choice.copy, kind=FILE_KIND_COPY, copy_name=choice.copy_name, start_over=False
@@ -70,16 +79,17 @@ def choose_file(state: BuddyState, understanding: Understanding) -> None:
 # A person names a file by typing it, with slips ("mess-data.xlsx", "messy-data.xslx"). Matching
 # what they typed against the names of the session's own files is looking a string up in a list
 # Buddy already has; it reads no meaning from the words around it, and it never decides what the
-# request is (that is Brain's). Only a token that has the shape of a spreadsheet file name counts
-# as naming a file at all, so an ordinary word can't match one.
+# request is (that is Brain's). Only a token that has the shape of a file name (a spreadsheet's, or
+# a PDF's) counts as naming a file at all, so an ordinary word can't match one.
 
 # How alike (0 to 1) what was typed and a file's name must be. "mess-data.xlsx" against
 # "messy-data.xlsx" is 0.97; a different word of the same length is far below.
 NAME_MATCH_MIN = 0.85
 # Two different names this close to each other are not told apart by a slip: ask.
 NAME_MATCH_MARGIN = 0.04
-# The formats a person can upload, and the slips in them that still read as a spreadsheet's.
-_SPREADSHEET_EXTENSIONS = ("xlsx", "xlsm", "xls", "csv")
+# The formats a person can upload (and the spreadsheet ones a slip may look like), and the slips
+# in them that still read as one: a PDF is a file of the session like a workbook.
+_SPREADSHEET_EXTENSIONS = ("xlsx", "xlsm", "xls", "csv", "pdf")
 _EXTENSION_MIN = 0.75
 _STRIP = " \t\r\n\"'`“”‘’()[]<>{},;:!?"
 # Matching reads at most this much of a message: it needs a file's name, not an essay.
@@ -99,9 +109,9 @@ class NameMatch:
             tell them apart. ``close`` holds every one of them; the caller may find they are
             all of one upload.
         close: Positions of the names that were close, when ``unclear``.
-        unknown: The message names a spreadsheet file (a stem and a spreadsheet-like extension)
-            and it is none of the names. Whether that matters is the caller's: with one upload
-            there is nothing to choose, with several Buddy asks which file is meant.
+        unknown: The message names a file (a stem and an extension like a spreadsheet's or a
+            PDF's) and it is none of the names. Whether that matters is the caller's: with one
+            upload there is nothing to choose, with several Buddy asks which file is meant.
     """
 
     indices: tuple[int, ...] = ()
@@ -116,7 +126,7 @@ def match_file_name(message: str, names: Sequence[str]) -> NameMatch:
     A name matches when some run of the message's words is at least ``NAME_MATCH_MIN`` alike to
     it (case ignored). An exact name beats a merely close one; two different names that are
     equally close, or a spreadsheet file name that matches none, are ``unclear``. A message that
-    names no spreadsheet file gives an empty, clear result: nothing was named.
+    names no file (a spreadsheet or a PDF) gives an empty, clear result: nothing was named.
     """
     words = (w.strip(_STRIP).rstrip(".") for w in message[:_MAX_MESSAGE_CHARS].split())
     tokens = [w for w in words if w]
@@ -155,8 +165,8 @@ def _alike(window: str, name: str) -> float:
 
 
 def _looks_like_spreadsheet(token: str) -> bool:
-    """Whether ``token`` is shaped like a spreadsheet file's name: a stem and a spreadsheet-like
-    extension (``.xlsx``, or a slip such as ``.xslx``)."""
+    """Whether ``token`` is shaped like an uploadable file's name: a stem and an extension like a
+    spreadsheet's (``.xlsx``, or a slip such as ``.xslx``) or ``.pdf``."""
     stem, dot, extension = token.casefold().rpartition(".")
     if not dot or not stem or len(extension) < 3:
         return False

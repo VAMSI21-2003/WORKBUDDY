@@ -386,6 +386,20 @@ Each item has its own acceptance criterion: fixed with a test, or explicitly clo
 
 `pyproject.toml` required Python 3.13 (`requires-python = ">=3.13"`), but cloud sessions default to Python 3.11.
 
+## 7. The PDF skill: what the first version leaves out (`feat/pdf-extract`, `docs/design/pdf-extract.md`)
+
+Each of these is a refusal today (a fixed sentence, no file), never a wrong table.
+
+- **A table that continues over several pages** is counted as several tables and refused. Joining the pieces (and the header a page repeats) needs a rule for which blocks are one table; the verifier would need the same rule independently.
+- **A table without ruling lines** (aligned text). Telling it from a paragraph is a judgement; both parsers would have to agree on it.
+- **Scanned PDFs** (OCR), **password-protected PDFs**, **choosing which table or pages**, **typed cells** (numbers and dates instead of text).
+- **"Extract the table and then remove the duplicates" in one message** does not start: Hands routes every step against the first step's input, and the cleaning skills can't read a PDF. The follow-up as a second message works. Carrying a type change from the PDF to the sheet through a chain is a change to `Hands._routes` and `_why_output_cant_feed_the_chain` (rule-touching).
+- **Drawing inside a form XObject.** The second reading looks at the paths on the page itself (`max_depth=0`); a PDF that draws its table's rules inside a form XObject is read by pdfplumber but not by the check, so it fails verification and is refused. Handling the form's transform is the fix.
+- **Pages with `/Rotate`.** Not probed either way; the two readings may disagree, which is a refusal.
+- **Cells such as `N/A`, `NA`, `null`** (common in PDF tables). The extracted sheet keeps them, but the follow-up cleaning skills refuse a sheet with such text (`docs/design/values-only-copy.md`, R1-1), so "now remove the duplicates" on that sheet is refused with the existing sentence. The fix belongs with backlog 1b (keep cells as they are).
+- **Where the sandbox can't be built** (not Linux, a runtime that refuses `prctl`), PDFs are refused. Run `python -m skills.pdf` on the server after a release. Windows development machines skip the PDF tests.
+- **Concurrency**: two workers at once in the server, 1 GiB of address space each; a dense-text 20-page PDF used about 0.7 GiB resident and 12 s on the machine this was built on (`docs/reviews/feat-pdf-extract-impl.md`, "Parser process: peak memory"). Revisit when the VM is sized.
+
 ## feat/follow-up-turns review round 1: deferred
 - **follow-up-turns F3 (Low, tests):** no test fails when `_offer`'s integrity entries (delivered file, turn's copy), `_restore_upload_focus`'s `analyzed_files` filter, or `_finalize`'s outcome guard on `file_used` are removed (mutations survive; the filter's removal makes the session unreadable after a restart). See `docs/reviews/feat-follow-up-turns-review.md`.
 - **follow-up-turns F4 (Low):** the Files-panel line names a copy that has become unreadable; a copy is re-analysed every turn so leftover findings repeat; integrity-failure text says "your original file" for a delivered file or the turn's copy; `file_used: null` is written on every finished turn (a rollback makes those sessions unreadable).

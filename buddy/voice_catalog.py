@@ -293,16 +293,16 @@ GREETINGS: dict[str, tuple[str, ...]] = {
 # if a skill is added without this line.
 CAPABILITIES: dict[str, str] = {
     STYLE_PLAIN: (
-        "I can remove exact duplicate rows, remove empty rows, and look a spreadsheet over for "
-        "possible problems."
+        "I can remove exact duplicate rows, remove empty rows, look a spreadsheet over for "
+        "possible problems, and extract the table from a PDF into a spreadsheet."
     ),
     "friend": (
-        "I can remove exact duplicate rows, remove empty rows, and look a spreadsheet over for "
-        "anything that seems off."
+        "I can remove exact duplicate rows, remove empty rows, look a spreadsheet over for "
+        "anything that seems off, and extract the table from a PDF into a spreadsheet."
     ),
     "focus": (
-        "I can remove exact duplicate rows, remove empty rows, and check a spreadsheet for "
-        "problems."
+        "I can remove exact duplicate rows, remove empty rows, check a spreadsheet for "
+        "problems, and extract the table from a PDF into a spreadsheet."
     ),
 }
 
@@ -313,9 +313,9 @@ NEXT_STEP_WITH_FILE: dict[str, str] = {
     "focus": "What should I do with the file?",
 }
 NEXT_STEP_WITHOUT_FILE: dict[str, str] = {
-    STYLE_PLAIN: "Upload a spreadsheet and tell me what to do with it.",
-    "friend": "Upload a spreadsheet and tell me what you'd like me to do with it.",
-    "focus": "Upload a spreadsheet and tell me what to do.",
+    STYLE_PLAIN: "Upload a spreadsheet or a PDF and tell me what to do with it.",
+    "friend": "Upload a spreadsheet or a PDF and tell me what you'd like me to do with it.",
+    "focus": "Upload a spreadsheet or a PDF and tell me what to do.",
 }
 
 # The question shown when Think asks for clarification, by Think's reason code. The user
@@ -348,7 +348,9 @@ CLARIFICATION_QUESTIONS: dict[str, dict[str, tuple[str, ...]]] = {
     },
 }
 
-NO_FILE_SENTENCE = "I don't have a file to work on yet. Upload a spreadsheet and ask again."
+NO_FILE_SENTENCE = (
+    "I don't have a file to work on yet. Upload a spreadsheet or a PDF and ask again."
+)
 REFUSED_TEMPLATE = "I can't work on this file: {reason}."
 NOT_UNDERSTOOD_SENTENCE = "I didn't read that as something I can do."
 UNDERSTANDING_FAILED_SENTENCE = "I couldn't work out what you asked for just now. Please try again."
