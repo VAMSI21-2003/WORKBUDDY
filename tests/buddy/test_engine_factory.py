@@ -1531,7 +1531,8 @@ def test_a_single_step_verified_turn_still_says_done_and_names_the_file(
     reply = state.reply
     assert reply is not None
     block = (
-        f"Done — removed {_n(removed, 'exact duplicate row')}. The copy has {_n(len(delivered), 'row')}, "
+        f"Done — removed {_n(removed, 'exact duplicate row')}. "
+        f"The copy has {_n(len(delivered), 'row')}, "
         f"with {_n(int(delivered.duplicated().sum()), 'exact duplicate row')} remaining."
     )
     if speaker_kind == "template":
@@ -1701,13 +1702,17 @@ def test_h1_removed_counts_repeated_blank_rows_and_every_number_matches_pandas(
         # PR-B (review H1): Brain gave no reading, so the mention detector alone
         # has both actions and never confirms a request: no "Done".
         assert "Done" not in reply
-        expected = f"The copy has {_n(rows_out, 'row')}, with 0 exact duplicate rows and 0 fully-empty"
+        expected = (
+            f"The copy has {_n(rows_out, 'row')}, with 0 exact duplicate rows and 0 fully-empty"
+        )
         assert expected in reply
     else:
         assert len(removed_sentences) == 1
         assert rows_out == rows_in - duplicates_in
         assert reply.count("Done — removed") == 1
-        assert f"The copy has {_n(rows_out, 'row')}, with 0 exact duplicate rows remaining." in reply
+        assert (
+            f"The copy has {_n(rows_out, 'row')}, with 0 exact duplicate rows remaining." in reply
+        )
     assert int(delivered.duplicated().sum()) == 0
     assert int(delivered.isna().all(axis=1).sum()) == (0 if chain else 1)
 
@@ -1761,7 +1766,9 @@ def test_h1_an_unconfirmable_count_renders_the_no_count_sentence(
     assert "the duplicate-row removal ran and passed its check." in reply
     assert "Removed" not in reply and "removed" not in reply
     assert "no exact duplicate rows to remove" not in reply
-    assert f"The copy has {_n(len(delivered), 'row')}, with 0 exact duplicate rows remaining." in reply
+    assert (
+        f"The copy has {_n(len(delivered), 'row')}, with 0 exact duplicate rows remaining." in reply
+    )
     assert original_path.read_bytes() == original_bytes  # rule 2
 
 
@@ -2037,7 +2044,8 @@ def test_c3_a_compound_request_brain_read_as_one_action(
     rows_out, dups_out, empty_out = _counts(state.execution_result.outputs[0])
     assert (rows_in - rows_out, empty_out) == (2, 1)
     block = (
-        f"Removed {_n(rows_in - rows_out, 'exact duplicate row')}. Your message mentions empty rows, "
+        f"Removed {_n(rows_in - rows_out, 'exact duplicate row')}. Your message mentions empty "
+        f"rows, "
         "but I didn't run the empty-row removal. I read your request as: remove duplicate rows. "
         f"The copy has {_n(rows_out, 'row')}, "
         f"with {_n(dups_out, 'exact duplicate row')} remaining. It still has "
@@ -2110,7 +2118,8 @@ def test_n5_without_a_brain_ledger_claims_nothing_about_the_request(
     rows_in, _, _ = _counts(original_path)
     rows_out, dups_out, empty_out = _counts(state.execution_result.outputs[0])
     block = (
-        f"Removed {_n(rows_in - rows_out, 'exact duplicate row')}. Your message mentions empty rows, "
+        f"Removed {_n(rows_in - rows_out, 'exact duplicate row')}. Your message mentions empty "
+        f"rows, "
         "but I didn't run the empty-row removal. The copy has "
         f"{_n(rows_out, 'row')}, with {_n(dups_out, 'exact duplicate row')} remaining. "
         f"It still has {_n(empty_out, 'fully-empty row')}."
@@ -2419,7 +2428,8 @@ def test_c6_nothing_requested_was_done_so_the_reply_says_neither_done_nor_partly
 
 
 _DEDUPE_ONLY_BLOCK = (
-    "Done — removed 2 exact duplicate rows. The copy has 4 rows, with 0 exact duplicate rows remaining."
+    "Done — removed 2 exact duplicate rows. The copy has 4 rows, with 0 exact duplicate rows "
+    "remaining."
 )
 
 

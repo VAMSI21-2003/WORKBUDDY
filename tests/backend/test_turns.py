@@ -32,7 +32,6 @@ from buddy.voice_catalog import (
     NO_FILE_SENTENCE,
     failure_reply,
 )
-from tests.file_sentences import worked_on_original, worked_on_original_skipping_copy
 from tests.backend.factories import (
     DEDUPE_THEN_EMPTY,
     SPEAKERS,
@@ -53,6 +52,7 @@ from tests.backend.helpers import (
     wait_finished,
     xlsx_bytes,
 )
+from tests.file_sentences import worked_on_original, worked_on_original_skipping_copy
 
 
 def _app(settings: Settings, factory: Any) -> TestClient:

@@ -222,7 +222,8 @@ def test_a_plain_sheet_reply_is_the_old_reply_plus_the_values_only_sentence(
     assert reply.startswith(
         {
             "template": (
-                "Done — removed 1 exact duplicate row. The copy has 4 rows, with 0 exact duplicate rows "
+                "Done — removed 1 exact duplicate row. The copy has 4 rows, with 0 exact "
+                "duplicate rows "
                 "remaining. Saved as `report_deduplicated_session-1-task-1.xlsx`. "
             ),
             "friend": (
@@ -231,7 +232,8 @@ def test_a_plain_sheet_reply_is_the_old_reply_plus_the_values_only_sentence(
                 "ready. "
             ),
             "focus": (
-                "Done — removed 1 exact duplicate row. The copy has 4 rows, with 0 exact duplicate rows "
+                "Done — removed 1 exact duplicate row. The copy has 4 rows, with 0 exact "
+                "duplicate rows "
                 "remaining. Your cleaned copy of report.xlsx is ready. "
             ),
         }[speaker_kind]

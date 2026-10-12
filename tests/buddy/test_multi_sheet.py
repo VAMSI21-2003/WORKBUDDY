@@ -23,7 +23,6 @@ from buddy.state import BuddyState
 from buddy.voice import _COMPLETION_CLAIM, PersonalityVoice
 from skills.base import SkillResult, SkillStatus
 from skills.excel.dedupe import ExcelDeduplicateSkill
-from tests.file_sentences import worked_on_original
 from skills.excel.remove_empty_rows import ExcelRemoveEmptyRowsSkill
 from tests import workbook_fixtures as fixtures
 from tests.buddy.test_engine_factory import (
@@ -31,6 +30,7 @@ from tests.buddy.test_engine_factory import (
     _QueuedLLMProvider,
     _single_intent_replies,
 )
+from tests.file_sentences import worked_on_original
 
 _Q1 = {"name": ["Alice", "Bob", None, "Alice", "Carol"], "amount": [1, 2, None, 1, 3]}
 _Q2 = {"name": ["Zed", "Yan"], "amount": [9, 8]}
