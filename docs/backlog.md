@@ -394,3 +394,13 @@ Each item has its own acceptance criterion: fixed with a test, or explicitly clo
 - **follow-up-turns N1 (Low, tests):** nothing fails if `save_turn` writes `file_used: null` again for a failed turn (round-1 F4 fix is untested).
 - **follow-up-turns N2 (Low, product):** a message of only "use my original file" now changes nothing (honest reply), while Brain's prompt still lists it as an example of `original`; owner to decide whether it should take effect on the next request.
 - **follow-up-turns N3 (Low):** equivalent or redundant guards that survive mutation (`latest_copy` start-over reset, `start_over` stored on undelivered turns, `_name_in_reply` on `copy_name`, `already_satisfied` passed/stopped checks). See `docs/reviews/feat-follow-up-turns-review.md`.
+
+## fix/conversation-repair review round 1: deferred
+- **conversation-repair L1 (Low):** `ClaudeThinker._attempt` / `ClaudeInterpreter._attempt` log `exc_info=True` at DEBUG, so at DEBUG the exception's message and traceback are logged (the design says the class name only). Drop `exc_info=True`. See `docs/reviews/fix-conversation-repair-review.md`.
+- **conversation-repair L2 (Low):** "Want me to tackle any of these?" follows the loose-duplicate finding, but no skill removes those rows. Same wording as for the other findings.
+- **conversation-repair L3 (Low):** the plan card ("Remove duplicate rows from <file>.", `backend/confirmation.py`) and the clarification question still say "duplicate rows", not "exact".
+- **conversation-repair L4 (Low):** the Think/Brain retry has no wait: a 429 is called twice at once, and two timeouts each for Brain and Think exceed the 180 s turn deadline.
+- **conversation-repair L5 (Low):** on a resumed turn "Your message mentions duplicate rows, but I didn't run ..." quotes the waiting request as "your message".
+- **conversation-repair L6 (Low):** "Your next request will use X ..." on the page is wrong when the next message names another upload.
+- **conversation-repair L7 (Low, tests):** lowering `NAME_MATCH_MIN` to 0.5 or `NAME_MATCH_MARGIN` to 0 is caught only by the constant-pinning test `test_the_thresholds_are_the_ones_the_tests_assume`. Five mutations survive: the skill-side `LooseDuplicateRowAnalyzer` (exact-duplicate exclusion, casefold), `asked_which_file`'s greeting and refused-file conditions, and an exact name beating a near one (`scripts/review_harness/fix-conversation-repair/mutations.py`).
+- **conversation-repair L8 (Low):** a name typed with a cut-off copy suffix (`messy-data_cleaned (2.xlsx`) is not matched, so Buddy asks. Two uploads with the same name are both reported as "`report.xlsx`".
