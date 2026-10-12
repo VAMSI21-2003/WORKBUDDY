@@ -147,6 +147,12 @@ a {
   font-size: 0.875rem;
 }
 
+/* The line naming the file the next request will use holds a file name, which can be one
+   long unbroken word; wrap it rather than widen the page (design 8: nothing overflows). */
+.next-file {
+  overflow-wrap: anywhere;
+}
+
 .workspace {
   display: flex;
   flex: 1 1 auto;
