@@ -187,7 +187,8 @@ def test_extract_then_remove_the_duplicates_from_the_extracted_spreadsheet(  # t
     assert table["name"] == "fruit_table.xlsx"
     assert cells(chat.download(table)) == fixtures.FRUIT
     rows, columns = sheet_facts(chat.download(table))
-    assert f"extracted the table: {rows} rows and {columns} columns" in first["reply"]
+    # Counted the way the cleaning replies count: the first row, then the rows below it.
+    assert f"{columns} columns, a first row and {rows - 1} rows below it" in first["reply"]
     assert VALUES_ONLY_SENTENCE in first["reply"] and TABLE_TEXT_SENTENCE in first["reply"]
     assert worked_on_original(FRUIT_PDF) in first["reply"]
     assert "cleaned copy" not in first["reply"]
@@ -201,6 +202,7 @@ def test_extract_then_remove_the_duplicates_from_the_extracted_spreadsheet(  # t
     grid = cells(chat.download(cleaned))
     assert grid == [row for i, row in enumerate(fixtures.FRUIT) if i != 3]  # the second Apple row
     assert "emoved 1 exact duplicate row" in second["reply"]
+    assert "The copy has 3 rows" in second["reply"]  # 4 below the first row, 1 removed: adds up
     assert "the latest copy I handed back" in second["reply"]
     assert "`fruit_table.xlsx`" in second["reply"]
     assert upload_hashes(chat) == before

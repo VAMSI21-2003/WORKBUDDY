@@ -12,6 +12,18 @@ import unicodedata
 MAX_CELL_CHARS = 2000
 MAX_CELLS = 50_000
 
+# The ligature code points (U+FB00..U+FB06) a PDF's font may use for letter pairs; a parser may
+# report either the ligature or the letters, so they are written as the letters.
+_LIGATURES = {
+    0xFB00: "ff",
+    0xFB01: "fi",
+    0xFB02: "fl",
+    0xFB03: "ffi",
+    0xFB04: "ffl",
+    0xFB05: "st",
+    0xFB06: "st",
+}
+
 # Unicode categories removed from a cell: format characters (zero-width joiners, bidirectional
 # marks, the soft hyphen), surrogates, private use and unassigned code points. They have no
 # printable form, and a spreadsheet cell (XML 1.0) can't hold some of them.
@@ -21,12 +33,14 @@ _DROPPED = frozenset({"Cf", "Cs", "Co", "Cn"})
 def normalize_cell(text: str) -> str:
     """A cell's text as the skill writes it and the check compares it.
 
-    NFKC (so a ligature or a full-width digit is the letters it stands for), format characters
+    NFC (a letter and its accent are one character; nothing else changes: NFKC would turn ``2½``
+    into ``21⁄2``, ``m²`` into ``m2`` and ``™`` into ``TM``, which are other values), the
+    typographic ligatures ``ﬀ``..``ﬆ`` spelled as the letters they stand for, format characters
     and unassigned code points dropped, control characters and every run of whitespace (a line
     break inside a cell included) turned into one space, and the ends trimmed. The result is
     ``""`` for a cell with nothing printable in it.
     """
-    text = unicodedata.normalize("NFKC", text)
+    text = unicodedata.normalize("NFC", text).translate(_LIGATURES)
     kept = []
     for ch in text:
         category = unicodedata.category(ch)

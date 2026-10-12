@@ -864,6 +864,7 @@ class SpreadsheetAnalysisVerifier:
 
         try:
             df = pd.read_excel(analyzed_file)  # fresh, independent read of the ORIGINAL
+            cells = _read_cells(analyzed_file)  # the same cells, none converted
         except Exception as exc:  # noqa: BLE001 — surfaced as a finding, not raised
             logger.exception("SpreadsheetAnalysisVerifier: failed to read %r", analyzed_file)
             return VerificationResult(
@@ -874,8 +875,8 @@ class SpreadsheetAnalysisVerifier:
 
         findings: list[str] = []
         for category, category_findings in (
-            ("duplicate_rows", _independent_duplicate_row_findings(df)),
-            ("loose_duplicate_rows", _independent_loose_duplicate_row_findings(df)),
+            ("duplicate_rows", _independent_duplicate_row_findings(cells)),
+            ("loose_duplicate_rows", _independent_loose_duplicate_row_findings(cells)),
             ("missing_values", _independent_missing_value_findings(df)),
             ("outliers", _independent_outlier_findings(df)),
             ("date_format", _independent_date_format_findings(df)),

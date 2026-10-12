@@ -278,7 +278,7 @@ def hand_table_pdf(
                 f"BT /F1 10 Tf {x0 + j * cell_width + 4} {y0 - (i + 1) * row_height + 6} Td "
                 f"({safe}) Tj ET"
             )
-    content = "\n".join(ops).encode("latin-1")
+    content = "\n".join(ops).encode("cp1252")
     objects = {
         1: b"<< /Type /Catalog /Pages 2 0 R >>",
         2: b"<< /Type /Pages /Kids [3 0 R] /Count 1 >>",
@@ -287,7 +287,7 @@ def hand_table_pdf(
             b"/Resources << /Font << /F1 5 0 R >> >> >>"
         ),
         4: f"<< /Length {len(content)} >>\nstream\n".encode() + content + b"\nendstream",
-        5: b"<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica >>",
+        5: b"<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica /Encoding /WinAnsiEncoding >>",
     }
     if active_content:
         objects[1] = (

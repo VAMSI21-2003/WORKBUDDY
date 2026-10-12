@@ -11,9 +11,14 @@ Modes:
 
 - ``probe``: PDFium counts the pages and says whether the file is encrypted. Used at upload.
 - ``extract``: pdfplumber (built on pdfminer.six) finds the tables and reads the one plain table.
-- ``verify``: PDFium and ``geometry`` find the tables and read them again, sharing no code with
-  ``extract``. Used by the Inspector.
-- ``selftest``: tries what the sandbox must refuse (a socket, a program) and reports it.
+- ``verify``: PDFium and ``geometry`` find the tables and read them again. It shares no PDF
+  library with ``extract`` (pdfplumber, pdfminer.six); the pure helpers ``textnorm`` (a cell's
+  normal form) and ``geometry.cells_are_plain_grid`` are shared on purpose, so both sides write a
+  cell the same way. Used by the Inspector. It also refuses a table whose text runs past a cell's
+  border, which neither reading could tell from agreement.
+- ``selftest``, ``selftest_fs``, ``selftest_x32``: try what the sandbox must refuse (a socket, a
+  program, a new process, a file outside the Python installation, a call in the x32 numbering)
+  and report it.
 
 Standard library at the top; the parsers are imported inside the modes, after the lockdown.
 """
@@ -46,6 +51,8 @@ NO_TEXT = "no_text"
 NO_TABLE = "no_table"
 MANY_TABLES = "many_tables"
 NOT_PLAIN = "not_plain"
+ONE_COLUMN = "one_column"
+TEXT_OVERFLOWS = "text_overflows"
 TOO_MANY_PAGES = "too_many_pages"
 TOO_LARGE = "too_large"
 UNREADABLE = "unreadable"
@@ -156,6 +163,8 @@ def extract(data: bytes) -> dict:
         plain, rows, columns = geometry.cells_are_plain_grid(list(table.cells))
         if not plain:
             raise Refused(NOT_PLAIN)
+        if columns < 2:
+            raise Refused(ONE_COLUMN)
         if rows * columns > textnorm.MAX_CELLS:
             raise Refused(TOO_LARGE)
         grid = table.extract(x_tolerance=3, y_tolerance=3)
@@ -229,6 +238,58 @@ def _record(a, b, h_segments, v_segments) -> None:  # noqa: ANN001
         v_segments.append(((a[0] + b[0]) / 2, a[1], b[1]))
 
 
+# How far (in points) a character's box may stick out of its cell before it counts as running
+# over the rule, and how close (as a share of its height) two characters of different cells may
+# be on one line before they count as one run of text.
+_BOX_SLACK = 0.5
+_RUN_GAP = 0.3
+
+
+def _text_overflows(textpage, raw, grid) -> bool:  # noqa: ANN001
+    """Whether any text beside or in the table runs past the border of the cell it starts in.
+
+    Both readings of a table clip every cell to its box, so a word that is wider than its cell
+    comes out cut at the border (or moved into the next cell) the same way in both, and their
+    agreement would say nothing. This looks at the characters themselves: one on a row of the
+    table but outside the table; one whose box crosses a rule; or two on one line in different
+    cells that are as close as the letters of a word. Any of them means a cell can't be read
+    whole, and the table is refused.
+    """
+    top, bottom, left, right = grid.ys[0], grid.ys[-1], grid.xs[0], grid.xs[-1]
+    rows = [[] for _ in range(grid.rows)]
+    for index in range(textpage.count_chars()):
+        left_x, b, right_x, t = textpage.get_charbox(index)
+        if right_x <= left_x or t <= b:
+            continue
+        centre_y = (b + t) / 2
+        if not bottom <= centre_y <= top:
+            continue
+        code = raw.FPDFText_GetUnicode(textpage.raw, index)
+        if not 0 < code < 0x110000 or not chr(code).isprintable() or chr(code).isspace():
+            continue
+        centre_x = (left_x + right_x) / 2
+        if not left <= centre_x <= right:
+            return True  # text on a row of the table, beside it
+        row = next(j for j in range(grid.rows) if grid.ys[j + 1] <= centre_y <= grid.ys[j])
+        column = next(i for i in range(grid.columns) if grid.xs[i] <= centre_x <= grid.xs[i + 1])
+        if (
+            left_x < grid.xs[column] - _BOX_SLACK
+            or right_x > grid.xs[column + 1] + _BOX_SLACK
+            or b < grid.ys[row + 1] - _BOX_SLACK
+            or t > grid.ys[row] + _BOX_SLACK
+        ):
+            return True  # a character crossing a rule
+        rows[row].append((round(centre_y / 2.0), left_x, right_x, t - b, column))
+    for characters in rows:
+        characters.sort()
+        for (line1, _, r1, h1, c1), (line2, l2, _, h2, c2) in zip(
+            characters, characters[1:], strict=False
+        ):
+            if line1 == line2 and c1 != c2 and l2 - r1 < _RUN_GAP * min(h1, h2):
+                return True  # one run of text across two cells
+    return False
+
+
 def verify(data: bytes) -> dict:
     pdf, raw = _open_pdfium(data)
     if raw.FPDF_GetSecurityHandlerRevision(pdf.raw) != -1:
@@ -249,8 +310,12 @@ def verify(data: bytes) -> dict:
     result = {"pages": pages, "text": characters > 0, "tables": len(grids)}
     if len(grids) == 1:
         textpage, grid = grids[0]
-        result["plain"] = grid.plain
-        if grid.plain:
+        # A frame with a rule under each row and none between the columns is one column of
+        # joined text, not the table the page shows: not a grid of cells.
+        result["plain"] = grid.plain and grid.columns >= 2
+        if result["plain"] and _text_overflows(textpage, raw, grid):
+            raise Refused(TEXT_OVERFLOWS)
+        if result["plain"]:
             if grid.rows * grid.columns > textnorm.MAX_CELLS:
                 raise Refused(TOO_LARGE)
             rows = []
@@ -274,34 +339,74 @@ def verify(data: bytes) -> dict:
 # -- selftest, and the process -------------------------------------------------------------
 
 
+# Set by ``main`` once the filesystem is confined (or not): the self-test reports it.
+_CONFINEMENT = lockdown.Confinement(False, "not tried")
+
+
 def selftest(data: bytes) -> dict:
-    return lockdown.selftest()
+    return {**lockdown.selftest(), "filesystem_confined": _CONFINEMENT.confined}
 
 
-MODES = {"probe": probe, "extract": extract, "verify": verify, "selftest": selftest}
+def selftest_fs(data: bytes) -> dict:
+    return {
+        **lockdown.selftest_filesystem(os.getcwd()),
+        "filesystem_confined": _CONFINEMENT.confined,
+    }
 
 
-def _memory_peaks() -> dict:
+def selftest_x32(data: bytes) -> dict:
+    lockdown.try_x32()  # the filter kills the process here; reaching the next line is a failure
+    return {"x32_refused": False}
+
+
+MODES = {
+    "probe": probe,
+    "extract": extract,
+    "verify": verify,
+    "selftest": selftest,
+    "selftest_fs": selftest_fs,
+    "selftest_x32": selftest_x32,
+}
+
+
+def _preload(mode: str) -> None:
+    """Import what the mode needs, so the filesystem can be confined before the file is read."""
+    if mode in ("extract",):
+        import itertools  # noqa: F401
+
+        import pdfminer.pdfpage  # noqa: F401
+        import pdfplumber  # noqa: F401
+    elif mode in ("probe", "verify"):
+        import pypdfium2  # noqa: F401
+        import pypdfium2.raw  # noqa: F401
+
+
+def _memory_peaks(status_fd: int | None) -> dict:
     """This process's peak resident and peak virtual memory in KiB, from ``/proc``.
 
     ``VmHWM`` and ``VmPeak`` belong to the process's current address space, which is new at
     ``exec``. ``getrusage`` would not do: a child started from a big parent starts with the
-    parent's peak.
+    parent's peak. The file is opened before the filesystem is confined, and read from that
+    descriptor.
     """
     peaks = {}
+    if status_fd is None:
+        return peaks
     try:
-        with open("/proc/self/status", encoding="ascii") as status:
-            for line in status:
-                key, _, rest = line.partition(":")
-                if key in ("VmHWM", "VmPeak"):
-                    peaks["peak_kb" if key == "VmHWM" else "vm_peak_kb"] = int(rest.split()[0])
+        for line in os.pread(status_fd, 1 << 16, 0).decode("ascii", "replace").splitlines():
+            key, _, rest = line.partition(":")
+            if key in ("VmHWM", "VmPeak"):
+                peaks["peak_kb" if key == "VmHWM" else "vm_peak_kb"] = int(rest.split()[0])
     except (OSError, ValueError, IndexError):
         pass
     return peaks
 
 
+_STATUS_FD: int | None = None
+
+
 def _emit(result: dict) -> None:
-    result.update(_memory_peaks())
+    result.update(_memory_peaks(_STATUS_FD))
     sys.stdout.write(json.dumps(result))
     sys.stdout.flush()
 
@@ -314,11 +419,22 @@ def main(argv: list[str]) -> int:
     except (IndexError, KeyError, ValueError):
         _emit({"status": "refused", "reason": UNREADABLE})
         return 2
+    global _STATUS_FD, _CONFINEMENT
     data = sys.stdin.buffer.read(MAX_INPUT_BYTES + 1)
+    try:
+        _STATUS_FD = os.open("/proc/self/status", os.O_RDONLY)
+    except OSError:
+        _STATUS_FD = None
     try:
         lockdown.apply(limits)
     except lockdown.LockdownUnavailable:
         _emit({"status": "refused", "reason": SANDBOX})
+        return 0
+    try:
+        _preload(mode)
+        _CONFINEMENT = lockdown.confine_filesystem()
+    except BaseException:  # noqa: BLE001 - a parser that won't import is a refusal
+        _emit({"status": "refused", "reason": UNREADABLE})
         return 0
     if len(data) > MAX_INPUT_BYTES:
         _emit({"status": "refused", "reason": TOO_LARGE})

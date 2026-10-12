@@ -822,10 +822,13 @@ def _extraction_sentence(step: str, measurement: StepMeasurement | None) -> str:
     """
     if measurement is None or measurement.columns is None:
         return f"The {step} ran and passed its check."
-    return (
-        f"Extracted the table: {count_noun(measurement.output_rows, 'row')} "
-        f"and {count_noun(measurement.columns, 'column')}."
-    )
+    # Counted the way the cleaning replies count: the first row is the header, and "rows" are the
+    # ones below it, so "4 rows below it" and a later "removed 1 duplicate row, 3 rows left" add up.
+    below = measurement.output_rows - 1
+    columns = count_noun(measurement.columns, "column")
+    if below <= 0:
+        return f"Extracted the table: {columns} and a first row, with no rows below it."
+    return f"Extracted the table: {columns}, a first row and {count_noun(below, 'row')} below it."
 
 
 _NOT_IN_READING = "though I didn't read that as part of your request"

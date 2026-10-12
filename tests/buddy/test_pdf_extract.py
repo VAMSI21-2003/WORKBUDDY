@@ -135,7 +135,7 @@ def test_a_pdf_table_is_delivered_verified_and_described_by_what_was_measured(
 
     reply = state.reply
     assert reply is not None
-    assert "Done — extracted the table: 5 rows and 3 columns." in reply
+    assert "Done — extracted the table: 3 columns, a first row and 4 rows below it." in reply
     assert VALUES_ONLY_SENTENCE in reply and TABLE_TEXT_SENTENCE in reply
     assert "cleaned copy" not in reply and "duplicate" not in reply
     assert "pdf.extract_table" not in reply  # no raw capability id

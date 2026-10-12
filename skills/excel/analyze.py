@@ -315,6 +315,10 @@ class NearDuplicateAnalyzer:
         return tuple(findings)
 
 
+# The checks that read the cells as they are (no text-to-number conversion), because they count
+# what the cleaning skills count (``docs/design/pdf-extract.md``, decision 8).
+_CELL_CHECKS = frozenset({"duplicate_rows", "loose_duplicate_rows"})
+
 _ANALYZERS: tuple[tuple[str, Analyzer], ...] = (
     ("missing_and_distribution", MissingValueAndDistributionAnalyzer()),
     ("duplicate_rows", ExactDuplicateRowAnalyzer()),
@@ -413,6 +417,9 @@ class SpreadsheetAnalysisSkill(Skill):
         input_path = task.input_references[0]
         try:
             df = pd.read_excel(input_path)  # READ-ONLY open of the upload
+            # The cells as they are, for the duplicate checks: the cleaning skills compare rows
+            # without converting a text cell to a number, so "exact duplicate" means that here too.
+            cells = pd.read_excel(input_path, dtype=object)  # READ-ONLY open of the upload
         except Exception:  # noqa: BLE001 — surfaced as a SkillResult, not raised
             logger.exception("SpreadsheetAnalysisSkill: failed to read %r", input_path)
             return SkillResult(status=SkillStatus.FAILURE, errors=["could not read the workbook"])
@@ -421,7 +428,7 @@ class SpreadsheetAnalysisSkill(Skill):
         total_finding_count = 0
         for check_name, analyzer in _ANALYZERS:
             try:
-                findings = analyzer(df)
+                findings = analyzer(cells if check_name in _CELL_CHECKS else df)
             except Exception:  # noqa: BLE001 — one analyzer's failure isn't the whole task's
                 logger.exception("SpreadsheetAnalysisSkill: %s analyzer failed", check_name)
                 findings = ()

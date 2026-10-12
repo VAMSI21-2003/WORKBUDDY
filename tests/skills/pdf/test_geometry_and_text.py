@@ -19,8 +19,17 @@ from skills.pdf._worker import geometry, textnorm
         ("  Apple  ", "Apple"),
         ("Acme\nCorp", "Acme Corp"),
         ("Acme \r\n  Corp\t Ltd", "Acme Corp Ltd"),
-        ("ﬁnal", "final"),  # a ligature
-        ("１２", "12"),  # full-width digits
+        ("\ufb01nal", "final"),  # a ligature
+        ("o\ufb03ce \ufb00 \ufb02 \ufb03 \ufb04 \ufb05 \ufb06", "office ff fl ffi ffl st st"),
+        # Nothing that is another value is changed: NFKC would have written these 21⁄2, m2, 103,
+        # TM, 1 and half-width forms.
+        ("2\u00bd", "2\u00bd"),
+        ("12 m\u00b2", "12 m\u00b2"),
+        ("10\u00b3 W", "10\u00b3 W"),
+        ("Acme\u2122", "Acme\u2122"),
+        ("\u2460", "\u2460"),
+        ("\uff11\uff12", "\uff11\uff12"),
+        ("e\u0301", "\u00e9"),  # a letter and its accent are one letter (NFC)
         ("a b", "a b"),  # no-break space
         ("a​b", "ab"),  # zero-width space is dropped, not turned into a space
         ("a­b", "ab"),  # soft hyphen

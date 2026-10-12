@@ -52,6 +52,13 @@ REFUSALS: dict[str, str] = {
         "the table has merged or spanning cells, or cells that don't line up in a grid, and "
         "only plain tables are supported for now"
     ),
+    "one_column": (
+        "the table has a single column, which usually means its columns aren't ruled, and only "
+        "tables with a border around every cell are supported for now"
+    ),
+    "text_overflows": (
+        "some text in the table runs past its cell's border, so a cell can't be read whole"
+    ),
     "too_many_pages": (
         f"the PDF has more than {sandbox.MAX_PAGES} pages, and only PDFs of up to "
         f"{sandbox.MAX_PAGES} pages are supported"
