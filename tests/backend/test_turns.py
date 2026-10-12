@@ -1056,7 +1056,8 @@ def test_a_re_uploaded_copy_gets_no_from_original_sentence(
     second = _turn(client, session_id, "now remove the empty rows")
 
     assert second["outcome"] == "delivered"
-    assert worked_on_original() in second["reply"]
+    # The re-uploaded copy is an upload of its own, so it is named as one.
+    assert worked_on_original(delivered["name"]) in second["reply"]
     assert "the latest copy I handed back" not in second["reply"]
     written = pd.read_excel(Path(factory.runs[1].outputs[0]))
     assert len(written) == 3 and int(written.duplicated().sum()) == 0  # it built on the copy
@@ -1106,8 +1107,8 @@ def test_a_delivery_on_another_upload_gets_no_sentence(settings: Settings, speak
     turn = _turn(client, session_id, "remove duplicate rows")
 
     assert turn["outcome"] == "delivered"
-    assert worked_on_original() in turn["reply"]
-    assert worked_on_original_skipping_copy() not in turn["reply"]
+    assert worked_on_original("budget.xlsx") in turn["reply"]
+    assert worked_on_original_skipping_copy("budget.xlsx") not in turn["reply"]
 
 
 class _Halt(BaseException):

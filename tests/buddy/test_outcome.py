@@ -576,7 +576,7 @@ _C1_BLOCK_FINAL = StepMeasurement(DUPLICATE_ROWS_TARGET, output_rows=4, remainin
                 output_names=("out.xlsx",),
             ),
             "Partly done — removed 2 exact duplicate rows. I didn't run the empty-row removal, "
-            "though I read it as part of your request. The copy has 4 rows, with 0 duplicate "
+            "though I read it as part of your request. The copy has 4 rows, with 0 exact duplicate "
             "rows remaining. It still has 1 fully-empty row. Saved as `out.xlsx`.",
         ),
         (  # N1 / C3: only the mention detector has the unrun action (D2: no lead word)
@@ -594,8 +594,8 @@ _C1_BLOCK_FINAL = StepMeasurement(DUPLICATE_ROWS_TARGET, output_rows=4, remainin
             ),
             "Removed 1 fully-empty row. Your message mentions duplicate rows, but I "
             "didn't run the duplicate-row removal. I read your request as: remove empty rows. "
-            "The copy has 5 rows, with 0 fully-empty rows remaining. It still has 2 duplicate "
-            "rows. Your cleaned copy of report.xlsx is ready.",
+            "The copy has 5 rows, with 0 fully-empty rows remaining. It still has 2 exact "
+            "duplicate rows. Your cleaned copy of report.xlsx is ready.",
         ),
         (  # N5: unrequested work ran, the requested action didn't
             OutcomeReport(
