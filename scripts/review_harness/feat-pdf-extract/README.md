@@ -38,3 +38,23 @@ Same setting. New scripts (the round-1 ones above are reused unchanged):
 
 To check a prototype fix, copy the `r2_*.py` files into a throwaway worktree's copy of this folder and run them there
 (they import the product code from the tree they sit in).
+
+## Round 3 (head `f82951a`)
+
+Same setting. New scripts (the round-1 and round-2 ones are reused unchanged; `r2_*.py` were rerun on head):
+
+    python r3_layout.py [group ...]      # `_text_layout_problem` at the worker: punctuation in a cell ("Mon - Fri"),
+                                         # a sentence run into the empty next cell drawn one text object per word
+                                         # (with/without trailing space, 10/12 pt, row- or column-major order) or per
+                                         # glyph, LibreOffice Calc/Writer: DELIVER-RIGHT / DELIVER-WRONG / REFUSED
+    python r3_lo_rich.py                 # LibreOffice Calc exports, an overflowing note with one bold/red word
+                                         # (LibreOffice draws it as several text objects), widths swept
+    python r3_pipeline.py [sNN ...]      # s01-s10 through the app, three speakers (report on a PDF, report + extract,
+                                         # follow-ups, mixed uploads, "Mon - Fri", word-object and LibreOffice overflow)
+    python r3_sandbox.py [--kill-server] # what the locked-down worker can still do to its parent (prlimit64,
+                                         # setpriority, sched_setaffinity, ioprio_set; kill(0)/kill(-1)/tgkill);
+                                         # --kill-server: a throwaway parent whose RLIMIT_CPU the worker sets
+    python r3_mutations.py $WT [name ...]  # 21 one-place mutations of the round-2 fixes ($WT: a throwaway worktree)
+
+Prototype of the R3-H1/R3-M1 fix: copy `r3_*.py` into a throwaway worktree's copy of this folder, change
+`_text_layout_problem` there, and rerun (they import the product code from the tree they sit in).

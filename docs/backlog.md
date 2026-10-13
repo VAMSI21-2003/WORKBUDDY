@@ -417,6 +417,11 @@ From `docs/reviews/feat-pdf-extract-review.md`, "Review round 2" (LOW).
 - **pdf-extract R2-L2:** under Landlock the worker can still `chmod` a file whose path it knows (bytes unchanged; it is given no path and can't list folders).
 - **pdf-extract R2-L3:** `test_hostile_pdfs.py::test_active_content_in_a_pdf_is_never_followed` failed once on a fully loaded machine; possible timing flake.
 
+## feat/pdf-extract review round 3: deferred
+From `docs/reviews/feat-pdf-extract-review.md`, "Review round 3" (LOW).
+- **pdf-extract R3-L1:** a report asked on a PDF (alone or with the extraction) is answered "I couldn't produce the report you asked for: I didn't run the analysis." without the reason (a PDF can't be analysed) or the way forward (extract the table first).
+- **pdf-extract R3-L2 (tests):** mutations survive: the cross-cell run check removed, the planner's dependency and active-file handling in `_drop_analysis`/`_is_analyzable`, `tgkill`/`tkill`/`rt_sigqueueinfo`/`pidfd_send_signal` allowed (not in `selftest`), the release check passing without Landlock. `test_one_string_drawn_across_two_cells...` passes on code without the fix.
+
 ## feat/follow-up-turns review round 1: deferred
 - **follow-up-turns F3 (Low, tests):** no test fails when `_offer`'s integrity entries (delivered file, turn's copy), `_restore_upload_focus`'s `analyzed_files` filter, or `_finalize`'s outcome guard on `file_used` are removed (mutations survive; the filter's removal makes the session unreadable after a restart). See `docs/reviews/feat-follow-up-turns-review.md`.
 - **follow-up-turns F4 (Low):** the Files-panel line names a copy that has become unreadable; a copy is re-analysed every turn so leftover findings repeat; integrity-failure text says "your original file" for a delivered file or the turn's copy; `file_used: null` is written on every finished turn (a rollback makes those sessions unreadable).

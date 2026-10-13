@@ -175,3 +175,86 @@ Base `origin/main` `89625e7` (still the base after `git fetch`). Scope: `e841088
 - The production image (no container runtime here): whether Docker's default seccomp profile lets `landlock_*` through, so whether production gets Landlock or the R2-M3 fallback. Run `python -m skills.pdf` in the container.
 - arm64: the filter's arm64 numbers, and `clone`'s flags argument there.
 - PDFs from Word, Excel or browsers (only reportlab, hand-written and LibreOffice). Whether a generator that draws a whole row in one text object exists among them: with the prototype fix it would be refused, not mis-delivered.
+
+## Review round 3 (commit f82951a)
+
+**Verdict: DON'T MERGE.** R2-H1 is only partly fixed: a sentence that the PDF draws as several text objects (a LibreOffice Calc note with one bold word, or any generator that draws word by word) is still delivered split across two cells (R3-H1). An ordinary cell such as "Mon - Fri" now gets a whole table refused with a false reason (R3-M1). The worker can still kill the server (R3-M2, not reachable by an ordinary request).
+
+Base `origin/main` `89625e7` (unchanged after `git fetch`). Scope: `37e65eb..f82951a`, round 2's findings, regression against base. Probes: `scripts/review_harness/feat-pdf-extract/` (README, "Round 3"). Real `build_engine`, skills, sandboxed worker and verifiers; only the LLM faked.
+
+### What was run
+
+| What | Result |
+|---|---|
+| `python -m pytest -q` (head) | 3590 passed, 7 skipped, 782 s |
+| `ruff check buddy tests`, by file and rule, head vs base | identical (13 groups); `check_ruff_baseline.py`: nothing beyond the baseline |
+| New and changed tests (`test_pdf_extract_fixes2.py`, `fixes1`, `test_sandbox.py`) copied onto `37e65eb` | 11 fail (every R2 finding's test, the fail-closed and selftest tests). 3 pass there: `test_one_string_drawn_across_two_cells...` (it asserts "refused or whole", R3-L2), `test_words_with_ordinary_spaces...`, `test_the_real_cleaning_skills_keep_a_text_id_as_text` (a guard, killed s21) |
+| `python -m skills.pdf` (release check) | every check true, "The PDF sandbox holds." (exit 0) |
+| Round-2 `r2_lo_overflow.py`, `r2_overflow_sweep.py` | 0 of 12 LibreOffice notes split; 1 of 161 sweep widths delivered, with the sentence whole in its own cell (correct) |
+| Round-2 `r2_pipeline.py` q01-q06 x 3 speakers (27 turns) | q01/q02 refused (`text_overflows`); q03 refused (`columns_not_ruled`); q04 table + "I couldn't produce the report you asked for: I didn't run the analysis."; q05/q06 counts right |
+| Round-1 `probe_a_worker.py` (24 PDFs) | as round 2, except **`double_spaces` (`A  B`, `x   y`) is now refused as `columns_not_ruled`** (R3-M1) |
+| `r3_layout.py`: overflow into the empty next cell, rule swept, text drawn one object per word | **delivered split: 28 of 181 widths** (10 pt, words with their trailing space), **15 of 100** (12 pt), **15 of 100** (12 pt, column-major order). Per glyph / per word at 10 pt without spaces: the verifier passes the split reading (38 widths) and only pdfplumber's different spacing stops delivery |
+| `r3_layout.py punct`: one cell with punctuation in a ruled grid | **6 of 16 refused** as `columns_not_ruled` (`Mon - Fri`, `Mon – Fri`, `Mon — Fri`, `Smith - one`, `low - high`, `x ~ y`); LibreOffice Writer: `Mon - Fri`, `Smith - one` refused the same way |
+| `r3_lo_rich.py`: 70 LibreOffice Calc exports, overflowing note with one bold or red word | **1 delivered split** (`Needs manager` / `approval`), 14 right, 55 refused |
+| `r3_pipeline.py` s01-s10 x 3 speakers (42 turns) | originals' SHA-256 unchanged in all 69 turns of this round; 0 Voice-model calls; s07 false refusal (R3-M1); s08/s09 split cells delivered (R3-H1); s03/s04 reports on the extracted copy work; s06 (PDF then workbook) analysed and cleaned the workbook as before |
+| `r3_sandbox.py` (full lockdown + Landlock) | `kill(0)`, `kill(-1)`, `kill(ppid)`, `pidfd_*`: refused. **`prlimit64` on the parent: allowed; with RLIMIT_CPU 1 s the parent was killed (exit -9)**; RLIMIT_NOFILE set to 5/5 on the parent; `setpriority`, `sched_setaffinity`, `ioprio_set` on the parent succeed (R3-M2). `chmod` of a known path still allowed (R2-L2) |
+| Shared `harness.py`, 532 turns | head vs round-2 head: 532 identical; head vs base: only the capability line naming PDFs (14 turns); delivered files identical |
+| `r3_mutations.py`: 21 one-place mutations of the round-2 fixes | 14 killed. Survived: s02 run-gap check removed, s07 dropped analysis keeps its dependants' links, s08 `_is_analyzable` ignores the active file, s10 `tgkill` unchecked, s11 `tkill`, s12 `rt_sigqueueinfo`, s13 `pidfd_send_signal` allowed, s16 release check ignores `filesystem_confined` |
+| Prototype of the R3-H1/R3-M1 fix (`r3_prototype_fix.diff`, throwaway worktree) | every sweep above 0 delivered wrong; all 16 punctuation cells and `double_spaces` delivered right; q03 still refused; the 367 PDF tests pass. Cost: 2 of 2 LibreOffice Writer tables (tight auto-fit columns) refused instead of delivered |
+
+### Round-2 findings
+
+| | Status (own evidence) |
+|---|---|
+| R2-H1 | **Partly fixed** [Certain]: a sentence drawn as one text object is never delivered split (r2_lo_overflow 0/12, sweep, s01 mutation killed). Several objects: R3-H1 |
+| R2-M1 | Fixed [Certain] (q03 refused in 3 speakers; s03, s04 killed). The new check over-refuses: R3-M1 |
+| R2-M2 | Fixed as written [Certain] (q04, s02, s10: table handed back, report said not produced; follow-up reports on the copy work). Owner's confirmation still needed (below) |
+| R2-M3 | **Partly fixed** [Certain]: signals, pidfds and socket theft refused; no PDF read without Landlock (s15 killed). `prlimit64` still kills the server: R3-M2 |
+| R2-L1 | r18, r19, r10, r22 now killed (s18-s21); r04's check survives again as s02; r12 not guarded (as stated) |
+| R2-L2, R2-L3 | open (R2-L2 seen again) |
+
+### Findings
+
+**R3-H1 HIGH: a sentence the PDF draws as several text objects is still delivered split across two cells, and the reply says every cell is the PDF's text.** [Certain]
+- Where: `skills/pdf/_worker/main.py` `_text_layout_problem`. The object rule covers one object only. The cross-cell run check compares only characters next to each other in content-stream order (not reading order, as the docstring says), and against `0.5 x` the smaller tight glyph height (about 0.26 em for lower case), while a word space between tight glyph boxes measures 0.28-0.4 em. A word space that straddles the rule passes. Mutation s02 (the run check removed) survives every test.
+- Scenario (s09, LibreOffice Calc export, the round-2 setting with one word bold, so LibreOffice draws three text objects): Note `Needs **manager** approval`, Qty empty. Delivered: Note `Needs manager`, Qty `approval`. PDFium's own text reading of the page has the note as one line, `Needs manager approval`; the source cell held one note. Rendered, the rule falls in the word space (`out/r3/lo_rich.png`).
+- Reply (focus): "Done — extracted the table: 3 columns, a first row and 2 rows below it. The table from report.pdf is in a new spreadsheet, ready for you. ... Every cell holds the text read from the PDF's text layer; numbers and dates are not converted." s08 (one object per word): `Paid in full` / `on delivery`, then "now remove the duplicate rows" works on the split rows.
+- Reachable: a rich-text note that overflows into an empty cell (1 of 70 LibreOffice exports); any generator that draws word by word (15-28 of 100-181 rule positions here). Word, Excel and browser PDFs not available to test.
+- Fix (prototyped): in `_text_layout_problem`, record each character's advance box (`FPDFText_GetLooseCharBox`), font size (`FPDFText_GetFontSize`) and baseline (`FPDFText_GetCharOrigin`); per row, group characters into lines by baseline, sort each line by x, and refuse (`text_overflows`) when two neighbours in different cells are less than 0.5 em apart. Keep the object rule, the crossing rule and the beside-the-table rule. Measured gaps: word spaces across a rule 0.20-0.28 em; LibreOffice Writer's tight auto-fit cells 0.30-0.35 em, which this refuses. No threshold separates the two safely; if the owner wants those Writer tables, it needs another signal, not a smaller number. Tests: the s09 file (`r3_lo_rich.calc_pdf(..., 14, True)`), and the fixes2 sweep extended to text drawn one object per word (`r3_layout.drawn(..., unit="wordsp")`, 10 and 12 pt, row- and column-major): each refused or whole, never split.
+
+**R3-M1 MEDIUM: an ordinary cell such as "Mon - Fri" gets the whole table refused, and the reply says the PDF's columns aren't ruled.** [Certain]
+- Where: same function, `COLUMNS_NOT_RULED`: gap `> 1.5 x` the smaller tight glyph height. A hyphen, dash or tilde is about 0.08 em tall, so the ordinary word space beside it counts as a column.
+- Scenario (s07, reportlab grid, every cell ruled): Shop | Open, North | `Mon - Fri`. Also `Smith - one`, `low - high`, `Mon – Fri`, `x ~ y`, double spaces.
+- Reply (every speaker): "I ran into a problem before I could change anything. The extract table step: couldn't independently re-read the PDF: some of the table's columns aren't ruled (two columns share one cell), and only tables with a border around every cell are supported for now. I stopped at the extract table step and no file was handed back; your original file is unchanged." The table is fully ruled.
+- Reachable: yes, ranges and "A - B" are common in cells.
+- Fix (same prototype): measure the in-cell gap on advance boxes against the font size, on the baseline-grouped lines, and refuse above 1.0 em (q03's unruled columns measure 2.2 em; three spaces 0.83 em). Test: `Mon - Fri`, `Smith - one`, `x ~ y`, `A  B` in a ruled grid delivered whole; q03 still refused.
+
+**R3-M2 MEDIUM (security, not reachable by an ordinary request): the worker can still kill or starve the server.** [Certain] for what code in the worker can do; [Possible] that a parser is taken over.
+- Where: `skills/pdf/_worker/lockdown.py` (Landlock does not cover these calls).
+- From inside the full lockdown with Landlock: `prlimit64(getppid(), RLIMIT_CPU, {1, 1})` killed the parent; `prlimit64(getppid(), RLIMIT_NOFILE, {5, 5})` leaves it unable to open a file or accept a connection, and it can't raise the limit again; `setpriority`, `sched_setaffinity`, `ioprio_set` on the parent succeed. The design's "a taken-over parser can neither signal the server ..." intends the server to be out of reach.
+- Fix: allow `prlimit64` (x86-64 302, arm64 261) only when its first argument is 0 or the worker's own pid (the limits are set before the filter). Refuse `setpriority` (141/140), `sched_setparam` (142/118), `sched_setscheduler` (144/119), `sched_setaffinity` (203/122), `sched_setattr` (314/274), `ioprio_set` (251/30), `migrate_pages` (256/238), `move_pages` (279/239), or allow them only on pid 0 or the worker's own. Add `prlimit_on_parent_refused` and `setpriority_on_parent_refused` to `selftest` and the test.
+
+### For the owner
+
+- **R2-M2's fix:** on a PDF, a report asked with the extraction is not made; the table is handed back and the reply says no report was made. The decided rule says the analysis is re-run on the final file, which here would be the extracted sheet. Confirm which you want.
+- **Fail-closed without Landlock:** if the production container's seccomp profile blocks `landlock_*`, PDFs are off in production. Run `python -m skills.pdf` there.
+- **R3-H1's fix** refuses tight auto-fit tables such as LibreOffice Writer's (a refusal, never a wrong table).
+
+### Design deviations
+
+1. Decision 4: "no two characters of different cells sit side by side as close as the letters of a word" holds, but its purpose (no character runs past its cell's border) doesn't, for text in several objects (R3-H1). The docstring's "in reading order" is content-stream order.
+2. Decision 4: "no two neighbouring characters inside one cell are further apart than a word space": the measure is the glyph's height, so a word space beside a dash exceeds it (R3-M1).
+3. Sandbox, "No handle on the server": `prlimit64` and the scheduling calls reach it (R3-M2).
+
+### Deferred (LOW; added to `docs/backlog.md`)
+
+- **R3-L1:** "give me a report" on a PDF: "I couldn't produce the report you asked for: I didn't run the analysis. No changes were made to any file this turn." It doesn't say why (a PDF can't be analysed) or what to do (extract the table first). Same reason in the report-plus-extraction reply.
+- **R3-L2 (tests):** mutations s02 (run check), s07, s08 (planner's dependency and active-file handling), s10-s13 (`tgkill`, `tkill`, `rt_sigqueueinfo`, `pidfd_send_signal`: not in `selftest`) and s16 (the release check passes without Landlock) survive. `test_one_string_drawn_across_two_cells...` passes on `37e65eb` (it asserts "refused or whole").
+- R2-L2, R2-L3 and round 1's L1-L7: still open, still in the backlog.
+
+### Not run
+
+- Live runs with Groq: not this reviewer's step.
+- The production image (no container runtime here): whether Landlock is available there, so whether PDFs work at all.
+- arm64: the new filter numbers (`tkill`, signals, the own-pid check) were not exercised.
+- PDFs from Word, Excel or browsers, to see how often they draw text word by word (R3-H1's reach beyond LibreOffice).
