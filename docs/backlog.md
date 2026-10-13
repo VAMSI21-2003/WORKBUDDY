@@ -388,7 +388,7 @@ Each item has its own acceptance criterion: fixed with a test, or explicitly clo
 
 ## 7. The PDF skill: what the first version leaves out (`feat/pdf-extract`, `docs/design/pdf-extract.md`)
 
-Each of these is a refusal today (a fixed sentence, no file). *Round 1 found that this was not true of three cases and fixed them (text past a cell's border, NFKC, a table with no column rules); see `docs/reviews/feat-pdf-extract-fixes1.md`. Other cases may still exist: the claim to hold is that the reply says only what two parsers agreed on and the character check allowed.*
+Each of these is a refusal today (a fixed sentence, no file). *Rounds 1 and 2 found that this was not true of some cases and fixed them (text past a cell's border, NFKC, columns that aren't ruled); see `docs/reviews/feat-pdf-extract-fixes1.md` and `-fixes2.md`. Other cases may still exist: the claim to hold is that the reply says only what two parsers agreed on and the layout check allowed. Not checked: text hidden by a clip or a box, invisible text (reviewer L3).*
 
 - **A table that continues over several pages** is counted as several tables and refused. Joining the pieces (and the header a page repeats) needs a rule for which blocks are one table; the verifier would need the same rule independently.
 - **A table without ruling lines** (aligned text). Telling it from a paragraph is a judgement; both parsers would have to agree on it.

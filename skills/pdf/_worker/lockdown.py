@@ -60,6 +60,12 @@ _X86_64 = (
         "process_vm_readv": 310,
         "process_vm_writev": 311,
         "execveat": 322,
+        "tkill": 200,
+        "rt_sigqueueinfo": 129,
+        "rt_tgsigqueueinfo": 297,
+        "pidfd_send_signal": 424,
+        "pidfd_open": 434,
+        "pidfd_getfd": 438,
         "io_uring_setup": 425,
         "io_uring_enter": 426,
         "io_uring_register": 427,
@@ -67,6 +73,8 @@ _X86_64 = (
     56,
     435,
     True,
+    62,
+    234,
 )
 _AARCH64 = (
     0xC00000B7,
@@ -78,6 +86,12 @@ _AARCH64 = (
         "process_vm_readv": 270,
         "process_vm_writev": 271,
         "execveat": 281,
+        "tkill": 130,
+        "rt_sigqueueinfo": 138,
+        "rt_tgsigqueueinfo": 240,
+        "pidfd_send_signal": 424,
+        "pidfd_open": 434,
+        "pidfd_getfd": 438,
         "io_uring_setup": 425,
         "io_uring_enter": 426,
         "io_uring_register": 427,
@@ -85,6 +99,8 @@ _AARCH64 = (
     220,
     435,
     False,
+    129,
+    131,
 )
 _ARCHITECTURES = {"x86_64": _X86_64, "amd64": _X86_64, "aarch64": _AARCH64, "arm64": _AARCH64}
 
@@ -132,11 +148,13 @@ def _program(entry: tuple) -> bytes:
     """The BPF program for one architecture.
 
     Foreign architecture: kill. An x32 number (x86-64 only): kill. A refused call: EPERM.
+    ``kill`` and ``tgkill``: allowed only on this process's own pid (a signal to the server, or to
+    a group, is refused).
     ``clone3``: ENOSYS (libc then falls back to ``clone``, whose flags can be read). ``clone``:
     allowed only with ``CLONE_THREAD``, so a thread starts and a process doesn't. Anything else:
     allowed.
     """
-    arch, refused, clone, clone3, has_x32 = entry
+    arch, refused, clone, clone3, has_x32, kill, tgkill = entry
     asm = _Assembler()
     asm.op(_BPF_LD_W_ABS, 4)  # seccomp_data.arch
     asm.op(_BPF_JEQ_K, arch, jt="nr", jf="kill")
@@ -148,7 +166,12 @@ def _program(entry: tuple) -> bytes:
         asm.op(_BPF_JEQ_K, number, jt="eperm")
     asm.op(_BPF_JEQ_K, clone3, jt="enosys")
     asm.op(_BPF_JEQ_K, clone, jt="clone")
+    asm.op(_BPF_JEQ_K, kill, jt="own_pid")
+    asm.op(_BPF_JEQ_K, tgkill, jt="own_pid")
     asm.op(_BPF_RET_K, _SECCOMP_RET_ALLOW)
+    asm.label("own_pid")
+    asm.op(_BPF_LD_W_ABS, _ARG0_LOW_WORD)
+    asm.op(_BPF_JEQ_K, os.getpid(), jt="allow", jf="eperm")
     asm.label("clone")
     asm.op(_BPF_LD_W_ABS, _ARG0_LOW_WORD)
     asm.op(_BPF_JSET_K, _CLONE_THREAD, jt="allow", jf="eperm")
@@ -354,6 +377,24 @@ def selftest() -> dict[str, bool]:
         outcome["fork_refused"] = False
     except OSError as exc:
         outcome["fork_refused"] = exc.errno == errno.EPERM
+    vm_call = 310 if platform.machine().lower() in ("x86_64", "amd64") else 270  # process_vm_readv
+    reading = libc.syscall(vm_call, os.getppid(), None, 0, None, 0, 0)
+    outcome["process_vm_readv_refused"] = reading < 0 and ctypes.get_errno() == errno.EPERM
+    # The server is this process's parent: no signal, no handle on it, nothing taken from it.
+    try:
+        os.kill(os.getppid(), 0)
+        outcome["signal_to_parent_refused"] = False
+    except PermissionError:
+        outcome["signal_to_parent_refused"] = True
+    pidfd = libc.syscall(434, os.getppid(), 0)  # pidfd_open
+    outcome["pidfd_open_refused"] = pidfd < 0 and ctypes.get_errno() == errno.EPERM
+    taken = libc.syscall(438, 0, 0, 0)  # pidfd_getfd
+    outcome["pidfd_getfd_refused"] = taken < 0 and ctypes.get_errno() == errno.EPERM
+    try:
+        os.kill(os.getpid(), 0)
+        outcome["signal_to_self_works"] = True
+    except OSError:
+        outcome["signal_to_self_works"] = False
     started = []
     thread = threading.Thread(target=lambda: started.append(True))
     thread.start()

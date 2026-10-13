@@ -67,6 +67,7 @@ WORKER_REASONS = frozenset(
         "not_plain",
         "one_column",
         "text_overflows",
+        "columns_not_ruled",
         "too_many_pages",
         "too_large",
         "unreadable",

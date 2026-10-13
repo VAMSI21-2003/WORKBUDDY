@@ -56,6 +56,10 @@ REFUSALS: dict[str, str] = {
         "the table has a single column, which usually means its columns aren't ruled, and only "
         "tables with a border around every cell are supported for now"
     ),
+    "columns_not_ruled": (
+        "some of the table's columns aren't ruled (two columns share one cell), and only tables "
+        "with a border around every cell are supported for now"
+    ),
     "text_overflows": (
         "some text in the table runs past its cell's border, so a cell can't be read whole"
     ),

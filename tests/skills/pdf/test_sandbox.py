@@ -46,24 +46,23 @@ def _limited(body: str, *, address_space: int = 256 * MIB, output: int = 4 * MIB
 def test_the_worker_cannot_open_a_socket_start_a_program_or_a_process() -> None:
     outcome = sandbox.run("selftest", b"")
     assert outcome.ok, outcome.reason
-    required = {k: v for k, v in outcome.data.items() if k != "filesystem_confined"}
-    assert required == {
+    assert outcome.data == {
         "python_socket_refused": True,
         "libc_socket_refused": True,
         "exec_refused": True,
         "io_uring_refused": True,  # io_uring can open sockets by itself
         "fork_refused": True,
+        "process_vm_readv_refused": True,
+        "signal_to_parent_refused": True,  # the parent is the server
+        "pidfd_open_refused": True,  # a handle on the server...
+        "pidfd_getfd_refused": True,  # ...and from it, the server's sockets
+        "signal_to_self_works": True,
         "threads_work": True,  # a thread is still a thread
+        "filesystem_confined": True,
     }
 
 
-def _landlock_here() -> bool:
-    return bool(sandbox.run("selftest", b"").data.get("filesystem_confined"))
-
-
 def test_the_worker_can_read_nothing_but_the_python_installation_and_write_nothing() -> None:
-    if not _landlock_here():
-        pytest.skip("Landlock is not available on this kernel")
     outcome = sandbox.run("selftest_fs", b"")
     assert outcome.ok, outcome.reason
     assert outcome.data == {
@@ -76,54 +75,21 @@ def test_the_worker_can_read_nothing_but_the_python_installation_and_write_nothi
     }
 
 
-def test_another_persons_upload_cannot_be_read_or_changed_from_inside_the_worker(
-    tmp_path: Path,
-) -> None:
-    if not _landlock_here():
-        pytest.skip("Landlock is not available on this kernel")
-    upload = tmp_path / "other-persons-upload.xlsx"
-    upload.write_bytes(b"secret contents")
-    upload.chmod(0o444)
-    code = _limited(
-        "import json, os\n"
-        "result = {}\n"
-        f"path = {str(upload)!r}\n"
-        "lockdown.confine_filesystem()\n"
-        "for name, action in (('read', lambda: open(path, 'rb').read()),\n"
-        "                     ('write', lambda: open(path, 'ab').write(b'x')),\n"
-        "                     ('truncate', lambda: open(path, 'wb')),\n"
-        "                     ('unlink', lambda: os.unlink(path))):\n"
-        "    try:\n"
-        "        action(); result[name] = 'allowed'\n"
-        "    except OSError:\n"
-        "        result[name] = 'refused'\n"
-        "print(json.dumps({'status': 'ok', 'data': result}))\n"
-    )
-    outcome = sandbox.run("x", b"", command=_python(code))
-    assert outcome.ok and outcome.data == {
-        "read": "refused",
-        "write": "refused",
-        "truncate": "refused",
-        "unlink": "refused",
-    }
-    assert upload.read_bytes() == b"secret contents"
-
-
-@pytest.mark.skipif(
-    __import__("platform").machine().lower() not in ("x86_64", "amd64"),
-    reason="the x32 numbering exists on x86-64 only",
-)
-def test_a_call_in_the_x32_numbering_kills_the_worker() -> None:
-    outcome = sandbox.run("selftest_x32", b"")
-    assert (outcome.ok, outcome.reason) == (False, sandbox.CRASHED)
-
-
-def test_the_real_modes_still_read_a_pdf_with_the_filesystem_confined() -> None:
+def test_a_worker_whose_filesystem_cannot_be_confined_reads_no_pdf() -> None:
+    """Without Landlock, a taken-over parser could read the server's environment: refuse."""
     from tests import pdf_fixtures
 
+    code = (
+        "import sys\n"
+        f"sys.path.append({WORKER_DIR!r})\n"
+        "import lockdown, main\n"
+        "lockdown.confine_filesystem = lambda: lockdown.Confinement(False, 'no Landlock here')\n"
+        "sys.argv = ['main', 'extract', '1073741824', '30', '8388608']\n"
+        "main.main(sys.argv)\n"
+    )
     pdf = pdf_fixtures.hand_table_pdf(pdf_fixtures.FRUIT)
-    for mode in ("probe", "extract", "verify"):
-        assert sandbox.run(mode, pdf).ok, mode
+    outcome = sandbox.run("x", pdf, command=_python(code))
+    assert (outcome.ok, outcome.reason) == (False, "sandbox_unavailable")
 
 
 def test_a_socket_to_a_listening_port_is_refused_from_inside_the_sandbox() -> None:

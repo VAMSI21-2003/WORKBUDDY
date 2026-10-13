@@ -25,6 +25,7 @@ Standard library at the top; the parsers are imported inside the modes, after th
 
 from __future__ import annotations
 
+import ctypes
 import io
 import json
 import os
@@ -53,6 +54,7 @@ MANY_TABLES = "many_tables"
 NOT_PLAIN = "not_plain"
 ONE_COLUMN = "one_column"
 TEXT_OVERFLOWS = "text_overflows"
+COLUMNS_NOT_RULED = "columns_not_ruled"
 TOO_MANY_PAGES = "too_many_pages"
 TOO_LARGE = "too_large"
 UNREADABLE = "unreadable"
@@ -239,24 +241,32 @@ def _record(a, b, h_segments, v_segments) -> None:  # noqa: ANN001
 
 
 # How far (in points) a character's box may stick out of its cell before it counts as running
-# over the rule, and how close (as a share of its height) two characters of different cells may
-# be on one line before they count as one run of text.
+# over the rule, how close (as a share of its height) two characters of different cells may be on
+# one line before they count as one run of text, and how far apart (as a share of its height) two
+# characters of one text object may be before they count as two columns.
 _BOX_SLACK = 0.5
-_RUN_GAP = 0.3
+_RUN_GAP = 0.5
+_COLUMN_GAP = 1.5
 
 
-def _text_overflows(textpage, raw, grid) -> bool:  # noqa: ANN001
-    """Whether any text beside or in the table runs past the border of the cell it starts in.
+def _text_layout_problem(textpage, raw, grid) -> str | None:  # noqa: ANN001
+    """Why the text in the table can't be read cell by cell, or ``None``.
 
-    Both readings of a table clip every cell to its box, so a word that is wider than its cell
-    comes out cut at the border (or moved into the next cell) the same way in both, and their
-    agreement would say nothing. This looks at the characters themselves: one on a row of the
-    table but outside the table; one whose box crosses a rule; or two on one line in different
-    cells that are as close as the letters of a word. Any of them means a cell can't be read
-    whole, and the table is refused.
+    Both readings of a table clip every cell to its box, so a word wider than its cell comes out
+    cut at the border (or moved into the next cell) the same way in both, and their agreement says
+    nothing. And a column that isn't ruled lies inside one cell as two runs of text. So this looks
+    at the characters of the table's rows, in reading order, with their text objects:
+
+    - ``TEXT_OVERFLOWS``: a character beside the table on one of its rows; a character whose box
+      crosses a rule; one text object (one string the PDF draws in one go) with characters in two
+      cells; or two characters of different objects, side by side on one line in different cells,
+      as close as the letters of a word;
+    - ``COLUMNS_NOT_RULED``: two neighbouring characters on one line in one cell, further apart
+      than a word space ever is: the PDF has a column there without a rule.
     """
     top, bottom, left, right = grid.ys[0], grid.ys[-1], grid.xs[0], grid.xs[-1]
-    rows = [[] for _ in range(grid.rows)]
+    objects: dict[int, set[tuple[int, int]]] = {}
+    previous = None  # the last printable character on the table's rows: (cell, right edge, ...)
     for index in range(textpage.count_chars()):
         left_x, b, right_x, t = textpage.get_charbox(index)
         if right_x <= left_x or t <= b:
@@ -269,7 +279,7 @@ def _text_overflows(textpage, raw, grid) -> bool:  # noqa: ANN001
             continue
         centre_x = (left_x + right_x) / 2
         if not left <= centre_x <= right:
-            return True  # text on a row of the table, beside it
+            return TEXT_OVERFLOWS  # text on a row of the table, beside it
         row = next(j for j in range(grid.rows) if grid.ys[j + 1] <= centre_y <= grid.ys[j])
         column = next(i for i in range(grid.columns) if grid.xs[i] <= centre_x <= grid.xs[i + 1])
         if (
@@ -278,16 +288,23 @@ def _text_overflows(textpage, raw, grid) -> bool:  # noqa: ANN001
             or b < grid.ys[row + 1] - _BOX_SLACK
             or t > grid.ys[row] + _BOX_SLACK
         ):
-            return True  # a character crossing a rule
-        rows[row].append((round(centre_y / 2.0), left_x, right_x, t - b, column))
-    for characters in rows:
-        characters.sort()
-        for (line1, _, r1, h1, c1), (line2, l2, _, h2, c2) in zip(
-            characters, characters[1:], strict=False
-        ):
-            if line1 == line2 and c1 != c2 and l2 - r1 < _RUN_GAP * min(h1, h2):
-                return True  # one run of text across two cells
-    return False
+            return TEXT_OVERFLOWS  # a character crossing a rule
+        cell = (row, column)
+        owner = ctypes.cast(raw.FPDFText_GetTextObject(textpage.raw, index), ctypes.c_void_p).value
+        objects.setdefault(owner or 0, set()).add(cell)
+        if len(objects[owner or 0]) > 1:
+            return TEXT_OVERFLOWS  # one string drawn across two cells
+        height = t - b
+        if previous is not None:
+            prev_cell, prev_right, prev_height, prev_y = previous
+            same_line = abs(centre_y - prev_y) < 0.5 * min(height, prev_height)
+            gap = left_x - prev_right
+            if same_line and cell != prev_cell and gap < _RUN_GAP * min(height, prev_height):
+                return TEXT_OVERFLOWS  # one run of text across two cells
+            if same_line and cell == prev_cell and gap > _COLUMN_GAP * min(height, prev_height):
+                return COLUMNS_NOT_RULED
+        previous = (cell, right_x, height, centre_y)
+    return None
 
 
 def verify(data: bytes) -> dict:
@@ -313,8 +330,10 @@ def verify(data: bytes) -> dict:
         # A frame with a rule under each row and none between the columns is one column of
         # joined text, not the table the page shows: not a grid of cells.
         result["plain"] = grid.plain and grid.columns >= 2
-        if result["plain"] and _text_overflows(textpage, raw, grid):
-            raise Refused(TEXT_OVERFLOWS)
+        if result["plain"]:
+            problem = _text_layout_problem(textpage, raw, grid)
+            if problem is not None:
+                raise Refused(problem)
         if result["plain"]:
             if grid.rows * grid.columns > textnorm.MAX_CELLS:
                 raise Refused(TOO_LARGE)
@@ -435,6 +454,11 @@ def main(argv: list[str]) -> int:
         _CONFINEMENT = lockdown.confine_filesystem()
     except BaseException:  # noqa: BLE001 - a parser that won't import is a refusal
         _emit({"status": "refused", "reason": UNREADABLE})
+        return 0
+    if mode in ("probe", "extract", "verify") and not _CONFINEMENT.confined:
+        # Without the filesystem confined, code that took over a parser could read the server's
+        # environment and everyone's files: a PDF is not read at all.
+        _emit({"status": "refused", "reason": SANDBOX})
         return 0
     if len(data) > MAX_INPUT_BYTES:
         _emit({"status": "refused", "reason": TOO_LARGE})
