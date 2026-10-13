@@ -91,3 +91,87 @@ Base `origin/main` `89625e7`. Probes: `scripts/review_harness/feat-pdf-extract/`
 - Inside the production image (no container runtime here): `python -m skills.pdf` and the seccomp filter under Docker's profile.
 - arm64: the filter's arm64 numbers were not exercised.
 - PDFs from Word, Excel or browsers: only reportlab, hand-written bytes and LibreOffice were available.
+
+## Review round 2 (commit 37e65eb)
+
+**Verdict: DON'T MERGE.** H1 is only partly fixed: a sentence that runs into the empty cell beside it is still delivered split across two cells under "Every cell holds the text read from the PDF's text layer" (2 of 12 LibreOffice exports). Two MEDIUMs an ordinary request reaches.
+
+Base `origin/main` `89625e7` (still the base after `git fetch`). Scope: `e841088..37e65eb`, round 1's findings, regression against base. Probes: `scripts/review_harness/feat-pdf-extract/` (README, "Round 2"); real `build_engine`, skills, sandboxed worker and verifiers, only the LLM faked.
+
+### What was run
+
+| What | Result |
+|---|---|
+| `python -m pytest -q` (head) | 3579 passed, 7 skipped, 845 s |
+| `ruff check buddy tests`, by file and rule, head vs base | identical (13 groups); `check_ruff_baseline.py`: nothing beyond the baseline |
+| New tests on `e841088` (fix tests copied onto it) | 19 fail (every finding's test, the new `normalize_cell` rows, the selftest test). The x32 test passes on `e841088` (the mode doesn't exist, so the worker exits non-zero = "crashed"); the two Landlock tests skip there |
+| Round-1 `probe_a_worker.py` (24 PDFs) | H2 cases now come through unchanged; one-column frame refused; LibreOffice overflow cases of round 1 refused. Still agreed-but-not-drawn: invisible/covered text (L3, deferred) |
+| Round-1 `probe_b_pipeline.py`, 21 scenarios x 3 speakers (75 turns) | originals' SHA-256 unchanged in all 75; 0 Voice-model calls; p01 counts add up (M1); p04 cells `2½`, `12 m²`, `¼`, `3³` (H2); p13 has no exception text (H3); p21 refused (M2) |
+| `r2_overflow_sweep.py`: hand-drawn grid, sentence into the empty next cell, rule swept over 81 positions | **22 of 81 delivered split** (e.g. `["Paid i", "n full on delivery"]`, `["Paid in full", "on delivery"]`) |
+| `r2_lo_overflow.py`: 12 LibreOffice Calc exports, note into the empty next cell | **2 of 12 delivered split** (`Ships next` / `week`, `Left at the` / `front desk`); 10 refused |
+| `r2_pipeline.py` q01-q06 x 3 speakers (27 turns) | originals unchanged in all; q01/q02 split cells delivered (R2-H1); q03 joined columns delivered (R2-M1); q04 nothing done (R2-M2); q05/q06 counts right |
+| `probe_d_dtype.py` | d1/d2: dedupe and "Report on the copy" now agree (M3 fixed) |
+| `r2_sandbox.py` (full lockdown + Landlock, as `main.py`) | another upload, `/tmp`, the server's `/proc/<pid>/environ`: refused; io_uring, `clone` of a process: EPERM; x32: killed. Still allowed: `kill(getppid())`, `pidfd_open`, `chmod` of a known path. `--no-landlock`: other upload read, server environ read (8891 bytes), **server's socket stolen with `pidfd_getfd` and written to** (R2-M3) |
+| Shared `harness.py`, 532 turns, head vs base | 518 identical, 14 differ only by the capability line; delivered files identical; originals unchanged |
+| `r2_mutations.py`: 23 mutations of the round-1 fixes | 16 killed. Survived: r04 run-gap check off, r08 step summary = `str(exc)`, r10 analysis skill reads converted, r12 loose-duplicate verifier reads converted, r18 Landlock off (tests skip), r19 `process_vm_*` allowed, r22 (= m14) empty-rows skill without `dtype=object` |
+| Prototype of the R2-H1/R2-M1 fix in a throwaway worktree | sweep 0 of 81 wrong, LibreOffice 0 of 12 wrong, q03 refused; every ordinary probe_a table still delivered; the 269 PDF tests pass |
+
+### Round-1 findings
+
+| | Status (own evidence) |
+|---|---|
+| H1 | **Partly fixed** [Certain]: last-column overflow and most mid-column cases refused; the rest is R2-H1 |
+| H2 | Fixed [Certain] (p04, probe_a; mutations r05, r06 killed) |
+| H3 | Fixed [Certain] (p13 in 3 speakers; r07 killed). The reply is still poor: R2-M2 |
+| M1 | Fixed [Certain] (p01: "4 rows below it", then "removed 1 ... The copy has 3 rows"; r09 killed) |
+| M2 | Fixed for one column [Certain] (p21; r13, r14 killed). Partly ruled tables: R2-M1 |
+| M3 | Fixed [Certain] (probe_d d1/d2; r11, r21 killed); r10, r12 survive (deferred) |
+| M4 | Fixed for what was listed [Certain] (r15-r17, r20 killed); new gaps: R2-M3 |
+| L8 | m13, m23 now killed; m14 still survives (r22); m04 left as argued |
+
+### Findings
+
+**R2-H1 HIGH: text that runs into the empty cell beside it is still delivered split across the two cells, and the reply says every cell is the PDF's text.** [Certain]
+- Where: `skills/pdf/_worker/main.py` `_text_overflows`. The crossing check misses a rule that falls in a word space or between two glyph boxes (`get_charbox` is the tight glyph box; `_BOX_SLACK` 0.5 pt). The run-gap check that should catch those groups characters by `round(centre_y / 2.0)`, and glyphs of one line have different centres (`n` vs `l` vs `g`), so neighbours land in different buckets and are never compared; a word space (~0.3 em) is also above `_RUN_GAP * min(h)` (~0.15 em). Mutation r04 (run-gap check removed) survives every test.
+- Scenario (LibreOffice Calc export, a note longer than its column, Qty empty): Note `Ships next week` is delivered as Note `Ships next`, Qty `week`; `Left at the front desk` as `Left at the` / `front desk`. The follow-up dedupe then works on the split rows.
+- Reply (focus, q01): "Done — extracted the table: 3 columns, a first row and 2 rows below it. The table from report.pdf is in a new spreadsheet, ready for you. ... Every cell holds the text read from the PDF's text layer; numbers and dates are not converted."
+- Reachable: 2 of 12 ordinary LibreOffice exports with an overflowing note; 22 of 81 rule positions in the sweep.
+- Fix (prototyped, numbers above): in `_text_overflows`, refuse when one PDF text object holds characters in two different cells (`raw.FPDFText_GetTextObject(textpage.raw, index)`, compared as `ctypes.cast(..., c_void_p).value`). Remove or rebuild the run-gap check on the baseline (`FPDFText_GetCharOrigin` y), not the box centre. Tests: the two LibreOffice notes above, and a hand-drawn grid with the rule in a word space and between two glyphs (`r2_overflow_sweep.py` first-column widths 34 and 29: `["Paid in", "full on delivery"]`, `["Paid i", "n full on delivery"]`): each refused; FRUIT still delivered.
+
+**R2-M1 MEDIUM: a table whose columns are only partly ruled is delivered with two columns joined in one cell.** [Certain]
+- Where: `geometry.find_grids` / pdfplumber accept the ruled grid; nothing looks for unruled columns inside a cell. The design's backlog line now names it ("read as ruled").
+- Scenario (q03, reportlab `BOX` + `LINEBELOW` + `LINEAFTER` on the first column only, a common statement layout): PDF shows Name | Qty | Price; delivered `Name`, `Qty Price`; `Apple`, `10 2.50`. The follow-up dedupe runs on the joined text.
+- Reply (all speakers): "Done — extracted the table: 2 columns, a first row and 3 rows below it. ... Every cell holds the text read from the PDF's text layer". Not false, but presents a table the PDF doesn't show.
+- Reachable: ordinary request; a layout less common than a full grid.
+- Fix (prototyped): in `verify`, group each cell's characters by baseline and refuse when two neighbouring characters are more than 1.5 x the font size apart (`FPDFText_GetFontSize`), with its own reason (for example `columns_not_ruled`: "some of the table's columns aren't ruled, and only tables with a border around every cell are supported for now"). `A  B` / `x   y` (double spaces) still delivered in the prototype. Test with q03's file.
+
+**R2-M2 MEDIUM: "extract the table and give me a report" on a PDF does nothing, and the reply's reasons are wrong.** [Certain] with the fake planner; [Likely] with the real one (`report_on_file` maps to `spreadsheet.analyze`, planned on the PDF).
+- Where: `buddy/hands.py` (the analysis step on a PDF can't be dispatched, so the chain doesn't start); `buddy/voice.py` renders `errors` as a sentence.
+- Reply (q04/p13, every speaker): "I ran into a problem before I could change anything. analyze couldn't be run because no available skill can do it. I didn't produce the report you asked for, since no file was handed back. I stopped at the analyze step, so extract table never ran ..." A skill that analyses exists (it reads spreadsheets); the report is missing because the analysis can't read a PDF, not because no file was handed back; the extraction could have run. The sentence also starts with the lowercase internal name "analyze".
+- Fix: don't plan `spreadsheet.analyze` on a PDF target. Run the extraction, and either analyse the extracted sheet (the decided "re-run on the final file") or say the report can't be made from a PDF (`report_unavailable_sentence`) while still handing the table back. *For the owner:* this is the extraction counterpart of the confirmed "remove the duplicate rows and then give me a report"; confirm which of the two you want. Test: q04 delivers the table and names the report's fate in words a person would use.
+
+**R2-M3 MEDIUM (security, not reachable by an ordinary request): the worker can still reach the server process.** [Certain] for what code in the worker can do; [Possible] that a parser is taken over.
+- Where: `skills/pdf/_worker/lockdown.py`.
+- With Landlock (this kernel, ABI 7): `kill(getppid(), …)` succeeds (a taken-over parser can kill the server) and `pidfd_open` on it succeeds. Landlock's ptrace rule is what blocks `pidfd_getfd`.
+- Without Landlock (the case the design and `python -m skills.pdf` let through with a warning): `pidfd_getfd` takes the server's connected socket and writes to it (the peer received `EXFIL-FROM-WORKER`), takes its listening socket, and reads the server's `/proc/<pid>/environ` (the API keys). The warning says "It still has no network", which is then untrue.
+- Fix: refuse `pidfd_open`, `pidfd_getfd`, `pidfd_send_signal` (434, 438, 424 on both architectures) in the filter; allow `kill`/`tkill`/`tgkill` only on the worker's own pid (or add Landlock's signal scope where ABI ≥ 6). Fix the warning's wording, and settle with the owner whether a missing Landlock should refuse PDFs. Tests: from inside the worker, `pidfd_getfd` on a parent socket and `kill(getppid(), 0)` are refused, with and without `confine_filesystem`.
+
+### Design deviations
+
+1. Decision 4 says no character "runs past the border of the cell it starts in" once verified. R2-H1 shows it does.
+2. Sandbox section: "Where Landlock is missing the worker still parses (everything above holds)". The seccomp list holds, but "no network" doesn't (R2-M3).
+3. "What it does not do" now says a partly ruled table is "read as ruled": a known wrong table, at odds with backlog §7's "the reply says only what two parsers agreed on and the character check allowed" (R2-M1).
+
+### Deferred (LOW; added to `docs/backlog.md`)
+
+- **R2-L1 (tests):** mutations r18 (no Landlock: both filesystem tests skip instead of failing, so a broken `confine_filesystem` or a CI kernel without it passes silently), r19 (`process_vm_readv/writev` allowed), r10 and r12 (the analysis skill and the loose-duplicate verifier read converted), r22 (= m14), r08 (step summary = `str(exc)`; not shown to the person today) survive. The x32 test passes on `e841088` because the mode is missing there.
+- **R2-L2:** under Landlock the worker can still `chmod` a file whose path it knows (0444 to 0666; bytes unchanged). It is given no path and can't list folders.
+- **R2-L3:** `tests/skills/pdf/test_hostile_pdfs.py::test_active_content_in_a_pdf_is_never_followed` failed once while the machine was fully loaded (suite, harness and mutations at once); it passes alone and in the full suite. [Possible] timing flake.
+- Round 1's L1-L7 are still open and still in the backlog (L4's values-only sentence and L5's internal reason seen again in p01 and p05).
+
+### Not run
+
+- Live runs with Groq: not this reviewer's step.
+- The production image (no container runtime here): whether Docker's default seccomp profile lets `landlock_*` through, so whether production gets Landlock or the R2-M3 fallback. Run `python -m skills.pdf` in the container.
+- arm64: the filter's arm64 numbers, and `clone`'s flags argument there.
+- PDFs from Word, Excel or browsers (only reportlab, hand-written and LibreOffice). Whether a generator that draws a whole row in one text object exists among them: with the prototype fix it would be refused, not mis-delivered.

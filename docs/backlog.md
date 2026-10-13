@@ -411,6 +411,12 @@ From `docs/reviews/feat-pdf-extract-review.md` (LOW).
 - **pdf-extract L7:** Hebrew and Arabic tables are always refused (the two readings disagree on order).
 - **pdf-extract L8 (tests):** mutations m13 and m14 (Inspector and empty-rows skill without `dtype=object`), m04 and m23 survive the suite.
 
+## feat/pdf-extract review round 2: deferred
+From `docs/reviews/feat-pdf-extract-review.md`, "Review round 2" (LOW).
+- **pdf-extract R2-L1 (tests):** mutations survive: no Landlock (the two filesystem tests skip rather than fail), `process_vm_readv/writev` allowed, the analysis skill and the loose-duplicate verifier reading converted cells, the empty-rows skill without `dtype=object` (m14), the step summary holding `str(exc)`. The x32 test passes on code that lacks the mode.
+- **pdf-extract R2-L2:** under Landlock the worker can still `chmod` a file whose path it knows (bytes unchanged; it is given no path and can't list folders).
+- **pdf-extract R2-L3:** `test_hostile_pdfs.py::test_active_content_in_a_pdf_is_never_followed` failed once on a fully loaded machine; possible timing flake.
+
 ## feat/follow-up-turns review round 1: deferred
 - **follow-up-turns F3 (Low, tests):** no test fails when `_offer`'s integrity entries (delivered file, turn's copy), `_restore_upload_focus`'s `analyzed_files` filter, or `_finalize`'s outcome guard on `file_used` are removed (mutations survive; the filter's removal makes the session unreadable after a restart). See `docs/reviews/feat-follow-up-turns-review.md`.
 - **follow-up-turns F4 (Low):** the Files-panel line names a copy that has become unreadable; a copy is re-analysed every turn so leftover findings repeat; integrity-failure text says "your original file" for a delivered file or the turn's copy; `file_used: null` is written on every finished turn (a rollback makes those sessions unreadable).

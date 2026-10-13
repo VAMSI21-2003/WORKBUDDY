@@ -19,3 +19,22 @@ Shared (not edited): `python ../harness.py --out out/h_head.json` and `--tree <b
 then `python ../feat-reply-quality/cmp_harness.py out/h_base.json out/h_head.json`.
 
 The counts and the cases quoted are in `docs/reviews/feat-pdf-extract-review.md`.
+
+## Round 2 (head `37e65eb`)
+
+Same setting. New scripts (the round-1 ones above are reused unchanged):
+
+    python r2_overflow_sweep.py [--text T] [--step 1]   # hand-drawn grid, a sentence run into the empty next cell; the first
+                                                        # column's width swept so the rule lands everywhere in it: how many
+                                                        # widths would be delivered split (verifier passes)
+    python r2_lo_overflow.py                            # the same with 12 LibreOffice Calc exports (note longer than its column,
+                                                        # next cell empty)
+    python r2_pipeline.py [qNN ...]                     # q01-q06 through the app, three speakers (overflow, partial column rules,
+                                                        # extract + report, one row, header only)
+    python r2_sandbox.py [--no-landlock]                # the full lockdown + Landlock, as main.py applies it; then: another
+                                                        # upload, chmod, the server's environ, signals, pidfd_getfd on the
+                                                        # server's sockets, io_uring, clone, unshare, memfd, /tmp
+    python r2_mutations.py $WT [name ...]               # 20 one-place mutations of the round-1 fixes
+
+To check a prototype fix, copy the `r2_*.py` files into a throwaway worktree's copy of this folder and run them there
+(they import the product code from the tree they sit in).
