@@ -16,4 +16,4 @@ Not fixed, not hidden: R2-L2, R2-L3, and round 1's L1 to L7 (all in `docs/backlo
 ## Checks
 
 - `python scripts/check_ruff_baseline.py`: nothing beyond the baseline.
-- Full suite: FULL_SUITE_RESULT
+- Full suite on the fixed head: 3590 passed, 7 skipped, 794 s.
