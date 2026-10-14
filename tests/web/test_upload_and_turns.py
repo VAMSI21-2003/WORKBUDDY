@@ -53,8 +53,8 @@ def test_an_upload_re_renders_the_list_with_the_servers_name_and_names_the_next_
         "p", id="next-file"
     ).text()
     form = panel.find("form", id="upload-form")
-    assert form is not None and form.find("input", type="file").get("accept") == ".xlsx"  # type: ignore[union-attr]
-    assert "Accepts .xlsx up to 2 MB." in first.text
+    assert form is not None and form.find("input", type="file").get("accept") == ".xlsx,.pdf"  # type: ignore[union-attr]
+    assert "Accepts .xlsx, .pdf up to 2 MB." in first.text
     after = parse(second.text)
     rows = after.find_all(
         "li", where=lambda e: e.find("span", **{"class": "file-name"}) is not None
@@ -72,14 +72,20 @@ def test_an_upload_re_renders_the_list_with_the_servers_name_and_names_the_next_
 @pytest.mark.parametrize(
     ("name", "data", "status", "code", "message"),
     [
-        ("notes.txt", b"hello", 415, "unsupported_file_type", "Only .xlsx files can be uploaded."),
+        (
+            "notes.txt",
+            b"hello",
+            415,
+            "unsupported_file_type",
+            "Only .xlsx and .pdf files can be uploaded.",
+        ),
         ("old.xls", b"\xd0\xcf\x11\xe0", 415, "unsupported_file_type", XLS_MESSAGE),
         (
             "broken.xlsx",
             b"not a workbook",
             422,
             "invalid_file",
-            "That file is empty or isn't a valid .xlsx workbook.",
+            "That file is empty or isn't a valid .xlsx workbook or PDF.",
         ),
         (
             "two.xlsx",

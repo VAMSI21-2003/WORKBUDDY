@@ -302,13 +302,18 @@ class Hands:
                     state.session_id,
                     exc,
                 )
-                errors.append(str(exc))
+                # Fixed text: the exception's own words name the task (its session id) and
+                # reach the reply through ``errors``.
+                couldnt_run = (
+                    f"{request.capability} couldn't be run because no available skill can do it"
+                )
+                errors.append(couldnt_run)
                 step_results.append(
                     StepResult(
                         capability=request.capability,
                         skill="",
                         status=SkillStatus.FAILURE.value,
-                        summary=str(exc),
+                        summary=couldnt_run,
                         input_reference=input_reference,
                         failure_reason="couldn't be run because no available skill can do it",
                     )

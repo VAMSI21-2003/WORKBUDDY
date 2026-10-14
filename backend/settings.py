@@ -29,9 +29,10 @@ DEFAULT_MAX_UPLOAD_BYTES = 2 * MIB
 # headers, boundaries). Anything beyond this is cut off before parsing.
 BODY_OVERHEAD_BYTES = 64 * 1024
 
-# Owner decision (design "Decisions (2026-10-04)"): ``.xlsx`` only. This is
-# the upload validator's allowlist itself, not a copy of it.
-ACCEPTED_EXTENSIONS: tuple[str, ...] = (".xlsx",)
+# Owner decision (design "Decisions (2026-10-04)"): ``.xlsx`` only, and ``.pdf`` since the PDF
+# skill (``docs/design/pdf-extract.md``). This is the upload validator's allowlist itself, not a
+# copy of it.
+ACCEPTED_EXTENSIONS: tuple[str, ...] = (".xlsx", ".pdf")
 
 # The longest a plan may wait for its answer: an hour.
 MAX_CONFIRMATION_TIMEOUT_S = 3600
@@ -391,7 +392,7 @@ class Settings:
 
     @property
     def accepted_extensions(self) -> tuple[str, ...]:
-        """The upload extensions accepted: ``.xlsx`` only (owner decision)."""
+        """The upload extensions accepted: ``.xlsx`` (owner decision) and ``.pdf``."""
         return ACCEPTED_EXTENSIONS
 
     @property

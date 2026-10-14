@@ -90,7 +90,7 @@ _CAPABILITY_DOMAINS = sorted(
     {c.split(".", 1)[0] for c in (*INTENT_CAPABILITIES.values(), "spreadsheet.analyze")}
 )
 _CAPABILITY_ID = re.compile(
-    r"\b(?:" + "|".join(map(re.escape, _CAPABILITY_DOMAINS)) + r")\.(?!(?:xlsx|xlsm|xls|csv)\b)"
+    r"\b(?:" + "|".join(map(re.escape, _CAPABILITY_DOMAINS)) + r")\.(?!(?:xlsx|xlsm|xls|csv|pdf)\b)"
     r"[a-z_]+\b"
 )
 

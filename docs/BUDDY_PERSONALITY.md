@@ -304,7 +304,7 @@ why, in fixed text chosen by code, and never claims work:
 - When Think needs to ask, the user sees a fixed question for Think's reason
   ("Do you want me to remove duplicate rows, remove empty rows, or both?"),
   never Think's own words.
-- With no file: "I don't have a file to work on yet. Upload a spreadsheet and ask
+- With no file: "I don't have a file to work on yet. Upload a spreadsheet or a PDF and ask
   again." With a file the skills refuse: "I can't work on this file:" and the
   refusal's own text (more than one sheet, merged cells, a header that isn't on
   the first row, cells such as N/A, password-protected, older .xls).

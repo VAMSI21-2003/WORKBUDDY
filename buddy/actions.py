@@ -25,6 +25,7 @@ from dataclasses import dataclass
 from buddy.models import (
     DUPLICATE_ROWS_TARGET,
     EMPTY_ROWS_TARGET,
+    EXTRACTED_TABLE_TARGET,
     FILE_LATEST,
     FILE_ORIGINAL,
     LEDGER_FROM_BRAIN,
@@ -53,6 +54,13 @@ class Action:
         mention: Finds the action's object in a user's message (English only), or
             ``None`` for an action only Brain's reading can put in the ledger.
         changes_file: Whether carrying it out changes the file (the report doesn't).
+        removes_rows: Whether it works by removing rows, so the reply counts the rows it
+            removed and the rows left (``rows``, ``row_noun``). Extracting a table doesn't.
+        extracts_table: Whether it makes a spreadsheet out of a table in a PDF, so the reply
+            names the PDF and counts the table's rows and columns, not rows removed.
+        reads_upload: Whether it reads the person's upload, never a copy Buddy handed back
+            earlier (``buddy.source.choose_file``): a PDF's table is taken from the PDF, and the
+            copy of an upload is a spreadsheet no PDF skill can read.
     """
 
     name: str
@@ -65,6 +73,9 @@ class Action:
     step: str
     mention: re.Pattern[str] | None
     changes_file: bool = True
+    removes_rows: bool = True
+    extracts_table: bool = False
+    reads_upload: bool = False
 
 
 ACTIONS: tuple[Action, ...] = (
@@ -97,6 +108,22 @@ ACTIONS: tuple[Action, ...] = (
         step="empty-row removal",
         mention=re.compile(r"\b(empty|blank)[\s-]+(rows?|lines?)\b", re.IGNORECASE),
     ),
+    # Taking the one plain table out of a PDF into a new spreadsheet. No mention pattern: only
+    # Brain's reading puts it in the ledger, so no word list decides that a message asks for it.
+    Action(
+        name="extract_pdf_table",  # EXTRACT_PDF_TABLE
+        capability="pdf.extract_table",
+        target=EXTRACTED_TABLE_TARGET,
+        request="extract the table from the PDF",
+        object="the table from a PDF",
+        rows="",
+        row_noun="",
+        step="table extraction",
+        mention=None,
+        removes_rows=False,
+        extracts_table=True,
+        reads_upload=True,
+    ),
     # The report: the analysis findings, labelled as the report. No file changes and no mention
     # pattern, so the mention detector can never add or confirm one.
     Action(
@@ -117,6 +144,9 @@ ACTIONS: tuple[Action, ...] = (
 # analysis or overview of the file.
 REPORT_ON_FILE = "report_on_file"
 
+# The name of the action that takes a table out of a PDF: Brain's intent and requested action.
+EXTRACT_PDF_TABLE = "extract_pdf_table"
+
 # A request Brain recognised as an action Buddy has no capability for.
 UNSUPPORTED = "unsupported"
 
@@ -131,7 +161,11 @@ ACTION_VOCABULARY = frozenset({a.name for a in ACTIONS} | {UNSUPPORTED})
 
 ACTIONS_BY_NAME: dict[str, Action] = {a.name: a for a in ACTIONS}
 ACTIONS_BY_CAPABILITY: dict[str, Action] = {a.capability: a for a in ACTIONS}
-ACTIONS_BY_TARGET: dict[str, Action] = {a.target: a for a in ACTIONS if a.target}
+# Only the actions whose target is a count of rows in the file: the reply states what is left of
+# them in a copy (``buddy.outcome``).
+ACTIONS_BY_TARGET: dict[str, Action] = {
+    a.target: a for a in ACTIONS if a.target and a.removes_rows
+}
 
 # Brain intent -> the capability the planner runs for it (single-action intents that change a
 # file only; the report is planned as the analysis, not by this table).

@@ -317,3 +317,39 @@ def test_a_brain_that_does_not_resume_keeps_the_turns_message() -> None:
     Brain(OwnRequest())(state)
 
     assert state.user_message == "remove the empty rows in a.xlsx"
+
+
+# -- A PDF is a file of the session like a workbook -------------------------------------------
+
+WITH_PDF = ["fruit.pdf", "messy-data.xlsx", "fruit_table.xlsx"]
+
+
+@pytest.mark.parametrize(
+    "message",
+    [
+        "fruit.pdf",
+        "extract the table from fruit.pdf",
+        "FRUIT.PDF",
+        "extract the table from fruti.pdf",
+        "'fruit.pdf'",
+        "(fruit.pdf).",
+    ],
+)
+def test_a_pdf_named_with_or_without_a_slip_matches_the_file(message: str) -> None:
+    found = match_file_name(message, WITH_PDF)
+    assert found.indices == (0,) and not found.unclear and not found.unknown
+
+
+def test_a_pdf_name_that_matches_no_file_is_unknown() -> None:
+    found = match_file_name("extract the table from sales.pdf", WITH_PDF)
+    assert found.unknown and found.indices == ()
+
+
+def test_a_pdf_and_its_extracted_spreadsheet_are_told_apart() -> None:
+    assert match_file_name("fruit_table.xlsx", WITH_PDF).indices == (2,)
+    assert match_file_name("fruit.pdf", WITH_PDF).indices == (0,)
+
+
+def test_a_word_that_ends_in_pdf_but_has_no_stem_is_not_a_file_name() -> None:
+    for message in ("convert it to pdf", "make a pdf", "save as .pdf", "a pdf."):
+        assert not match_file_name(message, WITH_PDF).unknown, message

@@ -24,14 +24,16 @@ WORKDIR /app
 # reinstall it. Every package is pinned with its hashes (requirements-runtime.lock; refresh it on
 # purpose with scripts/refresh_locks.py), so pip resolves nothing: a build today and a build next
 # year install the same files, or fail. --no-deps and --require-hashes make pip refuse anything the
-# lock doesn't list. Behind a proxy that inspects TLS, build with
+# lock doesn't list. --retries and --timeout ride out a download that hiccups (one build on the VM
+# failed with exit code 2 and passed on the retry); they change what pip waits for, not what it
+# installs. Behind a proxy that inspects TLS, build with
 #   docker build --secret id=pip_ca,src=/path/to/ca-bundle.pem .
 # and pip trusts that bundle for this one step. Without the secret nothing changes, and the
 # bundle is never written into the image.
 COPY requirements-runtime.lock .
 RUN --mount=type=secret,id=pip_ca,required=false \
     if [ -f /run/secrets/pip_ca ]; then export PIP_CERT=/run/secrets/pip_ca; fi \
-    && pip install --require-hashes --no-deps -r requirements-runtime.lock \
+    && pip install --retries 10 --timeout 60 --require-hashes --no-deps -r requirements-runtime.lock \
     && pip check
 
 # The server and the pipeline. Templates and static files are part of backend/web.

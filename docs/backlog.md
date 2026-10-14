@@ -386,6 +386,48 @@ Each item has its own acceptance criterion: fixed with a test, or explicitly clo
 
 `pyproject.toml` required Python 3.13 (`requires-python = ">=3.13"`), but cloud sessions default to Python 3.11.
 
+## 7. The PDF skill: what the first version leaves out (`feat/pdf-extract`, `docs/design/pdf-extract.md`)
+
+Each of these is a refusal today (a fixed sentence, no file). *Rounds 1 and 2 found that this was not true of some cases and fixed them (text past a cell's border, NFKC, columns that aren't ruled); see `docs/reviews/feat-pdf-extract-fixes1.md` and `-fixes2.md`. Other cases may still exist: the claim to hold is that the reply says only what two parsers agreed on and the layout check allowed. Not checked: text hidden by a clip or a box, invisible text (reviewer L3).*
+
+- **A table that continues over several pages** is counted as several tables and refused. Joining the pieces (and the header a page repeats) needs a rule for which blocks are one table; the verifier would need the same rule independently.
+- **A table without ruling lines** (aligned text). Telling it from a paragraph is a judgement; both parsers would have to agree on it.
+- **Scanned PDFs** (OCR), **password-protected PDFs**, **choosing which table or pages**, **typed cells** (numbers and dates instead of text).
+- **"Extract the table and then remove the duplicates" in one message** does not start: Hands routes every step against the first step's input, and the cleaning skills can't read a PDF. The follow-up as a second message works. Carrying a type change from the PDF to the sheet through a chain is a change to `Hands._routes` and `_why_output_cant_feed_the_chain` (rule-touching).
+- **Drawing inside a form XObject.** The second reading looks at the paths on the page itself (`max_depth=0`); a PDF that draws its table's rules inside a form XObject is read by pdfplumber but not by the check, so it fails verification and is refused. Handling the form's transform is the fix.
+- **Pages with `/Rotate`.** Refused (the two readings disagree), in internal wording (reviewer L2).
+- **Cells such as `N/A`, `NA`, `null`** (common in PDF tables). The extracted sheet keeps them, but the follow-up cleaning skills refuse a sheet with such text (`docs/design/values-only-copy.md`, R1-1), so "now remove the duplicates" on that sheet is refused with the existing sentence. The fix belongs with backlog 1b (keep cells as they are).
+- **Where the sandbox can't be built** (not Linux, a runtime that refuses `prctl`), PDFs are refused. Run `python -m skills.pdf` on the server after a release. Windows development machines skip the PDF tests.
+- **Concurrency**: one PDF worker at a time in the server (it was two until `feat/pdf-extract` round 4), 1 GiB of address space, and the app container is capped at 2 GB; a dense-text 20-page PDF used about 0.7 GiB resident and 12 s on the machine this was built on (`docs/reviews/feat-pdf-extract-impl.md`, "Parser process: peak memory"). Two people reading PDFs at the same moment: the second waits up to 15 s and is then told PDF reading is busy. Revisit when the VM is sized (a 2 GB VM cannot give the app a 2 GB limit, `docs/deploy.md`).
+- **Analyse the extracted sheet (owner's decision, round 4: keep today's behaviour for now).** "Extract the table and give me a report" on a PDF hands back the table and says no report was made (the analysis is not planned on a PDF). The decided rule says the analysis is re-run on the final file, which here would be the extracted sheet; doing that means planning `spreadsheet.analyze` after the extraction and having Hands carry the type change from the PDF to the sheet (the same change as the chain item above). Today the person asks for the report in a second message, on the delivered sheet.
+- **Tables with tight auto-fit columns** (LibreOffice Writer's, 0.30 to 0.35 em from the neighbouring cell) are refused as text too close to a border: a refusal, never a wrong table, because no threshold separates such a gap from a word space cut by a rule (round 3, R3-H1). Accepting them needs another signal, not a smaller number.
+
+## feat/pdf-extract review round 1: deferred
+From `docs/reviews/feat-pdf-extract-review.md` (LOW).
+- **pdf-extract L1:** an upload refused because the workers are busy or slow gets 422 "That file is empty or isn't a valid .xlsx workbook or PDF." (`backend/uploads.py` `check_pdf`). Busy and timeout need their own retry message.
+- **pdf-extract L2:** a landscape (`/Rotate`) table is refused with internal wording ("the spreadsheet is 3 rows by 2 columns, larger than the PDF's table as a second reading found it (2 by 3)").
+- **pdf-extract L3:** invisible text (render mode 3) and text under a white box are delivered into cells that look empty in the PDF.
+- **pdf-extract L4:** the values-only sentence ("The copy has the values only; ... sheet settings ...") is said of a table taken from a PDF.
+- **pdf-extract L5:** a text cell `=1+1` makes the follow-up dedupe write a formula; the Inspector stops it, but the reply's reason is internal.
+- **pdf-extract L6:** dedupe asked on a PDF says "no available skill can do it" rather than "extract the table first".
+- **pdf-extract L7:** Hebrew and Arabic tables are always refused (the two readings disagree on order).
+- **pdf-extract L8 (tests):** mutations m13 and m14 (Inspector and empty-rows skill without `dtype=object`), m04 and m23 survive the suite.
+
+## feat/pdf-extract review round 2: deferred
+From `docs/reviews/feat-pdf-extract-review.md`, "Review round 2" (LOW).
+- **pdf-extract R2-L1 (tests):** mutations survive: no Landlock (the two filesystem tests skip rather than fail), `process_vm_readv/writev` allowed, the analysis skill and the loose-duplicate verifier reading converted cells, the empty-rows skill without `dtype=object` (m14), the step summary holding `str(exc)`. The x32 test passes on code that lacks the mode.
+- **pdf-extract R2-L2:** under Landlock the worker can still `chmod` a file whose path it knows (bytes unchanged; it is given no path and can't list folders).
+- **pdf-extract R2-L3:** `test_hostile_pdfs.py::test_active_content_in_a_pdf_is_never_followed` failed once on a fully loaded machine; possible timing flake. **Not a flake, and fixed in round 4** (`feat-pdf-extract-fixes3.md`, item 8): the test bound port 9, which only root may; it failed on GitHub's non-root runner and silently ran as root elsewhere.
+
+## feat/pdf-extract review round 3: deferred
+From `docs/reviews/feat-pdf-extract-review.md`, "Review round 3" (LOW).
+- **pdf-extract R3-L1:** a report asked on a PDF (alone or with the extraction) is answered "I couldn't produce the report you asked for: I didn't run the analysis." without the reason (a PDF can't be analysed) or the way forward (extract the table first).
+- **pdf-extract R3-L2 (tests; s02, s10-s13 and s16 are guarded in round 4, `feat-pdf-extract-fixes3.md`; s07 and s08 are still open):** mutations survive: the cross-cell run check removed, the planner's dependency and active-file handling in `_drop_analysis`/`_is_analyzable`, `tgkill`/`tkill`/`rt_sigqueueinfo`/`pidfd_send_signal` allowed (not in `selftest`), the release check passing without Landlock. `test_one_string_drawn_across_two_cells...` passes on code without the fix.
+
+## feat/pdf-extract review round 4: deferred
+From `docs/reviews/feat-pdf-extract-review.md`, "Review round 4" (LOW).
+- **pdf-extract R4-L1 (tests):** no test writes a PDF's text with a scaled matrix (`1 Tf` and the size in `Tm`, as macOS Quartz and cairo do, or a scaled `cm`), which is how R4-H1 got through; mutations n05 (the object rule off) and n07 (tight glyph boxes instead of advance boxes) survive every test.
+
 ## feat/follow-up-turns review round 1: deferred
 - **follow-up-turns F3 (Low, tests):** no test fails when `_offer`'s integrity entries (delivered file, turn's copy), `_restore_upload_focus`'s `analyzed_files` filter, or `_finalize`'s outcome guard on `file_used` are removed (mutations survive; the filter's removal makes the session unreadable after a restart). See `docs/reviews/feat-follow-up-turns-review.md`.
 - **follow-up-turns F4 (Low):** the Files-panel line names a copy that has become unreadable; a copy is re-analysed every turn so leftover findings repeat; integrity-failure text says "your original file" for a delivered file or the turn's copy; `file_used: null` is written on every finished turn (a rollback makes those sessions unreadable).

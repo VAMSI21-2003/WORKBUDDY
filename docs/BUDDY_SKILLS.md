@@ -283,6 +283,8 @@ confirmation" rule defined in `BUDDY_PERSONALITY.md`.
 | Chart Specialist | Builds charts and visualizations from data | Write | "Turn this table into a bar chart" |
 | Calendar Specialist | Creates, updates, or checks calendar events | External Effect | "Block an hour tomorrow to prep for this" |
 
+The PDF Specialist's first skill, `pdf.extract_table` (`docs/design/pdf-extract.md`), is Write tier although the row above says Read: it reads the PDF without changing it, but it hands back a **new spreadsheet**, and the pipeline's chain, verification and "a file was changed" rules follow the tier. A skill that only reads a PDF and returns text would be Read.
+
 ## 17. Example Execution Flow
 
 Walking through: *"Buddy, I have a meeting tomorrow. Can you make this

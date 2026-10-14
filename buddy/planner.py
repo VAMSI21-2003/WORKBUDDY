@@ -244,6 +244,12 @@ class ProactiveAnalysisPlanner:
             for index, file_reference in enumerate(request.unanalyzed_spreadsheet_files)
         )
         inner_steps = self._inner(request)
+        if not _is_analyzable(request):
+            # The analysis reads a spreadsheet. On a PDF (or any other file) no step could run
+            # it, and a plan holding one never starts: a step an inner strategy planned for a
+            # report is dropped, the rest of the plan is kept, and the reply says the report
+            # wasn't produced (the report is Brain's action and stays in the ledger).
+            return _drop_analysis(inner_steps)
         if analysis_steps:
             inner_steps = _drop_redundant_analysis(inner_steps, analysis_steps[0].id)
         return analysis_steps + _analysis_first(inner_steps)
@@ -274,6 +280,25 @@ def cleaning_refusal(file_reference: str) -> str | None:
         return plain_table_problem(file_reference)
     except WorkbookRefused as refused:
         return str(refused)
+
+
+def _is_analyzable(request: PlanningRequest) -> bool:
+    """Whether the file this turn's steps read (the one ``MechanicalDelegator`` resolves) is a
+    spreadsheet the analysis can read. With no file at all there is nothing to rule out."""
+    target = request.active_file or (
+        request.uploaded_files[-1] if request.uploaded_files else None
+    )
+    return target is None or target.lower().endswith(_SUPPORTED_ANALYSIS_EXTENSIONS)
+
+
+def _drop_analysis(steps: tuple[PlanningStep, ...]) -> tuple[PlanningStep, ...]:
+    """``steps`` without any analysis step; a dependency on a dropped step is dropped too."""
+    dropped = {step.id for step in steps if step.capability == _ANALYZE_CAPABILITY}
+    return tuple(
+        replace(step, dependencies=tuple(d for d in step.dependencies if d not in dropped))
+        for step in steps
+        if step.id not in dropped
+    )
 
 
 def _drop_redundant_analysis(

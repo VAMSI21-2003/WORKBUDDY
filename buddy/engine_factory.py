@@ -12,6 +12,7 @@ from buddy.inspector import (
     CompositeVerifier,
     Inspector,
     OriginalMeasurer,
+    PdfTableVerifier,
     ResidualMeasurer,
     SpreadsheetAnalysisVerifier,
     SpreadsheetDedupeVerifier,
@@ -30,6 +31,7 @@ from buddy.voice import Speaker, TemplateSpeaker, Voice
 from core.dispatcher import Dispatcher
 from core.engine import CognitiveCycle, Engine
 from skills.excel import ExcelDeduplicateSkill, ExcelRemoveEmptyRowsSkill, SpreadsheetAnalysisSkill
+from skills.pdf import PdfExtractTableSkill
 from skills.registry import SkillRegistry
 
 logger = logging.getLogger(__name__)
@@ -73,6 +75,7 @@ def _build_registry() -> SkillRegistry:
     registry.register(ExcelDeduplicateSkill())
     registry.register(ExcelRemoveEmptyRowsSkill())
     registry.register(SpreadsheetAnalysisSkill())
+    registry.register(PdfExtractTableSkill())
     return registry
 
 
@@ -143,6 +146,7 @@ def build_engine(
             "spreadsheet.deduplicate": SpreadsheetDedupeVerifier(),
             "spreadsheet.remove_empty_rows": SpreadsheetEmptyRowsVerifier(),
             "spreadsheet.analyze": SpreadsheetAnalysisVerifier(),
+            "pdf.extract_table": PdfTableVerifier(),
         }
     )
 

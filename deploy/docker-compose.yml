@@ -29,7 +29,10 @@ services:
       # Sessions, uploads and delivered files. A named volume keeps them across releases and
       # carries the image's ownership (user 10001) with it.
       - workbuddy-data:/data
-    mem_limit: 1g
+    # The server, plus one PDF worker at a time (up to 1 GiB of address space; a dense PDF measured
+    # 706 MiB resident). The worker asks the kernel to stop it first (oom_score_adj 1000), so if
+    # the limit is hit the worker dies, not the server.
+    mem_limit: 2g
     logging: &log-rotation
       driver: json-file
       options:

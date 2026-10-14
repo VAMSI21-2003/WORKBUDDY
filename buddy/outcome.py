@@ -265,6 +265,9 @@ class OutcomeReport:
             the values-only copy can't keep (``VerificationResult
             .original_facts``), or ``None`` if nothing was measured. The
             formulas sentence is built from it and from nothing else.
+        table_extracted: A step that takes a table out of a PDF ran and passed its check this
+            turn (``Action.extracts_table``). The file handed back is then a new spreadsheet,
+            not a cleaned copy of the upload, and holds text only.
     """
 
     actions: tuple[ActionOutcome, ...]
@@ -276,6 +279,7 @@ class OutcomeReport:
     output_names: tuple[str, ...] = ()
     open_findings: int = 0
     original_facts: OriginalFacts | None = None
+    table_extracted: bool = False
 
     @property
     def request_complete(self) -> bool:
@@ -464,6 +468,11 @@ def build_outcome_report(
         open_findings=open_findings,
         original_facts=(
             verification_result.original_facts if verification_result is not None else None
+        ),
+        table_extracted=any(
+            ACTIONS_BY_CAPABILITY[step.capability].extracts_table
+            for step, _ in passed
+            if step.capability in ACTIONS_BY_CAPABILITY
         ),
     )
 
@@ -733,7 +742,9 @@ def render_outcome(report: OutcomeReport, file_style: str) -> str:
     # Said whenever a file was handed back (this block is only rendered for a
     # verified delivery), right after the file sentence: the copy is values only,
     # whatever the original held.
-    sentences.extend(_values_only_sentences(report.original_facts))
+    sentences.extend(
+        _values_only_sentences(report.original_facts, table_extracted=report.table_extracted)
+    )
     return " ".join(sentences)
 
 
@@ -789,6 +800,8 @@ def _action_sentence(action: ActionOutcome) -> str:
     measurement = action.measurement
     if wording is None:
         return f"The {_describe_capability(action.capability)} step ran and passed its check."
+    if wording.extracts_table:
+        return _extraction_sentence(wording.step, measurement)
     if measurement is None or measurement.removed is None:
         return f"The {wording.step} ran and passed its check."
     if measurement.removed == 0:
@@ -798,6 +811,24 @@ def _action_sentence(action: ActionOutcome) -> str:
         return f"There were no {wording.rows}{left} to remove."
     clause = _removed_clause(measurement, wording.row_noun)
     return clause[0].upper() + clause[1:] + "."
+
+
+def _extraction_sentence(step: str, measurement: StepMeasurement | None) -> str:
+    """The sentence for a table taken out of a PDF: its size as the verifier read it.
+
+    The counts are the rows and columns of the delivered spreadsheet, read fresh by the
+    Inspector after the table was read again from the PDF with a second parser and every cell
+    matched. Without a measurement the sentence states no count.
+    """
+    if measurement is None or measurement.columns is None:
+        return f"The {step} ran and passed its check."
+    # Counted the way the cleaning replies count: the first row is the header, and "rows" are the
+    # ones below it, so "4 rows below it" and a later "removed 1 duplicate row, 3 rows left" add up.
+    below = measurement.output_rows - 1
+    columns = count_noun(measurement.columns, "column")
+    if below <= 0:
+        return f"Extracted the table: {columns} and a first row, with no rows below it."
+    return f"Extracted the table: {columns}, a first row and {count_noun(below, 'row')} below it."
 
 
 _NOT_IN_READING = "though I didn't read that as part of your request"
@@ -903,14 +934,27 @@ FORMULAS_UNCHECKED_SENTENCE = (
 )
 
 
-def _values_only_sentences(original_facts: OriginalFacts | None) -> list[str]:
+# What a spreadsheet made from a PDF's table holds: the words the PDF prints, as text.
+TABLE_TEXT_SENTENCE = (
+    "Every cell holds the text read from the PDF's text layer; numbers and dates are not "
+    "converted."
+)
+
+
+def _values_only_sentences(
+    original_facts: OriginalFacts | None, *, table_extracted: bool = False
+) -> list[str]:
     """What the copy doesn't keep: always the values-only sentence, the formulas one if measured.
+
+    After a table was taken out of a PDF, one more sentence says its cells are text.
 
     The formulas sentences come only from the Inspector's own read of the
     original (``OriginalFacts``): none when it has no formulas or nothing was
     measured, and a plain "couldn't check" when the read failed.
     """
     sentences = [VALUES_ONLY_SENTENCE]
+    if table_extracted:
+        sentences.append(TABLE_TEXT_SENTENCE)
     if original_facts is None:
         return sentences
     formulas = original_facts.formula_cells
@@ -949,6 +993,8 @@ def _file_sentence(report: OutcomeReport, file_style: str) -> str:
     if file_style == FILE_STYLE_PLAIN:
         if report.delivered_file is None:
             return ""
+        if report.table_extracted:
+            return f"The table from {report.delivered_file} is in a new spreadsheet, ready for you."
         return f"Your cleaned copy of {report.delivered_file} is ready."
     if not report.output_names:
         return ""

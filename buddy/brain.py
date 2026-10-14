@@ -9,6 +9,7 @@ from typing import Protocol
 from buddy.actions import (
     ACTION_VOCABULARY,
     CONVERSATION,
+    EXTRACT_PDF_TABLE,
     FILE_VOCABULARY,
     REPORT_ON_FILE,
     UNSUPPORTED,
@@ -238,6 +239,7 @@ INTENT_VOCABULARY = frozenset(
     {
         "remove_duplicate_rows",
         "remove_empty_rows",
+        EXTRACT_PDF_TABLE,
         REPORT_ON_FILE,
         "multi_step_request",
         CONVERSATION,
@@ -250,6 +252,7 @@ _SYSTEM_PROMPT = """You are the intent classifier for WorkBuddy, an AI coworker.
 Classify the user's request into exactly one of the following intents:
 - "remove_duplicate_rows": the user wants duplicate rows removed from a spreadsheet.
 - "remove_empty_rows": the user wants empty rows removed from a spreadsheet.
+- "extract_pdf_table": the user wants the table in a PDF taken out into a spreadsheet.
 - "report_on_file": the user only wants a report, summary, analysis or overview of the file:
   what is in it or what is wrong with it. Nothing is changed.
 - "multi_step_request": the request clearly names more than one distinct action, but is not
@@ -263,8 +266,8 @@ never assume anything about what data a file contains.
 
 Respond with a single JSON object and nothing else, matching this shape:
 {
-  "intent": "remove_duplicate_rows" | "remove_empty_rows" | "report_on_file"
-            | "multi_step_request" | "conversation" | "unclear",
+  "intent": "remove_duplicate_rows" | "remove_empty_rows" | "extract_pdf_table"
+            | "report_on_file" | "multi_step_request" | "conversation" | "unclear",
   "confidence": <number between 0.0 and 1.0>,
   "referenced_files": [<file names the request refers to, if any>],
   "referenced_work_items": [<task or work item identifiers referred to, if any>],
@@ -272,7 +275,8 @@ Respond with a single JSON object and nothing else, matching this shape:
   "ambiguity_flags": [<plain-language description of ambiguity, if any>],
   "notes": "<any other brief note, or an empty string>",
   "requested_actions": [
-    {"action": "remove_duplicate_rows" | "remove_empty_rows" | "report_on_file" | "unsupported",
+    {"action": "remove_duplicate_rows" | "remove_empty_rows" | "extract_pdf_table"
+               | "report_on_file" | "unsupported",
      "source_phrase": "<the exact words from the user's message that ask for it>"}
   ],
   "file_to_use": "latest" | "original",

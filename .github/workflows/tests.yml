@@ -71,6 +71,14 @@ jobs:
       - uses: actions/checkout@v4
       - name: Build the image
         run: docker build --tag workbuddy:ci .
+      # PDFs are read in a locked-down worker. The image must be able to build that sandbox on a
+      # real Docker host (its seccomp profile and kernel included), or the server refuses PDFs.
+      # This runs the same check the release script's owner runs on the VM, and requires its words.
+      - name: The PDF sandbox holds inside the image
+        run: |
+          set -eo pipefail
+          docker run --rm workbuddy:ci python -m skills.pdf | tee pdf-sandbox.txt
+          grep --fixed-strings --line-regexp "The PDF sandbox holds." pdf-sandbox.txt
       # An image that builds but can't start (a missing package, a bad import) is caught here.
       - name: The image starts and answers /healthz
         run: |

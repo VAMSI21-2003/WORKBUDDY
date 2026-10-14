@@ -1,0 +1,64 @@
+diff --git a/skills/pdf/_worker/main.py b/skills/pdf/_worker/main.py
+index a7d2ab9..bef03b6 100644
+--- a/skills/pdf/_worker/main.py
++++ b/skills/pdf/_worker/main.py
+@@ -247,6 +247,8 @@ def _record(a, b, h_segments, v_segments) -> None:  # noqa: ANN001
+ _BOX_SLACK = 0.5
+ _RUN_GAP = 0.5
+ _COLUMN_GAP = 1.5
++_PROTO_RUN_EM = float(os.environ.get('PROTO_RUN_EM', '0.5'))
++_PROTO_COLUMN_EM = float(os.environ.get('PROTO_COLUMN_EM', '1.0'))
+ 
+ 
+ def _text_layout_problem(textpage, raw, grid) -> str | None:  # noqa: ANN001
+@@ -266,7 +268,7 @@ def _text_layout_problem(textpage, raw, grid) -> str | None:  # noqa: ANN001
+     """
+     top, bottom, left, right = grid.ys[0], grid.ys[-1], grid.xs[0], grid.xs[-1]
+     objects: dict[int, set[tuple[int, int]]] = {}
+-    previous = None  # the last printable character on the table's rows: (cell, right edge, ...)
++    placed: dict[int, list] = {}
+     for index in range(textpage.count_chars()):
+         left_x, b, right_x, t = textpage.get_charbox(index)
+         if right_x <= left_x or t <= b:
+@@ -294,16 +296,31 @@ def _text_layout_problem(textpage, raw, grid) -> str | None:  # noqa: ANN001
+         objects.setdefault(owner or 0, set()).add(cell)
+         if len(objects[owner or 0]) > 1:
+             return TEXT_OVERFLOWS  # one string drawn across two cells
+-        height = t - b
+-        if previous is not None:
+-            prev_cell, prev_right, prev_height, prev_y = previous
+-            same_line = abs(centre_y - prev_y) < 0.5 * min(height, prev_height)
+-            gap = left_x - prev_right
+-            if same_line and cell != prev_cell and gap < _RUN_GAP * min(height, prev_height):
+-                return TEXT_OVERFLOWS  # one run of text across two cells
+-            if same_line and cell == prev_cell and gap > _COLUMN_GAP * min(height, prev_height):
+-                return COLUMNS_NOT_RULED
+-        previous = (cell, right_x, height, centre_y)
++        loose = raw.FS_RECTF()
++        raw.FPDFText_GetLooseCharBox(textpage.raw, index, ctypes.byref(loose))
++        ox, oy = ctypes.c_double(), ctypes.c_double()
++        raw.FPDFText_GetCharOrigin(textpage.raw, index, ctypes.byref(ox), ctypes.byref(oy))
++        size = raw.FPDFText_GetFontSize(textpage.raw, index) or (t - b)
++        placed.setdefault(row, []).append((oy.value, loose.left, loose.right, size, cell))
++    for characters in placed.values():
++        characters.sort(key=lambda c: -c[0])
++        lines, line = [], []
++        for ch in characters:
++            if line and line[0][0] - ch[0] > 0.5 * min(line[0][3], ch[3]):
++                lines.append(line)
++                line = []
++            line.append(ch)
++        if line:
++            lines.append(line)
++        for line in lines:
++            line.sort(key=lambda c: c[1])
++            for (_, _, r1, s1, c1), (_, l2, _, s2, c2) in zip(line, line[1:], strict=False):
++                em = min(s1, s2)
++                gap = l2 - r1
++                if c1 != c2 and gap < _PROTO_RUN_EM * em:
++                    return TEXT_OVERFLOWS
++                if c1 == c2 and gap > _PROTO_COLUMN_EM * em:
++                    return COLUMNS_NOT_RULED
+     return None
+ 
+ 

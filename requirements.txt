@@ -12,3 +12,6 @@ pytest-cov>=5.0
 # in /opt/pw-browsers (do not run "playwright install"); without it the browser tests are skipped.
 playwright>=1.56,<1.57
 pytest-playwright>=0.7
+
+# Builds the PDFs the PDF skill's tests extract tables from (tests/skills/pdf). Test-only.
+reportlab>=4

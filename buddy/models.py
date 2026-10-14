@@ -321,6 +321,7 @@ class ExecutionResult:
 # ``StepMeasurement.target`` values: what a verifier counted.
 DUPLICATE_ROWS_TARGET = "duplicate_rows"
 EMPTY_ROWS_TARGET = "empty_rows"
+EXTRACTED_TABLE_TARGET = "extracted_table"
 
 
 @dataclass(frozen=True)
@@ -348,6 +349,8 @@ class StepMeasurement:
         removed_blank: Of ``removed``, how many were repeated fully-empty
             rows. Only deduplication removes these (it keeps the first of
             identical blank rows); ``0`` for every other capability.
+        columns: Columns of the output, as read by the verifier; set only for
+            ``EXTRACTED_TABLE_TARGET`` (a table taken out of a PDF), else ``None``.
     """
 
     target: str
@@ -356,6 +359,7 @@ class StepMeasurement:
     input_rows: int | None = None
     removed: int | None = None
     removed_blank: int = 0
+    columns: int | None = None
 
     @property
     def removed_data(self) -> int | None:

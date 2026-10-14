@@ -3,12 +3,16 @@
 Design Sections 6.2 and 6.3, "Decisions (2026-10-01)" item 6, and the owner
 decision that ``.xls`` is out of scope ("Decisions (2026-10-04)").
 
-The API never parses an upload's content (no ``openpyxl``, no ``pandas``):
-parsing untrusted content is the skill's job, inside a turn, where a failure
-becomes an honest reply. What runs here reads only the first bytes and the
-ZIP central directory. An accepted upload is written once, made read-only,
-and never opened for writing again (rule 2). A refused upload leaves nothing
-behind.
+The API never parses an upload's content (no ``openpyxl``, no ``pandas``, no
+PDF library): parsing untrusted content is the skill's job, inside a turn,
+where a failure becomes an honest reply. What runs here reads only the first
+bytes and the ZIP central directory of an ``.xlsx``. A ``.pdf`` is checked for
+its magic bytes and then counted by the sandboxed PDF worker, a separate
+process with a deadline, a memory limit and no network
+(``skills/pdf/sandbox.py``), so the page cap holds before anything is kept;
+the server process never imports a PDF parser. An accepted upload is written
+once, made read-only, and never opened for writing again (rule 2). A refused
+upload leaves nothing behind.
 """
 
 from __future__ import annotations
@@ -24,16 +28,27 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import BinaryIO
 
-from backend.errors import XLS_MESSAGE, ApiError, ErrorCode, file_too_large_message
+from backend.errors import (
+    PDF_UNAVAILABLE_MESSAGE,
+    XLS_MESSAGE,
+    ApiError,
+    ErrorCode,
+    file_too_large_message,
+    pdf_too_long_message,
+)
 from backend.settings import Settings
+from skills.pdf import sandbox
 
 logger = logging.getLogger(__name__)
 
 CHUNK_BYTES = 1024 * 1024
 MAX_NAME_CHARS = 100
 XLS_EXTENSION = ".xls"
+PDF_EXTENSION = ".pdf"
 
 _ZIP_MAGIC = b"PK\x03\x04"
+# A PDF starts with this at byte 0 (the format tolerates junk before it; an upload may not).
+_PDF_MAGIC = b"%PDF-"
 _CONTENT_TYPES = "[content_types].xml"
 # OPC part names are case-insensitive, so these match case-insensitively:
 # a workbook can't slip a second sheet past the count by changing case.
@@ -125,7 +140,10 @@ def store_upload(source: BinaryIO, folder: Path, name: str, settings: Settings) 
                 out.write(chunk)
         if size == 0:
             raise ApiError(ErrorCode.INVALID_FILE)
-        check_workbook(partial, settings)
+        if name.lower().endswith(PDF_EXTENSION):
+            check_pdf(partial)
+        else:
+            check_workbook(partial, settings)
         final = folder / name
         os.replace(partial, final)
         os.chmod(final, 0o444)
@@ -147,6 +165,38 @@ def discard_folder(folder: Path) -> None:
         folder.parent.rmdir()
     except OSError:
         pass  # not empty (other uploads), or already gone
+
+
+def check_pdf(path: Path) -> None:
+    """The structural check for a ``.pdf``: it starts with ``%PDF-``, and has at most 20 pages.
+
+    The pages are counted by the sandboxed worker (``skills.pdf.sandbox``, mode ``probe``) with
+    PDFium, in another process; nothing here parses the file. A file the worker can't open, that
+    outruns its deadline or limits, or whose answer is not a page count is refused as invalid. An
+    encrypted PDF is accepted (its page count can't be read, and a turn on it says it is
+    encrypted).
+
+    Raises:
+        ApiError: ``invalid_file``, with a message of its own for a PDF with too many pages or
+            when PDFs can't be read on this server.
+    """
+    with open(path, "rb") as handle:
+        data = handle.read(sandbox.MAX_PDF_BYTES + 1)
+    if not data.startswith(_PDF_MAGIC) or len(data) > sandbox.MAX_PDF_BYTES:
+        raise ApiError(ErrorCode.INVALID_FILE)
+    outcome = sandbox.run("probe", data)
+    if not outcome.ok:
+        logger.info("A PDF upload was refused by the worker: %s", outcome.reason)
+        if outcome.reason == "sandbox_unavailable":
+            raise ApiError(ErrorCode.INVALID_FILE, message=PDF_UNAVAILABLE_MESSAGE)
+        raise ApiError(ErrorCode.INVALID_FILE)
+    pages, encrypted = outcome.data.get("pages"), outcome.data.get("encrypted")
+    if encrypted is True and pages is None:
+        return
+    if not isinstance(pages, int) or isinstance(pages, bool) or pages < 1:
+        raise ApiError(ErrorCode.INVALID_FILE)
+    if pages > sandbox.MAX_PAGES:
+        raise ApiError(ErrorCode.INVALID_FILE, message=pdf_too_long_message(sandbox.MAX_PAGES))
 
 
 def check_workbook(path: Path, settings: Settings) -> None:

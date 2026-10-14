@@ -13,6 +13,7 @@ from buddy.actions import ACTIONS_BY_NAME, requested_ledger
 from buddy.models import (
     DUPLICATE_ROWS_TARGET,
     EMPTY_ROWS_TARGET,
+    EXTRACTED_TABLE_TARGET,
     SKIPPED_STATUS,
     ExecutionResult,
     OriginalFacts,
@@ -30,6 +31,9 @@ from skills.excel.workbook import (
     plain_table_problem,
     sheet_names,
 )
+from skills.pdf import sandbox
+from skills.pdf.extract_table import REFUSALS as PDF_REFUSALS
+from skills.pdf.extract_table import SHEET_NAME as PDF_TABLE_SHEET
 
 logger = logging.getLogger(__name__)
 
@@ -138,7 +142,7 @@ class SpreadsheetDedupeVerifier:
 
         output_path = execution_result.outputs[0]
         try:
-            written = pd.read_excel(output_path)  # fresh, independent read of the artifact
+            written = _read_cells(output_path)  # fresh, independent read of the artifact
         except Exception as exc:  # noqa: BLE001 — surfaced as a finding, not raised
             logger.exception("SpreadsheetDedupeVerifier: failed to read %r", output_path)
             return VerificationResult(
@@ -216,7 +220,7 @@ class SpreadsheetEmptyRowsVerifier:
 
         output_path = execution_result.outputs[0]
         try:
-            written = pd.read_excel(output_path)  # fresh, independent read of the artifact
+            written = _read_cells(output_path)  # fresh, independent read of the artifact
         except Exception as exc:  # noqa: BLE001 — surfaced as a finding, not raised
             logger.exception("SpreadsheetEmptyRowsVerifier: failed to read %r", output_path)
             return VerificationResult(
@@ -258,6 +262,205 @@ class SpreadsheetEmptyRowsVerifier:
             findings=tuple(findings),
             measurements=(check.measurement(EMPTY_ROWS_TARGET, len(written), empty_row_count),),
         )
+
+
+class PdfTableVerifier:
+    """Independently confirms a spreadsheet holds exactly the table the PDF draws.
+
+    The skill (``skills.pdf.extract_table``) read the PDF with pdfplumber. This verifier never
+    looks at what the skill said about itself: it reads the PDF again in the sandbox with a
+    different parser (PDFium, through pypdfium2) and its own reading of the table's ruling lines
+    (``skills.pdf._worker.geometry``), then reads the delivered ``.xlsx`` fresh with openpyxl and
+    compares **every cell**. The turn fails unless:
+
+    - the second reading finds exactly one table, and it is a plain grid;
+    - the spreadsheet has one sheet, every cell of it text (no number, date or formula), the same
+      number of rows and columns as that table, and nothing outside it;
+    - every cell's text equals the second reading's, character for character (both are in the
+      normal form of ``skills.pdf._worker.textnorm``).
+
+    What it measures, the rows and columns of the spreadsheet as it read them, is what the reply
+    states. Cells' words never enter a finding: it counts the cells that differ and says nothing
+    about what they hold.
+
+    With no input reference (the check on a chain's final file) there is no PDF to compare with,
+    so only the spreadsheet's own shape is checked.
+    """
+
+    def __call__(self, request: VerificationRequest) -> VerificationResult:
+        """Verify ``request`` by re-reading its PDF with a second parser and comparing cells."""
+        execution_result = request.execution_result
+        if execution_result is None or not execution_result.success or not execution_result.outputs:
+            return VerificationResult(
+                passed=False,
+                confidence=1.0,
+                findings=("execution did not produce an output file",),
+            )
+        output_path = execution_result.outputs[0]
+        try:
+            cells = _read_text_cells(output_path)
+        except _NotATextTable as problem:
+            return _pdf_failure(str(problem))
+        except Exception:  # noqa: BLE001 - surfaced as a finding, not raised
+            logger.exception("PdfTableVerifier: failed to read %r", output_path)
+            return _pdf_failure("couldn't independently read the spreadsheet")
+
+        rows, columns = len(cells), max(len(row) for row in cells)
+        pdf_path = _step_input(execution_result)
+        if pdf_path:
+            problem, size = _compare_with_pdf(cells, pdf_path)
+            if problem is not None or size is None:
+                return _pdf_failure(problem or "couldn't independently re-read the PDF")
+            # The table's own size, which every cell matched: a sheet leaves empty cells at the
+            # end of a row or empty rows at the end unsaid.
+            rows, columns = size
+        return VerificationResult(
+            passed=True,
+            confidence=1.0,
+            findings=(f"the spreadsheet has {count_noun(rows, 'row')} and "
+                      f"{count_noun(columns, 'column')}",),
+            measurements=(
+                StepMeasurement(
+                    target=EXTRACTED_TABLE_TARGET,
+                    output_rows=rows,
+                    remaining=0,
+                    columns=columns,
+                ),
+            ),
+        )
+
+
+class _NotATextTable(Exception):
+    """The spreadsheet isn't a single sheet of text cells. ``str(exc)`` is a fixed finding."""
+
+
+def _pdf_failure(finding: str) -> VerificationResult:
+    return VerificationResult(
+        passed=False,
+        confidence=1.0,
+        findings=(finding,),
+        recommendations=("don't hand the spreadsheet back; the PDF's table wasn't confirmed",),
+    )
+
+
+def _read_text_cells(path: str) -> list[list[str]]:
+    """The spreadsheet's cells as text, ``""`` for an empty one, as a rectangle.
+
+    Raises:
+        _NotATextTable: more than one sheet, a sheet with another name, a cell that isn't text
+            (a number, a date, a boolean, an error or a formula), or no cells at all.
+    """
+    import openpyxl
+
+    with open(path, "rb") as handle:
+        book = openpyxl.load_workbook(handle, read_only=True, data_only=False)
+        try:
+            if book.sheetnames != [PDF_TABLE_SHEET]:
+                raise _NotATextTable("the spreadsheet doesn't hold exactly one sheet, the table")
+            sheet = book[PDF_TABLE_SHEET]
+            sheet.reset_dimensions()
+            grid: list[list[str]] = []
+            width = 0
+            for row in sheet.iter_rows():
+                texts = []
+                for cell in row:
+                    if cell.value is None:
+                        texts.append("")
+                    elif cell.data_type == "s" and isinstance(cell.value, str):
+                        texts.append(cell.value)
+                    else:
+                        raise _NotATextTable("a cell of the spreadsheet isn't plain text")
+                width = max(width, len(texts))
+                grid.append(texts)
+        finally:
+            book.close()
+    while grid and not any(grid[-1]):
+        grid.pop()  # empty rows at the end aren't kept by a spreadsheet
+    if not grid or width == 0:
+        raise _NotATextTable("the spreadsheet is empty")
+    return grid
+
+
+def _compare_with_pdf(
+    cells: list[list[str]], pdf_path: str
+) -> tuple[str | None, tuple[int, int] | None]:
+    """Compare the spreadsheet's cells with the PDF's table as a second parser reads it.
+
+    Returns ``(problem, None)`` with a fixed-text problem when they differ or the second reading
+    can't be made, else ``(None, (rows, columns))``: the table's size, with every cell matched.
+
+    The spreadsheet may have fewer rows than the table (empty rows at the end of a sheet aren't
+    kept) or fewer columns on a row (empty cells at the end of a row), so both sides are padded
+    to the second reading's size, and anything of the spreadsheet outside it is a difference.
+    """
+    try:
+        with open(pdf_path, "rb") as handle:  # READ-ONLY
+            data = handle.read(sandbox.MAX_PDF_BYTES + 1)
+    except OSError:
+        return "couldn't independently re-read the PDF", None
+    if len(data) > sandbox.MAX_PDF_BYTES:
+        return "couldn't independently re-read the PDF", None
+    outcome = sandbox.run("verify", data)
+    if not outcome.ok:
+        reason = PDF_REFUSALS.get(outcome.reason, PDF_REFUSALS["unreadable"])
+        return f"couldn't independently re-read the PDF: {reason}", None
+    answer = outcome.data
+    if answer.get("tables") != 1:
+        found = answer.get("tables")
+        shown = count_noun(found, "table") if isinstance(found, int) else "no usable table"
+        return f"a second reading of the PDF found {shown}, not exactly one", None
+    expected = answer.get("rows")
+    if answer.get("plain") is not True or not _is_text_rectangle(expected):
+        return "a second reading of the PDF found a table that isn't a plain grid of cells", None
+    assert isinstance(expected, list)
+    height, width = len(expected), len(expected[0])
+    if len(cells) > height or max(len(row) for row in cells) > width:
+        return (
+            f"the spreadsheet is {count_noun(len(cells), 'row')} by "
+            f"{count_noun(max(len(row) for row in cells), 'column')}, larger than the PDF's table "
+            f"as a second reading found it ({height} by {width})",
+            None,
+        )
+    different = 0
+    for r in range(height):
+        row = cells[r] if r < len(cells) else []
+        for c in range(width):
+            actual = row[c] if c < len(row) else ""
+            different += actual != expected[r][c]
+    if different:
+        return (
+            f"{count_noun(different, 'cell')} of the spreadsheet "
+            f"{'differs' if different == 1 else 'differ'} from the PDF's table as a second "
+            f"reading found it",
+            None,
+        )
+    return None, (height, width)
+
+
+def _is_text_rectangle(value: object) -> bool:
+    return (
+        isinstance(value, list)
+        and bool(value)
+        and isinstance(value[0], list)
+        and bool(value[0])
+        and all(
+            isinstance(row, list)
+            and len(row) == len(value[0])
+            and all(isinstance(cell, str) for cell in row)
+            for row in value
+        )
+    )
+
+
+def _read_cells(path: str) -> pd.DataFrame:
+    """A workbook's first sheet as its cells hold it: no cell converted to another type.
+
+    ``dtype=object`` keeps a text cell text and a number a number. pandas' default would turn a
+    column of text that looks like numbers into numbers (``"007"`` into ``7``, a long account
+    number into a float that has lost digits), so a check built on it could not tell a skill that
+    did exactly that from one that kept the cells.
+    """
+    return pd.read_excel(path, dtype=object)
 
 
 # How each measured target is counted in a file, as read fresh. The step
@@ -383,7 +586,7 @@ def _check_against_input(
     if not input_path:
         return _InputCheck()
     try:
-        original = pd.read_excel(input_path)  # fresh, independent read of the step's input
+        original = _read_cells(input_path)  # fresh, independent read of the step's input
     except Exception as exc:  # noqa: BLE001 — surfaced as a finding, not raised
         logger.exception("Inspector: failed to read step input %r", input_path)
         return _InputCheck(problem=f"could not independently read its input {input_path!r}: {exc}")
@@ -661,6 +864,7 @@ class SpreadsheetAnalysisVerifier:
 
         try:
             df = pd.read_excel(analyzed_file)  # fresh, independent read of the ORIGINAL
+            cells = _read_cells(analyzed_file)  # the same cells, none converted
         except Exception as exc:  # noqa: BLE001 — surfaced as a finding, not raised
             logger.exception("SpreadsheetAnalysisVerifier: failed to read %r", analyzed_file)
             return VerificationResult(
@@ -671,8 +875,8 @@ class SpreadsheetAnalysisVerifier:
 
         findings: list[str] = []
         for category, category_findings in (
-            ("duplicate_rows", _independent_duplicate_row_findings(df)),
-            ("loose_duplicate_rows", _independent_loose_duplicate_row_findings(df)),
+            ("duplicate_rows", _independent_duplicate_row_findings(cells)),
+            ("loose_duplicate_rows", _independent_loose_duplicate_row_findings(cells)),
             ("missing_values", _independent_missing_value_findings(df)),
             ("outliers", _independent_outlier_findings(df)),
             ("date_format", _independent_date_format_findings(df)),
@@ -1103,7 +1307,7 @@ class ResidualMeasurer:
             return result
         delivered = execution_result.outputs[0]
         try:
-            written = pd.read_excel(delivered)  # fresh, independent read of the delivered file
+            written = _read_cells(delivered)  # fresh, independent read of the delivered file
         except Exception:  # noqa: BLE001 — no residuals, and nothing is claimed
             logger.exception("ResidualMeasurer: failed to read %r", delivered)
             return result

@@ -1,0 +1,39 @@
+diff --git a/skills/pdf/_worker/lockdown.py b/skills/pdf/_worker/lockdown.py
+index d538dda..a089684 100644
+--- a/skills/pdf/_worker/lockdown.py
++++ b/skills/pdf/_worker/lockdown.py
+@@ -401,6 +401,8 @@ def confine_filesystem() -> Confinement:
+     if version >= 5:
+         handled |= _FS_IOCTL_DEV
+     attr = struct.pack("Q", handled)
++    if version >= 6:  # LANDLOCK_SCOPE_SIGNAL: no signal (kill, or an fd owner's SIGIO) leaves the domain
++        attr = struct.pack("QQQ", handled, 0, 1 << 1)
+     ruleset = libc.syscall(_SYS_LANDLOCK_CREATE_RULESET, attr, len(attr), 0)
+     if ruleset < 0:
+         return Confinement(False, "Landlock refused the ruleset")
+diff --git a/skills/pdf/_worker/main.py b/skills/pdf/_worker/main.py
+index ce48cb6..2114588 100644
+--- a/skills/pdf/_worker/main.py
++++ b/skills/pdf/_worker/main.py
+@@ -291,14 +291,19 @@ def _text_layout_problem(textpage, raw, grid) -> str | None:  # noqa: ANN001
+         owner = ctypes.cast(raw.FPDFText_GetTextObject(textpage.raw, index), ctypes.c_void_p).value
+         objects.setdefault(owner or 0, set()).add(cell)
+         if len(objects[owner or 0]) > 1:
+-            return TEXT_OVERFLOWS  # one string drawn across two cells
++            pass  # PROBE: object rule off; the line rule judges
+         advance = raw.FS_RECTF()  # the box the font gives the character, spacing included
+         raw.FPDFText_GetLooseCharBox(textpage.raw, index, ctypes.byref(advance))
+         origin_x, origin_y = ctypes.c_double(), ctypes.c_double()
+         raw.FPDFText_GetCharOrigin(
+             textpage.raw, index, ctypes.byref(origin_x), ctypes.byref(origin_y)
+         )
+-        size = raw.FPDFText_GetFontSize(textpage.raw, index) or (t - b)
++        # The em on the page: the font size the PDF set (``Tf``) times the scale of the character's
++        # matrix (text matrix and CTM). ``1 Tf`` with ``10 0 0 10 x y Tm`` is 10 points.
++        matrix = raw.FS_MATRIX()
++        raw.FPDFText_GetMatrix(textpage.raw, index, ctypes.byref(matrix))
++        scale = abs(matrix.a * matrix.d - matrix.b * matrix.c) ** 0.5
++        size = raw.FPDFText_GetFontSize(textpage.raw, index) * scale or (t - b)
+         placed.setdefault(row, []).append(
+             geometry.Glyph(origin_y.value, advance.left, advance.right, size, cell)
+         )

@@ -71,6 +71,10 @@ _TEMPLATES: dict[str, tuple[str, str]] = {
         "Remove empty rows from {input_name}.",
         "Then remove empty rows from the result of step {previous}.",
     ),
+    "pdf.extract_table": (
+        "Extract the table from {input_name}.",
+        "Then extract the table from the result of step {previous}.",
+    ),
 }
 _FALLBACK_TEMPLATES = (
     "Run {capability} on {input_name}.",

@@ -405,6 +405,8 @@ git pull --ff-only
 
 If step 3, 4 or 5 fails, **it rolls back by itself**: it puts the previous image back (kept on the VM, so no build or download), waits for it to be healthy, runs `smoke.sh` again, and prints `!! ROLLED BACK to <previous>. Release <new> failed at: <step>. The site is serving the previous release.` The exit status is non-zero, so a script that calls it sees the failure. On the very first release there is no previous image: it stops the app and says so.
 
+**After the first release that reads PDFs** (`docs/design/pdf-extract.md`; CI runs the same command inside the built image on every change, "docker build" job), check that the sandbox every PDF is read in can be built on the server: `./deploy/compose.sh exec app python -m skills.pdf` must print `The PDF sandbox holds.` (exit status 0). The check starts the real worker and tries, from inside it, to open a socket and to start a program; both must be refused. Where the container runtime does not let the worker install its seccomp filter, the server does not read PDFs (an upload of one is refused with "PDFs can't be read on this server right now") rather than read them unprotected. Then upload a PDF that holds one ruled table through the page, ask for the table, approve the plan, and download the spreadsheet. `smoke.sh` does not cover PDFs.
+
 `deploy/releases.log` records every release, rollback and failure with the time. `deploy/logs/` holds the logs of the containers that were replaced (step 2).
 
 **Rolling back doesn't restore data.** It changes the program, not `/data`. A new version that ran for a minute may have saved sessions in the new format. Versions are required to read everything older versions saved (`CLAUDE.md`, "Working method"; `tests/deploy/test_saved_data_survives.py`), but an older version isn't required to read what a newer one saved. If after a rollback sessions are missing or the page says a session no longer exists, restore the backup that the release took first (below).
@@ -450,7 +452,7 @@ It asks you to type `yes`; then it copies the archive aside, backs up what's the
 
 | File | What it is |
 |---|---|
-| `deploy/docker-compose.yml` | Two containers. `app`: the image, with no published port (only Caddy can reach it), `restart: unless-stopped`, a 1 GB memory limit (Section 6: one big turn at a time fits in 512 MB, two at once need more than that and fit in 1 GB), rotated logs (5 files of 10 MB), `/data` on the named volume `workbuddy-data`, `WORKBUDDY_TRUSTED_PROXY_HOPS=1`, and the Google client, the operator token and the allowed emails from `.env`. `caddy`: ports 80 and 443, automatic HTTPS, starts after the app is healthy, its certificate kept in a volume |
+| `deploy/docker-compose.yml` | Two containers. `app`: the image, with no published port (only Caddy can reach it), `restart: unless-stopped`, a 2 GB memory limit (Section 6: one big turn at a time fits in 512 MB, two at once need more than that and fit in 1 GB; the limit was raised from 1 GB for PDFs, because one PDF worker may use up to 1 GiB of address space and a dense PDF measured 706 MiB resident, so the server and one worker must fit; the worker marks itself first for the kernel to stop, `oom_score_adj` 1000), rotated logs (5 files of 10 MB), `/data` on the named volume `workbuddy-data`, `WORKBUDDY_TRUSTED_PROXY_HOPS=1`, and the Google client, the operator token and the allowed emails from `.env`. `caddy`: ports 80 and 443, automatic HTTPS, starts after the app is healthy, its certificate kept in a volume |
 | `deploy/Caddyfile` | Passes requests to the app, and sets `X-Forwarded-For` to the one address Caddy saw, discarding whatever the caller sent. That is what makes `WORKBUDDY_TRUSTED_PROXY_HOPS=1` correct: the app trusts the last entry, and Caddy wrote it |
 | `deploy/.env.example` | The names of the settings, never values. `install.sh` copies it to `deploy/.env`, which is git-ignored |
 | `deploy/install.sh` | First-time setup (Section 7, step 5): Docker from Docker's own repository, a 2 GB swap file, the firewall (22, 80, 443 in; everything out) |
@@ -494,7 +496,7 @@ Menu names change from time to time; if one differs, look for the same words. Yo
 
 **1. Create the VM.** Portal → **Create a resource → Virtual machine**.
 - **Image:** Ubuntu Server 24.04 LTS (x64).
-- **Size:** at least 2 GB of memory. `Standard_B2s` (2 vCPU, 4 GB) is a sensible start; with `Standard_B1ms` (2 GB) set `WORKBUDDY_MAX_CONCURRENT_TURNS=1` (Section 9). The app's limit is 1 GB (Section 6), and the machine needs memory of its own.
+- **Size:** at least 2 GB of memory. `Standard_B2s` (2 vCPU, 4 GB) is a sensible start; with `Standard_B1ms` (2 GB) set `WORKBUDDY_MAX_CONCURRENT_TURNS=1` (Section 9). The app's limit is 2 GB (Section 6 measured the spreadsheet turns at under 1 GB; the PDF worker is the reason for 2 GB), and the machine needs memory of its own: **a 2 GB VM cannot give the app a 2 GB limit**, so on `Standard_B1ms` the limit is a ceiling the host runs out of first. A VM of 4 GB or more fits.
 - **Authentication:** SSH public key; username `azureuser`; let Azure generate the key pair and **download the `.pem` file when asked** (it can't be downloaded again).
 - **Disk:** 30 GB standard SSD is enough (the image is 1.4 GB; the build needs about 3 GB more while it runs).
 
