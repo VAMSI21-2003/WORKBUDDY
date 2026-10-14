@@ -55,7 +55,7 @@ No on-disk format changed (session records, uploads and delivered files have the
 
 The "kernel" column is `getrusage(RUSAGE_CHILDREN)` and includes about 79 MiB the child inherits from the small measuring process, so read it as an upper bound; the worker's own figures are the ones to use.
 
-Limits: address space 1 GiB, deadline 20 s, two workers at once. The upload's `probe` and the Inspector's `verify` stay near 20 to 40 MiB resident whatever the text; the skill's `extract` (pdfplumber) is the heavy one and grows with the number of characters on the pages. The densest 20-page file this machine could build in 16 KiB (about 20,000 characters a page in 4-point type) used about 0.7 GiB resident and 12 s, which is near both limits: a heavier text layer ends in a `too_large` or `took too long` refusal. For sizing the VM: allow about 1 GiB per concurrent worker (two at most), plus the server.
+Limits: address space 1 GiB, deadline 20 s, one worker at a time (two until round 4; see `feat-pdf-extract-fixes3.md`, item 7). The upload's `probe` and the Inspector's `verify` stay near 20 to 40 MiB resident whatever the text; the skill's `extract` (pdfplumber) is the heavy one and grows with the number of characters on the pages. The densest 20-page file this machine could build in 16 KiB (about 20,000 characters a page in 4-point type) used about 0.7 GiB resident and 12 s, which is near both limits: a heavier text layer ends in a `too_large` or `took too long` refusal. For sizing the VM: allow about 1 GiB for the one worker, plus the server (the app's container limit is 2 GB since round 4).
 
 ## Deviations from the brief
 

@@ -51,9 +51,11 @@ CPU_SECONDS = 30
 OUTPUT_BYTES = 8 * 1024 * 1024
 
 # At most this many workers run at once, in the whole server process, so the memory they can use
-# at once is bounded: this many address-space limits, not one per concurrent turn. A run waits for
-# a free place for up to ``WAIT_SECONDS`` and is then refused as ``busy``.
-MAX_CONCURRENT_WORKERS = 2
+# at once is bounded: this many address-space limits, not one per concurrent turn. One, because a
+# dense PDF measured 706 MiB resident and the app's container is capped (deploy/docker-compose.yml,
+# ``mem_limit``): two such workers and the server would not fit. A run waits for a free place for
+# up to ``WAIT_SECONDS`` and is then refused as ``busy``.
+MAX_CONCURRENT_WORKERS = 1
 WAIT_SECONDS = 15.0
 _places = threading.BoundedSemaphore(MAX_CONCURRENT_WORKERS)
 

@@ -61,7 +61,8 @@ REFUSALS: dict[str, str] = {
         "with a border around every cell are supported for now"
     ),
     "text_overflows": (
-        "some text in the table runs past its cell's border, so a cell can't be read whole"
+        "some text in the table sits too close to a cell's border, or runs past it, for me to "
+        "be sure which cell it belongs to"
     ),
     "too_many_pages": (
         f"the PDF has more than {sandbox.MAX_PAGES} pages, and only PDFs of up to "

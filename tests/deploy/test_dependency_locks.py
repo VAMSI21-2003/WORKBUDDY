@@ -143,6 +143,20 @@ def test_the_dockerfile_installs_from_the_lock_only() -> None:
     assert "requirements.txt" not in code
 
 
+def test_the_dockerfiles_pip_install_retries_a_failed_download() -> None:
+    """One build on the VM failed once on a download hiccup (exit code 2) and passed on retry."""
+    dockerfile = (ROOT / "Dockerfile").read_text(encoding="utf-8")
+    (install,) = [line for line in dockerfile.splitlines() if "pip install" in line]
+    assert "--retries 10" in install and "--timeout 60" in install
+
+
+def test_the_image_job_requires_the_pdf_sandbox_to_hold_inside_the_image() -> None:
+    workflow = (ROOT / ".github" / "workflows" / "tests.yml").read_text(encoding="utf-8")
+    image_job = workflow.split("\n  image:\n", 1)[1]
+    assert "docker run --rm workbuddy:ci python -m skills.pdf" in image_job
+    assert 'grep --fixed-strings --line-regexp "The PDF sandbox holds."' in image_job
+
+
 def test_the_build_context_lets_the_lock_in() -> None:
     lines = [
         line.strip()

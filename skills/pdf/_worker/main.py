@@ -241,12 +241,9 @@ def _record(a, b, h_segments, v_segments) -> None:  # noqa: ANN001
 
 
 # How far (in points) a character's box may stick out of its cell before it counts as running
-# over the rule, how close (as a share of its height) two characters of different cells may be on
-# one line before they count as one run of text, and how far apart (as a share of its height) two
-# characters of one text object may be before they count as two columns.
+# over the rule. (How close characters of different cells may sit, and how far apart those of one
+# cell may, is ``geometry.text_layout_problem``.)
 _BOX_SLACK = 0.5
-_RUN_GAP = 0.5
-_COLUMN_GAP = 1.5
 
 
 def _text_layout_problem(textpage, raw, grid) -> str | None:  # noqa: ANN001
@@ -255,18 +252,19 @@ def _text_layout_problem(textpage, raw, grid) -> str | None:  # noqa: ANN001
     Both readings of a table clip every cell to its box, so a word wider than its cell comes out
     cut at the border (or moved into the next cell) the same way in both, and their agreement says
     nothing. And a column that isn't ruled lies inside one cell as two runs of text. So this looks
-    at the characters of the table's rows, in reading order, with their text objects:
+    at the characters of the table's rows:
 
     - ``TEXT_OVERFLOWS``: a character beside the table on one of its rows; a character whose box
       crosses a rule; one text object (one string the PDF draws in one go) with characters in two
-      cells; or two characters of different objects, side by side on one line in different cells,
-      as close as the letters of a word;
-    - ``COLUMNS_NOT_RULED``: two neighbouring characters on one line in one cell, further apart
-      than a word space ever is: the PDF has a column there without a rule.
+      cells; or, on one line, two neighbours in different cells that sit closer than the letters
+      of a word may (see ``geometry.text_layout_problem``: the line is rebuilt from the
+      characters' positions, so it doesn't matter how the PDF split the string into objects);
+    - ``COLUMNS_NOT_RULED``: two neighbours on one line in one cell, further apart than any run of
+      spaces: the PDF has a column there without a rule.
     """
     top, bottom, left, right = grid.ys[0], grid.ys[-1], grid.xs[0], grid.xs[-1]
     objects: dict[int, set[tuple[int, int]]] = {}
-    previous = None  # the last printable character on the table's rows: (cell, right edge, ...)
+    placed: dict[int, list[geometry.Glyph]] = {}  # by row of the table
     for index in range(textpage.count_chars()):
         left_x, b, right_x, t = textpage.get_charbox(index)
         if right_x <= left_x or t <= b:
@@ -294,16 +292,22 @@ def _text_layout_problem(textpage, raw, grid) -> str | None:  # noqa: ANN001
         objects.setdefault(owner or 0, set()).add(cell)
         if len(objects[owner or 0]) > 1:
             return TEXT_OVERFLOWS  # one string drawn across two cells
-        height = t - b
-        if previous is not None:
-            prev_cell, prev_right, prev_height, prev_y = previous
-            same_line = abs(centre_y - prev_y) < 0.5 * min(height, prev_height)
-            gap = left_x - prev_right
-            if same_line and cell != prev_cell and gap < _RUN_GAP * min(height, prev_height):
-                return TEXT_OVERFLOWS  # one run of text across two cells
-            if same_line and cell == prev_cell and gap > _COLUMN_GAP * min(height, prev_height):
-                return COLUMNS_NOT_RULED
-        previous = (cell, right_x, height, centre_y)
+        advance = raw.FS_RECTF()  # the box the font gives the character, spacing included
+        raw.FPDFText_GetLooseCharBox(textpage.raw, index, ctypes.byref(advance))
+        origin_x, origin_y = ctypes.c_double(), ctypes.c_double()
+        raw.FPDFText_GetCharOrigin(
+            textpage.raw, index, ctypes.byref(origin_x), ctypes.byref(origin_y)
+        )
+        size = raw.FPDFText_GetFontSize(textpage.raw, index) or (t - b)
+        placed.setdefault(row, []).append(
+            geometry.Glyph(origin_y.value, advance.left, advance.right, size, cell)
+        )
+    for glyphs in placed.values():
+        problem = geometry.text_layout_problem(glyphs)
+        if problem == geometry.OVERFLOW:
+            return TEXT_OVERFLOWS
+        if problem == geometry.UNRULED:
+            return COLUMNS_NOT_RULED
     return None
 
 

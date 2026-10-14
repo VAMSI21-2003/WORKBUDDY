@@ -299,6 +299,7 @@ def test_a_cleaning_step_that_turns_text_into_numbers_fails_verification(
     assert "no file was handed back" in (state.reply or "")
 
 
-def test_the_worker_cap_is_two_places() -> None:
-    assert sandbox.MAX_CONCURRENT_WORKERS == 2
-    assert sandbox._places._value == 2  # type: ignore[attr-defined]
+def test_the_worker_cap_is_one_place() -> None:
+    """One worker at a time: a dense PDF measured 706 MiB, and the app's container is capped."""
+    assert sandbox.MAX_CONCURRENT_WORKERS == 1
+    assert sandbox._places._value == 1  # type: ignore[attr-defined]

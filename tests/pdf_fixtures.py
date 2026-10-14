@@ -237,24 +237,77 @@ def hostile_compression_bomb(inflated_bytes: int = 1_500 * 1024 * 1024) -> bytes
     return build_pdf(objects)
 
 
+def _number(value: float) -> str:
+    """A coordinate as short as it can be: ``54`` for 54.0, ``61.389`` for 61.38888."""
+    return f"{value:.3f}".rstrip("0").rstrip(".")
+
+
+def _text_objects(text: str, unit: str, size: int = 10) -> list[tuple[float, str, str]]:
+    """The text objects a cell is drawn as: ``(x offset in points, font, text)`` for each.
+
+    See ``hand_table_pdf``'s ``text_unit``. Offsets are the widths of what comes before, in
+    Helvetica (and Helvetica-Bold for the bold word of ``"rich"``) at ``size`` points.
+    """
+    from reportlab.pdfbase.pdfmetrics import stringWidth
+
+    def width(piece: str, font: str = "Helvetica") -> float:
+        return stringWidth(piece, font, size)
+
+    if unit == "string" or not text:
+        return [(0.0, "F1", text)]
+    if unit == "glyph":
+        return [(width(text[:k]), "F1", ch) for k, ch in enumerate(text) if ch != " "]
+    words = text.split(" ")
+    if unit in ("word", "word_space"):
+        out = []
+        for k, word in enumerate(words):
+            if word:
+                shown = word + " " if unit == "word_space" and k < len(words) - 1 else word
+                out.append((width(" ".join(words[:k]) + (" " if k else "")), "F1", shown))
+        return out
+    if unit == "rich":
+        if len(words) < 3:
+            return [(0.0, "F1", text)]
+        before, bold, after = words[0] + " ", words[1], " " + " ".join(words[2:])
+        return [
+            (0.0, "F1", before),
+            (width(before), "F2", bold),
+            (width(before) + width(bold, "Helvetica-Bold"), "F1", after),
+        ]
+    raise ValueError(f"unknown text_unit {unit!r}")
+
+
 def hand_table_pdf(
     rows: Rows,
     *,
     active_content: bool = False,
-    cell_width: int = 90,
+    cell_width: float = 90,
     row_height: int = 20,
     skip_lines: Sequence[str] = (),
+    text_unit: str = "string",
+    column_major: bool = False,
+    font_size: int = 10,
+    listener_port: int = 9,
 ) -> bytes:
     """A one-page PDF with a ruled table, written by hand (no library).
 
-    Lines are drawn one by one and each cell's text with the standard Helvetica font.
+    Lines are drawn one by one and each cell's text with the standard Helvetica font. Text is
+    never clipped to its cell, so a long text runs over the rule into the next cell.
+
+    ``text_unit`` is how a cell's text is cut into the text objects the PDF draws: ``"string"``
+    (one object), ``"word"`` (one object per word, the space left to the position), ``"word_space"``
+    (one per word, each with its trailing space), ``"glyph"`` (one per character), or ``"rich"``
+    (the way a spreadsheet export draws a note with one word in bold: the text before it, the
+    bold word, the text after it). ``font_size`` is in points. ``column_major`` draws the cells
+    column by column instead of row by row, which orders the objects in the file differently.
     ``skip_lines`` leaves out named rules (``"v:1:2"`` is the vertical rule at column edge 1 between
     row edges 2 and 3, ``"h:2:0"`` the horizontal rule on row edge 2 above column 0): a missing
     interior rule is how a merged cell looks in a PDF.
 
     With ``active_content`` the file also carries what a reader must never act on: an
-    ``/OpenAction`` running JavaScript that submits a form to a local address, a ``/Launch``
-    action, a ``/URI`` link annotation, and an embedded file.
+    ``/OpenAction`` running JavaScript that submits a form to a local address (``listener_port``
+    on localhost), a ``/Launch`` action, a ``/URI`` link annotation to the same address, and an
+    embedded file.
     """
     n_rows, n_cols = len(rows), len(rows[0])
     x0, y0 = 50, 700
@@ -271,13 +324,15 @@ def hand_table_pdf(
                 continue
             x = x0 + j * cell_width
             ops.append(f"{x} {y0 - i * row_height} m {x} {y0 - (i + 1) * row_height} l S")
-    for i, row in enumerate(rows):
-        for j, text in enumerate(row):
-            safe = text.replace("\\", "\\\\").replace("(", "\\(").replace(")", "\\)")
-            ops.append(
-                f"BT /F1 10 Tf {x0 + j * cell_width + 4} {y0 - (i + 1) * row_height + 6} Td "
-                f"({safe}) Tj ET"
-            )
+    cells = [(i, j) for i in range(n_rows) for j in range(n_cols)]
+    if column_major:
+        cells.sort(key=lambda ij: (ij[1], ij[0]))
+    for i, j in cells:
+        x = x0 + j * cell_width + 4
+        y = y0 - (i + 1) * row_height + 6
+        for offset, font, piece in _text_objects(rows[i][j], text_unit, font_size):
+            safe = piece.replace("\\", "\\\\").replace("(", "\\(").replace(")", "\\)")
+            ops.append(f"BT /{font} {font_size} Tf {_number(x + offset)} {y} Td ({safe}) Tj ET")
     content = "\n".join(ops).encode("cp1252")
     objects = {
         1: b"<< /Type /Catalog /Pages 2 0 R >>",
@@ -289,6 +344,12 @@ def hand_table_pdf(
         4: f"<< /Length {len(content)} >>\nstream\n".encode() + content + b"\nendstream",
         5: b"<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica /Encoding /WinAnsiEncoding >>",
     }
+    if text_unit == "rich":
+        objects[3] = objects[3].replace(b"/F1 5 0 R", b"/F1 5 0 R /F2 11 0 R")
+        objects[11] = (
+            b"<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica-Bold "
+            b"/Encoding /WinAnsiEncoding >>"
+        )
     if active_content:
         objects[1] = (
             b"<< /Type /Catalog /Pages 2 0 R /OpenAction 6 0 R "
@@ -297,11 +358,11 @@ def hand_table_pdf(
         objects[3] = objects[3][:-2] + b" /Annots [7 0 R 9 0 R] >>"
         objects[6] = (
             b"<< /S /JavaScript /JS (app.alert\\(1\\); "
-            b"this.submitForm\\('http://127.0.0.1:9/x'\\);) >>"
+            b"this.submitForm\\('http://127.0.0.1:%d/x'\\);) >>" % listener_port
         )
         objects[7] = (
             b"<< /Type /Annot /Subtype /Link /Rect [0 0 100 100] "
-            b"/A << /S /URI /URI (http://127.0.0.1:9/click) >> >>"
+            b"/A << /S /URI /URI (http://127.0.0.1:%d/click) >> >>" % listener_port
         )
         objects[8] = b"<< /Type /Filespec /F (a.txt) /EF << /F 10 0 R >> >>"
         objects[9] = (

@@ -25,6 +25,24 @@ pytestmark = pytest.mark.skipif(
 WORKER_DIR = str(sandbox.WORKER.parent)
 MIB = 1024 * 1024
 
+# The calls the worker must not make on its parent, the server (round 3: R2-M3, R3-M2).
+OTHER_PROCESS_CALLS = (
+    "tkill",
+    "tgkill",
+    "rt_sigqueueinfo",
+    "rt_tgsigqueueinfo",
+    "pidfd_send_signal",
+    "prlimit64",
+    "setpriority",
+    "ioprio_set",
+    "sched_setparam",
+    "sched_setscheduler",
+    "sched_setaffinity",
+    "sched_setattr",
+    "migrate_pages",
+    "move_pages",
+)
+
 
 def _python(code: str, *args: str) -> list[str]:
     return [sys.executable, "-I", "-c", code, *args]
@@ -57,6 +75,12 @@ def test_the_worker_cannot_open_a_socket_start_a_program_or_a_process() -> None:
         "pidfd_open_refused": True,  # a handle on the server...
         "pidfd_getfd_refused": True,  # ...and from it, the server's sockets
         "signal_to_self_works": True,
+        # Every other way to signal the server, or to change it by its pid, is refused too:
+        **{f"{name}_refused": True for name in OTHER_PROCESS_CALLS},
+        "own_process_calls_allowed": True,  # but the worker's own limits and scheduling still work
+        "prlimit64_reads_own_limits": True,
+        "tgkill_to_self_works": True,
+        "oom_score_adj_is_1000": True,  # the kernel stops a worker before the server
         "threads_work": True,  # a thread is still a thread
         "filesystem_confined": True,
     }
@@ -301,6 +325,172 @@ def test_the_worker_refuses_to_parse_when_it_cannot_lock_itself_down(
     monkeypatch.setattr(lockdown.platform, "machine", lambda: "riscv64")
     with pytest.raises(lockdown.LockdownUnavailable):
         lockdown._install_seccomp()
+
+
+# -- The worker can't reach the server --------------------------------------------------------
+
+
+def test_without_landlock_the_filter_alone_refuses_every_call_on_the_server() -> None:
+    """The filter by itself, so a refusal can't come from anything else: EPERM for each call."""
+    code = _limited(
+        "import ctypes, json\n"
+        "libc = ctypes.CDLL(None, use_errno=True)\n"
+        "libc.syscall.restype = ctypes.c_long\n"
+        "print(json.dumps({'status': 'ok', 'data': lockdown.selftest_other_processes(libc)}))\n"
+    )
+    outcome = sandbox.run("x", b"", command=_python(code))
+    assert outcome.ok, outcome.reason
+    assert outcome.data == {
+        **{f"{name}_refused": True for name in OTHER_PROCESS_CALLS},
+        "own_process_calls_allowed": True,
+        "prlimit64_reads_own_limits": True,
+        "tgkill_to_self_works": True,
+    }
+
+
+_SERVER = """
+import json, os, resource, sys
+sys.path.insert(0, {root!r})
+from skills.pdf import sandbox
+
+def state():
+    return {{
+        "nofile": resource.getrlimit(resource.RLIMIT_NOFILE),
+        "cpu": resource.getrlimit(resource.RLIMIT_CPU),
+        "nice": os.getpriority(os.PRIO_PROCESS, 0),
+        "affinity": sorted(os.sched_getaffinity(0)),
+        "policy": os.sched_getscheduler(0),
+    }}
+
+before = state()
+outcome = sandbox.run("x", b"", command=[sys.executable, "-I", "-c", {worker!r}])
+print(json.dumps({{"worker": outcome.data, "reason": outcome.reason,
+                   "before": before, "after": state()}}))
+"""
+
+_ATTACKS = """
+import ctypes, json, os, resource, signal
+
+libc = ctypes.CDLL(None, use_errno=True)
+parent = os.getppid()
+tried = {}
+
+
+def attempt(name, call):
+    try:
+        call()
+        tried[name] = "worked"
+    except PermissionError:
+        tried[name] = "refused"
+    except OSError as exc:
+        tried[name] = "errno %d" % exc.errno
+
+
+def libc_call(name, *args):
+    if getattr(libc, name)(*args) != 0:
+        raise OSError(ctypes.get_errno(), name)
+
+
+class Sigval(ctypes.Union):
+    _fields_ = [("i", ctypes.c_int), ("p", ctypes.c_void_p)]
+
+
+libc.sigqueue.argtypes = [ctypes.c_int, ctypes.c_int, Sigval]
+attempt("nofile", lambda: resource.prlimit(parent, resource.RLIMIT_NOFILE, (5, 5)))
+attempt("cpu", lambda: resource.prlimit(parent, resource.RLIMIT_CPU, (1, 1)))
+attempt("nice", lambda: os.setpriority(os.PRIO_PROCESS, parent, 19))
+attempt("affinity", lambda: os.sched_setaffinity(parent, {0}))
+attempt("policy", lambda: os.sched_setscheduler(parent, os.SCHED_BATCH, os.sched_param(0)))
+attempt("tgkill", lambda: libc_call("tgkill", parent, parent, signal.SIGTERM))
+attempt("sigqueue", lambda: libc_call("sigqueue", parent, signal.SIGTERM, Sigval(0)))
+attempt("kill", lambda: os.kill(parent, signal.SIGTERM))
+print(json.dumps({"status": "ok", "data": tried}))
+"""
+
+
+def test_a_worker_that_tries_to_change_or_kill_the_server_changes_nothing() -> None:
+    """The real attempts, made by a worker whose parent is a throwaway server.
+
+    Round 3 killed a server with ``prlimit64`` (a CPU limit of one second) and starved another of
+    file descriptors. The attempts here are the real ones: if the filter let one through, this
+    server would be changed or killed, not the test run.
+    """
+    import json
+    import subprocess
+
+    root = str(Path(__file__).resolve().parents[3])
+    server = _SERVER.format(root=root, worker=_limited(_ATTACKS))
+    ran = subprocess.run(  # noqa: S603 - our own script
+        [sys.executable, "-I", "-c", server], capture_output=True, text=True, timeout=120
+    )
+    assert ran.returncode == 0, ran.stderr[-500:]
+    answer = json.loads(ran.stdout)
+    assert answer["reason"] == "", answer
+    assert answer["worker"] == {
+        "nofile": "refused",
+        "cpu": "refused",
+        "nice": "refused",
+        "affinity": "refused",
+        "policy": "refused",
+        "tgkill": "refused",
+        "sigqueue": "refused",
+        "kill": "refused",
+    }
+    assert answer["after"] == answer["before"]
+
+
+# -- Memory: a worker is the first thing the kernel stops -------------------------------------
+
+
+def test_the_worker_sets_its_oom_score_adj_to_1000() -> None:
+    code = _limited(
+        "import json\n"
+        "held = open('/proc/self/oom_score_adj').read().strip()\n"
+        "print(json.dumps({'status': 'ok', 'data': {'oom_score_adj': held}}))\n"
+    )
+    outcome = sandbox.run("x", b"", command=_python(code))
+    assert outcome.ok, outcome.reason
+    assert outcome.data == {"oom_score_adj": "1000"}
+
+
+def test_the_real_workers_own_oom_score_adj_is_what_the_selftest_reads_back() -> None:
+    outcome = sandbox.run("selftest", b"")
+    assert outcome.ok and outcome.data["oom_score_adj_is_1000"] is True
+
+
+def test_a_refused_oom_score_adj_is_a_failure_to_lock_down_not_a_shrug(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """``prefer_to_be_killed_first`` raises where the setting can't be made (nothing is changed)."""
+    import errno
+
+    from skills.pdf._worker import lockdown
+
+    def refuse(*args: object, **kwargs: object) -> int:
+        raise PermissionError(errno.EACCES, "not allowed here")
+
+    monkeypatch.setattr(lockdown.os, "open", refuse)
+    with pytest.raises(lockdown.LockdownUnavailable):
+        lockdown.prefer_to_be_killed_first()
+
+
+def test_a_worker_that_cannot_lower_its_oom_priority_reads_no_pdf() -> None:
+    """If the setting is refused, a runaway parser could take the server's memory: refuse."""
+    from tests import pdf_fixtures
+
+    code = (
+        "import sys\n"
+        f"sys.path.append({WORKER_DIR!r})\n"
+        "import lockdown, main\n"
+        "def refuse():\n"
+        "    raise lockdown.LockdownUnavailable('oom_score_adj can\\'t be set')\n"
+        "lockdown.prefer_to_be_killed_first = refuse\n"
+        "sys.argv = ['main', 'extract', '1073741824', '30', '8388608']\n"
+        "main.main(sys.argv)\n"
+    )
+    pdf = pdf_fixtures.hand_table_pdf(pdf_fixtures.FRUIT)
+    outcome = sandbox.run("x", pdf, command=_python(code))
+    assert (outcome.ok, outcome.reason) == (False, "sandbox_unavailable")
 
 
 # -- The number of workers at once ------------------------------------------------------------

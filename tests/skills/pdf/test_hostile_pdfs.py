@@ -177,12 +177,14 @@ def test_active_content_in_a_pdf_is_never_followed(tmp_path: Path) -> None:
     import socket
 
     listener = socket.socket()
-    listener.bind(("127.0.0.1", 9))  # the port the file's JavaScript and link name
+    listener.bind(("127.0.0.1", 0))  # a free port: a low one (9) can only be bound by root
     listener.listen(1)
+    port = listener.getsockname()[1]  # the port the file's JavaScript and link name
     listener.settimeout(0.3)
     try:
         before = set(os.listdir(tmp_path))
-        pdf = fixtures.hand_table_pdf(fixtures.FRUIT, active_content=True)
+        pdf = fixtures.hand_table_pdf(fixtures.FRUIT, active_content=True, listener_port=port)
+        assert b"127.0.0.1:%d/" % port in pdf
         extracted = sandbox.run("extract", pdf)
         verified = sandbox.run("verify", pdf)
         assert extracted.ok and verified.ok
@@ -190,7 +192,5 @@ def test_active_content_in_a_pdf_is_never_followed(tmp_path: Path) -> None:
         with pytest.raises(socket.timeout):
             listener.accept()
         assert set(os.listdir(tmp_path)) == before
-    except PermissionError:
-        pytest.skip("port 9 can't be bound here")
     finally:
         listener.close()

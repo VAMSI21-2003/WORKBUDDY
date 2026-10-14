@@ -72,6 +72,20 @@ def test_restart_memory_logs_and_data_volume(compose: dict[str, dict[str, object
     assert compose["volumes"]["workbuddy-data"]["name"] == "workbuddy-data"  # type: ignore[index]
 
 
+def test_the_apps_memory_limit_has_room_for_the_server_and_one_pdf_worker(
+    compose: dict[str, dict[str, object]],
+) -> None:
+    """The server plus the most the PDF workers may use at once (their address-space limit)."""
+    from skills.pdf import sandbox
+
+    limit = str(compose["services"]["app"]["mem_limit"])  # type: ignore[index]
+    units = {"m": 2**20, "g": 2**30}
+    assert limit[-1] in units, limit
+    in_bytes = int(limit[:-1]) * units[limit[-1]]
+    workers = sandbox.MAX_CONCURRENT_WORKERS * sandbox.ADDRESS_SPACE_BYTES
+    assert in_bytes >= workers + 2**30, "the server needs about 1 GiB of its own"
+
+
 def test_caddy_waits_for_a_healthy_app(compose: dict[str, dict[str, object]]) -> None:
     caddy = compose["services"]["caddy"]  # type: ignore[index]
     assert caddy["depends_on"]["app"]["condition"] == "service_healthy"  # type: ignore[index]

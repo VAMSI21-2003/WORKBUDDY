@@ -10,6 +10,13 @@ Run first thing in the worker process (``main.py``), so the parsers only ever ru
   ``ptrace``, the calls that read another process's memory, ``fork``/``vfork`` and every
   ``clone`` that isn't a thread; a call made in the 32-bit-on-64-bit (x32) numbering kills the
   process, since it would walk around the numbers above;
+- no reach into the server: the worker is the server's child, so the filter also refuses the calls
+  that send it a signal (``kill``, ``tgkill`` only on the worker's own pid; ``tkill``, the queued
+  signals, ``pidfd_*`` never) and the calls that change another process (``prlimit64`` and the
+  scheduling and memory-policy calls only on the worker itself; ``setpriority``, ``ioprio_set``
+  never): none of them is covered by Landlock or by ``ptrace`` rules;
+- a first place in the queue for the kernel's out-of-memory killer (``oom_score_adj`` 1000), so
+  that if the machine runs out of memory the worker dies, not the server;
 - no files beyond what the parsers were loaded from (``confine_filesystem``): after the parser
   modules are imported, a Landlock ruleset leaves the worker able to read the Python installation
   and the system libraries and nothing else, and to write nowhere.
@@ -46,11 +53,33 @@ class Limits:
     output_bytes: int
 
 
-# Syscall numbers by architecture: (audit arch id, the calls refused with EPERM, ``clone``,
-# ``clone3``, whether the x32 numbering exists).
-_X86_64 = (
-    0xC000003E,
-    {
+@dataclass(frozen=True)
+class _Architecture:
+    """The syscall numbers the filter needs on one CPU architecture.
+
+    Attributes:
+        audit: The audit architecture id (``seccomp_data.arch``).
+        refused: Calls refused with EPERM, whatever their arguments.
+        own_process_only: Calls whose first argument is a pid, refused with EPERM unless it is 0
+            (the caller) or the worker's own pid.
+        clone, clone3: The numbers of those two calls.
+        has_x32: Whether the x32 numbering (a bit in the call number) exists here.
+        kill, tgkill: Allowed only on the worker's own pid.
+    """
+
+    audit: int
+    refused: dict[str, int]
+    own_process_only: dict[str, int]
+    clone: int
+    clone3: int
+    has_x32: bool
+    kill: int
+    tgkill: int
+
+
+_X86_64 = _Architecture(
+    audit=0xC000003E,
+    refused={
         "socket": 41,
         "socketpair": 53,
         "fork": 57,
@@ -69,16 +98,27 @@ _X86_64 = (
         "io_uring_setup": 425,
         "io_uring_enter": 426,
         "io_uring_register": 427,
+        "setpriority": 141,
+        "ioprio_set": 251,
     },
-    56,
-    435,
-    True,
-    62,
-    234,
+    own_process_only={
+        "prlimit64": 302,
+        "sched_setparam": 142,
+        "sched_setscheduler": 144,
+        "sched_setaffinity": 203,
+        "sched_setattr": 314,
+        "migrate_pages": 256,
+        "move_pages": 279,
+    },
+    clone=56,
+    clone3=435,
+    has_x32=True,
+    kill=62,
+    tgkill=234,
 )
-_AARCH64 = (
-    0xC00000B7,
-    {
+_AARCH64 = _Architecture(
+    audit=0xC00000B7,
+    refused={
         "socket": 198,
         "socketpair": 199,
         "execve": 221,
@@ -95,12 +135,23 @@ _AARCH64 = (
         "io_uring_setup": 425,
         "io_uring_enter": 426,
         "io_uring_register": 427,
+        "setpriority": 140,
+        "ioprio_set": 30,
     },
-    220,
-    435,
-    False,
-    129,
-    131,
+    own_process_only={
+        "prlimit64": 261,
+        "sched_setparam": 118,
+        "sched_setscheduler": 119,
+        "sched_setaffinity": 122,
+        "sched_setattr": 274,
+        "migrate_pages": 238,
+        "move_pages": 239,
+    },
+    clone=220,
+    clone3=435,
+    has_x32=False,
+    kill=129,
+    tgkill=131,
 )
 _ARCHITECTURES = {"x86_64": _X86_64, "amd64": _X86_64, "aarch64": _AARCH64, "arm64": _AARCH64}
 
@@ -144,33 +195,39 @@ class _Assembler:
         return b"".join(out)
 
 
-def _program(entry: tuple) -> bytes:
+def _program(entry: _Architecture) -> bytes:
     """The BPF program for one architecture.
 
     Foreign architecture: kill. An x32 number (x86-64 only): kill. A refused call: EPERM.
     ``kill`` and ``tgkill``: allowed only on this process's own pid (a signal to the server, or to
-    a group, is refused).
+    a group, is refused). A call in ``own_process_only`` (``prlimit64``, the scheduling calls):
+    allowed only with pid 0 or this process's own pid, so it can't change the server.
     ``clone3``: ENOSYS (libc then falls back to ``clone``, whose flags can be read). ``clone``:
     allowed only with ``CLONE_THREAD``, so a thread starts and a process doesn't. Anything else:
     allowed.
     """
-    arch, refused, clone, clone3, has_x32, kill, tgkill = entry
     asm = _Assembler()
     asm.op(_BPF_LD_W_ABS, 4)  # seccomp_data.arch
-    asm.op(_BPF_JEQ_K, arch, jt="nr", jf="kill")
+    asm.op(_BPF_JEQ_K, entry.audit, jt="nr", jf="kill")
     asm.label("nr")
     asm.op(_BPF_LD_W_ABS, 0)  # seccomp_data.nr
-    if has_x32:
+    if entry.has_x32:
         asm.op(_BPF_JGE_K, _X32_BIT, jt="kill")
-    for number in sorted(refused.values()):
+    for number in sorted(entry.refused.values()):
         asm.op(_BPF_JEQ_K, number, jt="eperm")
-    asm.op(_BPF_JEQ_K, clone3, jt="enosys")
-    asm.op(_BPF_JEQ_K, clone, jt="clone")
-    asm.op(_BPF_JEQ_K, kill, jt="own_pid")
-    asm.op(_BPF_JEQ_K, tgkill, jt="own_pid")
+    asm.op(_BPF_JEQ_K, entry.clone3, jt="enosys")
+    asm.op(_BPF_JEQ_K, entry.clone, jt="clone")
+    asm.op(_BPF_JEQ_K, entry.kill, jt="own_pid")
+    asm.op(_BPF_JEQ_K, entry.tgkill, jt="own_pid")
+    for number in sorted(entry.own_process_only.values()):
+        asm.op(_BPF_JEQ_K, number, jt="self_or_zero")
     asm.op(_BPF_RET_K, _SECCOMP_RET_ALLOW)
     asm.label("own_pid")
     asm.op(_BPF_LD_W_ABS, _ARG0_LOW_WORD)
+    asm.op(_BPF_JEQ_K, os.getpid(), jt="allow", jf="eperm")
+    asm.label("self_or_zero")
+    asm.op(_BPF_LD_W_ABS, _ARG0_LOW_WORD)
+    asm.op(_BPF_JEQ_K, 0, jt="allow")
     asm.op(_BPF_JEQ_K, os.getpid(), jt="allow", jf="eperm")
     asm.label("clone")
     asm.op(_BPF_LD_W_ABS, _ARG0_LOW_WORD)
@@ -226,6 +283,26 @@ def _block_python_sockets() -> None:
     socket.getaddrinfo = refuse  # type: ignore[assignment]
 
 
+# Raising a process's own oom_score_adj needs no privilege; lowering it does. 1000 is the highest:
+# the kernel's out-of-memory killer picks the process with the highest score, so if the machine
+# (or the container's memory limit) runs out, it stops the worker before the server.
+_OOM_SCORE_ADJ = b"1000"
+# Kept open: after ``confine_filesystem`` the file can't be opened any more, but the self-test can
+# still read back, from this descriptor, what the kernel holds.
+_oom_score_fd: int | None = None
+
+
+def prefer_to_be_killed_first() -> None:
+    """Set this process's ``oom_score_adj`` to 1000. Raises ``LockdownUnavailable`` if it can't."""
+    global _oom_score_fd
+    try:
+        fd = os.open("/proc/self/oom_score_adj", os.O_RDWR | os.O_CLOEXEC)
+        os.write(fd, _OOM_SCORE_ADJ)
+    except OSError as exc:
+        raise LockdownUnavailable("oom_score_adj can't be set") from exc
+    _oom_score_fd = fd
+
+
 def apply(limits: Limits) -> None:
     """Put every limit and the seccomp filter on this process.
 
@@ -247,6 +324,7 @@ def apply(limits: Limits) -> None:
             resource.setrlimit(getattr(resource, name), (value, value))
     except (ValueError, OSError) as exc:
         raise LockdownUnavailable("a resource limit was refused") from exc
+    prefer_to_be_killed_first()
     _install_seccomp()
     _block_python_sockets()
     os.environ.clear()  # nothing in the environment is needed, or should be readable
@@ -345,6 +423,114 @@ def confine_filesystem() -> Confinement:
     return Confinement(True)
 
 
+# The numbers the self-test calls, written out a second time on purpose: the filter's own tables
+# aren't trusted to check themselves (a wrong number in them would be just as wrong here).
+_SELFTEST_CALLS = {
+    "x86_64": {
+        "tkill": 200,
+        "tgkill": 234,
+        "rt_sigqueueinfo": 129,
+        "rt_tgsigqueueinfo": 297,
+        "pidfd_send_signal": 424,
+        "prlimit64": 302,
+        "setpriority": 141,
+        "ioprio_set": 251,
+        "sched_setparam": 142,
+        "sched_setscheduler": 144,
+        "sched_setaffinity": 203,
+        "sched_setattr": 314,
+        "migrate_pages": 256,
+        "move_pages": 279,
+    },
+    "aarch64": {
+        "tkill": 130,
+        "tgkill": 131,
+        "rt_sigqueueinfo": 138,
+        "rt_tgsigqueueinfo": 240,
+        "pidfd_send_signal": 424,
+        "prlimit64": 261,
+        "setpriority": 140,
+        "ioprio_set": 30,
+        "sched_setparam": 118,
+        "sched_setscheduler": 119,
+        "sched_setaffinity": 122,
+        "sched_setattr": 274,
+        "migrate_pages": 238,
+        "move_pages": 239,
+    },
+}
+_SELFTEST_ARCHITECTURE = {
+    "x86_64": "x86_64",
+    "amd64": "x86_64",
+    "aarch64": "aarch64",
+    "arm64": "aarch64",
+}
+
+
+def selftest_other_processes(libc: ctypes.CDLL) -> dict[str, bool]:
+    """Try every call that could reach the server (this process's parent) on it. ``True`` = refused.
+
+    Each call is made so that the kernel, if the filter let it through, does nothing: signal 0
+    (a permission check), an invalid ``which`` or policy (``EINVAL``), a read-only ``prlimit64``,
+    an empty node list. A refusal is ``EPERM`` from the filter. Then the same calls on this
+    process itself (pid 0, or its own pid) must not be refused, so the filter isn't simply
+    refusing the whole group.
+    """
+    machine = _SELFTEST_ARCHITECTURE.get(platform.machine().lower())
+    if machine is None:
+        return {"other_process_calls_refused": False}
+    numbers = _SELFTEST_CALLS[machine]
+    parent, me = os.getppid(), os.getpid()
+    info = ctypes.create_string_buffer(128)
+    struct.pack_into("iii", info, 0, 0, 0, -1)  # si_signo 0, si_errno 0, si_code SI_QUEUE
+    old_limit = (ctypes.c_uint64 * 2)()
+    info_at, old_at = ctypes.addressof(info), ctypes.addressof(old_limit)
+
+    def call(name: str, *args: int) -> tuple[int, int]:
+        result = libc.syscall(numbers[name], *(ctypes.c_long(a) for a in args))
+        return result, ctypes.get_errno()
+
+    on_parent = {
+        "tkill": (parent, 0),
+        "tgkill": (parent, parent, 0),
+        "rt_sigqueueinfo": (parent, 0, info_at),
+        "rt_tgsigqueueinfo": (parent, parent, 0, info_at),
+        "pidfd_send_signal": (-1, 0, 0, 0),  # the kernel would say EBADF
+        "prlimit64": (parent, 0, 0, old_at),  # RLIMIT_CPU, reading only
+        "setpriority": (99, parent, 0),  # 99 is no "which"
+        "ioprio_set": (99, parent, 0),
+        "sched_setparam": (parent, 0),
+        "sched_setscheduler": (parent, -1, 0),
+        "sched_setaffinity": (parent, 0, 0),
+        "sched_setattr": (parent, 0, 0),
+        "migrate_pages": (parent, 0, 0, 0),
+        "move_pages": (parent, 0, 0, 0, 0, 0),
+    }
+    outcome = {}
+    for name, args in on_parent.items():
+        result, error = call(name, *args)
+        outcome[f"{name}_refused"] = result < 0 and error == errno.EPERM
+    # The same calls on this process: the ones with a pid in front, with pid 0 and the own pid.
+    own = {
+        "prlimit64": lambda who: (who, 0, 0, old_at),
+        "sched_setparam": lambda who: (who, 0),
+        "sched_setscheduler": lambda who: (who, -1, 0),
+        "sched_setaffinity": lambda who: (who, 0, 0),
+        "sched_setattr": lambda who: (who, 0, 0),
+        "migrate_pages": lambda who: (who, 0, 0, 0),
+        "move_pages": lambda who: (who, 0, 0, 0, 0, 0),
+    }
+    outcome["own_process_calls_allowed"] = all(
+        not (result < 0 and error == errno.EPERM)
+        for name, args in own.items()
+        for who in (0, me)
+        for result, error in [call(name, *args(who))]
+    )
+    outcome["prlimit64_reads_own_limits"] = call("prlimit64", me, 0, 0, old_at)[0] == 0
+    outcome["tgkill_to_self_works"] = call("tgkill", me, me, 0)[0] == 0
+    return outcome
+
+
 def selftest() -> dict[str, bool]:
     """What the sandbox must refuse, tried from inside: used by the tests and the release check.
 
@@ -395,6 +581,12 @@ def selftest() -> dict[str, bool]:
         outcome["signal_to_self_works"] = True
     except OSError:
         outcome["signal_to_self_works"] = False
+    outcome.update(selftest_other_processes(libc))
+    try:
+        held = os.pread(_oom_score_fd, 16, 0).strip() if _oom_score_fd is not None else b""
+    except OSError:
+        held = b""
+    outcome["oom_score_adj_is_1000"] = held == _OOM_SCORE_ADJ  # what the kernel holds
     started = []
     thread = threading.Thread(target=lambda: started.append(True))
     thread.start()

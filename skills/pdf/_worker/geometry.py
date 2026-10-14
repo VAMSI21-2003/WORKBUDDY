@@ -167,3 +167,75 @@ def cells_are_plain_grid(
         slots.add((j0, i0))
     full = (len(xs) - 1) * (len(ys) - 1)
     return len(slots) == len(cells) == full, len(ys) - 1, len(xs) - 1
+
+
+# -- Where a table's text sits ----------------------------------------------------------------
+
+# Two characters of different cells on one line that are closer than this many ems (the font size)
+# can't be told apart from the letters or the word space of one string. A word space between the
+# boxes of two characters (their advance widths) measures 0.2 to 0.4 em, so a rule that falls in a
+# word space puts the two halves of a sentence closer than this, and the text is refused.
+RUN_EM = 0.5
+# Two neighbours inside one cell that are further apart than this many ems are not one string: the
+# PDF has a column there that isn't ruled. An ordinary word space measures 0.2 to 0.4 em, a space
+# beside a dash up to about 0.6 em, three spaces 0.83 em, and the unruled columns of a real table
+# 2 em and more.
+COLUMN_EM = 1.0
+
+
+@dataclass(frozen=True)
+class Glyph:
+    """One printed character of a table's text, as the Inspector's own parser places it.
+
+    Attributes:
+        baseline: The y of the character's origin (its baseline), in PDF user space.
+        left: The left edge of its advance box.
+        right: The right edge of its advance box (the box includes the character's own spacing,
+            so the gap between two neighbours is the space between them, not between the inks).
+        size: The font size in points (one em).
+        cell: The ``(row, column)`` of the cell its centre lies in.
+    """
+
+    baseline: float
+    left: float
+    right: float
+    size: float
+    cell: tuple[int, int]
+
+
+OVERFLOW = "overflow"
+UNRULED = "unruled"
+
+
+def text_layout_problem(glyphs: list[Glyph]) -> str | None:
+    """``OVERFLOW``, ``UNRULED`` or ``None`` for the characters of one row of a table.
+
+    The characters are put into lines by their baselines and sorted left to right, however the PDF
+    ordered or split them into text objects. Then every pair of neighbours on a line is judged by
+    the gap between them, in ems:
+
+    - ``OVERFLOW``: neighbours in different cells closer than ``RUN_EM``. Both sides read a cell
+      by clipping it to its box, so a sentence the rule cuts in two reads the same cut in both,
+      and agreeing proves nothing: the text can't be given to a cell;
+    - ``UNRULED``: neighbours in one cell further apart than ``COLUMN_EM``: a column without a
+      rule.
+    """
+    lines: list[list[Glyph]] = []
+    line: list[Glyph] = []
+    for glyph in sorted(glyphs, key=lambda g: -g.baseline):
+        if line and line[0].baseline - glyph.baseline > 0.5 * min(line[0].size, glyph.size):
+            lines.append(line)
+            line = []
+        line.append(glyph)
+    if line:
+        lines.append(line)
+    for line in lines:
+        line.sort(key=lambda g: g.left)
+        for first, second in zip(line, line[1:], strict=False):
+            em = min(first.size, second.size)
+            gap = second.left - first.right
+            if first.cell != second.cell and gap < RUN_EM * em:
+                return OVERFLOW
+            if first.cell == second.cell and gap > COLUMN_EM * em:
+                return UNRULED
+    return None
