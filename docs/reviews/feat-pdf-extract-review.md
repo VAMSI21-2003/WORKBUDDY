@@ -258,3 +258,95 @@ Base `origin/main` `89625e7` (unchanged after `git fetch`). Scope: `37e65eb..f82
 - The production image (no container runtime here): whether Landlock is available there, so whether PDFs work at all.
 - arm64: the new filter numbers (`tkill`, signals, the own-pid check) were not exercised.
 - PDFs from Word, Excel or browsers, to see how often they draw text word by word (R3-H1's reach beyond LibreOffice).
+
+## Review round 4 (commit 86151a4)
+
+**Verdict: DON'T MERGE.** The layout check measures its gaps in the `Tf` operand, not in the size the text has on the page: text written `1 Tf` with the size in the text matrix (the way macOS Quartz and cairo write text) is delivered split across two cells (R4-H1), and every ordinary table written that way is refused as "columns aren't ruled" (R4-M1). A double space that the rule cuts is delivered split at any font size (R4-H2). Every cairo table is refused with a false reason (R4-M3). The worker can still kill the server through an fd owner's signal (R4-M2, not reachable by an ordinary request).
+
+Base `origin/main` `89625e7`. Scope: `f82951a..86151a4` (no change under `buddy/`, `core/`, `backend/`), round 3's findings, regression against base. Probes: `scripts/review_harness/feat-pdf-extract/` (README, "Round 4"). Real `build_engine`, skills, sandboxed worker and verifiers; only the LLM faked.
+
+### What was run
+
+| What | Result |
+|---|---|
+| `python -m pytest -q` (head) | 3705 passed, 6 skipped, 1180 s |
+| `ruff check buddy tests`, by file and rule, head vs base | identical; `check_ruff_baseline.py`: nothing beyond the baseline |
+| New and changed tests copied onto `f82951a` | `test_text_layout.py` can't be collected there (no `geometry.Glyph`); 37 other tests fail (fixes3 end-to-end x6, seccomp filter x20, sandbox x7, deploy/locks x3, worker cap x1) |
+| `python -m skills.pdf` (release check) | every check true, "The PDF sandbox holds." (exit 0) |
+| Round-3 `r3_layout.py` (758 cases), `r3_lo_rich.py` (70), `r2_lo_overflow.py` (12) | **0 delivered wrong** in each; 16/16 punctuation cells and 5/6 LibreOffice punctuation cells delivered right; LibreOffice Writer 3/3 refused (the accepted cost) |
+| `r3_pipeline.py` s01-s10 x 3 speakers (42 turns) | originals' SHA-256 unchanged in all; 0 Voice-model calls; s07 (`Mon - Fri`) delivered; s08/s09 refused with the new sentence |
+| `r4_tf.py`: one table written `10 Tf` / `1 Tf` + scaled `Tm` / `0.1 cm` + `100 Tf` | PDFium's `FPDFText_GetFontSize` reports 10 / **1** / **100** for the same 10 pt text. `10 Tf`: 0 wrong of 256 overflow cases. **`1 Tf`: 11 delivered split** (R4-H1), 4 of 6 ordinary tables refused `columns_not_ruled` (R4-M1). **`0.1 cm`: unruled columns delivered joined** (2/2), 4 of 6 ordinary tables refused `text_overflows` |
+| `r4_tf.py wordspacing`, ad-hoc double-space sweep (`10 Tf`) | note `*Urgent*  reorder` / `*Paid.*  Thanks` (two spaces, first word bold): **14 and 17 of 60 widths delivered split** (R4-H2); `Tw` 3 pt: 8 of 118 split |
+| `r4_lo_double.py`: 200 LibreOffice Calc exports, double space + bold/red word | 0 wrong (62 right, 138 refused) |
+| `r4_cairo.py`: real cairo PDFs (libcairo through ctypes) | **15 of 15 ordinary tables refused** `text_overflows` (R4-M3); 0 of 427 overflow cases wrong |
+| `r4_pipeline.py` t01-t05 x 3 speakers (18 turns) | originals unchanged in all; 0 Voice-model calls; t01 split delivered, then deduplicated (R4-H1); t02 false "columns aren't ruled" (R4-M1); t03 joined columns delivered; t04/t05 right |
+| `r3_sandbox.py`, `--kill-server` | prlimit64, setpriority, sched_setaffinity, ioprio_set, kill(0)/kill(-1) on the parent: EPERM; the parent's limits, nice and affinity unchanged; the throwaway server survives |
+| `r4_sandbox.py` (full lockdown + Landlock) | **`fcntl(F_SETOWN, getppid())` + `O_ASYNC` on a pipe, then a write: the server dies** (SIGIO exit -29; with `F_SETSIG` 9: -9; 15: -15; owner = the server's process group: -9). Same without Landlock (R4-M2) |
+| `r4_mutations.py`: 14 one-place mutations of the round-3 fixes | 12 killed. Survived: n05 object rule off, n07 tight glyph boxes instead of advance boxes (stated in fixes3) |
+| Active-content test as uid 65534 (`setpriv`) | passes (R2-L3's cause confirmed fixed) |
+| Prototype `r4_prototype_fix.diff` (throwaway worktree) | em scaled by the character's matrix, object rule removed, Landlock signal scope: `r4_tf.py` gives the same result in all three writings (0 wrong of 768 overflow cases, 18/18 ordinary tables delivered, unruled columns refused in all 6); cairo 15/15 ordinary tables delivered, 0 of 427 overflow cases wrong; `r3_layout.py` 758 cases identical to head (0 wrong); `r3_lo_rich.py` 0/70 wrong; `r2_lo_overflow.py` 0/12; the 4 fd-owner tries leave the server running; `python -m skills.pdf` holds; the 359 PDF tests pass. LibreOffice and reportlab write an identity matrix, so the em change is a no-op for every PDF the suite has. R4-H2 not fixed by it |
+
+### Round-3 findings
+
+| | Status (own evidence) |
+|---|---|
+| R3-H1 | **Fixed for text whose `Tf` is its size** [Certain]: 0 wrong in 758 + 70 + 12 + 256 cases; s08/s09 refused in 3 speakers; mutations n01-n04, n06 killed. Not for text sized by its matrix: R4-H1. A gap of 0.5 em or more at the rule: R4-H2 |
+| R3-M1 | **Fixed for text whose `Tf` is its size** [Certain] (16/16 punctuation cells, s07 in 3 speakers, n02/n08 killed). Text sized by its matrix: R4-M1 |
+| R3-M2 | **Fixed for the calls listed** [Certain] (`r3_sandbox.py`, `--kill-server`; n09-n13 killed). Signals through an fd owner: R4-M2 |
+| R3-L1 | open (s01: "I didn't run the analysis.") |
+| R3-L2 | s10-s13, s16 guarded (n14 killed); s07, s08 open, as the backlog says |
+| R2-L3 | fixed (port 0; passes as uid 65534) |
+
+### Findings
+
+**R4-H1 HIGH: text sized by its matrix (`1 Tf` and the size in `Tm`, as macOS Quartz writes it) is delivered split across two cells, and the reply says every cell is the PDF's text.** [Certain] mechanism and result; [Likely] that Quartz PDFs (Numbers, Pages, Excel for Mac, any "Save as PDF" on a Mac) are written this way; the case also needs every other cell of the table to be one word (see R4-M1).
+- Where: `skills/pdf/_worker/main.py` `_text_layout_problem`: `size = raw.FPDFText_GetFontSize(...)`. PDFium returns the `Tf` operand: 1 for `/F1 1 Tf 10 0 0 10 x y Tm` (100 for a page drawn at `0.1 0 0 0.1 0 0 cm`), so `geometry.text_layout_problem`'s 0.5 em is 0.5 pt and 1.0 em is 1 pt. The advance boxes and baselines are in page space, so only the em is wrong.
+- Scenario (t01; Name | Note | Qty, the Name cell `Urgent reorder` with its first word bold, overflowing into the empty Note cell): delivered as Name `Urgent`, Note `reorder`. The same table at `10 Tf` is refused. Then "now remove the duplicate rows" works on the split rows.
+- Reply (focus, t01): "Done — extracted the table: 3 columns, a first row and 3 rows below it. The table from report.pdf is in a new spreadsheet, ready for you. ... Every cell holds the text read from the PDF's text layer; numbers and dates are not converted."
+- Reachable: a Mac-made table whose cells are single words except one overflowing note drawn in several runs. 11 of 256 sweep widths here.
+- Fix (prototyped): scale the em by the character's matrix: `FPDFText_GetMatrix(textpage.raw, index, &m)`, `size = FPDFText_GetFontSize(...) * sqrt(|m.a*m.d - m.b*m.c|)`. Tests: `r4_tf.table_pdf(rows, widths, writing="tm")` and `writing="cm"`, rich two-word note swept through the rule: refused or whole, never split; an ordinary table with two-word cells in both writings delivered.
+
+**R4-H2 HIGH: a double space (or word spacing) that the rule cuts leaves 0.56 em between the halves, above the 0.5 em threshold, and the sentence is delivered split.** [Certain] on hand-written PDFs at `10 Tf`; [Possible] reach: 0 of 200 LibreOffice Calc exports, Word/Excel/browsers not available.
+- Where: `geometry.RUN_EM` (0.5) in `text_layout_problem`. Two spaces measure 0.56 em; `Tw` adds to each space.
+- Scenario: note `Paid.  Thanks` (two spaces after the full stop, `Paid.` bold, so two text objects) running into the empty next cell: delivered `Paid.` / `Thanks` at 17 of 60 widths; `Urgent  reorder` at 14 of 60. Under the same reply as R4-H1.
+- Fix: not a threshold. With `RUN_EM = 0.7` in the prototype, 6 and 14 of 60 are still split, and a higher value refuses more ordinary tables. It needs another signal, for example the column's alignment: refuse when a cell's text starts at an x that is neither the column's left padding, nor right- or centre-aligned in its cell, while its left neighbour's text runs to within a word space of the rule. *For the owner* if no such signal is wanted: record that a sentence with a double space at a cell border may be delivered split, and stop saying "Every cell holds the text read from the PDF's text layer" as a guarantee of whole cells.
+
+**R4-M1 MEDIUM: a table written `1 Tf` + scaled `Tm` is refused as "columns aren't ruled" whenever a cell holds two words; a page drawn in tenths of a point delivers unruled columns joined.** [Certain]; reach as R4-H1 [Likely] for Mac PDFs, [Possible] for tenth-point pages.
+- Where: same line as R4-H1.
+- Scenario (t02, every speaker): Fruit | Colour | Qty, `Green apple` | `light green` | `10`, every cell ruled. Reply: "I ran into a problem before I could change anything. The extract table step: couldn't independently re-read the PDF: some of the table's columns aren't ruled (two columns share one cell), and only tables with a border around every cell are supported for now. ..." The table is fully ruled. t03 (`0.1 cm`, `100 Tf`, review round 2's partly ruled table): delivered `Qty Price` / `10 2.50` under "Done — extracted the table: 2 columns ...", the R2-M1 result.
+- Fix: R4-H1's. Test: the same table in the three writings gives the same result.
+
+**R4-M3 MEDIUM: every table drawn by cairo is refused with a false reason.** [Certain] for cairo (Gnumeric, Firefox and GTK printing on Linux, Inkscape); reach: an ordinary request on such a PDF. Present since round 2 (the object rule); not new code in this round.
+- Where: `_text_layout_problem`'s object rule (`one string drawn across two cells`). cairo writes a whole row as one `TJ` (`[(Ann Lee)-6943(New York)]TJ`), so one text object always has characters in several cells.
+- Scenario: 15 of 15 ordinary ruled tables (9, 10, 12 pt; two-word cells, `Mon - Fri`, single words), refused "some text in the table sits too close to a cell's border, or runs past it, for me to be sure which cell it belongs to". Every cell has 3 pt of padding.
+- Fix (prototyped): drop the object rule and leave it to the line rule, which since this round judges every pair of neighbours on a line whatever object they are in (mutation n05, the object rule off, survives every test). Prototype numbers above.
+
+**R4-M2 MEDIUM (security, not reachable by an ordinary request): the worker can still kill the server, by making it the owner of a file descriptor.** [Certain] for what code in the worker can do, with and without Landlock; [Possible] that a parser is taken over.
+- Where: `skills/pdf/_worker/lockdown.py`. `fcntl` is allowed with any command, and Landlock is created without a scope.
+- From inside the full lockdown: `os.pipe()`, `fcntl(rd, F_SETOWN, getppid())`, `fcntl(rd, F_SETFL, O_ASYNC)`, `os.write(wr, b"x")`: the kernel sends SIGIO to the owner, whose default action ends it (exit -29). With `F_SETSIG` 9 the server is SIGKILLed; with 15 it gets SIGTERM. In the container the server is PID 1 (`exec python -m backend`), which drops signals it has no handler for, so SIGIO and SIGKILL may do nothing there, but SIGTERM reaches the server's own handler and shuts it down [Likely; not run in a container]. An owner of `-pgid` reaches the server's whole process group. The kernel checks only that the uids match.
+- Fix (prototyped): where Landlock's ABI is 6 or more, create the ruleset with `scoped = LANDLOCK_SCOPE_SIGNAL` (`struct.pack("QQQ", handled, 0, 1 << 1)`): all four tries then leave the server running. Also refuse `fcntl` (x86-64 72, arm64 25) with `F_SETOWN` (8), `F_SETOWN_EX` (15) and `F_SETSIG` (10) in the filter, for kernels below ABI 6. Add both to `selftest` (an fd owned by the parent, a write, the parent still alive) and to the release check.
+
+### Design deviations
+
+1. Decision 4: gaps "in ems (the font size)" are in the `Tf` operand; "it doesn't depend on how the PDF drew the text" doesn't hold for how it sized it (R4-H1, R4-M1).
+2. Sandbox, "No handle on the server": an fd owner's signal reaches it (R4-M2).
+3. Decision 4 keeps the object rule as a separate refusal; it adds nothing the line rule doesn't catch in any probe or test, and refuses every cairo table (R4-M3).
+4. "Libraries are pinned ... checked inside the production image on the owner's VM at `1575f04`": not checked here.
+
+### Deferred (LOW; added to `docs/backlog.md`)
+
+- **R4-L1 (tests):** no test writes text with a scaled matrix (`1 Tf` + `Tm`, or a scaled `cm`), which is how R4-H1 passed; mutations n05 (object rule off) and n07 (tight glyph boxes) survive.
+- R3-L1, R2-L2 and round 1's L1-L7: still open, still in the backlog.
+
+### For the owner
+
+- R4-H2 has no clean fix by threshold (above).
+- Fixes3 says this is the last round and that a DON'T MERGE leaves the decision to the owner's advisor. R4-H1 and R4-H2 need a specific kind of PDF: R4-H1 a Mac-made table whose cells are all single words but one, R4-H2 a double space exactly at a border inside a styled note. Neither was produced by LibreOffice here.
+
+### Not run
+
+- Live runs with Groq: not this reviewer's step.
+- The production image and the CI image job (no container runtime): the sandbox under Docker, R4-M2 against PID 1 in the container.
+- PDFs from macOS Quartz, Word, Excel or browsers: R4-H1's reach rests on Quartz writing `1 Tf` (not checked on a real Mac file here); cairo was checked.
+- arm64 hardware (the filter's arm64 path through the tests' BPF interpreter only).
+- The shared 532-turn `harness.py`: nothing under `buddy/`, `core/` or `backend/` changed since round 3, where it matched.

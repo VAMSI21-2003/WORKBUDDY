@@ -58,3 +58,26 @@ Same setting. New scripts (the round-1 and round-2 ones are reused unchanged; `r
 
 Prototype of the R3-H1/R3-M1 fix: copy `r3_*.py` into a throwaway worktree's copy of this folder, change
 `_text_layout_problem` there, and rerun (they import the product code from the tree they sit in).
+
+## Round 4 (head `86151a4`)
+
+Same setting. New scripts (the earlier ones are reused unchanged; `r3_layout.py`, `r3_lo_rich.py`,
+`r2_lo_overflow.py`, `r3_pipeline.py`, `r3_sandbox.py` were rerun on head):
+
+    python r4_tf.py [group ...]          # one table written three ways: `10 Tf` (tf), `1 Tf` + `10 0 0 10 x y Tm`
+                                         # (tm, how macOS Quartz and cairo set text), `0.1 cm` + `100 Tf` (cm, a page in
+                                         # tenths of a point). groups: em (what PDFium reports), plain, overflow, unruled;
+                                         # `wordspacing` (Tw) only when named
+    python r4_cairo.py [group ...]       # real cairo PDFs (system libcairo through ctypes): ordinary tables and overflow
+    python r4_lo_double.py               # LibreOffice Calc: overflowing note with a double space and a bold/red word
+    python r4_pipeline.py [tNN ...]      # t01-t05 through the app, three speakers (the tm overflow, then dedupe; tm
+                                         # ordinary table; cm unruled columns; controls)
+    python r4_sandbox.py [--no-landlock] [try ...]
+                                         # the locked-down worker signals its parent through an fd owner
+                                         # (fcntl F_SETOWN/F_SETSIG + O_ASYNC). A throwaway "server" in its own session
+                                         # runs the worker; its exit status is printed (-29 SIGIO, -9, -15)
+    python r4_mutations.py $WT [name ...]  # 14 one-place mutations of the round-3 fixes ($WT: a throwaway worktree)
+
+`r4_prototype_fix.diff`: the reviewer's prototype for R4-H1/R4-M1/R4-M3/R4-M2 (em scaled by the character's
+matrix, object rule left to the line rule, Landlock signal scope). To check it, apply it in a throwaway
+worktree, copy the `r3_*.py`/`r4_*.py` files into that worktree's copy of this folder and rerun them there.

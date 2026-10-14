@@ -424,6 +424,10 @@ From `docs/reviews/feat-pdf-extract-review.md`, "Review round 3" (LOW).
 - **pdf-extract R3-L1:** a report asked on a PDF (alone or with the extraction) is answered "I couldn't produce the report you asked for: I didn't run the analysis." without the reason (a PDF can't be analysed) or the way forward (extract the table first).
 - **pdf-extract R3-L2 (tests; s02, s10-s13 and s16 are guarded in round 4, `feat-pdf-extract-fixes3.md`; s07 and s08 are still open):** mutations survive: the cross-cell run check removed, the planner's dependency and active-file handling in `_drop_analysis`/`_is_analyzable`, `tgkill`/`tkill`/`rt_sigqueueinfo`/`pidfd_send_signal` allowed (not in `selftest`), the release check passing without Landlock. `test_one_string_drawn_across_two_cells...` passes on code without the fix.
 
+## feat/pdf-extract review round 4: deferred
+From `docs/reviews/feat-pdf-extract-review.md`, "Review round 4" (LOW).
+- **pdf-extract R4-L1 (tests):** no test writes a PDF's text with a scaled matrix (`1 Tf` and the size in `Tm`, as macOS Quartz and cairo do, or a scaled `cm`), which is how R4-H1 got through; mutations n05 (the object rule off) and n07 (tight glyph boxes instead of advance boxes) survive every test.
+
 ## feat/follow-up-turns review round 1: deferred
 - **follow-up-turns F3 (Low, tests):** no test fails when `_offer`'s integrity entries (delivered file, turn's copy), `_restore_upload_focus`'s `analyzed_files` filter, or `_finalize`'s outcome guard on `file_used` are removed (mutations survive; the filter's removal makes the session unreadable after a restart). See `docs/reviews/feat-follow-up-turns-review.md`.
 - **follow-up-turns F4 (Low):** the Files-panel line names a copy that has become unreadable; a copy is re-analysed every turn so leftover findings repeat; integrity-failure text says "your original file" for a delivered file or the turn's copy; `file_used: null` is written on every finished turn (a rollback makes those sessions unreadable).
