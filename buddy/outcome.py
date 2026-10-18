@@ -574,8 +574,8 @@ def _no_skill_outcome(
     The words Brain quoted for an action that passed cover an "unsupported"
     entry's words only if the quoted phrase itself names that action (its
     mention pattern matches it). Brain's phrase "delete the file" filed under
-    duplicate removal doesn't, so the entry speaks: the reply says that part
-    wasn't done.
+    duplicate removal doesn't, so the entry speaks, in the generic sentence:
+    the reply says that part wasn't done.
 
     A whole-message ``unsupported`` flag on a request the skills fully carried
     out still gets the flat "Partly done" sentence. Absorbing it would also
@@ -584,7 +584,7 @@ def _no_skill_outcome(
     """
     phrase = entry.source_phrase
     lowered = phrase.casefold().replace("\u2019", "'")
-    names_action = named_passed = named_silent = False
+    names_action = named_passed = named_silent = unabsorbed = False
     for action in ACTIONS_BY_NAME.values():
         if action.name not in _ACTION_WITH_VERB:
             continue
@@ -607,8 +607,10 @@ def _no_skill_outcome(
         # Brain's phrase for a done action covers the same words in an "unsupported" entry only
         # if that phrase names the action it was given to. A phrase that doesn't ("delete the
         # file", filed under duplicate removal) was put there by a misreading, and the words it
-        # holds are not shown to have been done.
+        # holds are not shown to have been done. The entry then speaks, in the generic sentence
+        # (a quote might include the words of the action that did run).
         if other_action.mention is None or not other_action.mention.search(said):
+            names_action = unabsorbed = True
             continue
         names_action = True
         if not _TWO_REQUESTS.search(said):
@@ -618,7 +620,12 @@ def _no_skill_outcome(
         return ActionOutcome("", NOT_DONE, reason=NO_SKILL, source=entry.source, user_phrase=quoted)
     words = re.findall(r"[\w']+", lowered)
     negated = any(w in _NEGATION_WORDS for w in words)
-    if any(w not in _FILLER_WORDS for w in words) or (negated and named_passed) or named_silent:
+    if (
+        unabsorbed
+        or any(w not in _FILLER_WORDS for w in words)
+        or (negated and named_passed)
+        or named_silent
+    ):
         return ActionOutcome("", NOT_DONE, reason=NO_SKILL, source=entry.source)
     return None
 

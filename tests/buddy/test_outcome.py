@@ -808,8 +808,9 @@ def test_h2_an_unsupported_entry_naming_a_done_action_is_dropped_or_unquoted() -
     # ("get rid of the repeated entries") doesn't, and nothing but a word list could tell it from
     # "delete the file" filed under duplicate removal, so the flag is reported, not absorbed.
     said = "get rid of the repeated entries"
-    assert no_skill(said, brain_phrase=said) == [said]
-    assert no_skill(f"{said} and sort", brain_phrase=said) == [f"{said} and sort"]
+    # Said, unquoted: a quote could hold the part that was done.
+    assert no_skill(said, brain_phrase=said) == [""]
+    assert no_skill(f"{said} and sort", brain_phrase=said) == [""]
     # ...while a quoted phrase that does name the action absorbs the same words.
     named = "remove the duplicate entries"
     assert no_skill(named, brain_phrase=named) == []

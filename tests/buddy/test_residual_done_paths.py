@@ -67,9 +67,9 @@ def test_z31_words_that_dont_name_duplicates_filed_under_them_are_not_called_don
     assert delivered  # the dedupe itself ran and was verified: the reply says so, only so far
     _no_bare_done(reply)
     assert "Partly done" in reply, reply
-    # Said not done: with the user's own words when the flagged words are only the unsupported
-    # part, in the generic sentence when they also hold the words of the duplicate removal.
-    assert f"“{unsupported}”" in reply or "something I can't do yet" in reply, reply
+    # Said not done, in the generic sentence: a quote of the flagged words could hold the words
+    # of the duplicate removal that did run.
+    assert "I read part of your request as something I can't do yet." in reply, reply
 
 
 @pytest.mark.parametrize("speaker", SPEAKERS)
