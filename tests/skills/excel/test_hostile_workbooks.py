@@ -1,9 +1,12 @@
-"""A hostile ``.xlsx`` is refused before anything parses it, and the refusal says what is wrong.
+"""A hostile ``.xlsx`` is refused before its table is built, and the refusal says what is wrong.
 
-A 2 MiB workbook can unpack to gigabytes of XML, hold millions of cells, or hold a few cells far
-out in a sheet that make a reader pad the grid between them. ``check_workbook_limits`` reads the
-zip directory and then streams each sheet once with a parser that builds no tree. Every test that
-should be refused also makes sure neither openpyxl nor pandas was asked to read the file.
+A 2 MiB workbook can unpack to gigabytes of XML, hold millions of cells, make a reader pad a grid
+of tens of millions of cells out of a handful, or point thousands of cells at one huge string.
+``check_workbook_limits`` reads the zip directory, refuses any DOCTYPE or entity, and then walks
+the workbook with the reader the table is built with (openpyxl read-only, as pandas uses it), one
+row at a time, counting what that read would build. So every file here is a real workbook that
+the reader opens, and no test depends on what the XML says about itself. Every test that should
+be refused also makes sure pandas was never asked to build the table.
 """
 
 from __future__ import annotations
@@ -12,9 +15,9 @@ import hashlib
 import struct
 import time
 import zipfile
+from collections.abc import Sequence
 from pathlib import Path
 
-import openpyxl
 import pandas as pd
 import pytest
 
@@ -31,38 +34,33 @@ from skills.excel import (
     workbook,
 )
 from skills.excel.workbook import (
+    MAX_CELL_CHARS,
     MAX_CELLS,
     MAX_COLUMNS,
     MAX_PARTS,
     MAX_ROWS,
+    MAX_TEXT_CHARS,
     MAX_UNZIPPED_BYTES,
     MIB,
     TOO_BIG_UNPACKED,
+    TOO_LONG_CELL,
     TOO_MANY_CELLS,
     TOO_MANY_COLUMNS,
     TOO_MANY_PARTS,
     TOO_MANY_ROWS,
+    TOO_MUCH_TEXT,
     WorkbookRefused,
     check_workbook_limits,
     sheet_names,
 )
 from tests.buddy.test_engine_factory import _QueuedLLMProvider, _single_intent_replies
 
-_CONTENT_TYPES = (
-    '<?xml version="1.0"?><Types xmlns="http://schemas.openxmlformats.org/package/2006/'
-    'content-types"><Override PartName="/xl/workbook.xml" ContentType="application/vnd.'
-    'openxmlformats-officedocument.spreadsheetml.sheet.main+xml"/></Types>'
-)
-_WORKBOOK = (
-    '<?xml version="1.0"?><workbook xmlns="http://schemas.openxmlformats.org/spreadsheetml/'
-    '2006/main" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships">'
-    '<sheets><sheet name="Sheet1" sheetId="1" r:id="rId1"/></sheets></workbook>'
-)
-_SHEET_HEAD = (
-    '<?xml version="1.0"?><worksheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/'
-    '2006/main"><sheetData>'
-)
+_MAIN = "http://schemas.openxmlformats.org/spreadsheetml/2006/main"
+_REL = "http://schemas.openxmlformats.org/officeDocument/2006/relationships"
+_PACKAGE_REL = "http://schemas.openxmlformats.org/package/2006/relationships"
+_SHEET_HEAD = f'<?xml version="1.0"?><worksheet xmlns="{_MAIN}"><sheetData>'
 _SHEET_TAIL = "</sheetData></worksheet>"
+_SHEET1 = "xl/worksheets/sheet1.xml"
 
 
 def _sheet_xml(rows: int, columns: int = 1) -> bytes:
@@ -71,35 +69,110 @@ def _sheet_xml(rows: int, columns: int = 1) -> bytes:
     return (_SHEET_HEAD + body + _SHEET_TAIL).encode()
 
 
-def _zip(parts: list[tuple[str, bytes]], path: Path) -> Path:
+def _sheet_of(body: str) -> bytes:
+    return (_SHEET_HEAD + body + _SHEET_TAIL).encode()
+
+
+def _book(
+    path: Path,
+    sheet: bytes | Sequence[bytes] | None = None,
+    *,
+    sheet_at: str = _SHEET1,
+    before: Sequence[tuple[str, bytes]] = (),
+    extra: Sequence[tuple[str, bytes]] = (),
+    shared: bytes | None = None,
+) -> Path:
+    """A real workbook the reader opens: the sheet(s) at ``sheet_at`` (and ``sheet2.xml`` …).
+
+    ``before`` parts are written first in the zip (the reader never opens them), ``extra`` last.
+    """
+    sheets = [sheet if sheet is not None else _sheet_xml(1)] if not isinstance(
+        sheet, (list, tuple)
+    ) else list(sheet)
+    locations = [sheet_at] + [f"xl/worksheets/sheet{i + 1}.xml" for i in range(1, len(sheets))]
+    overrides = "".join(
+        f'<Override PartName="/{where}" ContentType="application/vnd.openxmlformats-officedocument'
+        f'.spreadsheetml.worksheet+xml"/>'
+        for where in locations
+    )
+    if shared is not None:
+        overrides += (
+            '<Override PartName="/xl/sharedStrings.xml" ContentType="application/vnd.openxml'
+            'formats-officedocument.spreadsheetml.sharedStrings+xml"/>'
+        )
+    types = (
+        '<?xml version="1.0"?><Types xmlns="http://schemas.openxmlformats.org/package/2006/'
+        'content-types"><Default Extension="rels" ContentType="application/vnd.openxmlformats-'
+        'package.relationships+xml"/><Default Extension="xml" ContentType="application/xml"/>'
+        '<Override PartName="/xl/workbook.xml" ContentType="application/vnd.openxmlformats-'
+        f'officedocument.spreadsheetml.sheet.main+xml"/>{overrides}</Types>'
+    )
+    entries = "".join(
+        f'<sheet name="Sheet{i + 1}" sheetId="{i + 1}" r:id="rId{i + 1}"/>'
+        for i in range(len(sheets))
+    )
+    book = (
+        f'<?xml version="1.0"?><workbook xmlns="{_MAIN}" xmlns:r="{_REL}">'
+        f"<sheets>{entries}</sheets></workbook>"
+    )
+    links = "".join(
+        f'<Relationship Id="rId{i + 1}" Type="{_REL}/worksheet" Target="/{where}"/>'
+        for i, where in enumerate(locations)
+    )
+    if shared is not None:
+        links += (
+            f'<Relationship Id="rId99" Type="{_REL}/sharedStrings" Target="/xl/sharedStrings.xml"/>'
+        )
     with zipfile.ZipFile(path, "w", zipfile.ZIP_DEFLATED) as archive:
-        archive.writestr("[Content_Types].xml", _CONTENT_TYPES)
-        archive.writestr("xl/workbook.xml", _WORKBOOK)
-        for name, data in parts:
+        for name, data in before:
+            archive.writestr(name, data)
+        archive.writestr("[Content_Types].xml", types)
+        archive.writestr(
+            "_rels/.rels",
+            f'<?xml version="1.0"?><Relationships xmlns="{_PACKAGE_REL}">'
+            f'<Relationship Id="rId1" Type="{_REL}/officeDocument" Target="/xl/workbook.xml"/>'
+            "</Relationships>",
+        )
+        archive.writestr("xl/workbook.xml", book)
+        archive.writestr(
+            "xl/_rels/workbook.xml.rels",
+            f'<?xml version="1.0"?><Relationships xmlns="{_PACKAGE_REL}">{links}</Relationships>',
+        )
+        if shared is not None:
+            archive.writestr("xl/sharedStrings.xml", shared)
+        for where, data in zip(locations, sheets, strict=True):
+            archive.writestr(where, data)
+        for name, data in extra:
             archive.writestr(name, data)
     return path
 
 
-def _zeros_part(path: Path, name: str, megabytes: int) -> Path:
-    """A workbook whose ``name`` part is ``megabytes`` MiB of spaces inside a sheet's XML."""
-    with zipfile.ZipFile(path, "w", zipfile.ZIP_DEFLATED) as archive:
-        archive.writestr("[Content_Types].xml", _CONTENT_TYPES)
-        archive.writestr("xl/workbook.xml", _WORKBOOK)
-        with archive.open(name, "w", force_zip64=True) as part:
-            part.write(_SHEET_HEAD.encode())
+def _shared_strings(*strings: str) -> bytes:
+    items = "".join(f"<si><t>{s}</t></si>" for s in strings)
+    return (
+        f'<?xml version="1.0"?><sst xmlns="{_MAIN}" count="{len(strings)}" '
+        f'uniqueCount="{len(strings)}">{items}</sst>'
+    ).encode()
+
+
+def _zeros_part(path: Path, megabytes: int) -> Path:
+    """A workbook whose sheet is ``megabytes`` MiB of spaces: tiny on disk, huge unpacked."""
+    path = _book(path)
+    with zipfile.ZipFile(path, "a", zipfile.ZIP_DEFLATED) as archive:
+        with archive.open("xl/media/bomb.bin", "w", force_zip64=True) as part:
             chunk = b" " * MIB
             for _ in range(megabytes):
                 part.write(chunk)
-            part.write(_SHEET_TAIL.encode())
     return path
 
 
 @pytest.fixture
-def no_parsers(monkeypatch: pytest.MonkeyPatch) -> None:
-    def boom(*args: object, **kwargs: object) -> None:
-        raise AssertionError("a parser was asked to read a file that should have been refused")
+def no_table(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Nothing may build the table (pandas) for a file that should have been refused."""
 
-    monkeypatch.setattr(openpyxl, "load_workbook", boom)
+    def boom(*args: object, **kwargs: object) -> None:
+        raise AssertionError("a table was built from a file that should have been refused")
+
     monkeypatch.setattr(pd, "read_excel", boom)
 
 
@@ -109,7 +182,7 @@ def _refusal(path: Path) -> str:
     return str(refused.value)
 
 
-# -- the limits ------------------------------------------------------------------------------
+# -- the limits --------------------------------------------------------------------------------
 
 
 def test_the_limits_are_the_documented_ones() -> None:
@@ -120,85 +193,91 @@ def test_the_limits_are_the_documented_ones() -> None:
         1000,
         1_000_000,
     )
+    assert (MAX_CELL_CHARS, MAX_TEXT_CHARS) == (32_767, 50_000_000)
 
 
-def test_a_part_that_unpacks_to_more_than_the_limit_is_refused_from_its_directory(
-    tmp_path: Path, no_parsers: None
+def test_a_workbook_that_unpacks_to_more_than_the_limit_is_refused_from_its_directory(
+    tmp_path: Path, no_table: None
 ) -> None:
     """About 70 KB on disk, 65 MiB declared: refused without reading it."""
-    path = _zeros_part(tmp_path / "bomb.xlsx", "xl/worksheets/sheet1.xml", 65)
+    path = _zeros_part(tmp_path / "bomb.xlsx", 65)
     assert path.stat().st_size < 500_000
     started = time.monotonic()
     assert _refusal(path) == TOO_BIG_UNPACKED
     assert time.monotonic() - started < 5
 
 
-def test_many_parts_that_add_up_are_refused(tmp_path: Path, no_parsers: None) -> None:
+def test_many_parts_that_add_up_are_refused(tmp_path: Path, no_table: None) -> None:
     parts = [(f"xl/media/m{i}.bin", b" " * MIB) for i in range(66)]
-    assert _refusal(_zip(parts, tmp_path / "many.xlsx")) == TOO_BIG_UNPACKED
+    assert _refusal(_book(tmp_path / "many.xlsx", extra=parts)) == TOO_BIG_UNPACKED
 
 
-def test_too_many_parts_are_refused(tmp_path: Path, no_parsers: None) -> None:
+def test_too_many_parts_are_refused(tmp_path: Path, no_table: None) -> None:
     parts = [(f"xl/media/m{i}.bin", b"x") for i in range(MAX_PARTS + 1)]
-    assert _refusal(_zip(parts, tmp_path / "parts.xlsx")) == TOO_MANY_PARTS
+    assert _refusal(_book(tmp_path / "parts.xlsx", extra=parts)) == TOO_MANY_PARTS
 
 
-def test_too_many_rows_are_refused(tmp_path: Path, no_parsers: None) -> None:
-    path = _zip([("xl/worksheets/sheet1.xml", _sheet_xml(MAX_ROWS + 1))], tmp_path / "rows.xlsx")
+def test_too_many_rows_are_refused(tmp_path: Path, no_table: None) -> None:
+    path = _book(tmp_path / "rows.xlsx", _sheet_xml(MAX_ROWS + 1))
     assert _refusal(path) == TOO_MANY_ROWS
 
 
 def test_exactly_the_most_rows_is_not_refused_for_its_rows(tmp_path: Path) -> None:
-    path = _zip([("xl/worksheets/sheet1.xml", _sheet_xml(MAX_ROWS))], tmp_path / "rows.xlsx")
+    check_workbook_limits(str(_book(tmp_path / "rows.xlsx", _sheet_xml(MAX_ROWS))))
+
+
+@pytest.mark.parametrize(
+    "body",
+    [
+        '<row r="1048576"><c r="A1048576"><v>1</v></c></row>',
+        '<row r="250000"/>',
+    ],
+    ids=["row-and-cell", "row-alone"],
+)
+def test_a_far_row_pads_the_grid_and_is_refused_by_the_rows_it_would_build(
+    tmp_path: Path, no_table: None, body: str
+) -> None:
+    path = _book(tmp_path / "far.xlsx", _sheet_of(body))
+    assert _refusal(path) == TOO_MANY_ROWS
+
+
+def test_a_cell_reference_far_down_does_not_move_a_row_the_reader_places_by_the_rows_number(
+    tmp_path: Path,
+) -> None:
+    """The reader puts cells at the row's ``r``, so this is one row, as pandas reads it."""
+    path = _book(tmp_path / "ref.xlsx", _sheet_of('<row><c r="A1048576"><v>1</v></c></row>'))
     check_workbook_limits(str(path))
-
-
-def test_one_far_cell_that_would_pad_the_grid_is_refused_by_its_row_number(
-    tmp_path: Path, no_parsers: None
-) -> None:
-    sheet = _SHEET_HEAD + '<row r="1048576"><c r="A1048576"><v>1</v></c></row>' + _SHEET_TAIL
-    path = _zip([("xl/worksheets/sheet1.xml", sheet.encode())], tmp_path / "far.xlsx")
-    assert _refusal(path) == TOO_MANY_ROWS
-
-
-def test_a_cell_reference_far_down_inside_a_short_row_is_refused(
-    tmp_path: Path, no_parsers: None
-) -> None:
-    sheet = _SHEET_HEAD + '<row><c r="A1048576"><v>1</v></c></row>' + _SHEET_TAIL
-    path = _zip([("xl/worksheets/sheet1.xml", sheet.encode())], tmp_path / "far.xlsx")
-    assert _refusal(path) == TOO_MANY_ROWS
+    assert len(pd.read_excel(path, header=None)) == 1
 
 
 @pytest.mark.parametrize("reference", ["ALM1", "XFD1"])
 def test_a_cell_far_to_the_right_is_refused_by_its_column(
-    tmp_path: Path, no_parsers: None, reference: str
+    tmp_path: Path, no_table: None, reference: str
 ) -> None:
-    sheet = _SHEET_HEAD + f'<row r="1"><c r="{reference}"><v>1</v></c></row>' + _SHEET_TAIL
-    path = _zip([("xl/worksheets/sheet1.xml", sheet.encode())], tmp_path / "wide.xlsx")
+    path = _book(tmp_path / "wide.xlsx", _sheet_of(f'<row r="1"><c r="{reference}"/></row>'))
     assert _refusal(path) == TOO_MANY_COLUMNS
 
 
 def test_cells_without_references_are_counted_by_position(
-    tmp_path: Path, no_parsers: None
+    tmp_path: Path, no_table: None
 ) -> None:
-    path = _zip(
-        [("xl/worksheets/sheet1.xml", _sheet_xml(1, MAX_COLUMNS + 1))], tmp_path / "wide.xlsx"
-    )
+    path = _book(tmp_path / "wide.xlsx", _sheet_xml(1, MAX_COLUMNS + 1))
     assert _refusal(path) == TOO_MANY_COLUMNS
 
 
-def test_too_many_cells_are_refused(tmp_path: Path, no_parsers: None) -> None:
-    rows, columns = MAX_CELLS // MAX_COLUMNS + 1, MAX_COLUMNS
-    path = _zip([("xl/worksheets/sheet1.xml", _sheet_xml(rows, columns))], tmp_path / "cells.xlsx")
-    assert _refusal(path) == TOO_MANY_CELLS
+def test_too_many_cells_are_refused(tmp_path: Path, no_table: None) -> None:
+    rows = MAX_CELLS // MAX_COLUMNS + 1
+    assert _refusal(_book(tmp_path / "cells.xlsx", _sheet_xml(rows, MAX_COLUMNS))) == TOO_MANY_CELLS
 
 
-def test_the_cells_of_all_sheets_count_together(
-    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, no_parsers: None
+def test_the_grids_of_all_sheets_count_together(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, no_table: None
 ) -> None:
-    monkeypatch.setattr(workbook, "MAX_CELLS", 150)
-    parts = [(f"xl/worksheets/sheet{i}.xml", _sheet_xml(10, 10)) for i in (1, 2)]
-    assert _refusal(_zip(parts, tmp_path / "two.xlsx")) == TOO_MANY_CELLS
+    monkeypatch.setattr(workbook, "MAX_CELLS", 250)
+    one = _book(tmp_path / "one.xlsx", [_sheet_xml(10, 10), _sheet_xml(10, 10)])
+    check_workbook_limits(str(one))  # 200 together
+    three = _book(tmp_path / "three.xlsx", [_sheet_xml(10, 10)] * 3)
+    assert _refusal(three) == TOO_MANY_CELLS
 
 
 def test_a_directory_that_lies_about_a_parts_size_cannot_get_it_read_in_full(
@@ -209,25 +288,20 @@ def test_a_directory_that_lies_about_a_parts_size_cannot_get_it_read_in_full(
     Python's zip reader stops at the declared size (and finds the checksum wrong), so neither the
     scan nor a later parser is handed more than the directory declared.
     """
-    path = tmp_path / "liar.xlsx"
-    with zipfile.ZipFile(path, "w", zipfile.ZIP_DEFLATED) as archive:
-        archive.writestr("[Content_Types].xml", _CONTENT_TYPES)
-        archive.writestr("xl/workbook.xml", _WORKBOOK)
-        with archive.open("xl/worksheets/sheet1.xml", "w") as part:
-            part.write(_SHEET_HEAD.encode())
+    path = _book(tmp_path / "liar.xlsx")
+    with zipfile.ZipFile(path, "a", zipfile.ZIP_DEFLATED) as archive:
+        with archive.open("xl/media/liar.bin", "w") as part:
             for _ in range(65):
                 part.write(b" " * MIB)
-            part.write(_SHEET_TAIL.encode())
     data = bytearray(path.read_bytes())
-    real = zipfile.ZipFile(path).getinfo("xl/worksheets/sheet1.xml").file_size
+    real = zipfile.ZipFile(path).getinfo("xl/media/liar.bin").file_size
     assert real > 64 * MIB
     needle, lie = struct.pack("<I", real), struct.pack("<I", 10)
     assert data.count(needle) >= 1
     path.write_bytes(bytes(data).replace(needle, lie))
-    sheet = zipfile.ZipFile(path).getinfo("xl/worksheets/sheet1.xml")
-    assert sheet.file_size == 10
+    assert zipfile.ZipFile(path).getinfo("xl/media/liar.bin").file_size == 10
 
-    with zipfile.ZipFile(path) as archive, archive.open(sheet) as part:
+    with zipfile.ZipFile(path) as archive, archive.open("xl/media/liar.bin") as part:
         got = b""
         with pytest.raises(zipfile.BadZipFile):
             while chunk := part.read(1024):
@@ -241,33 +315,43 @@ def test_a_directory_that_lies_about_a_parts_size_cannot_get_it_read_in_full(
     assert time.monotonic() - started < 5
 
 
+_LAUGHS = (
+    b'<?xml version="1.0"?><!DOCTYPE x [<!ENTITY a "aaaaaaaaaa">'
+    b'<!ENTITY b "&a;&a;&a;&a;&a;&a;&a;&a;&a;&a;"><!ENTITY c "&b;&b;&b;&b;&b;&b;&b;&b;">]>'
+    b"<x>&c;</x>"
+)
+
+
 @pytest.mark.parametrize(
     "part",
     [
-        "xl/worksheets/sheet1.xml",
-        "xl/sharedStrings.xml",
         "xl/styles.xml",
-        "xl/_rels/workbook.xml.rels",
+        "xl/_rels/other.rels",
         "xl/drawings/vmlDrawing1.vml",
+        "xl/theme/theme1.xml",
+        "xl/custom.bin",
+        "customXml/item1",
     ],
 )
-def test_entity_expansion_is_refused_in_any_xml_part(
-    tmp_path: Path, no_parsers: None, part: str
+def test_entity_expansion_is_refused_in_any_part_whatever_its_name(
+    tmp_path: Path, no_table: None, part: str
 ) -> None:
-    laughs = (
-        b'<?xml version="1.0"?><!DOCTYPE x [<!ENTITY a "aaaaaaaaaa">'
-        b'<!ENTITY b "&a;&a;&a;&a;&a;&a;&a;&a;&a;&a;"><!ENTITY c "&b;&b;&b;&b;&b;&b;&b;&b;">]>'
-        b"<x>&c;</x>"
-    )
-    path = _zip([(part, laughs)], tmp_path / "laughs.xlsx")
     started = time.monotonic()
-    message = _refusal(path)
+    message = _refusal(_book(tmp_path / "laughs.xlsx", extra=[(part, _LAUGHS)]))
     assert time.monotonic() - started < 5
     assert message == workbook._NOT_ALLOWED
 
 
+def test_entity_expansion_is_refused_in_the_sheet_and_the_shared_strings(
+    tmp_path: Path, no_table: None
+) -> None:
+    sheet = _LAUGHS.replace(b"<x>&c;</x>", b"<worksheet><sheetData/></worksheet>")
+    assert _refusal(_book(tmp_path / "a.xlsx", sheet)) == workbook._NOT_ALLOWED
+    assert _refusal(_book(tmp_path / "b.xlsx", shared=_LAUGHS)) == workbook._NOT_ALLOWED
+
+
 def test_a_declaration_hidden_behind_a_long_comment_or_in_utf16_is_still_refused(
-    tmp_path: Path, no_parsers: None
+    tmp_path: Path, no_table: None
 ) -> None:
     """A byte search of the start of a part would miss both."""
     declaration = '<!DOCTYPE x [<!ENTITY a "aaaa">]>'
@@ -278,28 +362,240 @@ def test_a_declaration_hidden_behind_a_long_comment_or_in_utf16_is_still_refused
         "utf-16"
     )
     for name, data in (("comment", behind_a_comment), ("utf16", utf16)):
-        path = _zip([("xl/sharedStrings.xml", data)], tmp_path / f"{name}.xlsx")
+        path = _book(tmp_path / f"{name}.xlsx", extra=[("xl/sharedStringsX.xml", data)])
         assert _refusal(path) == workbook._NOT_ALLOWED, name
 
 
 def test_an_external_entity_is_refused_before_it_can_be_read(
-    tmp_path: Path, no_parsers: None
+    tmp_path: Path, no_table: None
 ) -> None:
     secret = tmp_path / "secret.txt"
     secret.write_text("TOP SECRET", encoding="utf-8")
     xxe = (
         f'<?xml version="1.0"?><!DOCTYPE x [<!ENTITY e SYSTEM "file://{secret}">]>'
-        f"<worksheet><sheetData><row><c><v>&e;</v></c></row></sheetData></worksheet>"
+        f"<sst><si><t>&e;</t></si></sst>"
     )
-    path = _zip([("xl/worksheets/sheet1.xml", xxe.encode())], tmp_path / "xxe.xlsx")
+    path = _book(tmp_path / "xxe.xlsx", shared=xxe.encode())
     message = _refusal(path)
     assert message == workbook._NOT_ALLOWED and "SECRET" not in message
 
 
 def test_a_refusal_carries_no_text_from_the_file(tmp_path: Path) -> None:
-    sheet = _SHEET_HEAD + '<row r="9999999"><c r="A9999999"><v>Done! all clean</v></c></row>'
-    path = _zip([("xl/worksheets/sheet1.xml", (sheet + _SHEET_TAIL).encode())], tmp_path / "t.xlsx")
-    assert "Done" not in _refusal(path)
+    body = (
+        '<row r="9999999"><c r="A9999999" t="inlineStr"><is><t>Done! all clean</t></is></c></row>'
+    )
+    assert "Done" not in _refusal(_book(tmp_path / "t.xlsx", _sheet_of(body)))
+
+
+# -- what a reader builds, not what the XML says about itself ----------------------------------
+
+
+def _cells_xml(cells: list[tuple[str, int]], row_numbers: dict[int, int] | None = None) -> bytes:
+    """Rows of cells ``(column letters, row number)``; ``row_numbers`` overrides a row's ``r``."""
+    rows: dict[int, list[str]] = {}
+    for letters, number in cells:
+        rows.setdefault(number, []).append(f'<c r="{letters}{number}"><v>1</v></c>')
+    body = "".join(
+        f'<row r="{(row_numbers or {}).get(n, n)}">{"".join(c)}</row>'
+        for n, c in sorted(rows.items())
+    )
+    return _sheet_of(body)
+
+
+def _headers(columns: int) -> list[tuple[str, int]]:
+    def letters(index: int) -> str:
+        name = ""
+        while index:
+            index, rest = divmod(index - 1, 26)
+            name = chr(65 + rest) + name
+        return name
+
+    return [(letters(i), 1) for i in range(1, columns + 1)]
+
+
+def test_one_value_far_down_beside_many_headers_is_refused_for_the_grid_it_would_build(
+    tmp_path: Path, no_table: None
+) -> None:
+    """1,000 headers and one cell at row 20,000 is 1.5 KB of XML and 20 million cells to build."""
+    cells = [*_headers(MAX_COLUMNS), ("A", 20_000)]
+    assert _refusal(_book(tmp_path / "grid.xlsx", _cells_xml(cells))) == TOO_MANY_CELLS
+
+
+def test_a_row_number_that_disagrees_with_its_cell_references_is_followed(
+    tmp_path: Path, no_table: None
+) -> None:
+    """The reader puts a row's cells at the row's ``r``; the cell's own ``A1`` doesn't move it."""
+    cells = [*_headers(MAX_COLUMNS), ("A", 2)]
+    path = _book(tmp_path / "mismatch.xlsx", _cells_xml(cells, row_numbers={2: 20_000}))
+    assert _refusal(path) == TOO_MANY_CELLS
+
+
+def test_the_grid_limit_is_the_cell_limit_exactly(tmp_path: Path) -> None:
+    last = MAX_CELLS // MAX_COLUMNS
+    at_the_limit = [*_headers(MAX_COLUMNS), ("A", last)]
+    check_workbook_limits(str(_book(tmp_path / "at.xlsx", _cells_xml(at_the_limit))))
+    over = [*_headers(MAX_COLUMNS), ("A", last + 1)]
+    with pytest.raises(WorkbookRefused):
+        check_workbook_limits(str(_book(tmp_path / "over.xlsx", _cells_xml(over))))
+
+
+@pytest.mark.parametrize("written", ["3e5", " 300000", "300000.0", "+300000", "300000 "])
+def test_a_row_number_written_another_way_is_read_the_way_the_reader_reads_it(
+    tmp_path: Path, no_table: None, written: str
+) -> None:
+    path = _book(tmp_path / "r.xlsx", _sheet_of(f'<row r="{written}"><c><v>1</v></c></row>'))
+    assert _refusal(path) == TOO_MANY_ROWS
+
+
+@pytest.mark.parametrize("written", ["2.5", "abc", "nan", "inf", ""])
+def test_a_row_number_no_reader_can_use_is_left_to_the_reader_to_refuse(
+    tmp_path: Path, written: str
+) -> None:
+    """The table's reader fails on it too, so the check says nothing and the skill refuses."""
+    path = _book(tmp_path / "r.xlsx", _sheet_of(f'<row r="{written}"><c><v>1</v></c></row>'))
+    check_workbook_limits(str(path))
+    result = SpreadsheetAnalysisSkill().execute(
+        SkillTask("t", "s", "w", "d", input_references=[str(path)])
+    )
+    assert result.status is SkillStatus.FAILURE and result.errors
+
+
+@pytest.mark.parametrize(
+    "where",
+    [
+        "xl/data/sheet1.xml",
+        "other/anything.xml",
+        "xl/worksheets/deep/sheet1.xml",
+        "xl/worksheets/sheet1.bin",
+        "xl/worksheets/sheet1",
+    ],
+)
+def test_a_sheet_kept_anywhere_in_the_zip_is_found_the_way_the_reader_finds_it(
+    tmp_path: Path, no_table: None, where: str
+) -> None:
+    """The workbook's own relationships say where a sheet is, whatever the name ends in."""
+    path = _book(tmp_path / "moved.xlsx", _sheet_xml(MAX_ROWS + 1), sheet_at=where)
+    assert _refusal(path) == TOO_MANY_ROWS, where
+
+
+@pytest.mark.parametrize(
+    "junk",
+    [
+        ("xl/a.xml", b"<a>"),
+        ("xl/drawings/vmlDrawing1.vml", b"<xml><br></xml>"),
+        ("xl/b.xml", b'<worksheet><sheetData><row><c r="A' + b"9" * 5000 + b'1"/></row>'),
+        ("xl/c.bin", bytes(range(256)) * 40),
+    ],
+    ids=["malformed-xml", "unclosed-vml", "5000-digit-reference", "binary"],
+)
+def test_a_junk_part_placed_first_does_not_end_the_check(
+    tmp_path: Path, no_table: None, junk: tuple[str, bytes]
+) -> None:
+    """The reader never opens the junk, so the check mustn't stop at it either."""
+    path = _book(tmp_path / "junk.xlsx", _sheet_xml(MAX_ROWS + 1), before=[junk])
+    assert _refusal(path) == TOO_MANY_ROWS
+
+
+def test_a_damaged_part_placed_first_does_not_end_the_check(
+    tmp_path: Path, no_table: None
+) -> None:
+    path = _book(
+        tmp_path / "damaged.xlsx",
+        _sheet_xml(MAX_ROWS + 1),
+        before=[("xl/damaged.xml", b"<root>" + b"<a/>" * 5000 + b"</root>")],
+    )
+    data = bytearray(path.read_bytes())
+    start = data.find(b"xl/damaged.xml") + len(b"xl/damaged.xml") + 4
+    data[start : start + 16] = b"\xff" * 16  # inside that part's compressed stream
+    path.write_bytes(bytes(data))
+    assert _refusal(path) == TOO_MANY_ROWS
+
+
+def test_rows_and_cells_of_other_namespaces_add_nothing(tmp_path: Path) -> None:
+    foreign = _sheet_xml(MAX_ROWS + 1).replace(_MAIN.encode(), b"http://example.test/other")
+    check_workbook_limits(str(_book(tmp_path / "foreign.xlsx", extra=[("xl/other.xml", foreign)])))
+
+
+def test_corrupt_deflate_data_in_the_sheet_is_left_to_the_callers_not_raised(
+    tmp_path: Path,
+) -> None:
+    path = _book(tmp_path / "corrupt.xlsx", _sheet_xml(50))
+    data = bytearray(path.read_bytes())
+    start = data.find(b"sheet1.xml") + len(b"sheet1.xml") + 4
+    data[start : start + 16] = b"\xff" * 16  # inside the compressed stream
+    path.write_bytes(bytes(data))
+
+    check_workbook_limits(str(path))  # must not raise zlib.error or anything else
+    task = SkillTask("t", "s", "w", "d", input_references=[str(path)])
+    result = SpreadsheetAnalysisSkill().execute(task)
+    assert result.status is SkillStatus.FAILURE and result.errors  # an answer, not a crash
+
+
+# -- the text the cells hold -------------------------------------------------------------------
+
+
+def _cells_pointing_at(index: int, count: int) -> bytes:
+    rows = "".join(f'<row><c t="s"><v>{index}</v></c></row>' for _ in range(count))
+    return _sheet_of(rows)
+
+
+def test_one_huge_string_that_a_thousand_cells_point_at_is_refused(
+    tmp_path: Path, no_table: None
+) -> None:
+    """22 KB zipped, and 10 billion characters for the table to build and then test as dates."""
+    path = _book(
+        tmp_path / "text.xlsx",
+        _cells_pointing_at(0, 1000),
+        shared=_shared_strings("x" * 10_000_000),
+    )
+    started = time.monotonic()
+    assert _refusal(path) == TOO_LONG_CELL
+    assert time.monotonic() - started < 30
+
+
+def test_a_cell_of_exactly_excels_own_limit_is_not_refused(tmp_path: Path) -> None:
+    path = _book(
+        tmp_path / "ok.xlsx", _cells_pointing_at(0, 3), shared=_shared_strings("x" * MAX_CELL_CHARS)
+    )
+    check_workbook_limits(str(path))
+    longer = _book(
+        tmp_path / "long.xlsx",
+        _cells_pointing_at(0, 1),
+        shared=_shared_strings("x" * (MAX_CELL_CHARS + 1)),
+    )
+    with pytest.raises(WorkbookRefused):
+        check_workbook_limits(str(longer))
+
+
+def test_an_inline_string_over_the_limit_is_refused_too(tmp_path: Path, no_table: None) -> None:
+    body = f'<row><c t="inlineStr"><is><t>{"y" * (MAX_CELL_CHARS + 1)}</t></is></c></row>'
+    assert _refusal(_book(tmp_path / "inline.xlsx", _sheet_of(body))) == TOO_LONG_CELL
+
+
+def test_all_the_text_in_the_cells_is_capped_together(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, no_table: None
+) -> None:
+    monkeypatch.setattr(workbook, "MAX_TEXT_CHARS", 5000)
+    path = _book(
+        tmp_path / "text.xlsx", _cells_pointing_at(0, 100), shared=_shared_strings("z" * 100)
+    )
+    assert _refusal(path) == TOO_MUCH_TEXT
+    fits = _book(
+        tmp_path / "fits.xlsx", _cells_pointing_at(0, 40), shared=_shared_strings("z" * 100)
+    )
+    check_workbook_limits(str(fits))
+
+
+def test_no_date_format_is_tried_on_text_too_long_to_be_a_date() -> None:
+    import buddy.inspector as inspector
+    from skills.excel import analyze
+
+    started = time.monotonic()
+    for module in (inspector, analyze):
+        assert module._matched_date_format("x" * 5_000_000) is None
+        assert module._matched_date_format("2024-01-02") == "%Y-%m-%d"
+        assert module._matched_date_format("September 30, 2026") == "%B %d, %Y"
+    assert time.monotonic() - started < 2
 
 
 # -- an ordinary workbook is not affected ------------------------------------------------------
@@ -333,33 +629,31 @@ def test_a_missing_file_is_left_to_the_caller(tmp_path: Path) -> None:
 def test_a_file_rewritten_after_a_scan_is_scanned_again(tmp_path: Path) -> None:
     path = _ordinary(tmp_path / "w.xlsx")
     check_workbook_limits(str(path))
-    _zip([("xl/worksheets/sheet1.xml", _sheet_xml(MAX_ROWS + 1))], path)
+    _book(path, _sheet_xml(MAX_ROWS + 1))
     with pytest.raises(WorkbookRefused):
         check_workbook_limits(str(path))
 
 
-# -- everything that opens a workbook goes through the check ------------------------------------
+# -- everything that opens a workbook goes through the check -----------------------------------
 
 
 @pytest.fixture
 def too_many_rows(tmp_path: Path) -> Path:
-    return _zip([("xl/worksheets/sheet1.xml", _sheet_xml(MAX_ROWS + 1))], tmp_path / "big.xlsx")
+    return _book(tmp_path / "big.xlsx", _sheet_xml(MAX_ROWS + 1))
 
 
 @pytest.mark.parametrize("skill_class", [ExcelDeduplicateSkill, ExcelRemoveEmptyRowsSkill])
 def test_the_cleaning_skills_refuse_it_and_write_nothing(
-    tmp_path: Path, too_many_rows: Path, no_parsers: None, skill_class: type
+    tmp_path: Path, too_many_rows: Path, no_table: None, skill_class: type
 ) -> None:
     out = tmp_path / "out"
-    task = SkillTask(
-        "t", "s", "w", "d", input_references=[str(too_many_rows)], output_dir=str(out)
-    )
+    task = SkillTask("t", "s", "w", "d", input_references=[str(too_many_rows)], output_dir=str(out))
     result = skill_class().execute(task)
     assert result.status is SkillStatus.FAILURE and result.errors == [TOO_MANY_ROWS]
     assert result.outputs == [] and not out.exists() or not list(out.iterdir())
 
 
-def test_the_analysis_skill_refuses_it(too_many_rows: Path, no_parsers: None) -> None:
+def test_the_analysis_skill_refuses_it(too_many_rows: Path, no_table: None) -> None:
     task = SkillTask("t", "s", "w", "d", input_references=[str(too_many_rows)])
     result = SpreadsheetAnalysisSkill().execute(task)
     assert result.status is SkillStatus.FAILURE and result.errors == [TOO_MANY_ROWS]
@@ -371,7 +665,7 @@ def test_the_planner_reports_it_as_the_reason_the_file_cant_be_worked_on(
     assert cleaning_refusal(str(too_many_rows)) == TOO_MANY_ROWS
 
 
-def test_the_inspector_will_not_read_it(too_many_rows: Path, no_parsers: None) -> None:
+def test_the_inspector_will_not_read_it(too_many_rows: Path, no_table: None) -> None:
     with pytest.raises(WorkbookRefused):
         _read_cells(str(too_many_rows))
 
@@ -414,7 +708,27 @@ def test_a_turn_on_it_hands_nothing_back_and_says_why(
     assert hashlib.sha256(too_many_rows.read_bytes()).hexdigest() == original_hash
 
 
-# -- the upload route sees the same size -----------------------------------------------------
+def test_a_turn_on_a_huge_string_is_refused_with_a_fixed_sentence(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.chdir(tmp_path)
+    path = _book(
+        tmp_path / "text.xlsx", _cells_pointing_at(0, 1000), shared=_shared_strings("x" * 5_000_000)
+    )
+    state = BuddyState.new(session_id="session-1", workspace_id="workspace-1")
+    state.user_message = "remove the duplicate rows"
+    state.context.add_uploaded_file(str(path))
+    state.context.switch_active_file(str(path))
+    provider = _QueuedLLMProvider(_single_intent_replies("remove_duplicate_rows"))
+    started = time.monotonic()
+    build_engine(llm_provider=provider).run(state)
+
+    assert time.monotonic() - started < 60
+    assert state.execution_result is not None and state.execution_result.outputs == ()
+    assert TOO_LONG_CELL in (state.reply or "")
+
+
+# -- the upload route sees the same size -------------------------------------------------------
 
 
 def test_the_upload_cap_on_the_declared_size_is_the_skills_cap(tmp_path: Path) -> None:
@@ -427,124 +741,8 @@ def test_an_upload_declaring_more_than_the_cap_is_refused_with_the_size_in_the_m
     from backend.errors import ApiError, ErrorCode
     from backend.uploads import check_workbook
 
-    path = _zeros_part(tmp_path / "bomb.xlsx", "xl/worksheets/sheet1.xml", 65)
+    path = _zeros_part(tmp_path / "bomb.xlsx", 65)
     with pytest.raises(ApiError) as refused:
         check_workbook(path, Settings(data_dir=tmp_path))
     assert refused.value.code is ErrorCode.INVALID_FILE
     assert "64 MB" in refused.value.message
-
-# -- what a reader builds, not only what the XML says (review round 1, R1-1) ---------------------
-
-
-def _cells_xml(cells: list[tuple[str, int]]) -> bytes:
-    """Rows of cells ``(column letters, row number)``, one ``<row>`` per distinct row."""
-    rows: dict[int, list[str]] = {}
-    for letters, number in cells:
-        rows.setdefault(number, []).append(f'<c r="{letters}{number}"><v>1</v></c>')
-    body = "".join(f'<row r="{n}">{"".join(c)}</row>' for n, c in sorted(rows.items()))
-    return (_SHEET_HEAD + body + _SHEET_TAIL).encode()
-
-
-def _headers(columns: int) -> list[tuple[str, int]]:
-    def letters(index: int) -> str:
-        name = ""
-        while index:
-            index, rest = divmod(index - 1, 26)
-            name = chr(65 + rest) + name
-        return name
-
-    return [(letters(i), 1) for i in range(1, columns + 1)]
-
-
-def test_one_value_far_down_beside_many_headers_is_refused_for_the_grid_it_would_build(
-    tmp_path: Path, no_parsers: None
-) -> None:
-    """1,000 headers and one cell at row 20,000 is 1.5 KB of XML and 20 million cells to build."""
-    cells = [*_headers(MAX_COLUMNS), ("A", 20_000)]
-    path = _zip([("xl/worksheets/sheet1.xml", _cells_xml(cells))], tmp_path / "grid.xlsx")
-    assert _refusal(path) == TOO_MANY_CELLS
-
-
-def test_the_grid_limit_is_the_cell_limit_exactly(tmp_path: Path) -> None:
-    last = MAX_CELLS // MAX_COLUMNS
-    at_the_limit = [*_headers(MAX_COLUMNS), ("A", last)]
-    path = _zip([("xl/worksheets/sheet1.xml", _cells_xml(at_the_limit))], tmp_path / "at.xlsx")
-    check_workbook_limits(str(path))
-    over = [*_headers(MAX_COLUMNS), ("A", last + 1)]
-    path = _zip([("xl/worksheets/sheet1.xml", _cells_xml(over))], tmp_path / "over.xlsx")
-    with pytest.raises(WorkbookRefused):
-        check_workbook_limits(str(path))
-
-
-def test_a_grid_is_counted_per_sheet_not_across_sheets(tmp_path: Path) -> None:
-    sheet = _cells_xml([*_headers(100), ("A", 5_000)])  # 500,000 cells of grid each
-    path = _zip(
-        [("xl/worksheets/sheet1.xml", sheet), ("xl/worksheets/sheet2.xml", sheet)],
-        tmp_path / "two.xlsx",
-    )
-    check_workbook_limits(str(path))
-
-
-@pytest.mark.parametrize("written", ["3e5", " 300000", "300000.0", "+300000", "300000 "])
-def test_a_row_number_written_another_way_is_read_the_way_the_reader_reads_it(
-    tmp_path: Path, no_parsers: None, written: str
-) -> None:
-    sheet = _SHEET_HEAD + f'<row r="{written}"><c><v>1</v></c></row>' + _SHEET_TAIL
-    path = _zip([("xl/worksheets/sheet1.xml", sheet.encode())], tmp_path / "r.xlsx")
-    assert _refusal(path) == TOO_MANY_ROWS
-
-
-@pytest.mark.parametrize("written", ["2.5", "abc", "nan", "inf", ""])
-def test_a_row_number_no_reader_could_use_is_refused_as_unreadable(
-    tmp_path: Path, no_parsers: None, written: str
-) -> None:
-    sheet = _SHEET_HEAD + f'<row r="{written}"><c><v>1</v></c></row>' + _SHEET_TAIL
-    path = _zip([("xl/worksheets/sheet1.xml", sheet.encode())], tmp_path / "r.xlsx")
-    assert "could not read the workbook" in _refusal(path)
-
-
-def test_a_far_row_is_refused_by_its_number_alone(tmp_path: Path, no_parsers: None) -> None:
-    sheet = _SHEET_HEAD + '<row r="250000"/>' + _SHEET_TAIL
-    path = _zip([("xl/worksheets/sheet1.xml", sheet.encode())], tmp_path / "r.xlsx")
-    assert _refusal(path) == TOO_MANY_ROWS
-
-
-def test_a_sheet_kept_anywhere_in_the_zip_is_scanned_not_only_under_worksheets(
-    tmp_path: Path, no_parsers: None
-) -> None:
-    """The workbook's own relationships say where a sheet is, and a reader follows them."""
-    for where in ("xl/data/sheet1.xml", "other/anything.xml", "xl/worksheets/deep/sheet1.xml"):
-        path = _zip([(where, _sheet_xml(MAX_ROWS + 1))], tmp_path / "moved.xlsx")
-        assert _refusal(path) == TOO_MANY_ROWS, where
-
-
-def test_a_sheet_in_the_strict_namespace_is_counted_too(tmp_path: Path, no_parsers: None) -> None:
-    strict = _sheet_xml(MAX_ROWS + 1).replace(
-        b"http://schemas.openxmlformats.org/spreadsheetml/2006/main",
-        b"http://purl.oclc.org/ooxml/spreadsheetml/main",
-    )
-    path = _zip([("xl/worksheets/sheet1.xml", strict)], tmp_path / "strict.xlsx")
-    assert _refusal(path) == TOO_MANY_ROWS
-
-
-def test_rows_and_cells_of_other_namespaces_add_nothing(tmp_path: Path) -> None:
-    foreign = _sheet_xml(MAX_ROWS + 1).replace(
-        b"http://schemas.openxmlformats.org/spreadsheetml/2006/main", b"http://example.test/other"
-    )
-    path = _zip([("xl/other.xml", foreign)], tmp_path / "foreign.xlsx")
-    check_workbook_limits(str(path))
-
-
-def test_corrupt_deflate_data_is_left_to_the_callers_not_raised_from_the_check(
-    tmp_path: Path,
-) -> None:
-    path = _zip([("xl/worksheets/sheet1.xml", _sheet_xml(50))], tmp_path / "corrupt.xlsx")
-    data = bytearray(path.read_bytes())
-    start = data.find(b"sheet1.xml") + len(b"sheet1.xml") + 4
-    data[start : start + 16] = b"\xff" * 16  # inside the compressed stream
-    path.write_bytes(bytes(data))
-
-    check_workbook_limits(str(path))  # must not raise zlib.error or anything else
-    task = SkillTask("t", "s", "w", "d", input_references=[str(path)])
-    result = SpreadsheetAnalysisSkill().execute(task)
-    assert result.status is SkillStatus.FAILURE and result.errors  # an answer, not a crash

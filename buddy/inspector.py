@@ -443,6 +443,8 @@ def _check_against_input(
     )
 
 
+# The longest text any of the formats below can match ("September 30, 2026" is 18 characters).
+_LONGEST_DATE_CHARS = 32
 _DATE_FORMATS = (
     "%Y-%m-%d",
     "%m/%d/%Y",
@@ -466,6 +468,8 @@ def _matched_date_format(value: str) -> str | None:
         The matching format string, or ``None`` if none of the known
         formats parse ``value``.
     """
+    if len(value) > _LONGEST_DATE_CHARS:  # no listed format is this long; strptime would crawl
+        return None
     for date_format in _DATE_FORMATS:
         try:
             datetime.strptime(value, date_format)

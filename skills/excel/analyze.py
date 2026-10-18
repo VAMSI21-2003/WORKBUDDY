@@ -35,6 +35,8 @@ _DATE_FORMATS = (
     "%b %d, %Y",
     "%b %d %Y",
 )
+# The longest text any of the formats above can match ("September 30, 2026" is 18 characters).
+_LONGEST_DATE_CHARS = 32
 _NAME_COLUMN_PATTERN = re.compile(r"name", re.IGNORECASE)
 _DISCRIMINATING_COLUMN_PATTERN = re.compile(r"phone|email|tel", re.IGNORECASE)
 _KEY_COLUMN_PATTERN = _DISCRIMINATING_COLUMN_PATTERN
@@ -178,6 +180,8 @@ class IQROutlierAnalyzer:
 
 def _matched_date_format(value: str) -> str | None:
     """Return the first of ``_DATE_FORMATS`` that parses ``value`` exactly."""
+    if len(value) > _LONGEST_DATE_CHARS:  # no listed format is this long; strptime would crawl
+        return None
     for date_format in _DATE_FORMATS:
         try:
             datetime.strptime(value, date_format)

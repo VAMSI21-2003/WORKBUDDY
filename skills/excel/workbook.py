@@ -20,16 +20,15 @@ because openpyxl silently drops a declared sheet whose XML part is missing.
 Every message in a ``WorkbookRefused`` is fixed text: it reaches the user's
 reply, so it never carries an exception's text or a name read from the file.
 
-A hostile workbook is refused before anything parses it for real: ``check_workbook_limits``
-reads the zip directory (parts, declared unzipped size) and then streams every XML part once,
-with a parser that builds no tree, counting rows, columns, cells and the grid a reader pads to,
-and stopping at the first limit it passes. A 2 MiB ``.xlsx`` can unpack to gigabytes of XML, and
-a few cells far out in a sheet make a reader pad the grid between them; neither gets as far as
-pandas or openpyxl.
+A hostile workbook is refused before its table is built: ``check_workbook_limits`` reads the zip
+directory (parts, declared unzipped size), refuses any DOCTYPE or entity declaration, and then
+walks the workbook with the same read-only reader the table is read with, one row at a time,
+counting what that read would build (the rows it pads out to, the widest row, the text in the
+cells) and stopping at the first limit passed. A 2 MiB ``.xlsx`` can unpack to gigabytes of XML,
+and a few cells far out in a sheet make a reader pad the grid between them.
 """
 
 import logging
-import re
 import zipfile
 from dataclasses import dataclass
 from pathlib import Path
@@ -68,15 +67,9 @@ MAX_PARTS = 1000
 MAX_ROWS = 200_000
 MAX_COLUMNS = 1_000
 MAX_CELLS = 1_000_000
-_XML_PART = re.compile(r"\.(xml|rels|vml)$", re.IGNORECASE)
-_CELL_REFERENCE = re.compile(r"^\$?([A-Za-z]{1,3})\$?(\d+)$")
-# The namespaces a spreadsheet's rows and cells are written in (transitional and strict).
-_SPREADSHEET_NAMESPACES = frozenset(
-    (
-        "http://schemas.openxmlformats.org/spreadsheetml/2006/main",
-        "http://purl.oclc.org/ooxml/spreadsheetml/main",
-    )
-)
+# Excel's own limit for the text in one cell, and a cap on all the text the cells hold.
+MAX_CELL_CHARS = 32_767
+MAX_TEXT_CHARS = 50_000_000
 
 # How much of a sheet's XML is fed to the merged-cell scan at a time.
 _SCAN_CHUNK_BYTES = 1 << 20
@@ -99,7 +92,15 @@ TOO_MANY_COLUMNS = (
     f"the sheet has more than {MAX_COLUMNS:,} columns, which is more than I can open safely"
 )
 TOO_MANY_CELLS = (
-    f"the workbook has more than {MAX_CELLS:,} cells, which is more than I can open safely"
+    f"the sheet spans more than {MAX_CELLS:,} cells (its rows times its columns), "
+    "which is more than I can open safely"
+)
+TOO_LONG_CELL = (
+    f"a cell holds more than {MAX_CELL_CHARS:,} characters, which is more than I can open safely"
+)
+TOO_MUCH_TEXT = (
+    f"the cells hold more than {MAX_TEXT_CHARS:,} characters of text, "
+    "which is more than I can open safely"
 )
 _NOT_ALLOWED = (
     "the workbook holds XML declarations that an Excel file doesn't use, so I won't open it"
@@ -255,15 +256,15 @@ _SCANNED_MAX = 64
 
 
 def check_workbook_limits(input_path: str) -> None:
-    """Refuse a workbook that is too large to open safely, before anything parses it.
+    """Refuse a workbook that is too large to open safely, before its table is built.
 
     Only zip content (``.xlsx``) is looked at; anything else is left to the callers' own
     refusals. Checks, each cheaper than the next: the number of parts; the declared unzipped size
     of all parts (``zipfile`` never hands over more of a part than its directory declares, so
-    that total bounds what is read); then every XML part is streamed once through an expat parser
-    that builds no tree, counting rows, columns, cells and the grid a reader pads to (the highest
-    row times the highest column), stopping at the first limit passed and refusing any DOCTYPE or
-    entity declaration. A file the scan can't read is left to the callers' own refusals.
+    that total bounds what is read); no DOCTYPE or entity declaration in any part; then a walk
+    with the table's own reader (``_reader_verdict``), so that what is counted is what the table
+    would be built from, whatever the XML says about itself. A file that can't be read is left to
+    the callers' own refusals: the table's reader can't read it either.
 
     Args:
         input_path: The workbook to check. It is only ever read.
@@ -298,111 +299,86 @@ def _scan(input_path: str) -> str | None:
                 return TOO_MANY_PARTS
             if sum(entry.file_size for entry in entries) > MAX_UNZIPPED_BYTES:
                 return TOO_BIG_UNPACKED
-            counts = _Counts()
-            # Every XML part, not only xl/worksheets/: the workbook's own relationships say where
-            # a sheet is, and a reader loads it from wherever that is.
+            # Every part, whatever its name: the workbook's own relationships say which ones a
+            # reader opens. A part that isn't XML stops the parser at its first bytes.
             for entry in entries:
-                if _XML_PART.search(entry.filename):
-                    problem = _scan_part(archive, entry, counts)
-                    if problem is not None:
-                        return problem
+                if _declares_entities(archive, entry):
+                    return _NOT_ALLOWED
     except Exception:  # noqa: BLE001 — damaged or unreadable: the callers' own reads refuse it
         logger.info("%r couldn't be scanned for size limits", input_path)
-    return None
+        return None
+    return _reader_verdict(input_path)
 
 
-@dataclass
-class _Counts:
-    """What the scan has seen so far, across the workbook's parts."""
+def _declares_entities(archive: zipfile.ZipFile, entry: zipfile.ZipInfo) -> bool:
+    """Whether the part is XML that declares a DOCTYPE or an entity (read by the parser itself).
 
-    cells: int = 0
-
-
-def _column_number(letters: str) -> int:
-    number = 0
-    for letter in letters.upper():
-        number = number * 26 + ord(letter) - 64
-    return number
-
-
-def _row_number(text: str) -> int:
-    """A row's ``r`` the way openpyxl reads it: a whole number, or a float that is one."""
-    try:
-        return int(text)
-    except ValueError:
-        value = float(text)
-        if not value.is_integer():
-            raise
-        return int(value)
-
-
-class _LimitPassed(Exception):
-    """Raised inside the XML scan to stop at the first limit passed."""
-
-
-def _scan_part(archive: zipfile.ZipFile, entry: zipfile.ZipInfo, counts: _Counts) -> str | None:
-    """Stream one XML part; the refusal text for the first limit it passes, or ``None``.
-
-    Counts the rows and cells of the spreadsheet namespace (any part may hold a sheet), reading a
-    row's and a cell's position the way openpyxl does. Besides the number of rows, columns and
-    cells, the grid counts: a reader fills in every cell between the first row and the highest
-    one, so one cell at row 20,000 beside 1,000 headers is 20 million cells to build, however few
-    ``<c>`` elements say so. A DOCTYPE or entity declaration refuses the part.
+    A part that isn't well-formed XML says nothing here: the callers' own reads refuse it.
     """
-    parser = expat.ParserCreate(namespace_separator=" ")
-    state = {"rows": 0, "row": 0, "column": 0, "top_row": 0, "top_column": 0}
-    problem: list[str] = []
+    parser = expat.ParserCreate()
+    found = False
 
-    def refuse(text: str) -> None:
-        problem.append(text)
+    def declared(*_: object) -> None:
+        nonlocal found
+        found = True
         raise _LimitPassed
 
-    def on_start(name: str, attributes: dict[str, str]) -> None:
-        namespace, _, local = name.rpartition(" ")
-        if namespace not in _SPREADSHEET_NAMESPACES:
-            return
-        if local == "row":
-            state["rows"] += 1
-            state["column"] = 0
-            given = attributes.get("r")
-            try:
-                state["row"] = _row_number(given) if given is not None else state["row"] + 1
-            except ValueError:
-                refuse(_UNREADABLE)
-            if state["rows"] > MAX_ROWS or state["row"] > MAX_ROWS:
-                refuse(TOO_MANY_ROWS)
-        elif local == "c":
-            counts.cells += 1
-            if counts.cells > MAX_CELLS:
-                refuse(TOO_MANY_CELLS)
-            reference = attributes.get("r")
-            row = state["row"]
-            if reference is None:
-                state["column"] += 1
-            else:
-                match = _CELL_REFERENCE.match(reference)
-                if match is None:
-                    refuse(_UNREADABLE)
-                state["column"], row = _column_number(match.group(1)), int(match.group(2))
-            if state["column"] > MAX_COLUMNS:
-                refuse(TOO_MANY_COLUMNS)
-            if row > MAX_ROWS:
-                refuse(TOO_MANY_ROWS)
-            state["top_row"] = max(state["top_row"], row)
-            state["top_column"] = max(state["top_column"], state["column"])
-            if state["top_row"] * state["top_column"] > MAX_CELLS:
-                refuse(TOO_MANY_CELLS)
-
-    parser.StartElementHandler = on_start
-    parser.StartDoctypeDeclHandler = lambda *_: refuse(_NOT_ALLOWED)
-    parser.EntityDeclHandler = lambda *_: refuse(_NOT_ALLOWED)
+    parser.StartDoctypeDeclHandler = declared
+    parser.EntityDeclHandler = declared
     try:
         with archive.open(entry) as part:
             while chunk := part.read(_SCAN_CHUNK_BYTES):
                 parser.Parse(chunk, False)
             parser.Parse(b"", True)
     except _LimitPassed:
-        return problem[0]
+        pass
+    except Exception:  # noqa: BLE001 — not XML, or damaged: not this check's business
+        return False
+    return found
+
+
+class _LimitPassed(Exception):
+    """Raised inside a scan to stop at the first limit passed."""
+
+
+def _reader_verdict(input_path: str) -> str | None:
+    """Walk the workbook the way the table is read, counting what that read would build.
+
+    pandas builds its table from openpyxl's read-only rows, so this uses the same reader on the
+    same file and counts what it yields, instead of guessing at the XML: the rows it pads out to
+    (one cell at row 20,000 is 19,999 rows), the widest row, and the text in the cells. It holds one
+    row at a time and stops at the first limit passed. A workbook the reader can't read is left
+    to the callers' own refusals, because pandas can't read it either.
+    """
+    try:
+        with open(input_path, "rb") as handle:
+            book = openpyxl.load_workbook(handle, read_only=True, data_only=True)
+            try:
+                grids = chars = 0
+                for sheet in book.worksheets:
+                    sheet.reset_dimensions()  # as pandas does: a wrong <dimension> hides nothing
+                    rows = widest = 0
+                    for row in sheet.iter_rows(values_only=True):
+                        rows += 1
+                        widest = max(widest, len(row))
+                        if rows > MAX_ROWS:
+                            return TOO_MANY_ROWS
+                        if widest > MAX_COLUMNS:
+                            return TOO_MANY_COLUMNS
+                        if grids + rows * widest > MAX_CELLS:
+                            return TOO_MANY_CELLS
+                        for value in row:
+                            if isinstance(value, str):
+                                if len(value) > MAX_CELL_CHARS:
+                                    return TOO_LONG_CELL
+                                chars += len(value)
+                                if chars > MAX_TEXT_CHARS:
+                                    return TOO_MUCH_TEXT
+                    grids += rows * widest
+            finally:
+                book.close()
+    except Exception:  # noqa: BLE001 — the same reader would fail in pandas, with a refusal
+        logger.info("%r couldn't be walked for size limits", input_path)
     return None
 
 
