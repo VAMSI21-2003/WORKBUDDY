@@ -2,6 +2,8 @@
 
 import json
 import logging
+import time
+from collections.abc import Callable
 from dataclasses import dataclass, replace
 from pathlib import Path
 from typing import Protocol
@@ -17,7 +19,7 @@ from buddy.actions import (
     mentioned_actions,
 )
 from buddy.context import ConversationTurn
-from buddy.llm import LLMMessage, LLMProvider
+from buddy.llm import LLMMessage, LLMProvider, is_transient_failure, retry_pause_seconds
 from buddy.models import (
     FILE_LATEST,
     LEDGER_FROM_BRAIN,
@@ -29,6 +31,10 @@ from buddy.source import choose_file
 from buddy.state import BuddyState
 
 logger = logging.getLogger(__name__)
+
+
+def _sleep(seconds: float) -> None:
+    time.sleep(seconds)
 
 
 @dataclass(frozen=True)
@@ -326,13 +332,17 @@ class ClaudeInterpreter:
     follows.
     """
 
-    def __init__(self, provider: LLMProvider) -> None:
+    def __init__(
+        self, provider: LLMProvider, *, sleep: Callable[[float], None] | None = None
+    ) -> None:
         """Initialize the interpreter.
 
         Args:
             provider: The ``LLMProvider`` used to classify intent.
+            sleep: Waits before the second try (``time.sleep`` when not given).
         """
         self._provider = provider
+        self._sleep = sleep if sleep is not None else _sleep
 
     def __call__(self, request: UnderstandingRequest) -> Understanding:
         """Classify ``request`` into a structured ``Understanding``.
@@ -343,14 +353,16 @@ class ClaudeInterpreter:
         Returns:
             The classified ``Understanding``, or, when both attempts failed, a conservative
             one with no intent. A failed attempt (the call raised, the reply wasn't JSON, or it
-            had the wrong shape) is tried once more: the call has no side effects. Each
-            failure is logged at WARNING with the turn and the kind of failure, never the
-            reply, the message or a key.
+            had the wrong shape) is tried once more after a pause of about a second: the call
+            has no side effects. A call that raised is tried again only when the error was a
+            ``429``, a timeout or a ``5xx`` (``is_transient_failure``); any other error would
+            fail the same way. Each failure is logged at WARNING with the turn and the kind of
+            failure, never the reply, the message or a key.
         """
         user_prompt = self._build_user_prompt(request)
         failure = FAILURE_CALL
         for attempt in range(1, ATTEMPTS + 1):
-            understanding, failure = self._attempt(
+            understanding, failure, worth_retrying = self._attempt(
                 user_prompt, request.user_message, request.pending_request
             )
             if understanding is not None:
@@ -366,12 +378,17 @@ class ClaudeInterpreter:
                 attempt,
                 ATTEMPTS,
             )
+            if not worth_retrying:
+                break
+            if attempt < ATTEMPTS:
+                self._sleep(retry_pause_seconds())
         return _failed_understanding(failure)
 
     def _attempt(
         self, user_prompt: str, user_message: str, pending_request: str | None
-    ) -> tuple[Understanding | None, str]:
-        """One call and parse: the understanding, or ``None`` and the kind of failure."""
+    ) -> tuple[Understanding | None, str, bool]:
+        """One call and parse: the understanding, or ``None``, the kind of failure, and whether
+        a second try could do better."""
         try:
             raw_reply = self._provider.complete(
                 system=_SYSTEM_PROMPT,
@@ -381,8 +398,9 @@ class ClaudeInterpreter:
             # The exception's class says what failed (a timeout, a rate limit); its message
             # isn't logged, and the logging filter masks any key that got into it.
             logger.debug("ClaudeInterpreter: LLM call raised")
-            return None, f"{FAILURE_CALL}: {type(exc).__name__}"
-        return _parse(raw_reply, user_message, pending_request)
+            return None, f"{FAILURE_CALL}: {type(exc).__name__}", is_transient_failure(exc)
+        understanding, failure = _parse(raw_reply, user_message, pending_request)
+        return understanding, failure, True
 
     @staticmethod
     def _build_user_prompt(request: UnderstandingRequest) -> str:

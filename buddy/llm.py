@@ -4,12 +4,14 @@ from __future__ import annotations
 
 import logging
 import os
+import random
 import time
 from dataclasses import dataclass
 from typing import Protocol
 
 import anthropic
 import groq
+import httpx
 
 logger = logging.getLogger(__name__)
 
@@ -29,6 +31,42 @@ DEFAULT_GROQ_MODEL = "openai/gpt-oss-120b"
 # already catch a failed call and degrade honestly (no intent, a
 # clarification, no plan); any other caller's stage fails (R6).
 DEFAULT_REQUEST_TIMEOUT_S = 60.0
+
+# How long a stage waits before asking the model a second time, and how far that wait may drift
+# either way (a fraction of it), so that many turns failing together don't all retry together.
+RETRY_PAUSE_S = 1.0
+RETRY_JITTER = 0.25
+_TIMEOUT_ERRORS = (
+    TimeoutError,
+    httpx.TimeoutException,
+    anthropic.APITimeoutError,
+    groq.APITimeoutError,
+)
+
+
+def is_transient_failure(exc: BaseException) -> bool:
+    """Whether a failed model call is worth asking again: a ``429``, a timeout or a ``5xx``.
+
+    Everything else (a ``400``, ``401``, ``403`` or ``404``, a malformed request, a missing
+    package) will fail the same way a second time, so a retry only spends the provider's
+    patience and the turn's deadline. Read from the exception's type and its HTTP status, never
+    from its message.
+    """
+    if isinstance(exc, _TIMEOUT_ERRORS):
+        return True
+    status = getattr(exc, "status_code", None)
+    return isinstance(status, int) and (status == 429 or 500 <= status <= 599)
+
+
+def retry_pause_seconds(draw: float | None = None) -> float:
+    """The wait before a retry: ``RETRY_PAUSE_S``, give or take ``RETRY_JITTER`` of it.
+
+    Args:
+        draw: A number in ``[0, 1)`` to place the wait by; random when not given (tests pass one).
+    """
+    if draw is None:
+        draw = random.random()
+    return RETRY_PAUSE_S * (1 + RETRY_JITTER * (2 * draw - 1))
 
 
 @dataclass(frozen=True)

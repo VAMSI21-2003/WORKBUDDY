@@ -2,15 +2,21 @@
 
 import json
 import logging
+import time
+from collections.abc import Callable
 from dataclasses import dataclass, replace
 from typing import Protocol
 
 from buddy.context import ConversationTurn
-from buddy.llm import LLMMessage, LLMProvider
+from buddy.llm import LLMMessage, LLMProvider, is_transient_failure, retry_pause_seconds
 from buddy.models import Understanding
 from buddy.state import BuddyState
 
 logger = logging.getLogger(__name__)
+
+
+def _sleep(seconds: float) -> None:
+    time.sleep(seconds)
 
 
 @dataclass(frozen=True)
@@ -394,21 +400,27 @@ class ClaudeThinker:
     follows.
     """
 
-    def __init__(self, provider: LLMProvider) -> None:
+    def __init__(
+        self, provider: LLMProvider, *, sleep: Callable[[float], None] | None = None
+    ) -> None:
         """Initialize the thinker.
 
         Args:
             provider: The ``LLMProvider`` used to reason about the request.
+            sleep: Waits before the second try (``time.sleep`` when not given).
         """
         self._provider = provider
+        self._sleep = sleep if sleep is not None else _sleep
 
     def __call__(self, request: ThinkingRequest) -> Reasoning:
         """Reason about ``request`` and return the resulting strategy.
 
         A failed attempt (the call raised, the reply wasn't JSON, or it had the wrong shape) is
-        tried once more: the call has no side effects, and a model that misfires once usually
-        doesn't twice. Each failure is logged at WARNING with the turn and the kind of failure,
-        never the reply, the message or a key.
+        tried once more after a pause of about a second: the call has no side effects, and a
+        model that misfires once usually doesn't twice. A call that raised is tried again only
+        when the error was a ``429``, a timeout or a ``5xx`` (``is_transient_failure``); any
+        other error would fail the same way. Each failure is logged at WARNING with the turn and
+        the kind of failure, never the reply, the message or a key.
 
         Args:
             request: The request to reason about.
@@ -420,7 +432,7 @@ class ClaudeThinker:
         user_prompt = self._build_user_prompt(request)
         failure = FAILURE_CALL
         for attempt in range(1, ATTEMPTS + 1):
-            reasoning, failure = self._attempt(user_prompt)
+            reasoning, failure, worth_retrying = self._attempt(user_prompt)
             if reasoning is not None:
                 if attempt > 1:
                     logger.info(
@@ -434,10 +446,15 @@ class ClaudeThinker:
                 attempt,
                 ATTEMPTS,
             )
+            if not worth_retrying:
+                break
+            if attempt < ATTEMPTS:
+                self._sleep(retry_pause_seconds())
         return _failed_reasoning(failure)
 
-    def _attempt(self, user_prompt: str) -> tuple[Reasoning | None, str]:
-        """One call and parse: the reasoning, or ``None`` and the kind of failure."""
+    def _attempt(self, user_prompt: str) -> tuple[Reasoning | None, str, bool]:
+        """One call and parse: the reasoning, or ``None``, the kind of failure, and whether a
+        second try could do better."""
         try:
             raw_reply = self._provider.complete(
                 system=_SYSTEM_PROMPT,
@@ -447,8 +464,9 @@ class ClaudeThinker:
             # The exception's class says what failed (a timeout, a rate limit); its message
             # isn't logged, and the logging filter masks any key that got into it.
             logger.debug("ClaudeThinker: LLM call raised")
-            return None, f"{FAILURE_CALL}: {type(exc).__name__}"
-        return _parse(raw_reply)
+            return None, f"{FAILURE_CALL}: {type(exc).__name__}", is_transient_failure(exc)
+        reasoning, failure = _parse(raw_reply)
+        return reasoning, failure, True
 
     @staticmethod
     def _build_user_prompt(request: ThinkingRequest) -> str:

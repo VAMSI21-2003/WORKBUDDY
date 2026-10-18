@@ -1,0 +1,18 @@
+# Known vulnerabilities that scripts/run_pip_audit.py is told to accept, and why.
+#
+# Every entry needs an `id`, a `reason` that says why this project is not affected or can't fix it
+# yet, and a `review_by` date. The audit fails once a date has passed, so an ignore can't be
+# forgotten: read the advisory again, then either fix the dependency and delete the entry, or
+# write a new reason and a later date. `aliases` are other names of the same advisory.
+
+[[ignore]]
+id = "PYSEC-2026-3447"
+aliases = ["GHSA-h35f-9h28-mq5c", "CVE-2026-59890", "BIT-setuptools-2026-59890"]
+package = "setuptools 79.0.1"
+reason = """\
+Only affects building a source distribution with MANIFEST.in exclude rules on a file system that \
+keeps Unicode normalisation (macOS APFS or HFS+); nothing here builds an sdist, and CI and the \
+image run on Linux. It can't be fixed by upgrading yet: the fix is setuptools 83.0.0, but \
+ydata-profiling imports pkg_resources, which setuptools 82 and later no longer ship, so \
+requirements-runtime.txt pins setuptools<81 (see the comment there)."""
+review_by = 2026-12-18
