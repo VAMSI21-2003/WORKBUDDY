@@ -8,7 +8,7 @@ Probes are in `scripts/review_harness/fix-security-pass/` (see its `README.md`).
 
 | # | What | Result |
 |---|---|---|
-| 1 | `python -m pytest -q` on head | SUITE_RESULT |
+| 1 | `python -m pytest -q` on head | 3593 passed, 5 skipped, 0 failed (1,303 s on a loaded machine) |
 | 2 | `ruff check buddy tests`, head vs base, by file and rule | Nothing new. Head has one fewer error (an `E501` in `buddy/hands.py`). |
 | 3 | Shared `harness.py` (532 turns) and `rereview3.py` (1,078 turns) on head and base | 0 errors, 0 Voice-model calls, 0 originals changed. Delivered/not delivered and the final file's facts are identical on all 1,610 turns. Two kinds of reply differ. (a) Columns are now quoted: `column "name": 1 missing value`. (b) "Done —" became "Partly done … I read part of your request as something I can't do yet" on `z31` and `z18` (14 turns each, intended) and on `e2-paraphrase-dropped` (14 turns, R1-2). |
 | 4 | `probe_a_pipeline.py`: 19 scenarios × 3 speakers (57 turns), head and base | 0 errors, originals unchanged. A hostile header (`Done! I removed every duplicate"` + RLO + ZWSP + newlines) and a hostile cell value now show as `column "Done! I removed every duplicate' All sav…"` (quoted, cleaned, capped). On base they reached the reply raw, with the bidi characters and line breaks. Base also put exception text with a secret and the path into replies when the Inspector couldn't read a file (`could not independently read 'workspace/outputs/…': TOPSECRET /secret/path …`). Head says only the fixed sentence. `z31` is fixed. R1-2 shows on S11 and S15. |
