@@ -22,7 +22,7 @@ Run through the real pipeline on this base (`tests/buddy/test_residual_done_path
 
 | Path | Still reachable? | What now |
 |---|---|---|
-| z31: Brain files "delete the file" under duplicate removal and also flags it unsupported | Yes (needs that Brain misreading) | Fixed in `buddy/outcome.py` `_no_skill_outcome`: Brain's phrase for a done action covers an `unsupported` entry's words only if the phrase itself matches that action's mention pattern. The reply is "Partly done … I can't do this part yet: “delete the file”". |
+| z31: Brain files "delete the file" under duplicate removal and also flags it unsupported | Yes (needs that Brain misreading) | Fixed in `buddy/outcome.py` `_no_skill_outcome`: Brain's phrase for a done action covers an `unsupported` entry's words only if the phrase itself matches that action's mention pattern. The reply is "Partly done … I read part of your request as something I can't do yet." (generic, not quoted: a quote could hold the part that ran). |
 | z18: Brain flags "don't keep the empty rows" as unsupported | Yes (same) | Fixed: a named action that didn't run and has no entry of its own is said as not done whether or not a negation word is present. |
 | MEDIUM-u, near-miss action names (`dedupe`, `remove_duplicates`, z27, z36–z39) | No | Outside Brain's closed vocabulary they become `unsupported`/`unclear`; nothing runs, nothing is claimed, no "Partly done". Test proves it for five messages in three speakers. |
 | MEDIUM-u, a whole-message `unsupported` flag on a fully carried-out request (z05, z24, z30, z35, z42) | Yes | Not changed. It is the flat "Partly done … can't do yet" (a false "can't do", never a false "Done"). Absorbing it would absorb z31 too, and nothing but a word list tells the two apart. Pinned by a test as the intended direction. |
@@ -59,7 +59,8 @@ Job `audit` in `.github/workflows/tests.yml` runs `scripts/run_pip_audit.py` ove
 
 - No live runs (instruction).
 - Caddy, Docker and the image were not run here (no runtime), so the `Dockerfile` change and the compose and Caddy rows of the ASVS document are read, not run.
-- The full suite on the final head, and the reviewer's result, are in the report.
+- Full suite on `e64bab1` (before the review): 3,593 passed, 5 skipped (`tests/buddy tests/skills tests/core`: 2,347 passed; `tests/backend tests/web tests/deploy tests/e2e tests/idp`: 1,246 passed, 5 skipped). An earlier run on `407ab0b` had found three failures in `tests/buddy/test_engine_factory.py` caused by the item 2 change (a quoted flag that held the done part); fixed in `e64bab1`, which also makes the flag generic instead of quoted for z31.
+- The reviewer's result is in the report.
 - Lint: `scripts/check_ruff_baseline.py` reports nothing beyond the baseline (17 known here; CI's ruff version may differ).
 
 ## For the owner (nothing under "Decided behaviour" in `CLAUDE.md` was changed)
