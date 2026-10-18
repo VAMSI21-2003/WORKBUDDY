@@ -820,7 +820,8 @@ def test_h2_an_unsupported_entry_naming_a_done_action_is_dropped_or_unquoted() -
 def test_h2_an_unsupported_entry_naming_an_action_that_did_not_run_is_said_not_dropped() -> None:
     """"keep the empty rows" and "don't keep the empty rows" differ by a word no list can weigh,
     and the second is a request to remove them, so neither is dropped silently (z18)."""
-    for phrase in ("keep the empty rows", "don't keep the empty rows", "don't remove the empty rows"):
+    phrases = ("keep the empty rows", "don't keep the empty rows", "don't remove the empty rows")
+    for phrase in phrases:
         report = _single_dedupe_turn(
             _brain("remove_duplicate_rows"), _brain(UNSUPPORTED, phrase, found=True)
         )
