@@ -18,6 +18,7 @@ from typing import Protocol
 import pandas as pd
 
 from skills.base import PermissionTier, Skill, SkillResult, SkillStatus, SkillTask
+from skills.excel.shown_text import shown
 from skills.excel.workbook import WorkbookRefused, check_workbook_limits
 
 logger = logging.getLogger(__name__)
@@ -38,6 +39,9 @@ _NAME_COLUMN_PATTERN = re.compile(r"name", re.IGNORECASE)
 _DISCRIMINATING_COLUMN_PATTERN = re.compile(r"phone|email|tel", re.IGNORECASE)
 _KEY_COLUMN_PATTERN = _DISCRIMINATING_COLUMN_PATTERN
 _NEAR_DUPLICATE_ROW_LIMIT = 10_000
+# The column names Splink is given in place of the file's own headers.
+_NAME_FIELD = "name_field"
+_KEY_FIELD = "key_field"
 _NO_ANALYTICS_ENV = "YDATA_PROFILING_NO_ANALYTICS"
 
 
@@ -82,9 +86,19 @@ class MissingValueAndDistributionAnalyzer:
 
         report = ProfileReport(df, minimal=True, progress_bar=False)
         description = report.get_description()
-        return tuple(
-            str(alert) for alert in description.alerts if alert.alert_type is AlertType.MISSING
-        )
+        findings = []
+        for alert in description.alerts:
+            if alert.alert_type is not AlertType.MISSING:
+                continue
+            # Not ``str(alert)``: that puts the header in the sentence as it is. The header goes in
+            # as quoted file text, and the count is the frame's own.
+            missing = int(df[alert.column_name].isna().sum())
+            percentage = 100 * missing / len(df) if len(df) else 0.0
+            noun = "missing value" if missing == 1 else "missing values"
+            findings.append(
+                f"column {shown(alert.column_name)}: {missing} {noun} ({percentage:.1f}%)"
+            )
+        return tuple(findings)
 
 
 class ExactDuplicateRowAnalyzer:
@@ -156,7 +170,7 @@ class IQROutlierAnalyzer:
                 continue
             examples = ", ".join(f"{value:g}" for value in outliers.head(3).tolist())
             findings.append(
-                f"{column}: {len(outliers)} unusually high/low "
+                f"column {shown(column)}: {len(outliers)} unusually high/low "
                 f"{'value' if len(outliers) == 1 else 'values'} (e.g. {examples})"
             )
         return tuple(findings)
@@ -210,7 +224,7 @@ class DateFormatConsistencyAnalyzer:
                     f"{unparseable} {'value that doesn' if unparseable == 1 else 'values that don'}"
                     "'t match a recognized date format"
                 )
-            findings.append(f"{column}: " + "; ".join(parts))
+            findings.append(f"column {shown(column)}: " + "; ".join(parts))
         return tuple(findings)
 
 
@@ -237,8 +251,9 @@ class GroupedKeyConflictAnalyzer:
                 example_key = conflicts.index[0]
                 findings.append(
                     f"{len(conflicts)} {'value' if len(conflicts) == 1 else 'values'} of "
-                    f"{key_column!r} {'is' if len(conflicts) == 1 else 'are'} linked to more "
-                    f"than one {other_column!r} (e.g. {key_column}={example_key!r})"
+                    f"column {shown(key_column)} {'is' if len(conflicts) == 1 else 'are'} linked "
+                    f"to more than one value in column {shown(other_column)} "
+                    f"(e.g. {shown(key_column)} = {shown(example_key)})"
                 )
         return tuple(findings)
 
@@ -270,27 +285,33 @@ class NearDuplicateAnalyzer:
         import splink.comparison_library as cl
         from splink import DuckDBAPI, Linker, SettingsCreator, block_on
 
-        working = df[[name_column, discriminating_column]].copy()
-        working.insert(0, "unique_id", range(len(working)))
-        working[name_column] = working[name_column].astype(str)
-        working[discriminating_column] = working[discriminating_column].astype(str)
+        # The two headers come from the user's file and Splink builds SQL from column names, so
+        # they never get that far: the frame holds fixed names, and the header is only ever
+        # shown, quoted, in the finding.
+        working = pd.DataFrame(
+            {
+                "unique_id": range(len(df)),
+                _NAME_FIELD: df[name_column].astype(str).to_numpy(),
+                _KEY_FIELD: df[discriminating_column].astype(str).to_numpy(),
+            }
+        )
 
         settings = SettingsCreator(
             link_type="dedupe_only",
-            comparisons=[cl.NameComparison(name_column), cl.ExactMatch(discriminating_column)],
+            comparisons=[cl.NameComparison(_NAME_FIELD), cl.ExactMatch(_KEY_FIELD)],
             blocking_rules_to_generate_predictions=[
-                block_on(f"substr({name_column}, 1, 3)"),
-                block_on(discriminating_column),
+                block_on(f"substr({_NAME_FIELD}, 1, 3)"),
+                block_on(_KEY_FIELD),
             ],
         )
         try:
             linker = Linker(working, settings, db_api=DuckDBAPI(), set_up_basic_logging=False)
             linker.training.estimate_u_using_random_sampling(max_pairs=1e5)
             linker.training.estimate_parameters_using_expectation_maximisation(
-                block_on(f"substr({name_column}, 1, 3)")
+                block_on(f"substr({_NAME_FIELD}, 1, 3)")
             )
             linker.training.estimate_parameters_using_expectation_maximisation(
-                block_on(discriminating_column)
+                block_on(_KEY_FIELD)
             )
             predictions = linker.inference.predict().as_pandas_dataframe()
         except Exception:  # noqa: BLE001 — degrade gracefully, never crash the whole analysis
@@ -298,7 +319,7 @@ class NearDuplicateAnalyzer:
             return ()
 
         findings: list[str] = []
-        name_left, name_right = f"{name_column}_l", f"{name_column}_r"
+        name_left, name_right = f"{_NAME_FIELD}_l", f"{_NAME_FIELD}_r"
         # Threshold set from real observed behavior (scripts/spike_tools_test.py),
         # not a textbook round number: with unsupervised EM training on a
         # realistically small upload, genuine spelling-variant duplicates
@@ -309,8 +330,8 @@ class NearDuplicateAnalyzer:
         likely = predictions[predictions["match_probability"] >= 0.15]
         for _, row in likely.iterrows():
             findings.append(
-                f"rows with {name_column} {row[name_left]!r} and {row[name_right]!r} look "
-                f"like they might be the same (match probability "
+                f"rows with {shown(name_column)} {shown(row[name_left])} and "
+                f"{shown(row[name_right])} look like they might be the same (match probability "
                 f"{row['match_probability']:.2f})"
             )
         return tuple(findings)

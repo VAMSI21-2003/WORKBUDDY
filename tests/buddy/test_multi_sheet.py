@@ -190,20 +190,20 @@ _MAIN_REPLIES = {
     ("dedupe", "template"): (
         "Done — removed 1 exact duplicate row. The copy has 4 rows, with 0 exact duplicate rows "
         "remaining. Saved as `report_deduplicated_session-1-task-1.xlsx`. I also noticed: "
-        "name: 1 missing value (25.0%); amount: 1 missing value (25.0%). Want me to "
-        "tackle any of these?"
+        'column "name": 1 missing value (25.0%); column "amount": 1 missing value (25.0%). '
+        "Want me to tackle any of these?"
     ),
     ("dedupe", "friend"): (
         "Okay, here's the rundown. Done — removed 1 exact duplicate row. The copy has 4 rows, "
         "with 0 exact duplicate rows remaining. Your cleaned copy of report.xlsx is ready. I also "
-        "noticed: name: 1 missing value (25.0%); amount: 1 missing value (25.0%). Want "
-        "me to tackle any of these?"
+        'noticed: column "name": 1 missing value (25.0%); column "amount": 1 missing value '
+        "(25.0%). Want me to tackle any of these?"
     ),
     ("dedupe", "focus"): (
         "Done — removed 1 exact duplicate row. The copy has 4 rows, with 0 exact duplicate rows "
-        "remaining. Your cleaned copy of report.xlsx is ready. I also noticed: name: 1 "
-        "missing value (25.0%); amount: 1 missing value (25.0%). Want me to tackle any "
-        "of these?"
+        "remaining. Your cleaned copy of report.xlsx is ready. I also noticed: "
+        'column "name": 1 missing value (25.0%); column "amount": 1 missing value (25.0%). '
+        "Want me to tackle any of these?"
     ),
     ("chain", "template"): (
         "Removed 1 exact duplicate row. Removed 1 fully-empty row. The copy has 3 rows, with 0 "
@@ -293,8 +293,7 @@ def test_a_skill_that_drops_a_sheet_fails_verification(
     dedupe = next(s for s in state.verification_result.steps if s.capability == _DEDUPE)
     assert dedupe.passed is False
     assert dedupe.findings == (
-        "the output's sheets (Sheet1) don't match its input's (Q1, Q2), so a sheet was "
-        "lost or renamed",
+        "the output's sheets don't match its input's, so a sheet was lost or renamed",
     )
 
     reply = _assert_nothing_delivered(state)
@@ -313,8 +312,7 @@ def test_a_skill_that_renames_the_only_sheet_fails_verification(
     assert state.execution_result.stopped_at == _DEDUPE
     dedupe = next(s for s in state.verification_result.steps if s.capability == _DEDUPE)
     assert dedupe.findings == (
-        "the output's sheets (Sheet1) don't match its input's (Data), so a sheet was lost "
-        "or renamed",
+        "the output's sheets don't match its input's, so a sheet was lost or renamed",
     )
     _assert_nothing_delivered(state)
     assert _sha256(original_path) == original_hash
@@ -368,8 +366,7 @@ def test_a_chain_step_that_drops_a_sheet_of_the_previous_steps_output_fails(
     assert verdicts[_DEDUPE].passed is True
     assert verdicts[_EMPTY_ROWS].passed is False
     assert verdicts[_EMPTY_ROWS].findings == (
-        "the output's sheets (Sheet1) don't match its input's (Q1, Q2), so a sheet was "
-        "lost or renamed",
+        "the output's sheets don't match its input's, so a sheet was lost or renamed",
     )
     assert "final_output" not in verdicts
 

@@ -442,8 +442,9 @@ def test_near_duplicate_analyzer_flags_real_duplicates_but_not_name_collisions()
     # mistaken for a duplicate — the specific failure mode this whole
     # design exists to avoid using the phone column to prevent.
     for finding in findings:
-        quoted_names = re.findall(r"'([^']*)'", finding)
-        assert len(quoted_names) == 2
+        # The column's header comes first, then the two names, all quoted as the file's text.
+        header, *quoted_names = re.findall(r'"([^"]*)"', finding)
+        assert header == "name" and len(quoted_names) == 2
         assert quoted_names[0] != quoted_names[1], (
             f"finding paired identical name text (a collision pair, not a real "
             f"duplicate): {finding!r}"

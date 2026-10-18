@@ -70,12 +70,9 @@ def test_matching_sheet_lists_leave_the_verdict_to_the_capabilitys_verifier(
     assert verifier.calls == 1
 
 
-@pytest.mark.parametrize(
-    ("output_sheets", "listed"),
-    [(("Q1",), "Q1"), (("Sheet1",), "Sheet1"), (("Q2", "Q1"), "Q2, Q1")],
-)
+@pytest.mark.parametrize("output_sheets", [("Q1",), ("Sheet1",), ("Q2", "Q1")])
 def test_a_dropped_renamed_or_reordered_sheet_fails_the_step(
-    tmp_path: Path, output_sheets: tuple[str, ...], listed: str
+    tmp_path: Path, output_sheets: tuple[str, ...]
 ) -> None:
     step = _step(
         _workbook(tmp_path / "in.xlsx", "Q1", "Q2"),
@@ -86,9 +83,9 @@ def test_a_dropped_renamed_or_reordered_sheet_fails_the_step(
 
     assert result.passed is False
     assert verifier.calls == 0
+    # No sheet name in the finding: names come from the user's file, and findings reach replies.
     assert result.steps[0].findings == (
-        f"the output's sheets ({listed}) don't match its input's (Q1, Q2), so a sheet was "
-        "lost or renamed",
+        "the output's sheets don't match its input's, so a sheet was lost or renamed",
     )
 
 

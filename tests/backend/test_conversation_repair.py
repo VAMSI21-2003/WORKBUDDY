@@ -459,7 +459,8 @@ def test_a_start_over_reports_what_the_new_file_still_has(make_chat) -> None:  #
     assert facts(chat.download(copy)) == (5, 1, 0)  # one exact duplicate is still in the copy
     assert "I also noticed" in again["reply"]
     assert "1 row repeats an earlier row exactly" in again["reply"]
-    assert "1 value of 'Email' is linked to more than one 'Name'" in again["reply"]
+    linked = '1 value of column "Email" is linked to more than one value in column "Name"'
+    assert linked in again["reply"]
 
 
 def test_a_follow_up_on_the_copy_still_reports_on_the_new_copy(make_chat) -> None:  # type: ignore[no-untyped-def]
@@ -469,7 +470,8 @@ def test_a_follow_up_on_the_copy_still_reports_on_the_new_copy(make_chat) -> Non
 
     second = chat.turn("and the duplicates")
 
-    assert "1 value of 'Email' is linked to more than one 'Name'" in second["reply"]
+    linked = '1 value of column "Email" is linked to more than one value in column "Name"'
+    assert linked in second["reply"]
 
 
 def test_a_turn_that_delivers_nothing_does_not_repeat_the_findings_next_time(make_chat) -> None:  # type: ignore[no-untyped-def]
@@ -479,7 +481,7 @@ def test_a_turn_that_delivers_nothing_does_not_repeat_the_findings_next_time(mak
     chat.upload(xlsx_bytes(MESSY), "messy-data.xlsx")
     declined = chat.turn("remove duplicate rows", decision="reject")
     assert declined["outcome"] == "not_delivered"
-    assert "linked to more than one 'Name'" in declined["reply"]
+    assert 'linked to more than one value in column "Name"' in declined["reply"]
 
     again = chat.turn("remove duplicate rows")
 
