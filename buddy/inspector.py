@@ -138,7 +138,7 @@ class SpreadsheetDedupeVerifier:
 
         output_path = execution_result.outputs[0]
         try:
-            written = pd.read_excel(output_path)  # fresh, independent read of the artifact
+            written = _read_cells(output_path)  # fresh, independent read of the artifact
         except Exception as exc:  # noqa: BLE001 — surfaced as a finding, not raised
             logger.exception("SpreadsheetDedupeVerifier: failed to read %r", output_path)
             return VerificationResult(
@@ -216,7 +216,7 @@ class SpreadsheetEmptyRowsVerifier:
 
         output_path = execution_result.outputs[0]
         try:
-            written = pd.read_excel(output_path)  # fresh, independent read of the artifact
+            written = _read_cells(output_path)  # fresh, independent read of the artifact
         except Exception as exc:  # noqa: BLE001 — surfaced as a finding, not raised
             logger.exception("SpreadsheetEmptyRowsVerifier: failed to read %r", output_path)
             return VerificationResult(
@@ -258,6 +258,17 @@ class SpreadsheetEmptyRowsVerifier:
             findings=tuple(findings),
             measurements=(check.measurement(EMPTY_ROWS_TARGET, len(written), empty_row_count),),
         )
+
+
+def _read_cells(path: str) -> pd.DataFrame:
+    """A workbook's first sheet as its cells hold it: no cell converted to another type.
+
+    ``dtype=object`` keeps a text cell text and a number a number. pandas' default would turn a
+    column of text that looks like numbers into numbers (``"007"`` into ``7``, a long account
+    number into a float that has lost digits), so a check built on it could not tell a skill that
+    did exactly that from one that kept the cells.
+    """
+    return pd.read_excel(path, dtype=object)
 
 
 # How each measured target is counted in a file, as read fresh. The step
@@ -383,7 +394,7 @@ def _check_against_input(
     if not input_path:
         return _InputCheck()
     try:
-        original = pd.read_excel(input_path)  # fresh, independent read of the step's input
+        original = _read_cells(input_path)  # fresh, independent read of the step's input
     except Exception as exc:  # noqa: BLE001 — surfaced as a finding, not raised
         logger.exception("Inspector: failed to read step input %r", input_path)
         return _InputCheck(problem=f"could not independently read its input {input_path!r}: {exc}")
@@ -661,6 +672,7 @@ class SpreadsheetAnalysisVerifier:
 
         try:
             df = pd.read_excel(analyzed_file)  # fresh, independent read of the ORIGINAL
+            cells = _read_cells(analyzed_file)  # the same cells, none converted
         except Exception as exc:  # noqa: BLE001 — surfaced as a finding, not raised
             logger.exception("SpreadsheetAnalysisVerifier: failed to read %r", analyzed_file)
             return VerificationResult(
@@ -671,8 +683,8 @@ class SpreadsheetAnalysisVerifier:
 
         findings: list[str] = []
         for category, category_findings in (
-            ("duplicate_rows", _independent_duplicate_row_findings(df)),
-            ("loose_duplicate_rows", _independent_loose_duplicate_row_findings(df)),
+            ("duplicate_rows", _independent_duplicate_row_findings(cells)),
+            ("loose_duplicate_rows", _independent_loose_duplicate_row_findings(cells)),
             ("missing_values", _independent_missing_value_findings(df)),
             ("outliers", _independent_outlier_findings(df)),
             ("date_format", _independent_date_format_findings(df)),
@@ -1103,7 +1115,7 @@ class ResidualMeasurer:
             return result
         delivered = execution_result.outputs[0]
         try:
-            written = pd.read_excel(delivered)  # fresh, independent read of the delivered file
+            written = _read_cells(delivered)  # fresh, independent read of the delivered file
         except Exception:  # noqa: BLE001 — no residuals, and nothing is claimed
             logger.exception("ResidualMeasurer: failed to read %r", delivered)
             return result
