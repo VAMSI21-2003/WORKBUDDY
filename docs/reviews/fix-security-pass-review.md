@@ -207,6 +207,125 @@ R2-3, R2-4 and R2-5. R1-2 and R1-5 for the owner, as in round 1. Seen in passing
 
 ## Review round 3 (commit c766fa6)
 
-**Verdict: (in progress)**
+**Verdict: DON'T MERGE.** No HIGH. R2-1, R2-2 and R2-3 are closed: every round 2 file is refused or passes as it should. Five blocking MEDIUMs, each a small upload that passes every limit and then needs over 1 GiB or many minutes: two regressions from the new reader-based check (R3-1, R3-2), one from the branch's own text cap (R3-4), and two pre-existing in the class `docs/security/asvs-l1.md` marks "Pass" (R3-3, R3-5). Small fixes for R3-1, R3-2, R3-5 and most of R3-3 are prototyped. Rules 1 and 2 held in every run.
 
-Scope: the diff `211a823..c766fa6` (`fix-security-pass-fixes2.md`: the reader-based `check_workbook_limits`, the text caps, the date-matcher guard, `shown()`), the findings round 2 left open, and regression against base `89625e7`. New probes in `scripts/review_harness/fix-security-pass/`: `probe_m_round3.py`, `probe_n_turns.py`, `mutations_r3.py`. Bomb probes use `OPENPYXL_LXML=False`, as in the image.
+Scope: the diff `211a823..c766fa6` (`fix-security-pass-fixes2.md`), the findings round 2 left open, and regression against base `89625e7`. New probes are in `scripts/review_harness/fix-security-pass/` (see its `README.md`, "Round 3"). Every bomb run uses `OPENPYXL_LXML=False`, as in the image. Turn memory is measured with `--no-facts`, because the harness's own openpyxl read of the original otherwise counts in the peak. Timings come from a 4-core machine that was often loaded, so take them as ±2×.
+
+| # | What | Result |
+|---|---|---|
+| 1 | `python -m pytest -q` on head | 3639 passed, 5 skipped, 0 failed (1,343 s) |
+| 2 | `ruff check buddy tests`, head vs base, by file and rule | Nothing new (17 vs 18; head has one fewer `E501` in `buddy/hands.py`). |
+| 3 | `harness.py` (532), `rereview3.py` (1,078), `probe_a_pipeline.py` (19 × 3 speakers), head vs round 2's head | All 1,667 identical in reply, delivery and final facts. 0 errors, 0 originals changed. The 6 `claim-words` flags are the hostile header and value, quoted and capped, as in rounds 1 and 2. |
+| 4 | Round 1 and 2 bombs (`probe_limit_bypass.py`, `probe_k_round2.py --read`) | All refused: K1–K5 and the round 1 files by the grid, rows or columns, and K7 by the 32,767-character cap. K6 now passes (R2-3 closed). The control passes. |
+| 5 | New tests against the round 2 code (`9d17990`, with the 4 new constants shimmed in) | 20 of the new `test_hostile_workbooks.py` tests fail there, as they should. The new `shown()` tests pass there, because that code was already in `9d17990` (R2-4 was about missing tests). |
+| 6 | `mutations_r3.py`: 15 mutations of the round 2 fixes, plus round 2's 4 `shown()` survivors re-run | Killed: the 4 `shown()` mutations and 9 of the 15. Survived: `walk-no-reset-dimensions`, `date-guard-inspector-off`, `date-guard-analyze-off` and `shown-round3-quotes-dropped` (R3-7). `entity-handler-off` and `doctype-handler-off` survive harmlessly, because each one covers the other. |
+| 7 | `probe_m_round3.py`: 16 new workbooks, each through the upload route's `check_workbook` and then `check_workbook_limits` in a capped child | Each file fits the 2 MiB upload cap and the 64 MiB unpacked cap, and the upload route accepts it. Results are under R3-1 to R3-6. |
+| 8 | `probe_n_turns.py`: whole dedupe and report turns on those files, head vs base, plus `prototype_fix_r3.py` | The table below. Every reply's numbers match my own read: M9 has 99,999 rows with 50,000 distinct keys, and the reply says "removed 49999 … The copy has 50000 rows". The M5 copy has 1 row. The M7 copy has 1,500 distinct rows, so 0 removed. |
+| 9 | `prototype_fix_r3.py` (about 35 lines in `workbook.py` and `analyze.py`), in an export | Everything it addresses falls to ≤ 320 MiB and ≤ 6 s: the turns for M1, M4, M5 and M8, and the analysis alone for M6. It doesn't address M3, M7 or M9. 1,057 tests pass (`tests/skills/excel`, `test_text_cells`, `test_file_text_in_replies`, `test_inspector*`, `tests/backend/test_uploads.py`, `test_engine_factory`). |
+| 10 | Original's SHA-256 before and after, every turn above (about 1,720) | Unchanged in every one. |
+
+Whole dedupe turns, app only (`--no-facts`). Each file is ≤ 210 KB and the upload route accepts it.
+
+| File | Head | Base | Prototype |
+|---|---|---|---|
+| M1: 2,000 sheets declared on one part holding `<row r="200000"/>` (22 KB) | 109 s ("the workbook has 2000 sheets") | 1 s, same reply | 1 s |
+| M1: the same with 20,000 sheets (206 KB) | check alone still running at 900 s | 13 s | check 3.9 s |
+| M8: 1.4 M `<definedName>` in `workbook.xml` (177 KB) | 32 s, **1,130 MiB**, "could not read" | 0 s, 165 MiB, same reply | 0 s |
+| M5: one external link caching 2.3 M cells (158 KB) | 575 s, **2,290 MiB**, delivered "Done —" | 539 s, 2,289 MiB, same | 6 s, 320 MiB, same reply |
+| M4: 1.05 M `<xf>` in `styles.xml` (191 KB) | 72 s, 818 MiB, "could not read" | 46 s, 818 MiB | 0 s |
+| M3: 3.6 M shared strings (159 KB) | still running at 900 s | still running at 900 s | not addressed |
+| M7: 1,500 cells of 32,767 characters (49 M in all, inside both caps; 89 KB) | 34 s, **1,824 MiB**, delivered | 46 s, 1,681 MiB | not addressed |
+| M6: 200 rows, 30,000-character names (12 KB) | 9 s, **2,728 MiB**, dedupe step "could not read the workbook" | 10 s, 2,754 MiB, same | analysis alone 1.4 s, 196 MiB |
+| M6: 10,000 rows, 20-character names, same first 3 letters (149 KB) | analysis alone killed at 6,302 MiB after 22 s | killed at 6,419 MiB | analysis alone 0.2 s, 127 MiB |
+| M9: 1,000,000 numeric cells, at the cell cap (304 KB) | 570 s, 416 MiB, delivered | 511 s, 411 MiB | not addressed |
+
+### R3-1 (MEDIUM, [Certain], regression): one sheet part declared as thousands of sheets makes the walk run for minutes, then hours
+
+**Where.** `skills/excel/workbook.py` `_reader_verdict`: `for sheet in book.worksheets:`, with `MAX_ROWS` counted per sheet.
+
+**Scenario.** `workbook.xml` declares N sheets, and the rels point every one of them at the same part, `<sheetData><row r="200000"/></sheetData>`. The upload route counts parts, so it sees one worksheet and accepts the file. The walk then pads 199,999 empty rows for each sheet, with a grid of 0, so no limit is hit. Afterwards the planner refuses the file anyway, honestly: "the workbook has 2000 sheets, and only single-sheet workbooks are supported for now". 2,000 sheets (22 KB): 109 s on head, 1 s on base. 20,000 sheets (206 KB): the check alone was still running at 900 s; base took 13 s. At the 2 MiB upload cap that is roughly 190,000 sheets, or about 3 h of CPU [Likely, extrapolated]. The turn's thread keeps one of the two turn slots after its 180 s deadline (round 2).
+
+**Reachability.** Any signed-in person, with an ordinary request.
+
+**Fix.** Either walk only `book.worksheets[:1]`, which is all pandas reads (the single-sheet rule then refuses the rest with its own true sentence; `test_the_grids_of_all_sheets_count_together` would have to change), or count the rows of all sheets together against `MAX_ROWS` (`prototype_fix_r3.py` item 2). With the second, the refusal must not say "the sheet has more than 200,000 rows", because no single sheet does: in the prototype the M1 reply says exactly that, so use a sentence that is true for both cases. Add a test with many sheets on one part that asserts the check is refused or finishes within a second or two.
+
+### R3-2 (MEDIUM, [Certain], regression): the walk parses `workbook.xml` before `sheet_names()` caps its size, so a 177 KB file takes 1.1 GiB
+
+**Where.** `check_workbook_limits` now runs first in `sheet_names()`, and its walk calls `openpyxl.load_workbook`, which parses the whole workbook part into objects (defined names included). On base, `_declared_sheet_names` → `_read_part` refused a workbook part over `_MAX_PART_BYTES` (16 MiB) before openpyxl ever saw it.
+
+**Scenario.** M8: 1.4 M copies of `<definedName name="n">S1!$A$1</definedName>` (57 MiB unpacked, 177 KB zipped). On head, a dedupe turn ran 32 s at 1,130 MiB, then said "could not read the workbook". On base the same reply came in 0 s at 165 MiB.
+
+**Reachability.** Any signed-in person.
+
+**Fix.** Before any openpyxl load, refuse a workbook part whose declared size is over a small cap (the prototype uses 1 MiB; the existing comment says "a real workbook.xml is a few KB"), as in `prototype_fix_r3.py` item 3. Add a test.
+
+### R3-3 (MEDIUM, [Certain], pre-existing, in the class ASVS marks Pass): parts openpyxl reads whole on every load make a 160–190 KB upload take 0.8–2.3 GiB or more than 15 minutes
+
+**Where.** Every `openpyxl.load_workbook` in `workbook.py` (the walk, `_zip_sheet_names`, `_sheet_problem`, and `formula_cell_counts` twice) uses openpyxl's default `keep_links=True`. pandas passes `keep_links=False`. openpyxl also parses `styles.xml` and all of `sharedStrings.xml` on every load, before a single row.
+
+**Scenario and result.** See the table: M5 (an external link) 2,290 MiB and 575 s, then a delivered "Done —"; M4 (styles) 818 MiB; M3 (shared strings) still running at 900 s. Base is the same, but the branch's ASVS row "Decompression bomb, huge sheets, huge strings" says Pass. Round 2 held R2-2 to the same standard.
+
+**Reachability.** Any signed-in person.
+
+**Fix.**
+- Pass `keep_links=False` to all five loads (item 1 of the prototype; M5 falls to 6 s and 320 MiB). This also closes R3-6.
+- Cap `styles.xml` by its declared size (the prototype uses 8 MiB).
+- For shared strings (not prototyped): refuse more than `MAX_CELLS` `<si>` entries, counted in the pass that already streams every part, and measure a turn at that cap. A turn loads the workbook about 8 times (backlog: cost of the reader-based check), so the per-load cost multiplies.
+- Correct the ASVS row for whatever is left open.
+
+### R3-4 (MEDIUM, [Certain]): `MAX_TEXT_CHARS` (50 M) lets an 89 KB upload through to a 1.8 GiB turn
+
+**Where.** `skills/excel/workbook.py` `MAX_TEXT_CHARS = 50_000_000`, a cap this branch chose.
+
+**Scenario.** M7 has 1,500 distinct cells of 32,767 characters each (49 M characters, under both caps). A dedupe turn delivered correctly after 34 s, at a 1,824 MiB peak (base 1,681 MiB, no caps). That is about 30 bytes per character of cell text across a turn.
+
+**Fix.** Lower the cap so that a turn at the cap measures well under the container's 1 GiB (about 10 M characters, by this measurement), and add the measurement to the ASVS row.
+
+### R3-5 (MEDIUM, [Certain], pre-existing, in the class ASVS marks Pass): the near-duplicate check's pairs take more than 6 GiB from a 41–149 KB file
+
+**Where.** `skills/excel/analyze.py` `NearDuplicateAnalyzer`. Splink materialises every pair that `substr(name, 1, 3)` or the key blocks together, with both full strings, and the analysis runs on every turn.
+
+**Scenario.** A `name`/`email`/`phone` table:
+- 10,000 rows whose names share their first 3 letters (149 KB): the analysis alone was killed at 6.3 GiB after 22 s, on head and on base;
+- 2,000 rows of 1,000-character names (41 KB): over 7 GiB in 8 s;
+- 200 rows of 30,000-character names (12 KB): 2.7 GiB. Under a 4 GiB address cap, the dedupe step then reported "could not read the workbook; it may be damaged", which is false about the file. It was a memory failure.
+
+**Fix.** Prototyped in `prototype_fix_r3.py` item 4, about 10 lines. Give Splink at most 100 characters of each field, and skip the check when its two blocking rules would pair more than 250,000 rows, which can be counted with `value_counts` before Splink starts. All three files then take ≤ 196 MiB, and the tests above pass. Alternatively, record it as open in the ASVS row and the backlog: an owner's call, but the row must not say Pass.
+
+### R3-6 (LOW, [Certain]; not reachable through a turn today [Likely]): "pandas can't read it either" isn't true when the walk and pandas load differently
+
+M2 is the grid bomb plus an `<externalReference>` whose part is missing. The walk's `load_workbook` raises, so it returns no verdict and the check passes. `pd.read_excel` reads 19,999 × 1,000 (542 MiB). Today `_zip_sheet_names` raises the same way first, so every turn says "could not read the workbook" (3 kinds of turn, 0 s). If R3-3's `keep_links=False` goes into `sheet_names` but not into the walk, M2 becomes reachable. Fix: load with exactly pandas' arguments (`read_only=True, data_only=True, keep_links=False`) in the walk, and add M2 as a test.
+
+### R3-7 (LOW): guard tests that a reverted fix still passes, and a claim in the fixes doc
+
+- `walk-no-reset-dimensions` survives. No test has a `<dimension>` that understates the sheet; without `reset_dimensions()` a bomb with `<dimension ref="A1:B2"/>` walks as 2 rows (checked by hand). Add one.
+- `date-guard-*-off` survive. `_matched_date_format("x" * 5_000_000)` fails fast without the guard. The crawl happens when `strptime` formats the long value into its error message 10 times per cell (round 2's profile). Assert that it is fast for many calls, or mock `strptime` and assert it is never called.
+- `shown-round3-quotes-dropped` survives. `fix-security-pass-fixes2.md` says "Tests for 17 kinds of double quotation mark", but `QUOTE_MARKS` has 8, and none of the six marks added in this round (U+2033, U+2036, U+2039, U+203A, U+275D, U+275E) or the three CJK marks is tested.
+
+### R3-8 (LOW, for the owner, pre-existing): a file at the cell cap takes about 9 minutes per turn
+
+M9 is 1,000,000 numeric cells (304 KB). A dedupe turn delivered correctly after 570 s on head and 511 s on base, at 416 MiB. The cap admits it, and so would a real file of that size. With two turn slots and a 180 s deadline that doesn't stop the thread, two such uploads hold every slot for about 10 minutes.
+
+### Earlier findings
+
+| Finding | Status (my evidence) |
+|---|---|
+| R2-1 | Closed. K1–K5 refused (row 4). Their tests fail on `9d17990` (row 5). The class is now covered by the reader walk, apart from R3-1, R3-2 and R3-6. |
+| R2-2 | K7's shape is closed (refused by the 32,767 cap; the turn test passes). The total-text cap is too high (R3-4). |
+| R2-3 | Closed. K6 passes the check. |
+| R2-4 | The 4 `shown()` mutations are killed. `$A$1` is moot, because the XML isn't parsed by hand any more. New gaps are in R3-7. |
+| R2-5 | The refusal says "spans"; U+05F4 and U+02BA are left (backlog). |
+| R1-2, R1-5 | Unchanged. Still the owner's call. probe_a S11 and S15 give the same replies as in round 2. |
+
+### Deferred (added to `docs/backlog.md`)
+
+R3-6, R3-7 and R3-8. R1-2 and R1-5 for the owner, as before.
+
+### Not run
+
+- Live runs with Groq: nothing in this round changes what the pipeline says.
+- Docker and a real 1 GiB cgroup. The figures are process peak RSS (sampled for the killed runs), with a 3–4 GiB `RLIMIT_AS` child for most runs. Under that cap DuckDB's failures show up as "could not read", where a container would be killed.
+- M3 and the 20,000-sheet M1 to completion (stopped at 900 s). M1 at the upload cap (about 190,000 sheets) is extrapolated, not run.
+- A prototype of the shared-strings cap (R3-3) and of a lower `MAX_TEXT_CHARS` (R3-4).
+- The bomb turns in the friend and focus speakers: the speaker doesn't touch the read path, and probe_a covered all three.
+- A real Excel-written file with an external link, or with very large styles, for the size of legitimate parts. The prototype's 1 MiB and 8 MiB caps are guesses, to be checked against real files before they are adopted.

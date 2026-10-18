@@ -36,3 +36,19 @@ Round 2 (head `9d17990`), same conventions:
         # whole dedupe and report turns on out/k_<name>.xlsx (run probe_k first): reply, delivery, hash, peak RSS, time
     python scripts/review_harness/fix-security-pass/mutations_r2.py [NAME ...]        # 18 mutations of the round 1 fixes + 3 re-runs
     python scripts/review_harness/fix-security-pass/prototype_fix_r2.py DEST          # HEAD exported to DEST with the R2-1/R2-3 prototype
+
+Round 3 (head `c766fa6`), same conventions. Run probe_m first; it writes `out/m_*.xlsx`:
+
+    OPENPYXL_LXML=False python scripts/review_harness/fix-security-pass/probe_m_round3.py [--tree DIR] [--only M1,M5] [--read] [--timeout 600]
+        # 16 workbooks aimed at the reader-based check: many sheets on one part (M1, M1e), a broken external link
+        # beside a grid bomb (M2), many shared strings (M3), styles (M4), a big external link (M5), long or
+        # same-prefix names for the near-duplicate check (M6), text at the caps (M7), defined names (M8),
+        # 1,000,000 cells (M9). Per file: upload route verdict, check verdict, time and peak RSS in a capped child
+    OPENPYXL_LXML=False python scripts/review_harness/fix-security-pass/probe_n_turns.py M5_ext_link_2_3m_cells [...] [--tree DIR] [--kinds dedupe,report,empty] [--no-facts] [--timeout 900]
+        # whole turns, one capped child per turn; --no-facts keeps the harness's own openpyxl reads out of the peak
+    OPENPYXL_LXML=False sh scripts/review_harness/fix-security-pass/rss_watch.sh python scripts/review_harness/fix-security-pass/probe_o_long_names.py out/m_M6_short_names_10000.xlsx [--tree DIR]
+        # the near-duplicate check alone; the watcher samples RSS and kills it past LIMIT_MIB (default 6144)
+    python scripts/review_harness/fix-security-pass/mutations_r3.py [NAME ...]        # 15 mutations of the round 2 fixes
+    python scripts/review_harness/fix-security-pass/prototype_fix_r3.py DEST          # HEAD exported to DEST with the R3-1/2/3/5 prototype
+
+DuckDB spills to `.tmp/` in the working directory when the near-duplicate check runs out of memory; delete it afterwards.

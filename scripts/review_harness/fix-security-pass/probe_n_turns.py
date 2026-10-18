@@ -5,7 +5,7 @@ and --timeout seconds, so a bomb can't take the machine and the peak RSS is that
 delivered or not, the reply, the original's SHA-256 before and after, peak RSS and wall time.
 
     OPENPYXL_LXML=False python scripts/review_harness/fix-security-pass/probe_n_turns.py M2_broken_link_bomb [...] \
-        [--tree DIR] [--speakers template,friend,focus] [--kinds dedupe,report] [--timeout 600]
+        [--tree DIR] [--speakers template,friend,focus] [--kinds dedupe,report] [--timeout 600] [--no-facts]
 """
 import argparse
 import os
@@ -26,6 +26,9 @@ import r5lib
 A = r5lib.args()
 rq = r5lib.start(A)
 from rq import brain
+import os
+if os.environ.get("NOFACTS"):  # the harness's own openpyxl read of the files would count in the peak
+    rq.facts = lambda path: {"skipped": True}
 TURNS = {
     "dedupe": dict(msg="remove the duplicate rows",
                    b=brain("remove_duplicate_rows", ("remove_duplicate_rows", "remove the duplicate rows"))),
@@ -52,13 +55,13 @@ def main() -> None:
     ap.add_argument("--kinds", default="dedupe,report")
     ap.add_argument("--cap-mib", type=int, default=4096)
     ap.add_argument("--timeout", type=int, default=600)
+    ap.add_argument("--no-facts", action="store_true",
+                    help="skip the harness's own reads of the files, so the peak RSS is the app's")
     a = ap.parse_args()
-    script = HERE.parent / "feat-reply-quality" / "_n_child.py"
     child = HERE / "out" / "_n_child.py"
     child.write_text(CHILD)
     env = dict(os.environ, OPENPYXL_LXML="False",
-               PYTHONPATH=str(HERE.parent / "feat-reply-quality"))
-    del script
+               PYTHONPATH=str(HERE.parent / "feat-reply-quality"), **({"NOFACTS": "1"} if a.no_facts else {}))
     for name in a.names:
         src = HERE / "out" / f"m_{name}.xlsx"
         for speaker in a.speakers.split(","):

@@ -177,6 +177,16 @@ def m8_defined_names(path: Path, n: int) -> None:
     package(path, table_sheet([["name"], ["a"]]), wb_extra=f"<definedNames>{names}</definedNames>")
 
 
+def m9_dense_at_cap(path: Path, rows: int = 99_999, cols: int = 10) -> None:
+    """A plain table of exactly 1,000,000 cells (header + 99,999 rows x 10 numbers), inside every limit:
+    what a whole turn costs on a file at the cell cap. Cells carry no reference, so it zips small."""
+    header = "<row>" + "".join(f'<c t="inlineStr"><is><t>c{i}</t></is></c>' for i in range(cols)) + "</row>"
+    body = "".join("<row><c><v>%d</v></c>%s</row>" % (r % 50_000, "<c><v>7</v></c>" * (cols - 1))
+                   for r in range(rows))
+    package(path, f'<?xml version="1.0" encoding="UTF-8"?><worksheet xmlns="{NS}"><sheetData>{header}{body}'
+                  "</sheetData></worksheet>")
+
+
 def m0_ordinary(path: Path) -> None:
     package(path, table_sheet([["name", "amount"]] + [[f"n{i % 40}", i % 40] for i in range(50)]))
 
@@ -186,12 +196,16 @@ CASES = {
     "M1_sheets_100": lambda p: m1_many_sheets(p, 100),
     "M1_sheets_2000": lambda p: m1_many_sheets(p, 2000),
     "M1_sheets_20000": lambda p: m1_many_sheets(p, 20000),
+    "M1e_empty_sheets_50000": lambda p: package(p, f'<worksheet xmlns="{NS}"><sheetData/></worksheet>', sheets=50000),
     "M2_broken_link_bomb": m2_broken_link_bomb,
     "M3_shared_strings_3_6m": lambda p: m3_many_shared_strings(p, 3_600_000),
     "M4_styles_1m": lambda p: m4_many_styles(p, 1_050_000),
     "M5_ext_link_2_3m_cells": lambda p: m5_big_external_link(p, 2_300_000),
     "M6_long_names_200x30k": lambda p: m6_long_names(p, 200, 30_000),
+    "M6_short_names_10000": lambda p: m6_long_names(p, 10_000, 20),
+    "M6_names_2000x1000": lambda p: m6_long_names(p, 2_000, 1_000),
     "M7_text_at_cap": m7_text_at_cap,
+    "M9_dense_1m_cells": m9_dense_at_cap,
     "M8_defined_names_1_4m": lambda p: m8_defined_names(p, 1_400_000),
 }
 

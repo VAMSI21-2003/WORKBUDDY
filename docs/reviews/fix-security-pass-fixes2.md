@@ -1,3 +1,5 @@
+> **State at the round 3 checkpoint (commit after `c766fa6`).** Round 3 ended DON'T MERGE (five blocking MEDIUMs, R3-1 to R3-5, no HIGH; `docs/reviews/fix-security-pass-review.md`, "Review round 3"). By `docs/process/review-loop.md` I did not start round 4 or fix anything after it: the owner's advisor decides the next step. Nothing is fixed for R3-1 to R3-5 on this branch. The reviewer's prototype is `scripts/review_harness/fix-security-pass/prototype_fix_r3.py` (about 35 lines, 1,057 related tests pass; it does not cover shared strings or the text cap). The PR is still a draft.
+
 # fix/security-pass: fixes for review round 2
 
 Round 2 (`docs/reviews/fix-security-pass-review.md`, reviewed head `9d17990`): DON'T MERGE, two blocking MEDIUMs. I did not edit the review file.
