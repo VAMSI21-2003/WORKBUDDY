@@ -564,18 +564,23 @@ def _no_skill_outcome(
       words in ``_FILLER_WORDS`` are removed, or if a negation/keep word is
       present next to an action that ran (the request may be the opposite of
       what was done), or if a named action didn't pass and has no ledger
-      entry of its own (nothing else will say it wasn't done), unless a
-      negation word is present;
+      entry of its own (nothing else will say it wasn't done), whether or not
+      a negation word is present ("don't keep the empty rows" is a request to
+      remove them, "don't remove the empty rows" is not, and no word list can
+      tell them apart);
     - otherwise the entry is dropped: the action has its own sentence (or
       none, when it ran and was said).
 
-    Residual risks (both need a gross misread by Brain; closing them needs the
-    ledger-recall measurement, backlog item 1, design 6.8, not more words):
+    The words Brain quoted for an action that passed cover an "unsupported"
+    entry's words only if the quoted phrase itself names that action (its
+    mention pattern matches it). Brain's phrase "delete the file" filed under
+    duplicate removal doesn't, so the entry speaks: the reply says that part
+    wasn't done.
 
-    - A done action's phrase with no joiner that contains an unsupported verb
-      (Brain gives "delete the file" as the dedupe phrase) is still dropped.
-    - A double negation in a paraphrase ("don't keep the empty rows") counts
-      as a negation.
+    A whole-message ``unsupported`` flag on a request the skills fully carried
+    out still gets the flat "Partly done" sentence. Absorbing it would also
+    absorb the same flag on "remove duplicates and delete the file", and no
+    word list tells the two apart (backlog, MEDIUM-u).
     """
     phrase = entry.source_phrase
     lowered = phrase.casefold().replace("\u2019", "'")
@@ -599,6 +604,12 @@ def _no_skill_outcome(
         said = other.source_phrase.casefold().replace("\u2019", "'").strip()
         if not said or said not in lowered:
             continue
+        # Brain's phrase for a done action covers the same words in an "unsupported" entry only
+        # if that phrase names the action it was given to. A phrase that doesn't ("delete the
+        # file", filed under duplicate removal) was put there by a misreading, and the words it
+        # holds are not shown to have been done.
+        if other_action.mention is None or not other_action.mention.search(said):
+            continue
         names_action = True
         if not _TWO_REQUESTS.search(said):
             named_passed, lowered = True, lowered.replace(said, " ")
@@ -607,11 +618,7 @@ def _no_skill_outcome(
         return ActionOutcome("", NOT_DONE, reason=NO_SKILL, source=entry.source, user_phrase=quoted)
     words = re.findall(r"[\w']+", lowered)
     negated = any(w in _NEGATION_WORDS for w in words)
-    if (
-        any(w not in _FILLER_WORDS for w in words)
-        or (negated and named_passed)
-        or (named_silent and not negated)
-    ):
+    if any(w not in _FILLER_WORDS for w in words) or (negated and named_passed) or named_silent:
         return ActionOutcome("", NOT_DONE, reason=NO_SKILL, source=entry.source)
     return None
 

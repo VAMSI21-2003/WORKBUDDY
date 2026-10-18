@@ -791,6 +791,7 @@ def test_h1_a_mention_only_step_with_no_reading_is_done_but_never_confirms() -> 
 
 
 def test_h2_an_unsupported_entry_naming_a_done_action_is_dropped_or_unquoted() -> None:
+    """Dropped only where the words name the action that ran; a paraphrase doesn't, so it speaks."""
     def no_skill(*phrases: str, brain_phrase: str = "") -> list[str]:
         report = _single_dedupe_turn(
             _brain("remove_duplicate_rows", brain_phrase, found=bool(brain_phrase)),
@@ -803,20 +804,29 @@ def test_h2_an_unsupported_entry_naming_a_done_action_is_dropped_or_unquoted() -
     assert no_skill("remove duplicates and sort by amount") == [""]  # unquoted
     assert no_skill("sort by amount") == ["sort by amount"]  # names nothing
     assert no_skill("please") == ["please"]  # no action named: unchanged
-    # The words Brain quoted for the done action count too (a paraphrase).
+    # The words Brain quoted for the done action count only if they name that action. A paraphrase
+    # ("get rid of the repeated entries") doesn't, and nothing but a word list could tell it from
+    # "delete the file" filed under duplicate removal, so the flag is reported, not absorbed.
     said = "get rid of the repeated entries"
-    assert no_skill(said, brain_phrase=said) == []
-    assert no_skill(f"{said} and sort", brain_phrase=said) == [""]
+    assert no_skill(said, brain_phrase=said) == [said]
+    assert no_skill(f"{said} and sort", brain_phrase=said) == [f"{said} and sort"]
+    # ...while a quoted phrase that does name the action absorbs the same words.
+    named = "remove the duplicate entries"
+    assert no_skill(named, brain_phrase=named) == []
     # The same part is said once.
     assert no_skill("sort by amount", "Sort by amount", "sort by amount") == ["sort by amount"]
 
 
-def test_h2_an_unsupported_entry_naming_an_action_that_did_not_run_is_dropped_too() -> None:
-    report = _single_dedupe_turn(
-        _brain("remove_duplicate_rows"), _brain(UNSUPPORTED, "keep the empty rows", found=True)
-    )
+def test_h2_an_unsupported_entry_naming_an_action_that_did_not_run_is_said_not_dropped() -> None:
+    """"keep the empty rows" and "don't keep the empty rows" differ by a word no list can weigh,
+    and the second is a request to remove them, so neither is dropped silently (z18)."""
+    for phrase in ("keep the empty rows", "don't keep the empty rows", "don't remove the empty rows"):
+        report = _single_dedupe_turn(
+            _brain("remove_duplicate_rows"), _brain(UNSUPPORTED, phrase, found=True)
+        )
 
-    assert not [a for a in report.actions if a.reason == NO_SKILL]
+        assert [a.user_phrase for a in report.actions if a.reason == NO_SKILL] == [""], phrase
+        assert report.lead_word == "Partly done", phrase
 
 
 def test_a_step_that_ran_but_did_not_pass_is_not_confirmed_never_not_planned() -> None:
