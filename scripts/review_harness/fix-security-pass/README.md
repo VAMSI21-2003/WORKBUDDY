@@ -26,3 +26,13 @@ repo root. `--tree DIR` (a `git worktree` of `origin/main`) runs a probe on the 
 `make_sparse_bomb.py` builds the small far-corner workbooks the bomb probes use. The shared harnesses were
 also run unchanged on head and base: `scripts/review_harness/harness.py --out X.json` and
 `scripts/review_harness/rereview3.py --out Y.json`, compared with `feat-reply-quality/cmp_harness.py`.
+
+Round 2 (head `9d17990`), same conventions:
+
+    OPENPYXL_LXML=False python scripts/review_harness/fix-security-pass/probe_k_round2.py [--tree DIR] [--read] [--only K1,K7]
+        # 13 workbooks aimed at the round 1 fix (row r vs cell reference, a junk/long-digit/damaged part first,
+        # a sheet not named .xml, calcChain, one long shared string): refused or not; --read measures one pandas read
+    OPENPYXL_LXML=False python scripts/review_harness/fix-security-pass/probe_l_turns.py K1_row_r_mismatch_20k [...] [--tree DIR] [--speakers ...]
+        # whole dedupe and report turns on out/k_<name>.xlsx (run probe_k first): reply, delivery, hash, peak RSS, time
+    python scripts/review_harness/fix-security-pass/mutations_r2.py [NAME ...]        # 18 mutations of the round 1 fixes + 3 re-runs
+    python scripts/review_harness/fix-security-pass/prototype_fix_r2.py DEST          # HEAD exported to DEST with the R2-1/R2-3 prototype

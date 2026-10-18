@@ -101,3 +101,106 @@ R1-3, R1-4, R1-5 and R1-6. R1-2 if the owner keeps it as it is. The two pre-exis
 - Docker, Caddy, and a real 1 GiB cgroup. The memory figures are process peak RSS outside a container.
 - `scripts/run_pip_audit.py` against the live advisory databases. The advisory text of PYSEC-2026-3447 isn't verified.
 - The retry, bomb and odd-zip probes ran in the template speaker only (the speaker doesn't affect those paths). probe_a and the shared harnesses ran in all three.
+
+## Review round 2 (commit 9d17990)
+
+**Verdict: DON'T MERGE.** Two blocking MEDIUMs, R2-1 and R2-2: a hostile workbook still gets past `check_workbook_limits` and then needs more memory than the 1 GiB container. R1-1 is not closed. Its three round 1 cases are fixed, but the same attack still works through other files, including one of 22 KB. No HIGH. Rules 1 and 2 held in every run.
+
+Scope: the diff `f1af923..9d17990` (the fixes in `fix-security-pass-fixes1.md`), the findings round 1 left open, and regression against base `89625e7`. New probes are in `scripts/review_harness/fix-security-pass/`: `probe_k_round2.py`, `probe_l_turns.py`, `mutations_r2.py`, `prototype_fix_r2.py` (see its `README.md`). The bomb probes use `OPENPYXL_LXML=False`, as in the image.
+
+| # | What | Result |
+|---|---|---|
+| 1 | `python -m pytest -q` on head | 3613 passed, 5 skipped, 0 failed (1,222 s) |
+| 2 | `ruff check buddy tests`, head vs base, by file and rule | Nothing new. Head still has one fewer `E501` (`buddy/hands.py`). |
+| 3 | `harness.py` (532 turns), `rereview3.py` (1,078), `probe_a_pipeline.py` (19 × 3 speakers), head vs round 1's head | All 1,667 identical in reply, delivery and final facts. 0 errors, 0 Voice-model calls, 0 originals changed. |
+| 4 | Round 1's R1-1 files (`probe_limit_bypass.py`, `probe_f_odd_zips.py`) | All refused on head: the 10k × 1,000 grid, `r="3e5"`, `r=" 300000"`, and the sheet outside `xl/worksheets/`. Corrupt deflate and method 99 now pass the check and are refused by `sheet_names()` (R1-4 fixed). |
+| 5 | `probe_k_round2.py`: 13 new workbooks, check, then one pandas read in a child process capped at 3 GiB | 9 files pass the check and are bombs: 8 for R2-1 (K1–K5) and 1 for R2-2 (K7). K6 is refused for the wrong reason (R2-3). The controls behave: an ordinary file passes, and the 20k × 1,000 grid is refused. A grid of exactly 1,000 × 1,000 passes; its whole turn took 18 s at 374 MiB. |
+| 6 | `probe_l_turns.py`: whole turns on K0, K1, K2, K5, K6, K7 (dedupe and report; K6 in all three speakers) | K1, K2 and K5: delivered after 81–87 s at a 1,099 MiB peak (round 1 measured 1,098). K7: a dedupe turn was still running at 15 min of CPU when I stopped it. Every reply's numbers match pandas' read. |
+| 7 | New tests against f1af923 code | 9 of the new `test_hostile_workbooks.py` tests fail there, as they should. The new `test_file_text_in_replies.py` tests pass on f1af923, because the code they guard is older than that commit. R1-3 asked for them to fail on base: the Splink test and the dispatcher test are now killed by their mutations (row 8). |
+| 8 | `mutations.py` + `mutations_r2.py`: 21 one-place mutations of the fixes | 11 killed, 10 survived. 4 of the survivors are in `shown()` (R2-4). `dollar-ref-old-regex` survives (R2-4). `entity-decl-off` and `doctype-off` each survive alone, but both together are killed. `row-unreadable-off` and `cellref-unreadable-off` survive harmlessly, because the reader then refuses with the same sentence. `analysis-missing-str-alert` still survives (known). |
+| 9 | `prototype_fix_r2.py` (about 20 lines, `workbook.py` only), in an export | Refuses K1–K5 and passes K6 and the controls. 514 tests pass (`tests/skills/excel`, `test_text_cells`, `test_file_text_in_replies`, `test_multi_sheet`, `test_inspector*`, `tests/backend/test_uploads.py`). It doesn't address K7. |
+| 10 | Original's SHA-256 before and after, every turn above (about 1,700) | Unchanged in every one. |
+
+### R2-1 (MEDIUM, [Certain]; R1-1 not closed): five 7 KB workbooks pass the limits and read as 19,999 × 1,000
+
+**Where.** `skills/excel/workbook.py` `_scan` and `_scan_part`.
+
+**Scenario.** Each file has 1,000 headers in row 1 and one more cell 20,000 rows down. Head refuses this layout on its own (K0).
+- **K1, the row number and the cell reference disagree.** The sheet has `<row r="20000"><c r="A1">`. pandas reads with openpyxl `read_only`, which puts a row's cells at the row's `r` (`_read_only.py` `_cells_by_row`). The grid check only counts the cell's own reference (`state["top_row"] = max(state["top_row"], row)`), so it sees a 1 × 1,000 grid. A dedupe turn delivered after 87 s at 1,099 MiB. With `r="150000"` (still inside `MAX_ROWS`), one read ran out of a 3 GiB cap.
+- **K2, K3, K4: one part the scan can't finish ends the whole scan with no verdict.** `_scan_part` lets any exception escape, and `_scan`'s `except Exception` then returns `None`, so the workbook passes. Three ways to trigger it, each with an extra part placed first in the zip that openpyxl never opens:
+  - malformed XML (`<a>`), or a VML part with an unclosed `<br>`, as legacy Excel form controls are reported to write [Possible];
+  - a cell reference with 5,000 digits, where `int()` raises past Python's digit limit;
+  - a damaged deflate stream.
+
+  At f1af923 a malformed part outside `xl/worksheets/` was harmless (`_has_doctype` caught `ExpatError`). The R1-4 catch-all is what lets it through now.
+- **K5, a part name that doesn't end in `.xml`.** Only `\.(xml|rels|vml)$` parts are streamed, but openpyxl loads whatever path the rels name. A sheet stored at `xl/worksheets/sheet1.bin`, or with no extension, is never scanned. A dedupe turn delivered after 81 s at 1,099 MiB.
+
+**Reply.** It is honest about what pandas read: "Done — removed 19997 exact duplicate rows, including 19997 repeated blank rows. The copy has 2 rows". The problem is the memory, as in round 1.
+
+**Reachability.** Any signed-in person, with an ordinary request. Each file takes a few lines of zip.
+
+**Fix.** Apply `prototype_fix_r2.py` items 1–3:
+- count the row's `r` in the grid: `max(state["top_row"], row, state["row"])`;
+- stream every part whatever its name ends in, and catch exceptions per part, skipping only that part, since a reader can't get past that point either;
+- make the element handler refuse (`_UNREADABLE`) instead of raising.
+
+Add a test for each case (row/reference mismatch, junk part first, long digit reference, damaged deflate first, `.bin` sheet), and correct the ASVS rows.
+
+### R2-2 (MEDIUM, [Certain]): a 22 KB workbook made of one long shared string takes minutes of CPU and about 10 GB per turn
+
+**Where.** `skills/excel/workbook.py`: nothing bounds the text that cells point at. `_matched_date_format` in `skills/excel/analyze.py:179` and `buddy/inspector.py:459` runs `strptime` on every value whatever its length.
+
+**Scenario.** K7 is 1,000 rows whose cells all point at one 10,000,000-character shared string. It is 22 KB zipped and 10 MB unzipped, inside every limit.
+- On head, a "remove the duplicate rows" turn was still running at 15 min of CPU when I stopped it. The profile of a 200,000-character version spends its time in `_strptime`, called from both date matchers.
+- With a prototype length guard in both matchers, the turn took 323 s at a **9,933 MiB** peak. It ended with "The deduplicate step: output has 1000 rows … 1000 output rows don't appear in its input", which is honest: the Inspector caught the changed copy and nothing was delivered.
+
+Base has no limits at all, so this is pre-existing. It belongs here because the branch's `docs/security/asvs-l1.md` marks 12.1.2 ("compressed files can't exhaust the server") as Pass. In production the container is killed. Even short of that, a thread past its 180 s deadline keeps one of the two `max_concurrent_turns` slots, so two uploads lock out every user.
+
+**Reachability.** Any signed-in person, with an ordinary request.
+
+**Fix.**
+- In the scan, refuse any shared or inline string over 32,767 characters, which is Excel's own cell limit, so no file Excel wrote is refused.
+- Refuse when the characters the cells reference add up to more than a cap, for example `MAX_UNZIPPED_BYTES`. Record each `<si>` length from the shared-strings part, then add the length for each `t="s"` cell.
+- Add `if len(value) > 32: return None` to both `_matched_date_format`s, since no listed format is longer.
+- Add a test with K7's shape.
+
+### R2-3 (LOW, [Certain]): calcChain.xml is counted as cells, so a two-sheet workbook is refused for a false reason
+
+**Where.** `_scan_part` counts every spreadsheet-namespace `<c>`. `xl/calcChain.xml`, which Excel writes for any workbook with formulas, lists each formula cell as `<c r="B2" i="1"/>`. Its grid spans every sheet.
+
+**Scenario.** K6 is 962 KB, with 120,001 cells: 60,000 rows with a formula column, and a summary formula in `Z1` of a second sheet. Every speaker replied "I can't work on this file: the workbook has more than 1,000,000 cells". At f1af923 the reply was "the workbook has 2 sheets, and only single-sheet workbooks are supported for now". The file is refused either way, so this is LOW. In one sheet, the double count only refuses a file with more than 500,000 formula cells, and that is [Likely] over the 2 MiB upload cap (my estimate: 4.9 MB).
+
+**Fix.** Count a `<c>` only inside a `<row>` (`prototype_fix_r2.py` item 4).
+
+### R2-4 (LOW): guard tests the fixes doc says exist, or that are missing
+
+- `fix-security-pass-fixes1.md` says the new `shown()` behaviour has "tests added". No test exercises it: `shown-curly-quotes-kept`, `shown-leading-mark-kept`, `shown-trailing-mark-kept` and `shown-no-nfc` all survive. Add asserts for `“x”`, `«x»`, `＂x＂`, and a leading or trailing U+0301.
+- `dollar-ref-old-regex` survives. No test has a `$A$1` reference, and without the `$` in the regex such a file would be refused as unreadable even though openpyxl reads it.
+
+### R2-5 (LOW): wording
+
+- The grid refusal uses `TOO_MANY_CELLS`, so a file with 1,001 cells is told "the workbook has more than 1,000,000 cells" (K0, and the 1,001 × 1,000 turn). Something like "the sheet spans more than 1,000,000 cells" would be true.
+- `shown()` leaves look-alikes such as `″` (U+2033), `❞`, `״` and `ʺ`. None of them ends a straight-quote quotation, so this is cosmetic.
+
+### Earlier findings
+
+| Finding | Status (my evidence) |
+|---|---|
+| R1-1 | Its three cases are fixed (row 4). The class is not closed: R2-1 and R2-2. |
+| R1-2 | Unchanged. Still the owner's call, not blocking. The probe_a S11 and S15 replies are identical to round 1. |
+| R1-3 | Splink: fixed (`splink-revert-to-headers` killed). Dispatcher text: fixed (`hands-dispatch-msg-back` killed). Cell-value quoting: the test now asserts findings first. Row attribute: fixed (`row-number-isdigit` killed). Bytes-read budget: removed. The skill's own missing-value text is still untested (known). |
+| R1-4 | Fixed (row 4), but the catch-all is now part of R2-1. |
+| R1-5 | Unchanged. Owner's note. |
+| R1-6 | The backlog line and the `_read_cells` docstring are fixed. The `shown()` change is in, but untested (R2-4). |
+
+### Deferred (added to `docs/backlog.md`)
+
+R2-3, R2-4 and R2-5. R1-2 and R1-5 for the owner, as in round 1. Seen in passing and pre-existing: a report on K1 lists 1,000 "column … missing values" findings in one reply.
+
+### Not run
+
+- Live runs with Groq. No change in this round alters what the pipeline says.
+- Docker and a real 1 GiB cgroup. The memory figures are process peak RSS, plus a 3 GiB `RLIMIT_AS` child for single reads.
+- A real Excel-written calcChain or VML file. Both were built by hand from the format.
+- K7 to completion on head (stopped at 15 min). K7 and the K1/K2/K5 turns in the friend and focus speakers: the speaker doesn't touch the read path, and K6 ran in all three.
+- A prototype of R2-2's scan-side text cap. Only the date-matcher guard was prototyped.
