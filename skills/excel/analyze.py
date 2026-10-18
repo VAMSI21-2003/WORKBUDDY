@@ -18,6 +18,7 @@ from typing import Protocol
 import pandas as pd
 
 from skills.base import PermissionTier, Skill, SkillResult, SkillStatus, SkillTask
+from skills.excel.workbook import WorkbookRefused, check_workbook_limits
 
 logger = logging.getLogger(__name__)
 
@@ -415,6 +416,11 @@ class SpreadsheetAnalysisSkill(Skill):
             )
 
         input_path = task.input_references[0]
+        try:
+            check_workbook_limits(input_path)
+        except WorkbookRefused as refused:  # its text is fixed, so it can be shown
+            logger.info("SpreadsheetAnalysisSkill: refused %r: %s", input_path, refused)
+            return SkillResult(status=SkillStatus.FAILURE, errors=[str(refused)])
         try:
             df = pd.read_excel(input_path)  # READ-ONLY open of the upload
             # The cells as they are, for the duplicate checks: the cleaning skills compare rows

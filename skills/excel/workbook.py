@@ -19,9 +19,16 @@ cross-checks them with openpyxl. A library's list alone isn't trusted,
 because openpyxl silently drops a declared sheet whose XML part is missing.
 Every message in a ``WorkbookRefused`` is fixed text: it reaches the user's
 reply, so it never carries an exception's text or a name read from the file.
+
+A hostile workbook is refused before anything parses it for real: ``check_workbook_limits``
+reads the zip directory (parts, declared unzipped size) and then streams each sheet's XML once,
+with a parser that builds no tree, counting rows, columns and cells and stopping at the first
+limit it passes. A 2 MiB ``.xlsx`` can unpack to gigabytes of XML, and a few cells far out in a
+sheet make a reader pad the grid between them; neither gets as far as pandas or openpyxl.
 """
 
 import logging
+import re
 import zipfile
 from dataclasses import dataclass
 from pathlib import Path
@@ -51,6 +58,22 @@ _WORKBOOK_CONTENT_TYPES = (
 # An upper bound on the XML parts read: a real workbook.xml is a few KB.
 _MAX_PART_BYTES = 16 * 1024 * 1024
 
+# What a workbook may be before it is refused as too large to open safely. Real tables are far
+# below these (the measured 5 MB file, 61,277 rows by 14 columns, is 858,000 cells and about 60 MB
+# unpacked); the upload route refuses a declared size above ``MAX_UNZIPPED_BYTES`` too.
+MIB = 1024 * 1024
+MAX_UNZIPPED_BYTES = 64 * MIB
+MAX_PARTS = 1000
+MAX_ROWS = 200_000
+MAX_COLUMNS = 1_000
+MAX_CELLS = 1_000_000
+# A DOCTYPE can only come before the root element, so the start of a part is enough to look at.
+_PROLOG_BYTES = 4096
+_DOCTYPE = re.compile(rb"<!\s*(DOCTYPE|ENTITY)", re.IGNORECASE)
+_WORKSHEET_PART = re.compile(r"^xl/worksheets/[^/]+\.xml$", re.IGNORECASE)
+_XML_PART = re.compile(r"\.(xml|rels|vml)$", re.IGNORECASE)
+_CELL_REFERENCE = re.compile(r"^([A-Za-z]{1,3})(\d+)$")
+
 # How much of a sheet's XML is fed to the merged-cell scan at a time.
 _SCAN_CHUNK_BYTES = 1 << 20
 
@@ -60,6 +83,22 @@ _SHEETS_UNREADABLE = "the workbook looks damaged: it lists sheets that can't be 
 _PASSWORD = "the workbook is password-protected, so it can't be opened"
 _LEGACY_XLS = (
     "older .xls workbooks (Excel 97–2003) aren't supported yet; saving it as .xlsx will work"
+)
+# Too large to open safely. Fixed text with the limit in it, never a figure read from the file.
+TOO_MANY_PARTS = f"the workbook has more than {MAX_PARTS:,} internal parts, which is too many"
+TOO_BIG_UNPACKED = (
+    f"the workbook unpacks to more than {MAX_UNZIPPED_BYTES // MIB} MB, "
+    "which is more than I can open safely"
+)
+TOO_MANY_ROWS = f"the sheet has more than {MAX_ROWS:,} rows, which is more than I can open safely"
+TOO_MANY_COLUMNS = (
+    f"the sheet has more than {MAX_COLUMNS:,} columns, which is more than I can open safely"
+)
+TOO_MANY_CELLS = (
+    f"the workbook has more than {MAX_CELLS:,} cells, which is more than I can open safely"
+)
+_NOT_ALLOWED = (
+    "the workbook holds XML declarations that an Excel file doesn't use, so I won't open it"
 )
 
 
@@ -188,6 +227,7 @@ def sheet_names(input_path: str) -> list[str]:
             is a legacy ``.xls``, or looks damaged. The message is fixed text.
     """
     try:
+        check_workbook_limits(input_path)
         with open(input_path, "rb") as handle:
             magic = handle.read(8)
             handle.seek(0)
@@ -202,6 +242,140 @@ def sheet_names(input_path: str) -> list[str]:
         raise WorkbookRefused(_UNREADABLE) from exc
     logger.info("%r isn't an Excel workbook", input_path)
     raise WorkbookRefused(_UNREADABLE)
+
+
+# The verdict for a file already scanned, keyed on what identifies its bytes on disk, so the
+# planner, the skill and the Inspector's reads of the same file scan it once. Bounded.
+_scanned: dict[tuple[str, int, int, int], str | None] = {}
+_SCANNED_MAX = 64
+
+
+def check_workbook_limits(input_path: str) -> None:
+    """Refuse a workbook that is too large to open safely, before anything parses it.
+
+    Only zip content (``.xlsx``) is looked at; anything else is left to the callers' own
+    refusals. Checks, in order and each cheaper than the next: the number of parts; the declared
+    unzipped size of all parts; no DOCTYPE or ENTITY declaration at the start of any XML part
+    (entity expansion); then each worksheet part is streamed through an expat parser that builds
+    no tree, counting the bytes it really gets (a directory can lie), the rows (by number and by
+    count), the columns and the cells, and stops at the first limit passed.
+
+    Args:
+        input_path: The workbook to check. It is only ever read.
+
+    Raises:
+        WorkbookRefused: A limit was passed. The message is fixed text naming the limit.
+    """
+    try:
+        stat = Path(input_path).stat()
+    except OSError:
+        return  # the caller's own read says what is wrong with the path
+    key = (input_path, stat.st_size, stat.st_mtime_ns, stat.st_ino)
+    if key not in _scanned:
+        verdict = _scan(input_path)
+        if len(_scanned) >= _SCANNED_MAX:
+            _scanned.clear()
+        _scanned[key] = verdict
+    verdict = _scanned[key]
+    if verdict is not None:
+        raise WorkbookRefused(verdict)
+
+
+def _scan(input_path: str) -> str | None:
+    """The refusal text for a workbook over a limit, or ``None``."""
+    try:
+        with open(input_path, "rb") as handle:
+            if not handle.read(len(_ZIP_MAGIC)).startswith(_ZIP_MAGIC):
+                return None
+        with zipfile.ZipFile(input_path) as archive:
+            entries = archive.infolist()
+            if len(entries) > MAX_PARTS:
+                return TOO_MANY_PARTS
+            if sum(entry.file_size for entry in entries) > MAX_UNZIPPED_BYTES:
+                return TOO_BIG_UNPACKED
+            for entry in entries:
+                if _XML_PART.search(entry.filename) and _has_doctype(archive, entry):
+                    return _NOT_ALLOWED
+            budget = MAX_UNZIPPED_BYTES
+            counts = _Counts()
+            for entry in entries:
+                if _WORKSHEET_PART.match(entry.filename):
+                    problem = _scan_sheet(archive, entry, counts, budget)
+                    if problem is not None:
+                        return problem
+    except (zipfile.BadZipFile, OSError, expat.ExpatError, ValueError, RuntimeError, EOFError):
+        # Damaged or unreadable: the callers' own reads say so in their words.
+        logger.info("%r couldn't be scanned for size limits", input_path)
+    return None
+
+
+def _has_doctype(archive: zipfile.ZipFile, entry: zipfile.ZipInfo) -> bool:
+    with archive.open(entry) as part:
+        return _DOCTYPE.search(part.read(_PROLOG_BYTES)) is not None
+
+
+@dataclass
+class _Counts:
+    """What the scan has seen so far, across the workbook's worksheet parts."""
+
+    bytes_read: int = 0
+    cells: int = 0
+
+
+def _column_number(letters: str) -> int:
+    number = 0
+    for letter in letters.upper():
+        number = number * 26 + ord(letter) - 64
+    return number
+
+
+def _scan_sheet(
+    archive: zipfile.ZipFile, entry: zipfile.ZipInfo, counts: _Counts, budget: int
+) -> str | None:
+    """Stream one worksheet part; the refusal text for the first limit it passes, or ``None``."""
+    parser = expat.ParserCreate(namespace_separator=" ")
+    state = {"rows": 0, "column": 0, "problem": None}
+
+    def refuse(problem: str) -> None:
+        state["problem"] = problem
+        raise _LimitPassed
+
+    def on_start(name: str, attributes: dict[str, str]) -> None:
+        local = name.rpartition(" ")[2]
+        if local == "row":
+            state["rows"] += 1
+            state["column"] = 0
+            number = attributes.get("r", "")
+            if state["rows"] > MAX_ROWS or (number.isdigit() and int(number) > MAX_ROWS):
+                refuse(TOO_MANY_ROWS)
+        elif local == "c":
+            counts.cells += 1
+            if counts.cells > MAX_CELLS:
+                refuse(TOO_MANY_CELLS)
+            match = _CELL_REFERENCE.match(attributes.get("r", ""))
+            state["column"] = _column_number(match.group(1)) if match else state["column"] + 1
+            if state["column"] > MAX_COLUMNS:
+                refuse(TOO_MANY_COLUMNS)
+            if match and int(match.group(2)) > MAX_ROWS:
+                refuse(TOO_MANY_ROWS)
+
+    parser.StartElementHandler = on_start
+    parser.StartDoctypeDeclHandler = lambda *_: refuse(_NOT_ALLOWED)
+    try:
+        with archive.open(entry) as part:
+            while chunk := part.read(_SCAN_CHUNK_BYTES):
+                counts.bytes_read += len(chunk)
+                if counts.bytes_read > budget:
+                    return TOO_BIG_UNPACKED
+                parser.Parse(chunk, False)
+            parser.Parse(b"", True)
+    except _LimitPassed:
+        return state["problem"]
+    return None
+
+
+class _LimitPassed(Exception):
+    """Raised inside the XML scan to stop at the first limit passed."""
 
 
 def _zip_sheet_names(handle) -> list[str]:  # noqa: ANN001 — a binary file object

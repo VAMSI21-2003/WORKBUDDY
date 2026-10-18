@@ -26,6 +26,7 @@ from buddy.state import BuddyState
 from buddy.text import count_noun
 from skills.excel.workbook import (
     WorkbookRefused,
+    check_workbook_limits,
     formula_cell_counts,
     plain_table_problem,
     sheet_names,
@@ -268,6 +269,7 @@ def _read_cells(path: str) -> pd.DataFrame:
     number into a float that has lost digits), so a check built on it could not tell a skill that
     did exactly that from one that kept the cells.
     """
+    check_workbook_limits(path)
     return pd.read_excel(path, dtype=object)
 
 
@@ -671,6 +673,7 @@ class SpreadsheetAnalysisVerifier:
             )
 
         try:
+            check_workbook_limits(analyzed_file)
             df = pd.read_excel(analyzed_file)  # fresh, independent read of the ORIGINAL
             cells = _read_cells(analyzed_file)  # the same cells, none converted
         except Exception as exc:  # noqa: BLE001 — surfaced as a finding, not raised

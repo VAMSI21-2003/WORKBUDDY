@@ -176,9 +176,22 @@ def check_workbook(path: Path, settings: Settings) -> None:
         raise ApiError(ErrorCode.INVALID_FILE) from None
 
     if len(entries) > settings.max_zip_entries:
-        raise ApiError(ErrorCode.INVALID_FILE)
+        raise ApiError(
+            ErrorCode.INVALID_FILE,
+            message=(
+                f"That workbook has more than {settings.max_zip_entries:,} internal parts, "
+                "which is more than I can open safely."
+            ),
+        )
     if sum(entry.file_size for entry in entries) > settings.max_zip_uncompressed_bytes:
-        raise ApiError(ErrorCode.INVALID_FILE)
+        raise ApiError(
+            ErrorCode.INVALID_FILE,
+            message=(
+                "That workbook unpacks to more than "
+                f"{settings.max_zip_uncompressed_bytes // (1024 * 1024)} MB, which is more than "
+                "I can open safely. Save a smaller copy and upload that."
+            ),
+        )
     names = [entry.filename for entry in entries]
     if not any(n.lower() == _CONTENT_TYPES for n in names):
         raise ApiError(ErrorCode.INVALID_FILE)
