@@ -15,7 +15,9 @@ import unicodedata
 MAX_SHOWN_CHARS = 40
 ELLIPSIS = "…"
 # Every kind of double quotation mark: none of them may end the quotation we put around the text.
-_QUOTES = frozenset('"\u201c\u201d\u201e\u201f\u00ab\u00bb\u301d\u301e\u301f\uff02')
+_QUOTES = frozenset(
+    '"\u201c\u201d\u201e\u201f\u00ab\u00bb\u2039\u203a\u2033\u2036\u275d\u275e\u301d\u301e\u301f\uff02'
+)
 
 
 def shown(value: object, limit: int = MAX_SHOWN_CHARS) -> str:

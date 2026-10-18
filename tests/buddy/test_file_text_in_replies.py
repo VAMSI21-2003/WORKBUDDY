@@ -72,6 +72,27 @@ def test_shown_cannot_end_its_own_quotation() -> None:
     assert inner.count('"') == 2 and inner.startswith('"') and inner.endswith('"')
 
 
+QUOTE_MARKS = ['"', "“", "”", "„", "‟", "«", "»", "＂"]
+
+
+@pytest.mark.parametrize("quote", QUOTE_MARKS)
+def test_shown_turns_any_double_quotation_mark_into_a_single_quote(quote: str) -> None:
+    assert shown(f"a{quote}b{quote}") == "\"a'b'\""
+    assert shown(f"{quote}x{quote}") == "\"'x'\""
+
+
+def test_shown_drops_combining_marks_that_would_cling_to_its_quotes() -> None:
+    assert shown("́abc") == '"abc"'  # right after our opening quote
+    assert shown("́̂abc") == '"abc"'
+    assert shown("abc ́̂") == '"abc"'  # alone, right before our closing quote
+    assert shown("abć") == '"abć"'.replace("ć", "ć")  # an accent stays
+    assert shown("été") == '"été"'  # decomposed or composed: composed
+
+
+def test_shown_text_survives_nfc_so_a_decomposed_accent_is_one_character() -> None:
+    assert shown("café") == '"café"'
+
+
 @pytest.mark.parametrize("blank", ["", "   ", "‮", "\n\t"])
 def test_shown_blank_text_is_an_empty_quotation(blank: str) -> None:
     assert shown(blank) == '""'
