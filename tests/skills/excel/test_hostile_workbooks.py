@@ -207,8 +207,7 @@ def test_a_directory_that_lies_about_a_parts_size_cannot_get_it_read_in_full(
     """The directory says 10 bytes; the stream is 65 MiB of spaces.
 
     Python's zip reader stops at the declared size (and finds the checksum wrong), so neither the
-    scan nor a later parser is handed more than the directory declared. The scan's own byte count
-    is a second line behind that.
+    scan nor a later parser is handed more than the directory declared.
     """
     path = tmp_path / "liar.xlsx"
     with zipfile.ZipFile(path, "w", zipfile.ZIP_DEFLATED) as archive:
@@ -433,3 +432,119 @@ def test_an_upload_declaring_more_than_the_cap_is_refused_with_the_size_in_the_m
         check_workbook(path, Settings(data_dir=tmp_path))
     assert refused.value.code is ErrorCode.INVALID_FILE
     assert "64 MB" in refused.value.message
+
+# -- what a reader builds, not only what the XML says (review round 1, R1-1) ---------------------
+
+
+def _cells_xml(cells: list[tuple[str, int]]) -> bytes:
+    """Rows of cells ``(column letters, row number)``, one ``<row>`` per distinct row."""
+    rows: dict[int, list[str]] = {}
+    for letters, number in cells:
+        rows.setdefault(number, []).append(f'<c r="{letters}{number}"><v>1</v></c>')
+    body = "".join(f'<row r="{n}">{"".join(c)}</row>' for n, c in sorted(rows.items()))
+    return (_SHEET_HEAD + body + _SHEET_TAIL).encode()
+
+
+def _headers(columns: int) -> list[tuple[str, int]]:
+    def letters(index: int) -> str:
+        name = ""
+        while index:
+            index, rest = divmod(index - 1, 26)
+            name = chr(65 + rest) + name
+        return name
+
+    return [(letters(i), 1) for i in range(1, columns + 1)]
+
+
+def test_one_value_far_down_beside_many_headers_is_refused_for_the_grid_it_would_build(
+    tmp_path: Path, no_parsers: None
+) -> None:
+    """1,000 headers and one cell at row 20,000 is 1.5 KB of XML and 20 million cells to build."""
+    cells = [*_headers(MAX_COLUMNS), ("A", 20_000)]
+    path = _zip([("xl/worksheets/sheet1.xml", _cells_xml(cells))], tmp_path / "grid.xlsx")
+    assert _refusal(path) == TOO_MANY_CELLS
+
+
+def test_the_grid_limit_is_the_cell_limit_exactly(tmp_path: Path) -> None:
+    last = MAX_CELLS // MAX_COLUMNS
+    at_the_limit = [*_headers(MAX_COLUMNS), ("A", last)]
+    path = _zip([("xl/worksheets/sheet1.xml", _cells_xml(at_the_limit))], tmp_path / "at.xlsx")
+    check_workbook_limits(str(path))
+    over = [*_headers(MAX_COLUMNS), ("A", last + 1)]
+    path = _zip([("xl/worksheets/sheet1.xml", _cells_xml(over))], tmp_path / "over.xlsx")
+    with pytest.raises(WorkbookRefused):
+        check_workbook_limits(str(path))
+
+
+def test_a_grid_is_counted_per_sheet_not_across_sheets(tmp_path: Path) -> None:
+    sheet = _cells_xml([*_headers(100), ("A", 5_000)])  # 500,000 cells of grid each
+    path = _zip(
+        [("xl/worksheets/sheet1.xml", sheet), ("xl/worksheets/sheet2.xml", sheet)],
+        tmp_path / "two.xlsx",
+    )
+    check_workbook_limits(str(path))
+
+
+@pytest.mark.parametrize("written", ["3e5", " 300000", "300000.0", "+300000", "300000 "])
+def test_a_row_number_written_another_way_is_read_the_way_the_reader_reads_it(
+    tmp_path: Path, no_parsers: None, written: str
+) -> None:
+    sheet = _SHEET_HEAD + f'<row r="{written}"><c><v>1</v></c></row>' + _SHEET_TAIL
+    path = _zip([("xl/worksheets/sheet1.xml", sheet.encode())], tmp_path / "r.xlsx")
+    assert _refusal(path) == TOO_MANY_ROWS
+
+
+@pytest.mark.parametrize("written", ["2.5", "abc", "nan", "inf", ""])
+def test_a_row_number_no_reader_could_use_is_refused_as_unreadable(
+    tmp_path: Path, no_parsers: None, written: str
+) -> None:
+    sheet = _SHEET_HEAD + f'<row r="{written}"><c><v>1</v></c></row>' + _SHEET_TAIL
+    path = _zip([("xl/worksheets/sheet1.xml", sheet.encode())], tmp_path / "r.xlsx")
+    assert "could not read the workbook" in _refusal(path)
+
+
+def test_a_far_row_is_refused_by_its_number_alone(tmp_path: Path, no_parsers: None) -> None:
+    sheet = _SHEET_HEAD + '<row r="250000"/>' + _SHEET_TAIL
+    path = _zip([("xl/worksheets/sheet1.xml", sheet.encode())], tmp_path / "r.xlsx")
+    assert _refusal(path) == TOO_MANY_ROWS
+
+
+def test_a_sheet_kept_anywhere_in_the_zip_is_scanned_not_only_under_worksheets(
+    tmp_path: Path, no_parsers: None
+) -> None:
+    """The workbook's own relationships say where a sheet is, and a reader follows them."""
+    for where in ("xl/data/sheet1.xml", "other/anything.xml", "xl/worksheets/deep/sheet1.xml"):
+        path = _zip([(where, _sheet_xml(MAX_ROWS + 1))], tmp_path / "moved.xlsx")
+        assert _refusal(path) == TOO_MANY_ROWS, where
+
+
+def test_a_sheet_in_the_strict_namespace_is_counted_too(tmp_path: Path, no_parsers: None) -> None:
+    strict = _sheet_xml(MAX_ROWS + 1).replace(
+        b"http://schemas.openxmlformats.org/spreadsheetml/2006/main",
+        b"http://purl.oclc.org/ooxml/spreadsheetml/main",
+    )
+    path = _zip([("xl/worksheets/sheet1.xml", strict)], tmp_path / "strict.xlsx")
+    assert _refusal(path) == TOO_MANY_ROWS
+
+
+def test_rows_and_cells_of_other_namespaces_add_nothing(tmp_path: Path) -> None:
+    foreign = _sheet_xml(MAX_ROWS + 1).replace(
+        b"http://schemas.openxmlformats.org/spreadsheetml/2006/main", b"http://example.test/other"
+    )
+    path = _zip([("xl/other.xml", foreign)], tmp_path / "foreign.xlsx")
+    check_workbook_limits(str(path))
+
+
+def test_corrupt_deflate_data_is_left_to_the_callers_not_raised_from_the_check(
+    tmp_path: Path,
+) -> None:
+    path = _zip([("xl/worksheets/sheet1.xml", _sheet_xml(50))], tmp_path / "corrupt.xlsx")
+    data = bytearray(path.read_bytes())
+    start = data.find(b"sheet1.xml") + len(b"sheet1.xml") + 4
+    data[start : start + 16] = b"\xff" * 16  # inside the compressed stream
+    path.write_bytes(bytes(data))
+
+    check_workbook_limits(str(path))  # must not raise zlib.error or anything else
+    task = SkillTask("t", "s", "w", "d", input_references=[str(path)])
+    result = SpreadsheetAnalysisSkill().execute(task)
+    assert result.status is SkillStatus.FAILURE and result.errors  # an answer, not a crash

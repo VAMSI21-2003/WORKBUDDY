@@ -190,36 +190,60 @@ def test_odd_headers_are_cleaned_capped_and_quoted(
     assert longest <= MAX_SHOWN_CHARS + len(ELLIPSIS)
 
 
+def _messy(columns: list[str], suffix: str = "") -> pd.DataFrame:
+    from tests.skills.excel.test_analyze import _MESSY_NAME_PHONE_ROWS
+
+    frame = pd.DataFrame(_MESSY_NAME_PHONE_ROWS, columns=["name", "phone"])
+    frame["name"] = [f"{name}{suffix}" for name in frame["name"]]
+    return frame.set_axis(columns, axis=1)
+
+
 def test_a_cell_value_in_a_finding_is_quoted_and_capped() -> None:
-    names = [
-        "Alice Johnson",
-        "Alise Johnson",
-        "Bob Marley",
-        "Bobb Marley",
-        "Carol Davis",
-        "Carol Davies",
-    ] * 4
-    names = [f"{n} {HOSTILE}" for n in names]
-    phones = ["111", "111", "222", "222", "333", "333"] * 4
-    frame = pd.DataFrame({"name": names, "phone": phones})
+    suffix = f" {HOSTILE}"
 
-    findings = NearDuplicateAnalyzer()(frame)
+    findings = NearDuplicateAnalyzer()(_messy(["name", "phone"], suffix))
 
+    assert findings, "the fixture must produce near-duplicates, or this checks nothing"
     for finding in findings:
         assert HOSTILE not in finding  # cut to the cap, inside quotes
         _check_file_text_is_quoted(finding, "Done!")
+        assert shown(f"Alice Johnson{suffix}") in finding  # the value, cut to the cap
+
+
+def test_a_header_with_a_space_still_finds_the_near_duplicates() -> None:
+    """Splink was given the header as an SQL identifier, and a space broke it: no findings."""
+    assert NearDuplicateAnalyzer()(_messy(["full name", "phone number"]))
+
+
+def test_splink_is_never_given_a_header_as_a_name(monkeypatch: pytest.MonkeyPatch) -> None:
+    """The file's headers stay out of everything Splink turns into SQL."""
+    import splink
+
+    seen: dict[str, object] = {}
+
+    class Recording:
+        def __init__(self, data: pd.DataFrame, settings: object, **kwargs: object) -> None:
+            seen["columns"] = list(data.columns)
+            seen["settings"] = repr(vars(settings)) if hasattr(settings, "__dict__") else repr(
+                settings
+            )
+            raise RuntimeError("stop here")  # the analyzer degrades to no findings
+
+    monkeypatch.setattr(splink, "Linker", Recording)
+    header = 'name") MARKER-IN-A-HEADER ("'
+
+    assert NearDuplicateAnalyzer()(_messy([header, "phone"])) == ()
+
+    assert "MARKER-IN-A-HEADER" not in str(seen["columns"]) + str(seen["settings"])
+    assert seen["columns"] == ["unique_id", "name_field", "key_field"]
 
 
 def test_a_header_cannot_inject_sql_into_the_near_duplicate_check(tmp_path: Path) -> None:
     """Splink builds SQL from column names; the file's headers never get that far."""
     marker = tmp_path / "pwned.csv"
     header = f"name') || (SELECT 1) || substr('x', 1, 3); COPY (SELECT 1) TO '{marker}' --"
-    frame = pd.DataFrame(
-        {header: ["Alice Johnson", "Alise Johnson", "Bob Marley", "Bobb Marley"] * 5,
-         "phone": ["111", "111", "222", "222"] * 5}
-    )
 
-    NearDuplicateAnalyzer()(frame)
+    NearDuplicateAnalyzer()(_messy([header, "phone"]))
 
     assert not marker.exists()
 
@@ -302,17 +326,39 @@ def test_no_fixed_read_sentence_carries_a_path_or_a_detail() -> None:
 
 
 def test_a_step_no_skill_can_run_never_keeps_the_dispatchers_message() -> None:
-    """The dispatcher's message names the task id, which holds the session's key."""
+    """The dispatcher's message names the task id, which holds the session's key.
+
+    It does so when a skill declares the capability but refuses the task (``can_handle`` is
+    false); an undeclared capability gets a different message, without the id.
+    """
     from buddy.hands import Hands
     from buddy.models import CapabilityRequest
     from buddy.state import BuddyState
     from core.dispatcher import Dispatcher
+    from skills.base import PermissionTier, Skill, SkillResult, SkillStatus, SkillTask
     from skills.registry import SkillRegistry
 
+    class Refuses(Skill):
+        name = "fake.refuses"  # type: ignore[assignment]
+        description = "declares a capability and refuses every task"  # type: ignore[assignment]
+        supported_inputs = ("some.other.capability",)  # type: ignore[assignment]
+        permission_tier = PermissionTier.READ  # type: ignore[assignment]
+
+        def can_handle(self, task: SkillTask) -> bool:
+            return False
+
+        def execute(self, task: SkillTask) -> SkillResult:
+            return SkillResult(status=SkillStatus.FAILURE)
+
+        def verify(self, task: SkillTask, result: SkillResult) -> bool:
+            return False
+
+    registry = SkillRegistry()
+    registry.register(Refuses())
     state = BuddyState.new(session_id="session-secret-key-123", workspace_id="w")
     state.delegation = (CapabilityRequest("some.other.capability", "uploads/report.xlsx"),)
 
-    Hands(dispatcher=Dispatcher(SkillRegistry()))(state)
+    Hands(dispatcher=Dispatcher(registry))(state)
 
     result = state.execution_result
     assert result is not None

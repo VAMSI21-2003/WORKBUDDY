@@ -21,10 +21,11 @@ Every message in a ``WorkbookRefused`` is fixed text: it reaches the user's
 reply, so it never carries an exception's text or a name read from the file.
 
 A hostile workbook is refused before anything parses it for real: ``check_workbook_limits``
-reads the zip directory (parts, declared unzipped size) and then streams each sheet's XML once,
-with a parser that builds no tree, counting rows, columns and cells and stopping at the first
-limit it passes. A 2 MiB ``.xlsx`` can unpack to gigabytes of XML, and a few cells far out in a
-sheet make a reader pad the grid between them; neither gets as far as pandas or openpyxl.
+reads the zip directory (parts, declared unzipped size) and then streams every XML part once,
+with a parser that builds no tree, counting rows, columns, cells and the grid a reader pads to,
+and stopping at the first limit it passes. A 2 MiB ``.xlsx`` can unpack to gigabytes of XML, and
+a few cells far out in a sheet make a reader pad the grid between them; neither gets as far as
+pandas or openpyxl.
 """
 
 import logging
@@ -67,9 +68,15 @@ MAX_PARTS = 1000
 MAX_ROWS = 200_000
 MAX_COLUMNS = 1_000
 MAX_CELLS = 1_000_000
-_WORKSHEET_PART = re.compile(r"^xl/worksheets/[^/]+\.xml$", re.IGNORECASE)
 _XML_PART = re.compile(r"\.(xml|rels|vml)$", re.IGNORECASE)
-_CELL_REFERENCE = re.compile(r"^([A-Za-z]{1,3})(\d+)$")
+_CELL_REFERENCE = re.compile(r"^\$?([A-Za-z]{1,3})\$?(\d+)$")
+# The namespaces a spreadsheet's rows and cells are written in (transitional and strict).
+_SPREADSHEET_NAMESPACES = frozenset(
+    (
+        "http://schemas.openxmlformats.org/spreadsheetml/2006/main",
+        "http://purl.oclc.org/ooxml/spreadsheetml/main",
+    )
+)
 
 # How much of a sheet's XML is fed to the merged-cell scan at a time.
 _SCAN_CHUNK_BYTES = 1 << 20
@@ -251,11 +258,12 @@ def check_workbook_limits(input_path: str) -> None:
     """Refuse a workbook that is too large to open safely, before anything parses it.
 
     Only zip content (``.xlsx``) is looked at; anything else is left to the callers' own
-    refusals. Checks, in order and each cheaper than the next: the number of parts; the declared
-    unzipped size of all parts; no DOCTYPE or ENTITY declaration at the start of any XML part
-    (entity expansion); then each worksheet part is streamed through an expat parser that builds
-    no tree, counting the bytes it really gets (a directory can lie), the rows (by number and by
-    count), the columns and the cells, and stops at the first limit passed.
+    refusals. Checks, each cheaper than the next: the number of parts; the declared unzipped size
+    of all parts (``zipfile`` never hands over more of a part than its directory declares, so
+    that total bounds what is read); then every XML part is streamed once through an expat parser
+    that builds no tree, counting rows, columns, cells and the grid a reader pads to (the highest
+    row times the highest column), stopping at the first limit passed and refusing any DOCTYPE or
+    entity declaration. A file the scan can't read is left to the callers' own refusals.
 
     Args:
         input_path: The workbook to check. It is only ever read.
@@ -290,59 +298,23 @@ def _scan(input_path: str) -> str | None:
                 return TOO_MANY_PARTS
             if sum(entry.file_size for entry in entries) > MAX_UNZIPPED_BYTES:
                 return TOO_BIG_UNPACKED
-            for entry in entries:
-                if _XML_PART.search(entry.filename) and _has_doctype(archive, entry):
-                    return _NOT_ALLOWED
-            budget = MAX_UNZIPPED_BYTES
             counts = _Counts()
+            # Every XML part, not only xl/worksheets/: the workbook's own relationships say where
+            # a sheet is, and a reader loads it from wherever that is.
             for entry in entries:
-                if _WORKSHEET_PART.match(entry.filename):
-                    problem = _scan_sheet(archive, entry, counts, budget)
+                if _XML_PART.search(entry.filename):
+                    problem = _scan_part(archive, entry, counts)
                     if problem is not None:
                         return problem
-    except (zipfile.BadZipFile, OSError, expat.ExpatError, ValueError, RuntimeError, EOFError):
-        # Damaged or unreadable: the callers' own reads say so in their words.
+    except Exception:  # noqa: BLE001 — damaged or unreadable: the callers' own reads refuse it
         logger.info("%r couldn't be scanned for size limits", input_path)
     return None
 
 
-def _has_doctype(archive: zipfile.ZipFile, entry: zipfile.ZipInfo) -> bool:
-    """Whether the XML part declares a DOCTYPE or an entity before its root element.
-
-    Read with the parser itself, up to the root element's start, so a comment or a processing
-    instruction ahead of the declaration, or UTF-16 text, can't hide it from a byte search.
-    A part that isn't well-formed XML says nothing here: the callers' own reads refuse it.
-    """
-    parser = expat.ParserCreate()
-    found = False
-
-    def declared(*_: object) -> None:
-        nonlocal found
-        found = True
-        raise _LimitPassed
-
-    def root_reached(*_: object) -> None:
-        raise _LimitPassed
-
-    parser.StartDoctypeDeclHandler = declared
-    parser.EntityDeclHandler = declared
-    parser.StartElementHandler = root_reached
-    try:
-        with archive.open(entry) as part:
-            while chunk := part.read(_SCAN_CHUNK_BYTES):
-                parser.Parse(chunk, False)
-    except _LimitPassed:
-        pass
-    except expat.ExpatError:
-        return False
-    return found
-
-
 @dataclass
 class _Counts:
-    """What the scan has seen so far, across the workbook's worksheet parts."""
+    """What the scan has seen so far, across the workbook's parts."""
 
-    bytes_read: int = 0
     cells: int = 0
 
 
@@ -353,53 +325,85 @@ def _column_number(letters: str) -> int:
     return number
 
 
-def _scan_sheet(
-    archive: zipfile.ZipFile, entry: zipfile.ZipInfo, counts: _Counts, budget: int
-) -> str | None:
-    """Stream one worksheet part; the refusal text for the first limit it passes, or ``None``."""
-    parser = expat.ParserCreate(namespace_separator=" ")
-    state = {"rows": 0, "column": 0, "problem": None}
+def _row_number(text: str) -> int:
+    """A row's ``r`` the way openpyxl reads it: a whole number, or a float that is one."""
+    try:
+        return int(text)
+    except ValueError:
+        value = float(text)
+        if not value.is_integer():
+            raise
+        return int(value)
 
-    def refuse(problem: str) -> None:
-        state["problem"] = problem
+
+class _LimitPassed(Exception):
+    """Raised inside the XML scan to stop at the first limit passed."""
+
+
+def _scan_part(archive: zipfile.ZipFile, entry: zipfile.ZipInfo, counts: _Counts) -> str | None:
+    """Stream one XML part; the refusal text for the first limit it passes, or ``None``.
+
+    Counts the rows and cells of the spreadsheet namespace (any part may hold a sheet), reading a
+    row's and a cell's position the way openpyxl does. Besides the number of rows, columns and
+    cells, the grid counts: a reader fills in every cell between the first row and the highest
+    one, so one cell at row 20,000 beside 1,000 headers is 20 million cells to build, however few
+    ``<c>`` elements say so. A DOCTYPE or entity declaration refuses the part.
+    """
+    parser = expat.ParserCreate(namespace_separator=" ")
+    state = {"rows": 0, "row": 0, "column": 0, "top_row": 0, "top_column": 0}
+    problem: list[str] = []
+
+    def refuse(text: str) -> None:
+        problem.append(text)
         raise _LimitPassed
 
     def on_start(name: str, attributes: dict[str, str]) -> None:
-        local = name.rpartition(" ")[2]
+        namespace, _, local = name.rpartition(" ")
+        if namespace not in _SPREADSHEET_NAMESPACES:
+            return
         if local == "row":
             state["rows"] += 1
             state["column"] = 0
-            number = attributes.get("r", "")
-            if state["rows"] > MAX_ROWS or (number.isdigit() and int(number) > MAX_ROWS):
+            given = attributes.get("r")
+            try:
+                state["row"] = _row_number(given) if given is not None else state["row"] + 1
+            except ValueError:
+                refuse(_UNREADABLE)
+            if state["rows"] > MAX_ROWS or state["row"] > MAX_ROWS:
                 refuse(TOO_MANY_ROWS)
         elif local == "c":
             counts.cells += 1
             if counts.cells > MAX_CELLS:
                 refuse(TOO_MANY_CELLS)
-            match = _CELL_REFERENCE.match(attributes.get("r", ""))
-            state["column"] = _column_number(match.group(1)) if match else state["column"] + 1
+            reference = attributes.get("r")
+            row = state["row"]
+            if reference is None:
+                state["column"] += 1
+            else:
+                match = _CELL_REFERENCE.match(reference)
+                if match is None:
+                    refuse(_UNREADABLE)
+                state["column"], row = _column_number(match.group(1)), int(match.group(2))
             if state["column"] > MAX_COLUMNS:
                 refuse(TOO_MANY_COLUMNS)
-            if match and int(match.group(2)) > MAX_ROWS:
+            if row > MAX_ROWS:
                 refuse(TOO_MANY_ROWS)
+            state["top_row"] = max(state["top_row"], row)
+            state["top_column"] = max(state["top_column"], state["column"])
+            if state["top_row"] * state["top_column"] > MAX_CELLS:
+                refuse(TOO_MANY_CELLS)
 
     parser.StartElementHandler = on_start
     parser.StartDoctypeDeclHandler = lambda *_: refuse(_NOT_ALLOWED)
+    parser.EntityDeclHandler = lambda *_: refuse(_NOT_ALLOWED)
     try:
         with archive.open(entry) as part:
             while chunk := part.read(_SCAN_CHUNK_BYTES):
-                counts.bytes_read += len(chunk)
-                if counts.bytes_read > budget:
-                    return TOO_BIG_UNPACKED
                 parser.Parse(chunk, False)
             parser.Parse(b"", True)
     except _LimitPassed:
-        return state["problem"]
+        return problem[0]
     return None
-
-
-class _LimitPassed(Exception):
-    """Raised inside the XML scan to stop at the first limit passed."""
 
 
 def _zip_sheet_names(handle) -> list[str]:  # noqa: ANN001 — a binary file object

@@ -269,12 +269,13 @@ class SpreadsheetEmptyRowsVerifier:
 
 
 def _read_cells(path: str) -> pd.DataFrame:
-    """A workbook's first sheet as its cells hold it: no cell converted to another type.
+    """A workbook's first sheet as its cells hold it: no text cell converted to a number.
 
     ``dtype=object`` keeps a text cell text and a number a number. pandas' default would turn a
     column of text that looks like numbers into numbers (``"007"`` into ``7``, a long account
     number into a float that has lost digits), so a check built on it could not tell a skill that
-    did exactly that from one that kept the cells.
+    did exactly that from one that kept the cells. (A boolean is still read as 0 or 1: backlog,
+    "TRUE/FALSE in a column of numbers".)
     """
     check_workbook_limits(path)
     return pd.read_excel(path, dtype=object)
