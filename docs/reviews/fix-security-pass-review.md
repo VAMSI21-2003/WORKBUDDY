@@ -204,3 +204,9 @@ R2-3, R2-4 and R2-5. R1-2 and R1-5 for the owner, as in round 1. Seen in passing
 - A real Excel-written calcChain or VML file. Both were built by hand from the format.
 - K7 to completion on head (stopped at 15 min). K7 and the K1/K2/K5 turns in the friend and focus speakers: the speaker doesn't touch the read path, and K6 ran in all three.
 - A prototype of R2-2's scan-side text cap. Only the date-matcher guard was prototyped.
+
+## Review round 3 (commit c766fa6)
+
+**Verdict: (in progress)**
+
+Scope: the diff `211a823..c766fa6` (`fix-security-pass-fixes2.md`: the reader-based `check_workbook_limits`, the text caps, the date-matcher guard, `shown()`), the findings round 2 left open, and regression against base `89625e7`. New probes in `scripts/review_harness/fix-security-pass/`: `probe_m_round3.py`, `probe_n_turns.py`, `mutations_r3.py`. Bomb probes use `OPENPYXL_LXML=False`, as in the image.
