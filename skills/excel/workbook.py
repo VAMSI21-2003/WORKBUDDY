@@ -67,9 +67,6 @@ MAX_PARTS = 1000
 MAX_ROWS = 200_000
 MAX_COLUMNS = 1_000
 MAX_CELLS = 1_000_000
-# A DOCTYPE can only come before the root element, so the start of a part is enough to look at.
-_PROLOG_BYTES = 4096
-_DOCTYPE = re.compile(rb"<!\s*(DOCTYPE|ENTITY)", re.IGNORECASE)
 _WORKSHEET_PART = re.compile(r"^xl/worksheets/[^/]+\.xml$", re.IGNORECASE)
 _XML_PART = re.compile(r"\.(xml|rels|vml)$", re.IGNORECASE)
 _CELL_REFERENCE = re.compile(r"^([A-Za-z]{1,3})(\d+)$")
@@ -310,8 +307,35 @@ def _scan(input_path: str) -> str | None:
 
 
 def _has_doctype(archive: zipfile.ZipFile, entry: zipfile.ZipInfo) -> bool:
-    with archive.open(entry) as part:
-        return _DOCTYPE.search(part.read(_PROLOG_BYTES)) is not None
+    """Whether the XML part declares a DOCTYPE or an entity before its root element.
+
+    Read with the parser itself, up to the root element's start, so a comment or a processing
+    instruction ahead of the declaration, or UTF-16 text, can't hide it from a byte search.
+    A part that isn't well-formed XML says nothing here: the callers' own reads refuse it.
+    """
+    parser = expat.ParserCreate()
+    found = False
+
+    def declared(*_: object) -> None:
+        nonlocal found
+        found = True
+        raise _LimitPassed
+
+    def root_reached(*_: object) -> None:
+        raise _LimitPassed
+
+    parser.StartDoctypeDeclHandler = declared
+    parser.EntityDeclHandler = declared
+    parser.StartElementHandler = root_reached
+    try:
+        with archive.open(entry) as part:
+            while chunk := part.read(_SCAN_CHUNK_BYTES):
+                parser.Parse(chunk, False)
+    except _LimitPassed:
+        pass
+    except expat.ExpatError:
+        return False
+    return found
 
 
 @dataclass

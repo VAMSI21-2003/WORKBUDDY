@@ -1,0 +1,145 @@
+# OWASP ASVS level 1: the backend
+
+What this is: a read of the backend (`backend/`, the parts of `skills/` and `buddy/` that open an uploaded file, `deploy/Caddyfile`, the `Dockerfile`) against the requirements of OWASP ASVS 4.0.3 level 1, one verdict each, with the evidence. It is a self-review by the session that wrote the change, then a fresh reviewer's check (`docs/reviews/fix-security-pass-review.md`). It is not a penetration test and not a certification.
+
+**Verdicts.** Pass: the requirement holds and the evidence shows it. Fail: it doesn't hold; the severity is in brackets. N/A: the application has no such feature. Where a verdict rests on a deployment fact I could not run here (Caddy, Docker, a real Let's Encrypt certificate), it says so.
+
+**Method.** Read the code named in each row. Ran the real app on production settings against the fake identity provider (`tests/idp`) and probed it. Every probe that is a guard is now a test, in `tests/backend/test_asvs_l1.py` (the cookie flags, the headers on every kind of response, CSRF, another person's session on every route that names one, the sign-in redirect, file names, error bodies, guessing, the routes that must not exist). Line numbers are for the commit this file was committed with; the function names are the stable part.
+
+**Result.** One Fail rated MEDIUM, found and fixed on this branch: SQL built from a column header (V5.3.4, row 5.3.4 below). Four Fails rated LOW, not fixed, with the reason each time (14.4.5, 14.4.2, 12.4.2, 5.1.1). No Fail rated HIGH. Every other L1 row that applies to this backend is a Pass.
+
+## V2 Authentication
+
+People sign in with Google (OpenID Connect, authorization code with PKCE). The application stores no password. Scripts use an operator token; the demo password exists outside production only (`backend/settings.py` `_check_access`: in production the demo password is ignored and a missing Google client refuses to start).
+
+| ASVS | Verdict | Evidence |
+|---|---|---|
+| 2.1.x password rules (length, Unicode, composition, rotation, paste, change) | N/A | No password is stored or chosen. The demo password is a shared dev secret; `Settings` refuses an empty one. |
+| 2.2.1 anti-automation, brute force throttled | Pass | `backend/ratelimit.py` `charges_for`: a wrong credential takes 2 `general` tokens on every route, `POST /api/v1/access` has its own bucket, sign-in start/callback have `SIGNIN`. Tests: `tests/backend/test_ratelimit.py::test_5_a_wrong_credential_takes_two_general_tokens_on_every_route`, `::test_11_wrong_passwords_in_a_burst_end_in_a_429…`; `tests/backend/test_asvs_l1.py::test_guessing_a_bearer_token_is_throttled_with_the_real_limits`, `::test_starting_sign_ins_is_throttled`. |
+| 2.2.2 weak authenticators only as secondary | N/A | Google is the only first factor; no SMS or e-mail OTP. |
+| 2.5.4 no shared or default accounts | Pass | No default account. Production refuses to start without a Google client (`settings.py:256`); the operator token needs 32 plain characters and must differ from the demo password (`MIN_OPERATOR_TOKEN_CHARS`, `_check_sign_in`). |
+| 2.2.3, 2.5.1–2.5.3, 2.5.5–2.5.6, 2.7, 2.8 recovery, out-of-band and OTP | N/A | No credential of the application's own to recover or verify out of band. |
+| 2.10 service authentication (mostly level 2; noted for completeness) | Pass | The operator token and the demo password are compared with `hmac.compare_digest` (`backend/access.py:266 _bearer_principal`, `:283 _password_matches`); the token is read from the environment and never logged (`logging_filter.py` masks `Bearer …`, `api_key=…`). |
+| Sign-in flow (OIDC): state, nonce, PKCE S256, one-time use, bound to the browser, ID token checks | Pass | `backend/oidc.py:103 PendingLogins` (`state`/`nonce`/`verifier` kept as hashes; `take` needs the browser's own binder cookie and removes the login), `:188 begin` (S256 challenge, fixed `redirect_uri` from the setting), `:233 verify_id_token` (RS256 only, key from the issuer's JWKS, `iss`, `aud`, `azp`, `exp`, `iat`, `nonce`, `email_verified`). Tests: `tests/backend/test_signin.py` (`test_the_start_sends_the_browser_to_google_with_a_state_a_nonce_and_pkce`, `test_a_callback_without_the_browsers_own_binder_is_refused`, `test_a_code_used_twice_signs_in_once`, `test_a_token_that_is_wrong_in_any_way_signs_nobody_in`), and `tests/backend/test_asvs_l1.py::test_the_callback_needs_the_browser_that_started_the_sign_in`, `::test_a_callback_is_used_once`. |
+| Open redirect after sign-in or sign-out | Pass | `backend/web/auth.py:108 callback` reads no redirect target; sign-out redirects to `/`. Tests: `test_signin.py::test_no_parameter_can_choose_where_the_browser_goes_after_sign_in`; `test_asvs_l1.py::test_no_request_parameter_chooses_where_the_browser_goes_after_sign_in`. |
+| Host header injection into the redirect address | Pass | `redirect_uri` is `public_origin + "/auth/google/callback"` (`oidc.py` `redirect_uri`), never the request's `Host`. Test: `test_asvs_l1.py::test_the_sign_in_redirect_carries_state_nonce_pkce_and_the_fixed_callback` (sent with `Host: evil.example`). |
+
+## V3 Session management
+
+| ASVS | Verdict | Evidence |
+|---|---|---|
+| 3.1.1 session tokens are not in URLs | Pass | The token is a cookie. A session's id (`s_…`, a resource id, not a credential) is in paths and is masked in logs (`logging_filter.py` patterns for `/sessions/` and `/ui/s/`); another person's id gives the same 404 as none (row 4.2.1). |
+| 3.2.1 a new token at sign-in | Pass | `SignInStore.issue` makes a new token each time; the callback signs the browser out of any earlier sign-in first (`web/auth.py:108`). Tests: `test_signin.py::test_signing_in_again_signs_the_old_cookie_out`; `test_asvs_l1.py::test_the_access_cookie_is_a_session_cookie_with_a_long_random_value`. |
+| 3.2.2 at least 64 bits of entropy | Pass | `secrets.token_urlsafe(32)`: 256 bits (`backend/signin_store.py` `issue`; `access.py` `TokenStore.issue`). The server keeps only the SHA-256 (`SignInStore`, `TokenStore`). |
+| 3.2.3, 3.4.1–3.4.4 cookie flags | Pass | `access.py:288 access_cookie_header`: `__Host-wb_access=…; Path=/; Secure; HttpOnly; SameSite=Strict`, no `Domain`, no expiry. The sign-in's login cookie is `__Host-wb_login`, `SameSite=Lax` on purpose (Google returns the browser from another site) (`web/auth.py:80 start`); the page's session pointer is `__Host-wb_session`, `Strict` (`web/common.py:27 set_pointer`); deletions carry the same flags. Test: `test_asvs_l1.py::test_every_cookie_the_server_sets_is_secure_http_only_and_host_prefixed` (every `Set-Cookie` of a sign-in, a page session and a sign-out). |
+| 3.3.1 logout invalidates the token on the server | Pass | `web/auth.py:149 signout` → `AccessControl.sign_out` revokes the stored sign-in. Tests: `test_signin.py::test_sign_out_ends_the_sign_in_on_the_server_and_in_the_browser`; `test_asvs_l1.py::test_signing_out_ends_the_token_on_the_server_not_only_in_the_browser` (the old cookie value, replayed, is a 401). |
+| 3.3.2 re-authentication after a long time | Pass | An absolute expiry of `WORKBUDDY_ACCESS_TTL_HOURS` (default 12), not renewed by use (`Settings.access_ttl_hours`; `test_signin.py::test_a_sign_in_expires_and_is_not_renewed_by_use`). |
+| 3.4.5 `Path` as restrictive as possible | Pass (as far as `__Host-` allows) | `Path=/` is required by the `__Host-` prefix, which is the stronger property. |
+
+## V4 Access control
+
+| ASVS | Verdict | Evidence |
+|---|---|---|
+| 4.1.1 enforced on a trusted server-side layer | Pass | `backend/gate.py` is an ASGI middleware that decides the credential, the rate limit, the Origin check and the session's owner before any route or body is read; it fails closed (`gate.py` `__call__`: any error in the gate is a 500, nothing passes). `require_access` repeats the credential check on every route. |
+| 4.1.2 users can't change the fields that control access (mass assignment) | Pass | Request bodies are `extra="forbid"` models (`backend/schemas.py:30 _Strict`: `CreateSessionRequest`, `CreateTurnRequest`, `ConfirmationRequest`); an unknown field is a 422. Test: `test_asvs_l1.py::test_security_headers_are_on_every_kind_of_response` (the 422 case sends `extra`). |
+| 4.1.3, 4.1.5 least privilege, fail securely | Pass | The operator token reaches only sessions it created; the owner of a session is stored beside it and compared in constant time (`sessions.py:346 authorize`). A session with no readable owner belongs to nobody (`test_ownership.py::test_an_owner_file_that_is_missing_or_wrong_means_nobody_owns_the_session`). |
+| 4.2.1 no insecure direct object references | Pass | Two layers: `gate.py:118 _owned` (every route with `{session_id}` in its path, before the body is read) and `routes.py:165 session_of` (the registry's own check). Someone else's session, a missing one and a badly shaped id are the same 404 with the same body. Tests: `tests/backend/test_ownership.py` (the matrix over the API and the page's routes, `test_person_b_gets_exactly_the_answer_for_a_session_that_doesnt_exist`, `test_bob_cannot_read_alices_session_files_turns_or_downloads`), and `test_asvs_l1.py::test_someone_elses_session_is_the_same_404_as_none_on_every_route` (finds every route with `{session_id}` itself, calls it as a second person and as the operator). |
+| 4.2.2 CSRF | Pass | A request that the cookie authenticates and that isn't GET, HEAD or OPTIONS must carry an `Origin` equal to the configured public origin (`access.py:317 origin_allowed`, `:334 origin_check_needed`, `gate.py:166 _origin_must_match`; sign-out and the access route are checked too), on top of `SameSite=Strict`. A Bearer request isn't (a page on another origin can't add the header). No GET changes state: `check_route_declarations` (`ratelimit.py:143`) refuses a GET declared mutating. Tests: `test_asvs_l1.py::test_a_cookie_request_that_changes_state_needs_the_pages_own_origin` (missing, foreign, `null`, `http://`, a suffix-lookalike), `::test_a_script_with_a_bearer_token_needs_no_origin_and_a_cookie_is_ignored_beside_it`, `::test_a_get_never_changes_state`. |
+| 4.3.x administrative interfaces | N/A | There is none. |
+
+## V5 Validation, sanitization and encoding
+
+| ASVS | Verdict | Evidence |
+|---|---|---|
+| 5.1.1 HTTP parameter pollution | Fail (LOW), partly | Duplicate form fields are refused (`routes.py:232 upload_file`: exactly one `file` part). A JSON body with a repeated key is accepted and the last wins (`{"message":"a","message":"b"}` runs "b"; already in `docs/backlog.md`, backend-api-confirmation L4). It changes nothing a caller couldn't send as one key. |
+| 5.1.2 mass assignment | Pass | See 4.1.2. |
+| 5.1.3, 5.1.4 allow-list validation, strongly typed | Pass | Pydantic models; ids must match the server's own shape (`sessions.py:60 valid_id`); `mode` is a closed set; message length is capped (`max_message_chars`); the confirmation id has a pattern. |
+| 5.2.4 no `eval` or dynamic code from user input | Pass | No `eval`, `exec`, `subprocess`, `pickle`, `yaml.load`, `os.system` or `shell=True` in `backend/`, `buddy/`, `core/` or `skills/` (grep at the head commit). |
+| 5.2.5 template injection | Pass | Templates are fixed files; user text is only ever a variable. A reply containing `{{ 1 }}` is data (`tests/web/test_rule1.py::test_the_reply_is_escaped_in_the_raw_html_too`). |
+| 5.2.6 SSRF | Pass | The only outbound requests are the identity provider at the configured issuer (discovery, key set, token endpoint, redirects not followed, endpoints must share the issuer's scheme: `oidc.py` `_endpoint`, `_fetch_keys`) and the model provider through its SDK. No URL comes from a user. The container's own egress is not restricted (deployment). |
+| 5.3.1–5.3.3 output encoding and XSS | Pass | Every template is autoescaped (`backend/web/templating.py:23`); `|safe`, `Markup(`, `autoescape false` are banned in `backend/web` by a test (`test_rule1.py` around line 458); the page's script writes with `textContent` only (`backend/web/static/app.js`); CSP forbids inline script and style (row 14.4.3). A column header such as `<img src=x onerror=alert(1)>` reaches a reply as quoted text, and the page shows it as text with no element made from it: `tests/web/test_file_text_in_page.py` (end to end through the page's routes). |
+| 5.3.4, 5.3.5 injection into queries | **Fail (MEDIUM), fixed** | `skills/excel/analyze.py` `NearDuplicateAnalyzer` built Splink/DuckDB SQL from the uploaded sheet's column headers (`block_on(f"substr({name_column}, 1, 3)")`, `cl.NameComparison(name_column)`). A header is text the user's file controls. Demonstrated on the pre-fix code: a header holding SQL reached the SQL parser (a `sqlglot` `ParseError` quoting it). [Possible] that a crafted header that parses can run DuckDB functions on the server (`read_text`, `read_csv`); I did not build one. Fixed: the two headers are replaced by the fixed names `name_field` and `key_field` before Splink sees them (`analyze.py:43 _NAME_FIELD`); the real header is only ever shown, quoted, in the finding. Test: `tests/buddy/test_file_text_in_replies.py::test_a_header_cannot_inject_sql_into_the_near_duplicate_check`. No other SQL, database or query language is used. |
+| 5.3.8 OS command injection | Pass | No subprocess anywhere in the application (5.2.4). |
+| 5.3.9 local and remote file inclusion | Pass | A file is opened only by a path the server built from its own ids (rows 12.3.x). |
+| 5.3.10 XML injection and XXE in uploaded workbooks | Pass (before and after) | An `.xlsx` is XML in a zip. In the production image openpyxl runs on the standard library parser (`defusedxml` and `lxml` are not in `requirements-runtime.lock`); measured on the pre-fix code with both switched off: an external entity is `undefined entity` (no file read) and a billion-laughs sheet stops at expat's amplification limit in 0.18 s. Added on this branch, as defence in depth and a clearer refusal: every XML part is read with a parser up to its root element and any DOCTYPE or ENTITY declaration refuses the workbook (`skills/excel/workbook.py:309 _has_doctype`, `:250 check_workbook_limits`; fixed text). Tests: `tests/skills/excel/test_hostile_workbooks.py` (entity expansion in five part types, a declaration behind a 6,000-byte comment, UTF-16, an external entity). |
+| Decompression bomb, huge sheets (feeds 12.1.1, 12.1.2) | Pass (fixed on this branch) | A 2 MiB `.xlsx` can unpack to gigabytes. Before: the upload route capped the declared unzipped total at 200 MiB; nothing capped rows, columns or cells, and a sheet with one cell at `XFD1048576` makes a reader pad the grid. Now `check_workbook_limits` runs inside `sheet_names()` (which the planner, both cleaning skills and the Inspector call first) and in the analysis skill and the Inspector's other reads: at most 1,000 parts, 64 MiB unpacked (also counted from the bytes really read, not only the directory), 200,000 rows, 1,000 columns, 1,000,000 cells, checked by streaming each sheet once with a parser that builds no tree and stopping at the first limit. The upload route's declared-size cap is the same 64 MiB, with a message. Fixed refusal texts name the limit, never a figure from the file. Tests: `tests/skills/excel/test_hostile_workbooks.py` (39 tests: each limit, a lying directory, the skills, the planner, the Inspector, a whole turn in all three speakers); `tests/backend/test_uploads.py::test_a_zip_bomb_is_refused_from_the_directory_alone`. |
+
+## V7 Error handling and logging
+
+| ASVS | Verdict | Evidence |
+|---|---|---|
+| 7.1.1 credentials and tokens not logged | Pass | `backend/logging_filter.py:59 install_log_redaction` masks API keys, `Bearer …`, the access and login cookies, ID tokens, `code`/`state` in query strings, the client secret and session ids in paths, for every logger and handler including tracebacks. Caddy has no access log (`deploy/Caddyfile`). Tests: `tests/backend/test_errors_and_secrets.py::test_no_key_appears_in_any_response_or_log_on_any_path`, `::test_the_session_id_is_masked_in_logs`. |
+| 7.1.2 no other sensitive data in logs | Pass | A turn logs its message's length, not its text (`test_errors_and_secrets.py::test_the_api_logs_message_length_not_message_text`); Brain's and Think's failures log the exception's class, never its text, reply or message (`tests/buddy/test_retry.py::test_a_failure_is_logged_without_the_reply_the_message_or_a_key`). Exception text is also kept out of every reply (RQ-L11, below). |
+| 7.4.1 generic error messages, no stack traces | Pass | Every error is one body shape with a fixed message (`backend/errors.py:189–212`: unknown route, wrong method, validation (details not echoed), unhandled); the last resort is `RequestGuardMiddleware` (`middleware.py:70`). Tests: `test_errors_and_secrets.py::test_every_error_has_the_one_shape_a_known_code_and_a_fixed_message`, `::test_an_unexpected_error_is_a_fixed_500_without_its_text`; `test_asvs_l1.py::test_a_crash_is_a_fixed_500_with_nothing_of_the_inside_in_it`, `::test_a_validation_error_does_not_echo_what_was_sent`. |
+| Exception text and file text in replies (not an ASVS item; the project's rule 1) | Pass (fixed on this branch) | The Inspector's `could not independently read …: {exc}` sites put the exception's text and a server path in a reply; Hands stored the dispatcher's message, which names the session's key. Now each is a fixed sentence (`buddy/inspector.py` `COULD_NOT_READ_*`) and the detail goes to the log. File text (a header, a cell) appears only as quoted, cleaned, 40-character-capped text from `skills/excel/shown_text.py`. Tests: `tests/buddy/test_file_text_in_replies.py`. |
+
+## V8 Data protection
+
+| ASVS | Verdict | Evidence |
+|---|---|---|
+| 8.2.1 anti-caching headers | Pass | `Cache-Control: no-store` on every response except a static file whose URL carries the file's current version (`middleware.py:26 SecurityHeadersMiddleware`; `test_asvs_l1.py::test_security_headers_are_on_every_kind_of_response`). |
+| 8.2.2 no sensitive data in browser storage | Pass | The page keeps nothing in `localStorage`/`sessionStorage`; htmx is pinned to 2.0.4 because later releases write one `sessionStorage` key (`docs/design/frontend-design.md` 3.4). |
+| 8.3.1 sensitive data in the body or headers, not the query string | Pass | The demo password is a form field; the operator token is a header; the OIDC `code` and `state` in the callback's query are the protocol's own, single-use and bound to the browser, and masked in logs. |
+| Stored data | (not L1) | Uploads are written once, read-only (`0444`, folder `0555`), under a `0700` data root, and swept after `session_ttl_hours` (default 24) (`uploads.py:100 store_upload`, `retention.py:143`). Not encrypted at rest (L2 and above). |
+
+## V9 Communication
+
+| ASVS | Verdict | Evidence |
+|---|---|---|
+| 9.1.1–9.1.3 TLS for everything, current protocols and ciphers | Pass, not run here | Caddy is the only thing that faces the internet and gets and renews its certificate itself (`deploy/Caddyfile`); the app is on a private network and is not published (`deploy/docker-compose.yml`, `expose` only). Production refuses a non-`https://` public origin and issuer (`settings.py:256 _check_access`). I could not run Caddy here; Caddy's defaults are TLS 1.2+ with modern suites. |
+
+## V10, V11 Malicious code, business logic
+
+| ASVS | Verdict | Evidence |
+|---|---|---|
+| 10.3.2 integrity of loaded code, nothing from untrusted sources | Pass | No script or style is loaded from another origin (see 14.2.3); the image installs only from hash-pinned lock files (`Dockerfile`: `pip install --require-hashes --no-deps -r requirements-runtime.lock`). The other V10 items are level 2 and above (as I remember the standard; not re-checked against the text). |
+| 11.1.x business-logic flow | Pass | A file-changing plan is shown and approved or rejected once before the first step runs, through `POST …/turns/{turn_id}/confirmation`; a stale or repeated answer is a 409 (`docs/design/backend-api-design.md`, PR-3; `tests/backend/test_confirmation_api.py`). |
+
+## V12 Files and resources
+
+| ASVS | Verdict | Evidence |
+|---|---|---|
+| 12.1.1 large files can't fill the storage | Pass | 2 MiB per upload, 20 uploads and 100 MiB per session, a global storage cap (503), a raw-stream body cap checked before parsing (`middleware.py:70 RequestGuardMiddleware`), a streamed size check (`uploads.py:100 store_upload`). Tests: `tests/backend/test_uploads.py`, `tests/backend/test_retention.py`. |
+| 12.1.2 compressed files can't exhaust the server | Pass | See "Decompression bomb" in V5. |
+| 12.3.1, 12.3.2, 12.3.5 filename metadata not used by the file system, no LFI, no OS command | Pass | The stored name is the last path component, NFKC-normalised, without control or format characters, with only `[A-Za-z0-9._ -]`, no Windows device names, at most 100 characters (`uploads.py:51 sanitize_name`), inside a folder the server names from its own ids (`sessions.py` `upload_dir`). Tests: `test_asvs_l1.py::test_the_uploaded_name_never_decides_where_a_file_is_written` (`../../etc/passwd.xlsx`, backslashes, absolute path, NUL, `con.xlsx`); `tests/backend/test_uploads.py`. |
+| Download file name | Pass | The download name is built by `backend/names.py` from the server's own naming and percent-encoded in `Content-Disposition` (`routes.py:411 download_file`). |
+| 12.4.1 untrusted files stored outside the web root with limited permissions | Pass | Under `WORKBUDDY_DATA_DIR`, not served by the static route (`StaticFiles` serves `backend/web/static` only); `0444` files in `0555` folders; the app runs as user 10001 (`Dockerfile:45`). |
+| 12.4.2 antivirus scan of untrusted files | Fail (LOW) | There is none. Mitigations: only a real `.xlsx` is accepted (extension, zip magic, a readable directory, one sheet); the original is never served back to anyone (`test_asvs_l1.py::test_an_upload_is_never_handed_back_as_it_came`); the only file a person downloads is one the pipeline wrote and verified. |
+| 12.5.1, 12.5.2 no executable or script content served from uploads | Pass | A download is `Content-Disposition: attachment` with an `xlsx` media type and `nosniff`; delivered files are checked to be regular files inside the turn's folder, not symlinks, with the recorded SHA-256 (`delivery.py:85 check_turn_file`; `tests/backend/test_delivery.py`). |
+| 12.6.1 SSRF | Pass | See 5.2.6. |
+
+## V13 API
+
+| ASVS | Verdict | Evidence |
+|---|---|---|
+| 13.1.1 same encodings on every component | Pass | UTF-8 JSON and HTML; invalid Unicode in a message is a 422 (`routes.py` `_encodable`). |
+| 13.2.1 only the methods in use | Pass | GET and POST only; `OPTIONS`, `PUT`, `DELETE`, `PATCH`, `TRACE` are `405` with an `Allow` header (`test_asvs_l1.py::test_only_the_methods_the_app_uses_are_answered`). |
+| 13.2.2 JSON schema validation | Pass | Pydantic with `extra="forbid"`; the committed `backend/openapi.json` is checked against the app (`tests/backend/test_openapi_sync.py`). |
+| 13.2.3 CSRF for cookie-based services | Pass | See 4.2.2 (an `Origin` check, plus `SameSite=Strict`). |
+
+## V14 Configuration
+
+| ASVS | Verdict | Evidence |
+|---|---|---|
+| 14.2.1 components up to date, checked at build time | Pass (new) | `scripts/run_pip_audit.py` runs pip-audit over `requirements-runtime.lock` and `requirements-dev.lock` in a CI job (`.github/workflows/tests.yml`, job `audit`) and fails on a known vulnerability. One ignore, with a reason and a review date, in `pip-audit-ignores.toml`: `setuptools 79.0.1` (PYSEC-2026-3447, an sdist-building flaw on macOS file systems; the fix needs setuptools 83 and `ydata-profiling` needs `pkg_resources`, which setuptools 82 dropped). The run fails once a review date has passed. |
+| 14.2.3 third-party scripts, SRI | Pass | None is loaded from another origin: htmx and the page's script are served from `backend/web/static` and CSP allows `'self'` only. |
+| 14.3.2 debug off, no framework docs | Pass | `docs_url`, `redoc_url`, `openapi_url` are `None` (`backend/main.py:163`); `/docs`, `/redoc`, `/openapi.json`, `/.env`, `/.git/config` are 404 (`test_asvs_l1.py::test_no_documentation_or_schema_endpoint_exists`). |
+| 14.3.3 no version information in headers | Pass (fixed on this branch) | uvicorn sent `Server: uvicorn`; now `server_header=False` (`backend/__main__.py:69`; checked against a running uvicorn; `tests/backend/test_dev_origin.py::test_the_server_passes_its_port_to_the_settings`). Caddy adds its own `Server: Caddy` (a product name, no version; not changed, since I could not run Caddy). |
+| 14.4.1 a `Content-Type` with a charset on every response | Pass | HTML is `text/html; charset=utf-8`; JSON is `application/json` (UTF-8 by definition). |
+| 14.4.2 `Content-Disposition: attachment; filename="api.json"` on API responses | Fail (LOW) | Not sent. `nosniff` and the JSON media type are, which is what stops a browser rendering a response as a page. |
+| 14.4.3 CSP | Pass | `default-src 'self'; script-src 'self'; style-src 'self'; img-src 'self' data:; connect-src 'self'; form-action 'self'; frame-ancestors 'none'; base-uri 'none'` on every page (`web/common.py:11`), no `'unsafe-inline'` or `'unsafe-eval'`; `frame-ancestors 'none'` on everything else (`middleware.py:26`). Test: `test_asvs_l1.py::test_security_headers_are_on_every_kind_of_response`. |
+| 14.4.4 `X-Content-Type-Options: nosniff` | Pass | Every response, including errors from the gate (`test_asvs_l1.py`, same test). |
+| 14.4.5 HSTS with `includeSubDomains` | Fail (LOW) | Sent in production on every response as `max-age=31536000` (`middleware.py:60`) but without `includeSubDomains`. A design decision pinned by a test (`tests/backend/test_retention.py` line 864); adding it makes browsers pin every subdomain of the host for a year, which is the owner's call. |
+| 14.4.6 `Referrer-Policy` | Pass | `no-referrer` on every response. |
+| 14.4.7 anti-clickjacking | Pass | `frame-ancestors 'none'` (CSP). |
+| 14.5.1 only the HTTP methods in use | Pass | See 13.2.1. |
+| 14.5.2 `Origin` is not used for authentication or access control | Pass | It is used only as a CSRF defence for requests that a cookie already authenticated; it never grants anything. |
+| 14.5.3 CORS: exact allow-list, never `*` or a reflected origin | Pass | Off unless `WORKBUDDY_CORS_ORIGINS` lists exact origins (`main.py` CORS block; `*` is refused by `Settings`); a request from another origin gets no `Access-Control-*` header (`test_asvs_l1.py::test_another_origin_gets_no_cross_origin_permission`). |
+| 14.5.4 headers added by a trusted proxy | Pass | Caddy replaces `X-Forwarded-For` with the address it saw (`deploy/Caddyfile:15`); the app takes the last hop (`ratelimit.py:323 client_ip`, `WORKBUDDY_TRUSTED_PROXY_HOPS=1` in compose); a caller can't pick its own bucket (`test_ratelimit.py::test_a_caller_cannot_choose_its_own_bucket_behind_a_trusted_proxy`). |
+
+## What this did not cover
+
+- Levels 2 and 3, and the L1 items that need a running production host: TLS settings, Caddy's behaviour, the Docker image's runtime (the image's compose file has no `cap_drop`, `read_only` or `no-new-privileges`; hardening it is a LOW suggestion I did not make because I could not start Docker).
+- Anyone with a verified Google account may sign in unless `WORKBUDDY_ALLOWED_EMAILS` is set (`docker-compose.yml` leaves it empty). That is a product decision, not an ASVS item; per-person rate limits, per-session quotas and the storage cap bound what such a person can use.
+- The model provider receives the user's message and the uploaded file's name, never the file's contents (Brain's and Think's prompts). Outside ASVS.
+- A turn that passes its deadline keeps its thread and CPU (`docs/backlog.md`, backend-api-core live runs); the number of running turns is capped, but a hostile file can still make a turn slow within the limits above.

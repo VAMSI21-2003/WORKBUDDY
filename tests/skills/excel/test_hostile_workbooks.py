@@ -267,6 +267,22 @@ def test_entity_expansion_is_refused_in_any_xml_part(
     assert message == workbook._NOT_ALLOWED
 
 
+def test_a_declaration_hidden_behind_a_long_comment_or_in_utf16_is_still_refused(
+    tmp_path: Path, no_parsers: None
+) -> None:
+    """A byte search of the start of a part would miss both."""
+    declaration = '<!DOCTYPE x [<!ENTITY a "aaaa">]>'
+    behind_a_comment = (
+        '<?xml version="1.0"?><!--' + "x" * 6000 + "-->" + declaration + "<x>&a;</x>"
+    ).encode()
+    utf16 = ('<?xml version="1.0" encoding="UTF-16"?>' + declaration + "<x>&a;</x>").encode(
+        "utf-16"
+    )
+    for name, data in (("comment", behind_a_comment), ("utf16", utf16)):
+        path = _zip([("xl/sharedStrings.xml", data)], tmp_path / f"{name}.xlsx")
+        assert _refusal(path) == workbook._NOT_ALLOWED, name
+
+
 def test_an_external_entity_is_refused_before_it_can_be_read(
     tmp_path: Path, no_parsers: None
 ) -> None:
