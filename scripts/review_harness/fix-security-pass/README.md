@@ -67,3 +67,20 @@ Round 4 (head `43c9d1b`), same conventions. Run probe_p first; it writes `out/m_
     python scripts/review_harness/fix-security-pass/probe_r_neardup_limit.py [TREE]   # the pair count and findings, analyzer alone
     python scripts/review_harness/fix-security-pass/mutations_r4.py [NAME ...]        # 18 mutations of the round 3 fixes
     python scripts/review_harness/fix-security-pass/prototype_fix_r4.py DEST [--as-mib 512]  # HEAD + the scan in a capped child + a weighted text cap
+
+Round 5 (head `2ac4f8a`), same conventions. probe_s writes `out/m_S*.xlsx`, which probe_n_turns.py runs unchanged:
+
+    OPENPYXL_LXML=False python scripts/review_harness/fix-security-pass/probe_s_round5.py [--tree DIR] [--only S1,S4] [--timeout 1200]
+        # shared formulas: the check with the real child, then formula_cell_counts (the Inspector's
+        # data_only=False read of the original on every delivered turn, outside the child) with time and peak RSS.
+        # S0 control, S1 one Excel-length formula over 50,000 rows, S2/S3 longer formulas, S4/S5 many masters
+    OPENPYXL_LXML=False python scripts/review_harness/fix-security-pass/probe_n_turns.py S4_masters_2000_x_4000_refs --kinds dedupe --no-facts [--tree DIR]
+    python scripts/review_harness/fix-security-pass/probe_t_round5.py [--tree DIR] [--speakers ...] [--only T2,T4]
+        # whole turns where the check answers busy, crash, timeout or can't start, on the upload or only on the
+        # copy the turn wrote; T0 controls run the real child through build_engine
+    python scripts/review_harness/fix-security-pass/mutations_r5.py [NAME ...]        # 23 mutations of the child check
+    python scripts/review_harness/fix-security-pass/prototype_fix_r5.py DEST          # HEAD + formula_cell_counts in the child
+        # then: cd DEST && OPENPYXL_LXML=False python <repo>/scripts/review_harness/fix-security-pass/out/_s_child.py FILE DEST
+        # (_s_child.py is written by probe_s_round5.py)
+
+Runs outside pytest use the real child: `tests/conftest.py` stubs it only inside the test suite.
