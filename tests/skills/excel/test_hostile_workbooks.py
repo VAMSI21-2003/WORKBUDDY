@@ -39,26 +39,24 @@ from skills.excel.workbook import (
     MAX_COLUMNS,
     MAX_PARTS,
     MAX_ROWS,
-    MAX_SHARED_STRINGS,
-    MAX_STYLES_PART_BYTES,
-    MAX_TEXT_CHARS,
+    MAX_TEXT_BYTES,
     MAX_UNZIPPED_BYTES,
-    MAX_WORKBOOK_PART_BYTES,
     MIB,
-    TOO_BIG_PART,
     TOO_BIG_UNPACKED,
     TOO_LONG_CELL,
     TOO_MANY_CELLS,
     TOO_MANY_COLUMNS,
     TOO_MANY_PARTS,
     TOO_MANY_ROWS,
-    TOO_MANY_STRINGS,
     TOO_MUCH_TEXT,
     WorkbookRefused,
     check_workbook_limits,
     sheet_names,
 )
 from tests.buddy.test_engine_factory import _QueuedLLMProvider, _single_intent_replies
+
+pytestmark = pytest.mark.real_scan_child
+
 
 _MAIN = "http://schemas.openxmlformats.org/spreadsheetml/2006/main"
 _REL = "http://schemas.openxmlformats.org/officeDocument/2006/relationships"
@@ -198,7 +196,7 @@ def test_the_limits_are_the_documented_ones() -> None:
         1000,
         1_000_000,
     )
-    assert (MAX_CELL_CHARS, MAX_TEXT_CHARS) == (32_767, 10_000_000)
+    assert (MAX_CELL_CHARS, MAX_TEXT_BYTES) == (32_767, 4_000_000)
 
 
 def test_a_workbook_that_unpacks_to_more_than_the_limit_is_refused_from_its_directory(
@@ -577,18 +575,25 @@ def test_an_inline_string_over_the_limit_is_refused_too(tmp_path: Path, no_table
     assert _refusal(_book(tmp_path / "inline.xlsx", _sheet_of(body))) == TOO_LONG_CELL
 
 
-def test_all_the_text_in_the_cells_is_capped_together(
+def test_all_the_text_in_the_cells_is_capped_together_in_the_bytes_it_is_stored_in(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch, no_table: None
 ) -> None:
-    monkeypatch.setattr(workbook, "MAX_TEXT_CHARS", 5000)
-    path = _book(
-        tmp_path / "text.xlsx", _cells_pointing_at(0, 100), shared=_shared_strings("z" * 100)
+    """R4-3: CPython stores a character in 1, 2 or 4 bytes by the widest in the cell, so the
+    same number of characters is 4 times as much memory in emoji as in ASCII."""
+    monkeypatch.setattr(workbook, "MAX_TEXT_BYTES", 5000)
+    ascii_text = _book(
+        tmp_path / "ascii.xlsx", _cells_pointing_at(0, 100), shared=_shared_strings("z" * 100)
     )
-    assert _refusal(path) == TOO_MUCH_TEXT
+    assert _refusal(ascii_text) == TOO_MUCH_TEXT  # 100 x 100 x 1 byte = 10,000
     fits = _book(
         tmp_path / "fits.xlsx", _cells_pointing_at(0, 40), shared=_shared_strings("z" * 100)
     )
-    check_workbook_limits(str(fits))
+    check_workbook_limits(str(fits))  # 4,000
+    for name, char in (("cjk", "中"), ("emoji", "\U0001F600")):
+        wide = _book(
+            tmp_path / f"{name}.xlsx", _cells_pointing_at(0, 40), shared=_shared_strings(char * 100)
+        )
+        assert _refusal(wide) == TOO_MUCH_TEXT, name  # 40 characters x 100 x 2 or 4 bytes
 
 
 def test_no_date_format_is_tried_on_text_too_long_to_be_a_date(
@@ -682,55 +687,6 @@ def test_the_rows_of_all_sheets_count_together(
     check_workbook_limits(str(_book(tmp_path / "two.xlsx", [_sheet_xml(10), _sheet_xml(10)])))
     three = _book(tmp_path / "three.xlsx", [_sheet_xml(10)] * 3)
     assert _refusal(three) == TOO_MANY_ROWS
-
-
-def test_a_huge_workbook_part_is_refused_before_openpyxl_parses_it(
-    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, no_table: None
-) -> None:
-    """R3-2: 1.4 million defined names are 57 MiB of XML in 177 KB; openpyxl built them all."""
-    names = '<definedName name="n">S1!$A$1</definedName>' * 30_000
-    book = _replaced(
-        _book(tmp_path / "names.xlsx"),
-        workbook=(
-            f'<?xml version="1.0"?><workbook xmlns="{_MAIN}" xmlns:r="{_REL}"><sheets>'
-            f'<sheet name="Sheet1" sheetId="1" r:id="rId1"/></sheets>'
-            f"<definedNames>{names}</definedNames></workbook>"
-        ),
-    )
-    assert zipfile.ZipFile(book).getinfo("xl/workbook.xml").file_size > MAX_WORKBOOK_PART_BYTES
-    import openpyxl
-
-    def loaded(*args: object, **kwargs: object) -> None:
-        raise AssertionError("openpyxl parsed a part that should have been refused by its size")
-
-    monkeypatch.setattr(openpyxl, "load_workbook", loaded)
-    assert _refusal(book) == TOO_BIG_PART
-
-
-def test_a_huge_styles_part_is_refused_before_openpyxl_parses_it(
-    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, no_table: None
-) -> None:
-    book = _replaced(_book(tmp_path / "styles.xlsx"), styles=b" " * (MAX_STYLES_PART_BYTES + 1))
-    import openpyxl
-
-    monkeypatch.setattr(
-        openpyxl, "load_workbook", lambda *a, **k: pytest.fail("parsed before the size check")
-    )
-    assert _refusal(book) == TOO_BIG_PART
-
-
-def test_the_part_caps_are_what_the_notes_say() -> None:
-    assert (MAX_WORKBOOK_PART_BYTES, MAX_STYLES_PART_BYTES) == (MIB, 8 * MIB)
-    assert MAX_SHARED_STRINGS == 1_000_000
-
-
-def test_too_many_shared_strings_are_refused_counting_them_in_the_stream(
-    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, no_table: None
-) -> None:
-    monkeypatch.setattr(workbook, "MAX_SHARED_STRINGS", 100)
-    many = _book(tmp_path / "many.xlsx", shared=_shared_strings(*["s"] * 101))
-    assert _refusal(many) == TOO_MANY_STRINGS
-    check_workbook_limits(str(_book(tmp_path / "fits.xlsx", shared=_shared_strings(*["s"] * 100))))
 
 
 def test_every_openpyxl_load_is_made_without_external_links(

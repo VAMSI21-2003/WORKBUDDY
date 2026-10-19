@@ -869,8 +869,8 @@ def _unrequested_sentence(action: ActionOutcome, *, also: bool) -> str:
 
 
 NO_SKILL_UNSURE_SENTENCE = (
-    "Some of your wording overlaps what I did, so I can't tell if you asked for something more; "
-    "if you did, I haven't done it, so check the copy is what you wanted."
+    "Some of your wording overlaps what I did. If you asked for anything beyond that, "
+    "I haven't done it, so check the copy is what you wanted."
 )
 
 
