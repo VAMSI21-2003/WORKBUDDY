@@ -41,6 +41,8 @@ from buddy.outcome import (
     FILE_STYLE_GENERATED,
     FILE_STYLE_PLAIN,
     NO_SKILL,
+    NO_SKILL_UNSURE,
+    NO_SKILL_UNSURE_SENTENCE,
     NOT_CONFIRMED,
     NOT_DONE,
     NOT_PLANNED,
@@ -808,9 +810,17 @@ def test_h2_an_unsupported_entry_naming_a_done_action_is_dropped_or_unquoted() -
     # ("get rid of the repeated entries") doesn't, and nothing but a word list could tell it from
     # "delete the file" filed under duplicate removal, so the flag is reported, not absorbed.
     said = "get rid of the repeated entries"
-    # Said, unquoted: a quote could hold the part that was done.
-    assert no_skill(said, brain_phrase=said) == [""]
-    assert no_skill(f"{said} and sort", brain_phrase=said) == [""]
+    # Neither "Partly done" (the flag may be a double-listing of what was done) nor a plain "Done"
+    # (it may not be): NO_SKILL_UNSURE, no quote, no lead word (owner's option b on R1-2).
+    for phrases in ((said,), (f"{said} and sort",)):
+        report = _single_dedupe_turn(
+            _brain("remove_duplicate_rows", said, found=True),
+            *(_brain(UNSUPPORTED, p, found=True) for p in phrases),
+        )
+        assert [a.reason for a in report.actions if a.status == NOT_DONE] == [NO_SKILL_UNSURE]
+        assert report.lead_word is None and not report.request_complete
+        assert NO_SKILL_UNSURE_SENTENCE in render_outcome(report, FILE_STYLE_GENERATED)
+        assert "Partly done" not in render_outcome(report, FILE_STYLE_GENERATED)
     # ...while a quoted phrase that does name the action absorbs the same words.
     named = "remove the duplicate entries"
     assert no_skill(named, brain_phrase=named) == []

@@ -18,6 +18,7 @@ import pytest
 
 from buddy.engine_factory import build_engine
 from buddy.llm import LLMMessage
+from buddy.outcome import NO_SKILL_UNSURE_SENTENCE
 from buddy.state import BuddyState
 from buddy.text import count_noun as _n
 from buddy.voice import (
@@ -2756,7 +2757,12 @@ def test_p1_p2_p3_a_flagged_part_is_never_dropped_behind_a_done_lead(
 
     assert _counts(delivered) == counts, case
     assert "Done —" not in reply, reply
-    assert _P_CANT_DO_GENERIC in reply, reply
+    # s22 overlaps the done action's phrase: the reply is true whether the flag was a slip or not
+    # (R1-2, owner's option b), so it neither says "Partly done" nor "can't do yet".
+    expected = NO_SKILL_UNSURE_SENTENCE if case == "s22" else _P_CANT_DO_GENERIC
+    assert expected in reply, reply
+    if case == "s22":
+        assert "Partly done" not in reply and "can't do" not in reply, reply
 
 
 @pytest.mark.parametrize("session_id", _SEEDS)
