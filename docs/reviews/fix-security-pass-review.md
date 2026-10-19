@@ -329,3 +329,117 @@ R3-6, R3-7 and R3-8. R1-2 and R1-5 for the owner, as before.
 - A prototype of the shared-strings cap (R3-3) and of a lower `MAX_TEXT_CHARS` (R3-4).
 - The bomb turns in the friend and focus speakers: the speaker doesn't touch the read path, and probe_a covered all three.
 - A real Excel-written file with an external link, or with very large styles, for the size of legitimate parts. The prototype's 1 MiB and 8 MiB caps are guesses, to be checked against real files before they are adopted.
+
+## Review round 4 (commit 43c9d1b)
+
+**Verdict: DON'T MERGE.** No HIGH. Three blocking MEDIUMs, each a small upload that passes every check and then needs about 1 GiB or more, or many minutes: the round 3 caps go by part name, and openpyxl finds parts by content type (R4-1, partly a regression against base); other parts openpyxl parses whole on every load are still uncapped (R4-2, one of them a regression); and the text cap counts characters, not memory (R4-3, so R3-4 isn't closed). The caps-by-list approach has now been bypassed in four rounds running. The fix that closes the class is a resource limit on the scan itself, prototyped in `prototype_fix_r4.py`. Rules 1 and 2 held in every run.
+
+Scope: the diff `cd04bef..43c9d1b` (`fix-security-pass-fixes3.md`, the owner's R1-2 option (b), and R3-1 to R3-7), the findings round 3 left open, and regression against base `89625e7`. Probes are in `scripts/review_harness/fix-security-pass/` (README, "Round 4"). Bomb runs use `OPENPYXL_LXML=False`, as in the image, and turn memory is the app's alone (`--no-facts`).
+
+| # | What | Result |
+|---|---|---|
+| 1 | `python -m pytest -q` on head | 3670 passed, 5 skipped, 0 failed (1,295 s) |
+| 2 | `ruff check buddy tests`, head vs base, by file and rule | Nothing new (17 vs 18; head has one fewer `E501` in `buddy/hands.py`) |
+| 3 | `harness.py` (532), `rereview3.py` (1,078), `probe_a_pipeline.py` (57), head vs round 3's head | Delivery and final facts are identical on all 1,667 turns. 0 errors, 0 Voice-model calls, 0 originals changed. 121 replies differ, all in the same way: the owner's option (b) turns "Partly done … I read part of your request as something I can't do yet" into "Removed 2 exact duplicate rows. Some of your wording overlaps what I did, so I can't tell if you asked for something more; if you did, I haven't done it, so check the copy is what you wanted." (e2, S11, S15, z05, z29, z31, z32, z42, rr2-s22). On z16 the sentence is added beside the existing "Your message mentions empty rows" sentence (R4-4). |
+| 4 | Round 3's files (`probe_m_round3.py`, then `probe_n_turns.py` on M1, M4, M5, M8) | All closed as named: M1 with 20,000 sheets is refused in 3.8 s (was 900 s or more), M8 and M4 in 0 s, M3 by the strings cap, M7 by the text cap, M2 by the grid. An M5 turn now takes 4 s at 319 MiB (was 575 s, 2,290 MiB). The M6 analyses take ≤ 1.5 s and ≤ 196 MiB (were 2.7 to 6.3 GiB). |
+| 5 | New tests against the round 3 code (`c766fa6`, with the new names shimmed in) | 56 fail there, as they should: 8 in `test_hostile_workbooks.py`, 2 in `test_analyze.py`, 1 in `test_outcome.py`, 27 in `test_residual_done_paths.py`, 18 in `test_engine_factory.py`. |
+| 6 | `mutations_r4.py`: 18 mutations of the round 3 fixes, plus round 3's 4 survivors re-run | Killed: the 4 old survivors (R3-7 closed) and 16 of the 18. Survived: `pair-count-name-only` and `said-key-without-reason` (R4-5). |
+| 7 | `probe_p_round4.py`: 14 new workbooks, through the upload route's check and then `check_workbook_limits` | The upload route accepts all 14. The table below has what the check lets through. |
+| 8 | `probe_q_round4.py` U1–U8 (the neutral sentence where nothing changed, nothing came back, only a report was asked for, a later chain step failed, a real extra request), 3 speakers, head, round 3's head and base | No false claim. Where the neutral sentence appears, a copy was handed back each time (U1: 0 removed, but the copy was still delivered). With a report only (U2) or a failed chain (U3) it doesn't appear. The numbers match my own read (`plain`: 6 rows, 2 repeats, so 4 left, 1 of 4 missing = 25%). |
+| 9 | `probe_r_neardup_limit.py` and probe_q N0–N3, head and base | R4-6. |
+| 10 | `prototype_fix_r4.py --as-mib 512` | Refuses P1–P7b, P8–P8c and P10 (a 60 s limit), and still passes P0, P9, M5, M6 and M9 (1,000,000 cells, 10.9 s). 372 of 377 tests pass in `tests/skills/excel`, `test_text_cells`, `test_file_text_in_replies` and `tests/backend/test_uploads.py`. The 5 that fail monkeypatch a limit in the test process, which the child process doesn't see, so the fix needs a seam for them. At its weighted cap a turn takes 564 MiB (ASCII) and 475 MiB (emoji). |
+| 11 | Original's SHA-256 before and after, every turn above (1,730) | Unchanged in every one. 2 bomb turns were stopped at 900 s, so neither has a second hash. |
+
+Dedupe turns, app only. Each file is at most 224 KB, and the upload route accepts it.
+
+| File | Check alone (head) | Turn, head | Turn, base |
+|---|---|---|---|
+| P1: round 3's M8 with the workbook part at `xl/book.xml` (177 KB) | 39.5 s, 1,094 MiB, passes | 29 s, **1,131 MiB**, "could not read the workbook" | 0 s, 164 MiB, same reply |
+| P2: round 3's M3 with the shared strings at `xl/strings.xml` (159 KB) | 46.5 s, passes | still running at 900 s | not run (M3 on base: still running at 900 s) |
+| P3: 1.4 M `<Override>` in `[Content_Types].xml` (169 KB) | 32 s, 927 MiB, passes | 24 s, **964 MiB**, "could not read" | 0 s, 165 MiB, same reply |
+| P4: 1.3 M relationships in the workbook's rels (160 KB) | 15 s, 879 MiB, passes | 328 s, **1,103 MiB**, delivered "Done —" | 313 s, 1,102 MiB, same |
+| P5: 1.3 M relationships in the sheet's rels (161 KB) | 14 s, 899 MiB, passes | 339 s, **1,123 MiB**, delivered | not run |
+| P6: 600 k custom properties (224 KB) | 16 s, 651 MiB, passes | 388 s, 973 MiB, delivered | not run |
+| P7b: 1.6 M `<xf/>`, styles 7.6 MiB, under the 8 MiB cap (13 KB) | 25 s, 851 MiB, passes | 79 s, 903 MiB, "could not read" | 59 s, 903 MiB, same |
+| P8: 9.99 M ASCII characters, under the 10 M cap (19 KB) | 0.2 s, passes | 13 s, 790 MiB, delivered | 23 s, 758 MiB |
+| P8b: the same in emoji (48 KB) | 0.4 s, passes | 41 s, **1,955 MiB**, delivered | 40 s, 1,746 MiB |
+| P8c: the same in CJK (39 KB) | 0.4 s, passes | 29 s, **1,719 MiB**, delivered | 25 s, 1,620 MiB |
+| P10: 20,000 sheets on one part whose rels have 2,000 entries (207 KB) | 396 s, passes | not run | still running at 900 s |
+
+Every delivered reply's numbers match the file. P4 to P6 hold 3 rows with 1 repeat, and the reply says "removed 1 … The copy has 2 rows". P8 has 305 distinct rows, and the reply says "no exact duplicate rows … 305 rows".
+
+### R4-1 (MEDIUM, [Certain]; R3-2 and the strings part of R3-3 not closed; P1 is a regression against base): the new caps go by part name, and openpyxl doesn't
+
+**Where.** `skills/excel/workbook.py` `_scan`: `name.endswith("workbook.xml")`, `name.endswith("styles.xml")`; `_part_verdict`: `entry.filename.lower().endswith("sharedstrings.xml")`.
+
+**Scenario.** openpyxl finds the workbook part and the shared strings by `[Content_Types].xml` (`reader/excel.py` `_find_workbook_part`, `read_strings`), so either can be called anything, and `_declared_sheet_names` follows the content types too. Round 3's M8 with the workbook part at `xl/book.xml` (P1) passes the 1 MiB cap. The walk's load then takes 1,131 MiB before `_read_part`'s 16 MiB cap refuses the file. On base that cap came first: 0 s at 164 MiB. Round 3's M3 with the strings at `xl/strings.xml` (P2) passes the 1,000,000-strings cap, and the turn was still running at 900 s. Only `styles.xml` is read by a fixed name (`ARC_STYLE`), so that cap holds.
+
+**Reply.** Honest ("could not read the workbook"), after the memory is spent.
+
+**Reachability.** Any signed-in person. It takes renaming two zip entries and one content-type line.
+
+**Fix.** See R4-2: one fix covers both.
+
+### R4-2 (MEDIUM, [Certain]; P3 is a regression against base, the rest is pre-existing in the class ASVS marks Pass): other parts openpyxl parses whole on every load are uncapped
+
+**Where.** Each `openpyxl.load_workbook` in `workbook.py`, and pandas' own. A read-only load parses `[Content_Types].xml`, the workbook's rels, every sheet's rels (once per declared sheet), `docProps/core.xml`, `docProps/custom.xml` and `styles.xml` into objects. None of these is capped, apart from styles at 8 MiB.
+
+**Scenario.** See the table: P3, P4, P5 and P6 take 964 to 1,123 MiB per turn, and P4 to P6 take 5.5 to 6.5 minutes, then deliver "Done —". P7b sits under the 8 MiB styles cap and takes 903 MiB. P10 declares 20,000 sheets (under the 1 MiB workbook cap) on one part, whose rels part is parsed once per sheet: the check alone takes 396 s. The R3-1 fix counts rows, not the load. P3 is a regression: base's `_read_part` refused the 55 MiB content-types part before openpyxl saw it, and head's walk now runs first. The others are the same on base.
+
+**Reachability.** Any signed-in person, with an ordinary request.
+
+**Fix.** Stop listing parts. Run `_scan` in a child process under an address-space cap and a wall-clock limit, and refuse with a fixed sentence when the child passes either (`prototype_fix_r4.py`, about 40 lines). The later loads of the same file in the server are the same openpyxl load, so the child's success bounds them, and no list of part names or element kinds has to be complete. Two details the prototype found:
+- The scan's `except Exception` catch-alls also catch `MemoryError`. Under a cap that reads as "can't be read" and passes the file, so re-raise it.
+- The tests that monkeypatch `MAX_*` need a seam, such as calling `_scan_here` directly or passing the limits to the child.
+
+The 512 MiB and 60 s figures pass every ordinary and at-cap control here (M9 in 10.9 s). Measure them on the image before adopting them. A turn loads the workbook about 8 times, so a 60 s scan can still mean several minutes of turn (R3-8, the owner's call). Then correct the ASVS row. If the owner prefers caps, they must be keyed on what openpyxl reads (the part named by the content types or by the rels, or the root element seen in the expat pass) and must cover every part listed above, including an element-count cap for styles. That is the fifth patch of the same list.
+
+### R4-3 (MEDIUM, [Certain]; R3-4 not closed): the 10 M text cap counts characters, and CPython stores emoji at 4 bytes and CJK at 2
+
+**Where.** `_reader_verdict`: `chars += len(value)`, `MAX_TEXT_CHARS = 10_000_000`.
+
+**Scenario.** 305 cells of 32,767 emoji (P8b, 48 KB) deliver correctly after 41 s, at **1,955 MiB**. In CJK (P8c, 39 KB) the turn takes 1,719 MiB. Even ASCII at the cap (P8) takes 790 MiB, where the fixes doc expected "about 300 MiB" without measuring it. Base is similar, but R3-4 asked for a cap with a measured turn well under 1 GiB.
+
+**Fix.** Count what CPython stores, which is `len(value)` times 1, 2 or 4 by the widest character, and pick the cap from a measured turn. The prototype's 4,000,000 gives 564 MiB for ASCII and 475 MiB for emoji, against a 319 MiB control. That is still a lot with two turn slots in 1 GiB, so the owner may want a lower cap. Add a test with emoji text.
+
+### R4-4 (LOW, [Certain]): the neutral sentence says "I can't tell if you asked for something more" when the message plainly does
+
+"get rid of the repeated entries and delete the file" (rr2-s22), "… and then rename it" (z29) and "remove duplicates and email it to bob" (U4) were "Partly done … I read part of your request as something I can't do yet", which was accurate. When Brain's phrase for the dedupe spans the whole message, they now get the neutral sentence. It isn't false, because "if you did, I haven't done it" follows, and it is option (b) as the owner chose it. Clearer wording, true in all three cases: "Some of your wording overlaps what I did. Anything more it asks for, I haven't done, so check the copy is what you wanted." On z16 ("remove duplicates and empty rows"), the sentence now stands beside "Your message mentions empty rows, but I didn't run the empty-row removal", which already says it.
+
+### R4-5 (LOW): guard tests that a reverted fix still passes
+
+- `pair-count-name-only` survives: no test has a table whose key column alone passes the pair limit (many blank or repeated phones).
+- `said-key-without-reason` survives: no test has an `UNSURE` entry and a generic `NO_SKILL` entry in one turn, which the reason in the key keeps apart.
+
+### R4-6 (LOW, [Certain]): blank phone or email cells all block together, so an ordinary contact list skips the near-duplicate check
+
+**Where.** `NearDuplicateAnalyzer`: blanks become the string `"nan"` (`astype(str)`), and the pair count and Splink's `block_on(key)` treat them as one value.
+
+**Scenario.** 800 contacts, 710 of them with no phone: 263,939 pairs, so the check is skipped. With every phone present, it finds the "Jonathan / Jonathon Smithers" pair (`probe_r_neardup_limit.py`). Base found that pair in none of my frames, and no near-duplicate finding reached a report reply on either tree (N0), so nothing is lost against base. The check is skipped silently, as the row limit already is.
+
+**Fix.** Make blank keys null before counting and blocking (Splink doesn't block on nulls), and leave them out of the pair count.
+
+### Earlier findings
+
+| Finding | Status (my evidence) |
+|---|---|
+| R1-2 | The owner's option (b) is in. The replies are true in every case I ran (row 3, U1–U8). Wording: R4-4. |
+| R3-1 | Closed for the case reported (M1, 20,000 sheets, 3.8 s). P10 is the same idea through rels (R4-2). |
+| R3-2 | Closed for a part named `workbook.xml`; R4-1. |
+| R3-3 | `keep_links=False`: closed (M5 turn 4 s, 319 MiB). Styles cap: closed for M4, but P7b fits under it (R4-2). Shared-strings cap: bypassed by name (R4-1). |
+| R3-4 | Not closed (R4-3). |
+| R3-5 | Closed (row 4). R4-6 is a side effect. |
+| R3-6, R3-7 | Closed (M2 refused; the 4 survivors are killed). |
+| R3-8, R1-5 | Unchanged, the owner's call. |
+
+### Deferred (added to `docs/backlog.md`)
+
+R4-4, R4-5 and R4-6. R3-8 and R1-5 for the owner, as before.
+
+### Not run
+
+- Live runs with Groq. The R1-2 wording changes what the pipeline says, but no model call was involved.
+- Docker and a real 1 GiB cgroup. The figures are process peak RSS, with a 4 GiB `RLIMIT_AS` per child.
+- P2 to completion (stopped at 900 s), P10 as a head turn, and P5, P6 and P2 on base.
+- The friend and focus speakers for the bomb turns (the speaker doesn't touch the read path). U and the shared harnesses ran in all three.
+- The prototype's limits measured in the production image, and its effect on the 5 monkeypatched tests beyond the reason they fail.

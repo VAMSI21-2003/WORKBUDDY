@@ -52,3 +52,18 @@ Round 3 (head `c766fa6`), same conventions. Run probe_m first; it writes `out/m_
     python scripts/review_harness/fix-security-pass/prototype_fix_r3.py DEST          # HEAD exported to DEST with the R3-1/2/3/5 prototype
 
 DuckDB spills to `.tmp/` in the working directory when the near-duplicate check runs out of memory; delete it afterwards.
+
+Round 4 (head `43c9d1b`), same conventions. Run probe_p first; it writes `out/m_P*.xlsx`, which probe_n_turns.py runs unchanged:
+
+    OPENPYXL_LXML=False python scripts/review_harness/fix-security-pass/probe_p_round4.py [--tree DIR] [--only P1,P8b] [--read]
+        # parts openpyxl parses whole, under other names (P1 workbook part, P2 shared strings) or uncapped
+        # (P3 [Content_Types].xml, P4 workbook rels, P5 sheet rels, P6 custom properties), styles under the
+        # 8 MiB cap (P7, P7b), text at the 10 M cap in ASCII, emoji and CJK (P8, P8b, P8c), at the prototype's
+        # cap (P11, P11b), one huge unused string (P9), 20,000 sheets x 2,000 rels (P10)
+    OPENPYXL_LXML=False python scripts/review_harness/fix-security-pass/probe_n_turns.py P1_workbook_part_renamed [...] --kinds dedupe --no-facts [--tree DIR]
+    python scripts/review_harness/fix-security-pass/probe_q_round4.py [--tree DIR] [--speakers ...] [--only U,N]
+        # U1-U8: the new neutral sentence (NO_SKILL_UNSURE) where nothing changed, nothing came back, a report
+        # only, a whole-message flag with a real extra request; N0-N3: contact lists against the pair limit
+    python scripts/review_harness/fix-security-pass/probe_r_neardup_limit.py [TREE]   # the pair count and findings, analyzer alone
+    python scripts/review_harness/fix-security-pass/mutations_r4.py [NAME ...]        # 18 mutations of the round 3 fixes
+    python scripts/review_harness/fix-security-pass/prototype_fix_r4.py DEST [--as-mib 512]  # HEAD + the scan in a capped child + a weighted text cap
