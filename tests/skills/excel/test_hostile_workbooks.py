@@ -39,15 +39,20 @@ from skills.excel.workbook import (
     MAX_COLUMNS,
     MAX_PARTS,
     MAX_ROWS,
+    MAX_SHARED_STRINGS,
+    MAX_STYLES_PART_BYTES,
     MAX_TEXT_CHARS,
     MAX_UNZIPPED_BYTES,
+    MAX_WORKBOOK_PART_BYTES,
     MIB,
+    TOO_BIG_PART,
     TOO_BIG_UNPACKED,
     TOO_LONG_CELL,
     TOO_MANY_CELLS,
     TOO_MANY_COLUMNS,
     TOO_MANY_PARTS,
     TOO_MANY_ROWS,
+    TOO_MANY_STRINGS,
     TOO_MUCH_TEXT,
     WorkbookRefused,
     check_workbook_limits,
@@ -193,7 +198,7 @@ def test_the_limits_are_the_documented_ones() -> None:
         1000,
         1_000_000,
     )
-    assert (MAX_CELL_CHARS, MAX_TEXT_CHARS) == (32_767, 50_000_000)
+    assert (MAX_CELL_CHARS, MAX_TEXT_CHARS) == (32_767, 10_000_000)
 
 
 def test_a_workbook_that_unpacks_to_more_than_the_limit_is_refused_from_its_directory(
@@ -586,16 +591,210 @@ def test_all_the_text_in_the_cells_is_capped_together(
     check_workbook_limits(str(fits))
 
 
-def test_no_date_format_is_tried_on_text_too_long_to_be_a_date() -> None:
+def test_no_date_format_is_tried_on_text_too_long_to_be_a_date(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """strptime formats the whole value into its error message once per format, so it is never
+    called for a value no listed format could be: asserted by counting calls, not by timing."""
     import buddy.inspector as inspector
     from skills.excel import analyze
 
-    started = time.monotonic()
+    calls: list[str] = []
+
+    class Counting(analyze.datetime):  # type: ignore[misc, name-defined]
+        @classmethod
+        def strptime(cls, value: str, date_format: str):  # type: ignore[no-untyped-def]
+            calls.append(value)
+            return super().strptime(value, date_format)
+
     for module in (inspector, analyze):
+        monkeypatch.setattr(module, "datetime", Counting)
+        calls.clear()
         assert module._matched_date_format("x" * 5_000_000) is None
+        assert calls == []
         assert module._matched_date_format("2024-01-02") == "%Y-%m-%d"
         assert module._matched_date_format("September 30, 2026") == "%B %d, %Y"
-    assert time.monotonic() - started < 2
+        assert calls  # the guard doesn't switch the check off for ordinary values
+
+
+# -- review round 3: the walk and the parts openpyxl reads whole -------------------------------
+
+
+def _replaced(path: Path, **parts: bytes | str) -> Path:
+    """The workbook with the named parts replaced or added (``workbook`` is xl/workbook.xml)."""
+    names = {
+        "workbook": "xl/workbook.xml",
+        "rels": "xl/_rels/workbook.xml.rels",
+        "styles": "xl/styles.xml",
+        "sheet": _SHEET1,
+    }
+    wanted = {names.get(key, key): value for key, value in parts.items()}
+    with zipfile.ZipFile(path) as source:
+        kept = [(i.filename, source.read(i.filename)) for i in source.infolist()]
+    with zipfile.ZipFile(path, "w", zipfile.ZIP_DEFLATED) as target:
+        for name, data in kept:
+            if name not in wanted:
+                target.writestr(name, data)
+        for name, data in wanted.items():
+            target.writestr(name, data)
+    return path
+
+
+def _many_sheets_on_one_part(path: Path, count: int, body: str) -> Path:
+    """``count`` sheets declared, every one of them pointing at the single sheet part."""
+    _book(path, _sheet_of(body))
+    entries = "".join(
+        f'<sheet name="S{i}" sheetId="{i + 1}" r:id="rId{i + 1}"/>' for i in range(count)
+    )
+    links = "".join(
+        f'<Relationship Id="rId{i + 1}" Type="{_REL}/worksheet" Target="/{_SHEET1}"/>'
+        for i in range(count)
+    )
+    return _replaced(
+        path,
+        workbook=(
+            f'<?xml version="1.0"?><workbook xmlns="{_MAIN}" xmlns:r="{_REL}">'
+            f"<sheets>{entries}</sheets></workbook>"
+        ),
+        rels=(
+            f'<?xml version="1.0"?><Relationships xmlns="{_PACKAGE_REL}">{links}</Relationships>'
+        ),
+    )
+
+
+def test_one_part_declared_as_thousands_of_sheets_is_refused_quickly_and_truthfully(
+    tmp_path: Path, no_table: None
+) -> None:
+    """R3-1: the reader pads every sheet to its last row; rows of all sheets count together."""
+    path = _many_sheets_on_one_part(tmp_path / "many.xlsx", 2000, '<row r="150000"/>')
+    assert path.stat().st_size < 100_000
+    started = time.monotonic()
+    assert _refusal(path) == TOO_MANY_ROWS
+    assert time.monotonic() - started < 10
+    # True whether one sheet or many hold the rows: it doesn't claim a single sheet does.
+    assert "sheet has" not in TOO_MANY_ROWS and "all its sheets" in TOO_MANY_ROWS
+
+
+def test_the_rows_of_all_sheets_count_together(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, no_table: None
+) -> None:
+    monkeypatch.setattr(workbook, "MAX_ROWS", 25)
+    check_workbook_limits(str(_book(tmp_path / "two.xlsx", [_sheet_xml(10), _sheet_xml(10)])))
+    three = _book(tmp_path / "three.xlsx", [_sheet_xml(10)] * 3)
+    assert _refusal(three) == TOO_MANY_ROWS
+
+
+def test_a_huge_workbook_part_is_refused_before_openpyxl_parses_it(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, no_table: None
+) -> None:
+    """R3-2: 1.4 million defined names are 57 MiB of XML in 177 KB; openpyxl built them all."""
+    names = '<definedName name="n">S1!$A$1</definedName>' * 30_000
+    book = _replaced(
+        _book(tmp_path / "names.xlsx"),
+        workbook=(
+            f'<?xml version="1.0"?><workbook xmlns="{_MAIN}" xmlns:r="{_REL}"><sheets>'
+            f'<sheet name="Sheet1" sheetId="1" r:id="rId1"/></sheets>'
+            f"<definedNames>{names}</definedNames></workbook>"
+        ),
+    )
+    assert zipfile.ZipFile(book).getinfo("xl/workbook.xml").file_size > MAX_WORKBOOK_PART_BYTES
+    import openpyxl
+
+    def loaded(*args: object, **kwargs: object) -> None:
+        raise AssertionError("openpyxl parsed a part that should have been refused by its size")
+
+    monkeypatch.setattr(openpyxl, "load_workbook", loaded)
+    assert _refusal(book) == TOO_BIG_PART
+
+
+def test_a_huge_styles_part_is_refused_before_openpyxl_parses_it(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, no_table: None
+) -> None:
+    book = _replaced(_book(tmp_path / "styles.xlsx"), styles=b" " * (MAX_STYLES_PART_BYTES + 1))
+    import openpyxl
+
+    monkeypatch.setattr(
+        openpyxl, "load_workbook", lambda *a, **k: pytest.fail("parsed before the size check")
+    )
+    assert _refusal(book) == TOO_BIG_PART
+
+
+def test_the_part_caps_are_what_the_notes_say() -> None:
+    assert (MAX_WORKBOOK_PART_BYTES, MAX_STYLES_PART_BYTES) == (MIB, 8 * MIB)
+    assert MAX_SHARED_STRINGS == 1_000_000
+
+
+def test_too_many_shared_strings_are_refused_counting_them_in_the_stream(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, no_table: None
+) -> None:
+    monkeypatch.setattr(workbook, "MAX_SHARED_STRINGS", 100)
+    many = _book(tmp_path / "many.xlsx", shared=_shared_strings(*["s"] * 101))
+    assert _refusal(many) == TOO_MANY_STRINGS
+    check_workbook_limits(str(_book(tmp_path / "fits.xlsx", shared=_shared_strings(*["s"] * 100))))
+
+
+def test_every_openpyxl_load_is_made_without_external_links(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """R3-3 and R3-6: pandas loads with ``keep_links=False``, so the walk, the sheet listing, the
+    layout check and the formula count do the same; an external link is never parsed."""
+    import openpyxl
+
+    real = openpyxl.load_workbook
+    seen: list[tuple[str, object]] = []
+
+    def recording(*args: object, **kwargs: object):  # type: ignore[no-untyped-def]
+        seen.append((str(kwargs.get("data_only")), kwargs.get("keep_links")))
+        return real(*args, **kwargs)
+
+    monkeypatch.setattr(openpyxl, "load_workbook", recording)
+    path = _ordinary(tmp_path / "ordinary.xlsx")
+    workbook._scanned.clear()
+    workbook.check_workbook_limits(str(path))
+    workbook.plain_table_sheet_name(str(path))
+    workbook.formula_cell_counts(str(path))
+
+    assert len(seen) >= 5
+    assert all(links is False for _, links in seen), seen
+
+
+def test_a_broken_external_link_does_not_hide_a_grid_bomb_from_the_walk(
+    tmp_path: Path, no_table: None
+) -> None:
+    """R3-6 (M2): an ``<externalReference>`` whose part is missing used to make the walk fail
+    quietly, so the check passed and pandas, which ignores links, built the grid."""
+    path = _book(tmp_path / "m2.xlsx", _sheet_of('<row r="150000"/>'))
+    with zipfile.ZipFile(path) as source:
+        rels = source.read("xl/_rels/workbook.xml.rels").decode()
+        book = source.read("xl/workbook.xml").decode()
+    rels = rels.replace(
+        "</Relationships>",
+        f'<Relationship Id="rId50" Type="{_REL}/externalLink" Target="externalLinks/missing.xml"/>'
+        "</Relationships>",
+    )
+    book = book.replace(
+        "</sheets>", '</sheets><externalReferences><externalReference r:id="rId50"/>'
+        "</externalReferences>",
+    )
+    _replaced(path, workbook=book, rels=rels)
+    # 150,000 rows is under the cap alone; two more of the same sheet would not be.
+    check_workbook_limits(str(path))
+    wide = _book(tmp_path / "m2b.xlsx", _sheet_of('<row r="250000"/>'))
+    _replaced(wide, workbook=book, rels=rels)
+    assert _refusal(wide) == TOO_MANY_ROWS
+
+
+def test_a_dimension_that_understates_the_sheet_hides_nothing(
+    tmp_path: Path, no_table: None
+) -> None:
+    """R3-7: without ``reset_dimensions()`` the reader trusts ``<dimension ref="A1:B2"/>`` and
+    walks 2 rows of a sheet pandas (which ignores it) reads in full."""
+    rows = "<row><c><v>1</v></c></row>" * (MAX_ROWS + 1)
+    sheet = (
+        f'<?xml version="1.0"?><worksheet xmlns="{_MAIN}"><dimension ref="A1:B2"/>'
+        f"<sheetData>{rows}</sheetData></worksheet>"
+    ).encode()
+    assert _refusal(_book(tmp_path / "dim.xlsx", sheet)) == TOO_MANY_ROWS
 
 
 # -- an ordinary workbook is not affected ------------------------------------------------------

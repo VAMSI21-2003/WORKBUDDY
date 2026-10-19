@@ -69,7 +69,13 @@ MAX_COLUMNS = 1_000
 MAX_CELLS = 1_000_000
 # Excel's own limit for the text in one cell, and a cap on all the text the cells hold.
 MAX_CELL_CHARS = 32_767
-MAX_TEXT_CHARS = 50_000_000
+MAX_TEXT_CHARS = 10_000_000
+# Parts openpyxl parses whole into objects on every load, before it reads a row, so they are capped
+# by their declared size: a real workbook.xml is a few KB, a real styles.xml well under 1 MB.
+MAX_WORKBOOK_PART_BYTES = 1 * MIB
+MAX_STYLES_PART_BYTES = 8 * MIB
+# The shared strings openpyxl reads into a list at the first load.
+MAX_SHARED_STRINGS = 1_000_000
 
 # How much of a sheet's XML is fed to the merged-cell scan at a time.
 _SCAN_CHUNK_BYTES = 1 << 20
@@ -87,14 +93,22 @@ TOO_BIG_UNPACKED = (
     f"the workbook unpacks to more than {MAX_UNZIPPED_BYTES // MIB} MB, "
     "which is more than I can open safely"
 )
-TOO_MANY_ROWS = f"the sheet has more than {MAX_ROWS:,} rows, which is more than I can open safely"
+TOO_MANY_ROWS = (
+    f"the workbook has more than {MAX_ROWS:,} rows (all its sheets counted together), "
+    "which is more than I can open safely"
+)
 TOO_MANY_COLUMNS = (
     f"the sheet has more than {MAX_COLUMNS:,} columns, which is more than I can open safely"
 )
 TOO_MANY_CELLS = (
-    f"the sheet spans more than {MAX_CELLS:,} cells (its rows times its columns), "
+    f"the workbook spans more than {MAX_CELLS:,} cells (each sheet's rows times its columns, "
+    "added up), which is more than I can open safely"
+)
+TOO_MANY_STRINGS = (
+    f"the workbook holds more than {MAX_SHARED_STRINGS:,} distinct pieces of text, "
     "which is more than I can open safely"
 )
+TOO_BIG_PART = "the workbook has a part far larger than any real one, so I won't open it"
 TOO_LONG_CELL = (
     f"a cell holds more than {MAX_CELL_CHARS:,} characters, which is more than I can open safely"
 )
@@ -299,32 +313,53 @@ def _scan(input_path: str) -> str | None:
                 return TOO_MANY_PARTS
             if sum(entry.file_size for entry in entries) > MAX_UNZIPPED_BYTES:
                 return TOO_BIG_UNPACKED
+            # Parts openpyxl parses whole on every load: capped by declared size before any load.
+            for entry in entries:
+                name = entry.filename.lower()
+                if name.endswith("workbook.xml") and entry.file_size > MAX_WORKBOOK_PART_BYTES:
+                    return TOO_BIG_PART
+                if name.endswith("styles.xml") and entry.file_size > MAX_STYLES_PART_BYTES:
+                    return TOO_BIG_PART
             # Every part, whatever its name: the workbook's own relationships say which ones a
             # reader opens. A part that isn't XML stops the parser at its first bytes.
             for entry in entries:
-                if _declares_entities(archive, entry):
-                    return _NOT_ALLOWED
+                verdict = _part_verdict(archive, entry)
+                if verdict is not None:
+                    return verdict
     except Exception:  # noqa: BLE001 — damaged or unreadable: the callers' own reads refuse it
         logger.info("%r couldn't be scanned for size limits", input_path)
         return None
     return _reader_verdict(input_path)
 
 
-def _declares_entities(archive: zipfile.ZipFile, entry: zipfile.ZipInfo) -> bool:
-    """Whether the part is XML that declares a DOCTYPE or an entity (read by the parser itself).
+def _part_verdict(archive: zipfile.ZipFile, entry: zipfile.ZipInfo) -> str | None:
+    """The refusal text for a part that is XML declaring a DOCTYPE or an entity, or holding too
+    many shared strings; ``None`` otherwise.
 
-    A part that isn't well-formed XML says nothing here: the callers' own reads refuse it.
+    Read by the parser itself, in one streamed pass. A part that isn't well-formed XML says nothing
+    here: the callers' own reads refuse it.
     """
-    parser = expat.ParserCreate()
-    found = False
+    parser = expat.ParserCreate(namespace_separator=" ")
+    verdict: str | None = None
+    strings = 0
 
     def declared(*_: object) -> None:
-        nonlocal found
-        found = True
+        nonlocal verdict
+        verdict = _NOT_ALLOWED
         raise _LimitPassed
+
+    def counting(name: str, _attributes: object) -> None:
+        nonlocal verdict, strings
+        if name.rpartition(" ")[2] == "si":
+            strings += 1
+            if strings > MAX_SHARED_STRINGS:
+                verdict = TOO_MANY_STRINGS
+                raise _LimitPassed
 
     parser.StartDoctypeDeclHandler = declared
     parser.EntityDeclHandler = declared
+    if entry.filename.lower().endswith("sharedstrings.xml"):
+        parser.StartElementHandler = counting
     try:
         with archive.open(entry) as part:
             while chunk := part.read(_SCAN_CHUNK_BYTES):
@@ -333,8 +368,8 @@ def _declares_entities(archive: zipfile.ZipFile, entry: zipfile.ZipInfo) -> bool
     except _LimitPassed:
         pass
     except Exception:  # noqa: BLE001 — not XML, or damaged: not this check's business
-        return False
-    return found
+        return verdict
+    return verdict
 
 
 class _LimitPassed(Exception):
@@ -352,16 +387,21 @@ def _reader_verdict(input_path: str) -> str | None:
     """
     try:
         with open(input_path, "rb") as handle:
-            book = openpyxl.load_workbook(handle, read_only=True, data_only=True)
+            book = openpyxl.load_workbook(
+                handle, read_only=True, data_only=True, keep_links=False
+            )
             try:
-                grids = chars = 0
+                grids = chars = all_rows = 0
                 for sheet in book.worksheets:
                     sheet.reset_dimensions()  # as pandas does: a wrong <dimension> hides nothing
                     rows = widest = 0
                     for row in sheet.iter_rows(values_only=True):
                         rows += 1
+                        all_rows += 1
                         widest = max(widest, len(row))
-                        if rows > MAX_ROWS:
+                        # All sheets together: one part can be declared as thousands of sheets,
+                        # and the reader pads every one of them out to its last row.
+                        if all_rows > MAX_ROWS:
                             return TOO_MANY_ROWS
                         if widest > MAX_COLUMNS:
                             return TOO_MANY_COLUMNS
@@ -391,7 +431,7 @@ def _zip_sheet_names(handle) -> list[str]:  # noqa: ANN001 — a binary file obj
     handle.seek(0)
     # A file handle, not the path: openpyxl rejects an .xls name even when the
     # content is a workbook it can read.
-    book = openpyxl.load_workbook(handle, read_only=True)
+    book = openpyxl.load_workbook(handle, read_only=True, keep_links=False)
     try:
         loaded = list(book.sheetnames)
     finally:
@@ -452,7 +492,9 @@ def _sheet_problem(input_path: str, sheet_name: str) -> str | None:
     """The refusal text for a sheet that isn't a plain table, or ``None``."""
     try:
         with open(input_path, "rb") as handle:
-            book = openpyxl.load_workbook(handle, read_only=True, data_only=True)
+            book = openpyxl.load_workbook(
+                handle, read_only=True, data_only=True, keep_links=False
+            )
             try:
                 sheet = book[sheet_name]
                 # A wrong <dimension> would hide cells that pandas (which ignores it) reads.
@@ -567,8 +609,12 @@ def formula_cell_counts(input_path: str) -> FormulaCounts:
     formulas = without_value = 0
     try:
         with open(input_path, "rb") as shown_handle, open(input_path, "rb") as saved_handle:
-            shown_book = openpyxl.load_workbook(shown_handle, read_only=True, data_only=False)
-            saved_book = openpyxl.load_workbook(saved_handle, read_only=True, data_only=True)
+            shown_book = openpyxl.load_workbook(
+                shown_handle, read_only=True, data_only=False, keep_links=False
+            )
+            saved_book = openpyxl.load_workbook(
+                saved_handle, read_only=True, data_only=True, keep_links=False
+            )
             try:
                 for name in names:
                     shown_sheet, saved_sheet = shown_book[name], saved_book[name]

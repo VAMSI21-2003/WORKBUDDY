@@ -262,6 +262,18 @@ class GroupedKeyConflictAnalyzer:
         return tuple(findings)
 
 
+# What the near-duplicate check compares of a field, and the most pairs it lets its blocking rules
+# make. Both bound memory by what the file declares, not by what it holds: 200 rows of 30,000
+# characters, or 10,000 rows sharing a first three letters, would otherwise take gigabytes.
+_NEAR_DUPLICATE_FIELD_CHARS = 100
+_NEAR_DUPLICATE_PAIR_LIMIT = 250_000
+
+
+def _field(column: pd.Series) -> object:
+    """The start of each value as text, short enough to compare cheaply."""
+    return column.astype(str).str.slice(0, _NEAR_DUPLICATE_FIELD_CHARS).to_numpy()
+
+
 class NearDuplicateAnalyzer:
     """Flags likely-duplicate rows via Splink, discriminated by phone/email.
 
@@ -295,10 +307,19 @@ class NearDuplicateAnalyzer:
         working = pd.DataFrame(
             {
                 "unique_id": range(len(df)),
-                _NAME_FIELD: df[name_column].astype(str).to_numpy(),
-                _KEY_FIELD: df[discriminating_column].astype(str).to_numpy(),
+                _NAME_FIELD: _field(df[name_column]),
+                _KEY_FIELD: _field(df[discriminating_column]),
             }
         )
+        # Splink materialises every pair its two blocking rules make, with both full strings:
+        # count them first (cheap) and skip the check above a limit, as for too many rows.
+        pairs = sum(
+            int(n) * (int(n) - 1) // 2
+            for column in (working[_NAME_FIELD].str.slice(0, 3), working[_KEY_FIELD])
+            for n in column.value_counts()
+        )
+        if pairs > _NEAR_DUPLICATE_PAIR_LIMIT:
+            return ()
 
         settings = SettingsCreator(
             link_type="dedupe_only",

@@ -72,7 +72,21 @@ def test_shown_cannot_end_its_own_quotation() -> None:
     assert inner.count('"') == 2 and inner.startswith('"') and inner.endswith('"')
 
 
-QUOTE_MARKS = ['"', "“", "”", "„", "‟", "«", "»", "＂"]
+# Every mark ``shown`` treats as a double quotation mark, named by code point so none is missed
+# (the 17 in the module's set, each tested; a mark added there needs adding here).
+QUOTE_MARKS = [
+    chr(code)
+    for code in (
+        0x22, 0x201C, 0x201D, 0x201E, 0x201F, 0xAB, 0xBB, 0x2039, 0x203A, 0x2033, 0x2036,
+        0x275D, 0x275E, 0x301D, 0x301E, 0x301F, 0xFF02,
+    )
+]
+
+
+def test_the_tested_quote_marks_are_every_one_shown_knows() -> None:
+    from skills.excel.shown_text import _QUOTES
+
+    assert set(QUOTE_MARKS) == set(_QUOTES)
 
 
 @pytest.mark.parametrize("quote", QUOTE_MARKS)

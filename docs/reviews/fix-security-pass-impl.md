@@ -57,6 +57,10 @@ Job `audit` in `.github/workflows/tests.yml` runs `scripts/run_pip_audit.py` ove
 
 `docs/backlog.md`: "PDF table extraction parked at review round 4" (R4-H1, R4-H2, R4-M1 to R4-M3, R4-L1, the reviewer's prototype path, the unexplained GitHub failures of run 38598877920: "docker build" and "tests (full suite)"). The residual-path status is under the PR-B re-review 3 bullet.
 
+### After review round 3 (see `fix-security-pass-fixes3.md`)
+
+R1-2 option (b) (`NO_SKILL_UNSURE`, a neutral reply, no lead word) and R3-1 to R3-7: rows counted across sheets, part-size caps for `workbook.xml` and `styles.xml`, a shared-strings cap, `keep_links=False`, a 10 M text cap, bounded near-duplicate input, more tests. The new review is round 4 in the review file.
+
 ## Not run, and open
 
 - No live runs (instruction).
