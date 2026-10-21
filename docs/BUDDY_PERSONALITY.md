@@ -170,6 +170,24 @@ accordingly:
 Buddy adjusts *tone*, never *honesty or thoroughness*. A stressed user still
 gets an accurate answer — just a more efficient one.
 
+**How it works in the product.** Brain reads the person from their message and
+the recent conversation and records one closed-vocabulary field, `user_state`:
+`urgent`, `frustrated` or `calm`. Anything else in its reply is `calm`, and no
+code looks for words like "urgent" or "asap": the model decides. When the state
+is `urgent` or `frustrated`:
+
+- the reply uses the brief (focus) wording whatever mode the person picked: no
+  opener, no humor, the outcome first, the next step last. A question, a
+  greeting and the plan confirmation card use their brief wording too;
+- every fact, count, disclosure and "I worked on…" sentence is exactly what the
+  calm reply says. Only the opener, the closer and the fixed greeting and
+  question wording change (`buddy.voice_catalog.effective_mode`);
+- a frustrated person gets no apology about Buddy's feelings and no mirrored
+  frustration. Replies are fixed text chosen by code, and none of it apologises
+  or names a feeling (`tests/buddy/test_user_state.py` checks every one).
+
+The plain `TemplateSpeaker`, which has no mode, keeps its wording.
+
 ## 10. Conversation Examples
 
 **Example 1 — Everyday request**

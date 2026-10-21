@@ -187,6 +187,16 @@ def healthz(request: Request) -> Health:
     return Health(ok=True, llm_configured=bool(request.app.state.llm_configured))
 
 
+@health_router.head(
+    "/healthz",
+    include_in_schema=False,
+    dependencies=[Depends(limits(HEALTHZ, credential=False))],
+)
+def healthz_head() -> Response:
+    """``HEAD /healthz``: the status ``GET`` gives, in the same bucket, with no body."""
+    return Response(status_code=200)
+
+
 @router.post(
     "/sessions",
     status_code=201,

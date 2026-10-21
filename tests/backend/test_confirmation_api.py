@@ -21,7 +21,7 @@ import pytest
 from fastapi.testclient import TestClient
 
 from backend import turns as turns_module
-from backend.confirmation import PLAN_NOTE_CHAIN, WebConfirmationProvider
+from backend.confirmation import PLAN_NOTE_CHAIN, PLAN_NOTE_CHAIN_BRIEF, WebConfirmationProvider
 from backend.main import create_app
 from backend.settings import Settings
 from buddy.context import Context
@@ -230,6 +230,56 @@ def test_a_two_step_chain_asks_once_and_the_plan_is_what_runs(settings: Settings
         s["capability"] for s in turn["detail"]["steps"] if s["permission_tier"] == "write"
     ]
     assert detail_writes == [step["capability"] for step in plan["steps"]]
+
+
+def _read_as(replies: list[str], user_state: str) -> list[str]:
+    """``replies`` with Brain (the first) reading the person as ``user_state``."""
+    return [json.dumps({**json.loads(replies[0]), "user_state": user_state}), *replies[1:]]
+
+
+@pytest.mark.parametrize("user_state", ["urgent", "frustrated"])
+def test_an_urgent_or_frustrated_person_gets_the_brief_card_for_the_same_plan(
+    settings: Settings, user_state: str
+) -> None:
+    """Brain's reading changes the card's wording and nothing else: the same steps, asked once,
+    and the same steps run."""
+    factory = PipelineFactory(
+        QueuedProvider(_read_as(chain(*DEDUPE_THEN_EMPTY), user_state))
+    )
+    client = _app(settings, factory)
+    session_id, _ = _session_with_upload(client)
+    plans: list[dict[str, Any]] = []
+
+    turn = wait_finished(
+        client, session_id, _start(client, session_id, CHAIN_MESSAGE), plans=plans
+    )
+
+    (plan,) = plans
+    assert plan["steps"] == [
+        *DEDUPE_PLAN,
+        {
+            "capability": "spreadsheet.remove_empty_rows",
+            "prompt": "Then remove empty rows from step 1's result.",
+        },
+    ]
+    assert plan["plan_note"] == PLAN_NOTE_CHAIN_BRIEF
+    (run,) = factory.runs
+    ran = [s for s in run.steps if s.permission_tier in ("write", "external_effect")]
+    assert [s.capability for s in ran] == [step["capability"] for step in plan["steps"]]
+    assert turn["outcome"] == "delivered"
+
+
+def test_a_calm_person_gets_the_usual_card(settings: Settings) -> None:
+    factory = PipelineFactory(QueuedProvider(_read_as(chain(*DEDUPE_THEN_EMPTY), "calm")))
+    client = _app(settings, factory)
+    session_id, _ = _session_with_upload(client)
+    plans: list[dict[str, Any]] = []
+
+    wait_finished(client, session_id, _start(client, session_id, CHAIN_MESSAGE), plans=plans)
+
+    (plan,) = plans
+    assert plan["steps"][1]["prompt"] == "Then remove empty rows from the result of step 1."
+    assert plan["plan_note"] == PLAN_NOTE_CHAIN
 
 
 # -- Reject and timeout ---------------------------------------------------------------------------

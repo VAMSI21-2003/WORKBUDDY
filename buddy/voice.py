@@ -53,6 +53,7 @@ from buddy.voice_catalog import (
     WORKED_ON_ORIGINAL_SKIPPING_COPY_TEMPLATE,
     WORKED_ON_ORIGINAL_TEMPLATE,
     clarification_question,
+    effective_mode,
     failure_reply,
     greeting_reply,
     select_phrases,
@@ -1258,6 +1259,11 @@ class PersonalityVoice:
 
     No turn calls the model: a greeting is catalog lines chosen by code too. The provider
     is kept only so callers that construct this speaker keep working.
+
+    When Brain read the person as urgent or frustrated (``Understanding.user_state``), every
+    reply is worded in the brief mode (``buddy.voice_catalog.effective_mode``) whatever mode they
+    picked. That swaps only the opener, the closer and the fixed greeting and question wording:
+    every fact, count, disclosure and "I worked on ..." sentence is the calm reply's.
     """
 
     def __init__(self, provider: LLMProvider | None = None) -> None:
@@ -1278,10 +1284,13 @@ class PersonalityVoice:
             The rendered reply for a verified delivery; otherwise
             ``TemplateSpeaker``'s factual reply.
         """
+        # An urgent or frustrated person gets the brief wording whatever mode they picked: tone
+        # only, so every fact below is the one the calm reply gives.
+        mode = effective_mode(request.mode, request.understanding.user_state)
         if not _verified_delivery(request):
             logger.info(
                 "PersonalityVoice: no verified file was delivered this turn; "
                 "using the factual reply"
             )
-            return TemplateSpeaker().compose(request, style=style_for(request.mode))
-        return _verified_delivery_reply(request, file_style=FILE_STYLE_PLAIN, mode=request.mode)
+            return TemplateSpeaker().compose(request, style=style_for(mode))
+        return _verified_delivery_reply(request, file_style=FILE_STYLE_PLAIN, mode=mode)

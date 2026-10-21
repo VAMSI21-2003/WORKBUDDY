@@ -613,6 +613,17 @@ def test_8_healthz_has_its_own_bucket_and_never_touches_general(rig: Rig) -> Non
     assert rig.client.get("/healthz").status_code == 200
 
 
+def test_head_healthz_spends_the_same_bucket_as_get(rig: Rig) -> None:
+    before = rig.snapshot()
+    for n in range(10):
+        response = (rig.client.head if n % 2 else rig.client.get)("/healthz")
+        assert response.status_code == 200, n
+
+    assert _spent(before, rig.snapshot()) == {HEALTHZ: 10}
+    assert rig.client.head("/healthz").status_code == 429
+    assert rig.client.get("/healthz").status_code == 429
+
+
 def test_page_loads_use_the_page_bucket_and_never_touch_general(rig: Rig) -> None:
     """The frontend's ``GET /`` and ``/static/*`` declare ``page``; this stands in for them."""
     rig.app.add_api_route(

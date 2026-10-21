@@ -13,6 +13,17 @@ LEDGER_FROM_MENTION = "mention"  # only the deterministic mention detector found
 FILE_LATEST = "latest"  # build on the latest copy handed back (the default)
 FILE_ORIGINAL = "original"  # start over from the upload: "start over", "use my original file"
 
+# How the person seems to be, as Brain reads it. It changes only the tone of a reply, never a fact.
+USER_STATE_CALM = "calm"  # the default, and what anything else in Brain's reply becomes
+USER_STATE_URGENT = "urgent"
+USER_STATE_FRUSTRATED = "frustrated"
+USER_STATES = (USER_STATE_CALM, USER_STATE_URGENT, USER_STATE_FRUSTRATED)
+
+
+def wants_brief(user_state: str) -> bool:
+    """Whether a reply, a question or the plan card is worded briefly for this ``user_state``."""
+    return user_state in (USER_STATE_URGENT, USER_STATE_FRUSTRATED)
+
 # ``FileUsed.kind`` values: which file the turn worked on.
 FILE_KIND_ORIGINAL = "original"  # the person's upload, as uploaded
 FILE_KIND_COPY = "copy"  # a copy Buddy handed back in an earlier turn
@@ -81,6 +92,12 @@ class Understanding:
             else in this understanding (intent, requested actions) is about that earlier
             request. ``False`` when nothing was waiting, and when the message is a request of
             its own. Brain's field, never read from the words by code.
+        user_state: ``USER_STATE_URGENT`` or ``USER_STATE_FRUSTRATED`` when Brain reads the person
+            as under time pressure or as frustrated, from the message and the recent conversation;
+            otherwise ``USER_STATE_CALM``. Brain's field, in a closed vocabulary: anything else in
+            its reply becomes calm, and no code reads the words of a message for it. It only picks
+            the brief wording of a reply, a question or the plan card (``buddy.voice_catalog``);
+            no fact, count or disclosure depends on it.
     """
 
     intent: str | None = None
@@ -93,6 +110,7 @@ class Understanding:
     requested_actions: tuple[RequestedAction, ...] = ()
     file_to_use: str = FILE_LATEST
     answers_pending: bool = False
+    user_state: str = USER_STATE_CALM
 
 
 @dataclass(frozen=True)

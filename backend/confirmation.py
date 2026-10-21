@@ -58,6 +58,10 @@ PLAN_NOTE_CHAIN = (
     "Only the final file is handed back."
 )
 
+# The same line in the brief wording, for a person Brain reads as urgent or frustrated. Tone only:
+# it says the same three things (order, each step on the previous result, only the final file).
+PLAN_NOTE_CHAIN_BRIEF = "In order, each on the previous result. Only the final file is handed back."
+
 # The first step's template, then a later step's, per capability. A later
 # step reads the previous step's result (every multi-step plan is a chain),
 # so only the first names the upload. No template says "save", "new file"
@@ -76,6 +80,13 @@ _FALLBACK_TEMPLATES = (
     "Run {capability} on {input_name}.",
     "Then run {capability} on the result of step {previous}.",
 )
+# The brief wording of a later step. The first step's text is already as short as it gets, so a
+# brief plan uses it unchanged.
+_BRIEF_LATER_TEMPLATES: dict[str, str] = {
+    "spreadsheet.deduplicate": "Then remove duplicate rows from step {previous}'s result.",
+    "spreadsheet.remove_empty_rows": "Then remove empty rows from step {previous}'s result.",
+}
+_BRIEF_FALLBACK_LATER = "Then run {capability} on step {previous}'s result."
 
 _CONFIRMED_TIERS = (PermissionTier.WRITE, PermissionTier.EXTERNAL_EFFECT)
 
@@ -85,7 +96,7 @@ def has_templates(capability: str) -> bool:
     return capability in _TEMPLATES
 
 
-def step_prompt(capability: str, position: int, input_name: str) -> str:
+def step_prompt(capability: str, position: int, input_name: str, *, brief: bool = False) -> str:
     """The text shown for one step of the plan.
 
     Args:
@@ -93,16 +104,21 @@ def step_prompt(capability: str, position: int, input_name: str) -> str:
             Dispatcher could route, so this is a registered capability.
         position: The step's position in the plan, counting from 1.
         input_name: The name of the file the first step reads.
+        brief: The brief wording, for a person Brain reads as urgent or frustrated.
     """
     first, later = _TEMPLATES.get(capability, _FALLBACK_TEMPLATES)
     if position == 1:
         return first.format(capability=capability, input_name=input_name)
+    if brief:
+        later = _BRIEF_LATER_TEMPLATES.get(capability, _BRIEF_FALLBACK_LATER)
     return later.format(capability=capability, previous=position - 1)
 
 
-def plan_note(step_count: int) -> str | None:
-    """``PLAN_NOTE_CHAIN`` for two or more steps, else ``None``."""
-    return PLAN_NOTE_CHAIN if step_count >= 2 else None
+def plan_note(step_count: int, *, brief: bool = False) -> str | None:
+    """``PLAN_NOTE_CHAIN`` (or its brief wording) for two or more steps, else ``None``."""
+    if step_count < 2:
+        return None
+    return PLAN_NOTE_CHAIN_BRIEF if brief else PLAN_NOTE_CHAIN
 
 
 @dataclass(frozen=True)
@@ -136,9 +152,16 @@ def new_confirmation_id() -> str:
 
 
 def build_plan(
-    steps: tuple[ConfirmationStep, ...], *, confirmation_id: str, expires_at: datetime
+    steps: tuple[ConfirmationStep, ...],
+    *,
+    confirmation_id: str,
+    expires_at: datetime,
+    brief: bool = False,
 ) -> PendingPlan:
     """The plan as published: one ``PlanStep`` per step, in order, and the note.
+
+    ``brief`` words the card briefly (``wants_brief``); the steps, their order and what the note
+    says are the same.
 
     Raises:
         ValueError: ``steps`` is empty. A plan is never published without a
@@ -150,10 +173,13 @@ def build_plan(
     return PendingPlan(
         confirmation_id=confirmation_id,
         steps=tuple(
-            PlanStep(step.capability, step_prompt(step.capability, position, input_name))
+            PlanStep(
+                step.capability,
+                step_prompt(step.capability, position, input_name, brief=brief),
+            )
             for position, step in enumerate(steps, start=1)
         ),
-        plan_note=plan_note(len(steps)),
+        plan_note=plan_note(len(steps), brief=brief),
         expires_at=expires_at,
     )
 
@@ -220,6 +246,7 @@ class WebConfirmationProvider:
         self._on_settle = on_settle
         self._answered = threading.Event()
         self._plan: tuple[ConfirmationStep, ...] | None = None
+        self._brief = False
         self._next = 0
         self._pending: PendingPlan | None = None
         self._outcome: ConfirmationOutcome | None = None
@@ -239,7 +266,11 @@ class WebConfirmationProvider:
             return self._outcome
 
     def expect_plan(self, steps: tuple[ConfirmationStep, ...]) -> None:
-        """Hands' plan: every step that will ask for confirmation, in order."""
+        """Hands' plan: every step that will ask for confirmation, in order.
+
+        Steps marked ``brief`` (Brain read the person as urgent or frustrated) get the card
+        worded briefly. It never changes which steps are shown or run.
+        """
         with self._lock:
             if self._plan is not None:
                 # Hands announces once per run; a second plan means the
@@ -248,6 +279,7 @@ class WebConfirmationProvider:
                 self._refusing = True
                 return
             self._plan = tuple(steps)
+            self._brief = any(step.brief for step in steps)
 
     def confirm(self, task: SkillTask, tier: PermissionTier) -> bool:
         """Whether ``task`` may run: only if it's the plan's next step and the user approved."""
@@ -275,6 +307,7 @@ class WebConfirmationProvider:
                 self._plan,
                 confirmation_id=new_confirmation_id(),
                 expires_at=self._clock() + timedelta(seconds=self._timeout_s),
+                brief=self._brief,
             )
             if not self._on_publish(plan):
                 self._settle(ConfirmationOutcome(REJECT, BY_TURN_END))

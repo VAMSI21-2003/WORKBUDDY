@@ -13,6 +13,7 @@ from buddy.models import (
     ExecutionResult,
     StepResult,
     Understanding,
+    wants_brief,
 )
 from buddy.state import BuddyState
 from buddy.text import count_noun
@@ -63,12 +64,17 @@ class ConfirmationStep:
             it. Every later step reads the previous step's output: the
             steps that ask for confirmation (every tier above READ) are
             exactly the chain.
+        brief: ``True`` on every step of a turn whose person Brain read as urgent or frustrated
+            (``buddy.models.wants_brief``): a provider that words the plan for the user words it
+            briefly. Tone only; it never changes which steps run. A provider that doesn't read
+            it works as before.
     """
 
     task_id: str
     capability: str
     tier: PermissionTier
     input_reference: str
+    brief: bool = False
 
 
 @runtime_checkable
@@ -583,6 +589,8 @@ class Hands:
         """The steps that will ask for confirmation, given each request's route."""
         if _known_stop(routes) is not None:
             return ()
+        understanding = state.understanding
+        brief = understanding is not None and wants_brief(understanding.user_state)
         steps: list[ConfirmationStep] = []
         for index, (request, skill) in enumerate(zip(requests, routes, strict=False)):
             if skill is not None and skill.permission_tier in _CONFIRMATION_REQUIRED_TIERS:
@@ -592,6 +600,7 @@ class Hands:
                         capability=request.capability,
                         tier=skill.permission_tier,
                         input_reference=request.target,
+                        brief=brief,
                     )
                 )
         return tuple(steps)

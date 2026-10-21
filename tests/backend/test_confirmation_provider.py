@@ -25,6 +25,7 @@ from backend.confirmation import (
     BY_TURN_END,
     BY_USER,
     PLAN_NOTE_CHAIN,
+    PLAN_NOTE_CHAIN_BRIEF,
     REJECT,
     ConfirmationOutcome,
     PendingPlan,
@@ -75,9 +76,15 @@ def _provider(host: _Host, timeout_s: float = 10.0) -> WebConfirmationProvider:
     )
 
 
-def _step(index: int, capability: str = DEDUPE, tier: PermissionTier = WRITE) -> ConfirmationStep:
+def _step(
+    index: int, capability: str = DEDUPE, tier: PermissionTier = WRITE, brief: bool = False
+) -> ConfirmationStep:
     return ConfirmationStep(
-        task_id=f"k-task-{index}", capability=capability, tier=tier, input_reference=UPLOAD
+        task_id=f"k-task-{index}",
+        capability=capability,
+        tier=tier,
+        input_reference=UPLOAD,
+        brief=brief,
     )
 
 
@@ -184,6 +191,80 @@ def test_a_plan_names_the_upload_only_in_its_first_step() -> None:
     assert plan.plan_note == PLAN_NOTE_CHAIN
     single = build_plan((_step(1),), confirmation_id="c_y", expires_at=NOW)
     assert single.plan_note is None
+
+
+# -- The brief wording, for a person Brain reads as urgent or frustrated -----------------------
+
+
+def test_a_brief_plan_has_the_same_steps_in_the_same_order_and_the_same_note_facts() -> None:
+    steps = (_step(1), _step(2, EMPTY), _step(3, DEDUPE))
+    calm = build_plan(steps, confirmation_id="c_x", expires_at=NOW)
+    brief = build_plan(steps, confirmation_id="c_x", expires_at=NOW, brief=True)
+
+    assert [s.capability for s in brief.steps] == [s.capability for s in calm.steps]
+    assert brief.confirmation_id == calm.confirmation_id and brief.expires_at == calm.expires_at
+    # The first step is as short as it gets; a later step names the same previous step.
+    first = "Remove duplicate rows from report.xlsx."
+    assert brief.steps[0].prompt == calm.steps[0].prompt == first
+    assert [s.prompt for s in brief.steps[1:]] == [
+        "Then remove empty rows from step 1's result.",
+        "Then remove duplicate rows from step 2's result.",
+    ]
+    assert all("report.xlsx" not in s.prompt for s in brief.steps[1:])
+    # The note says the same three things: the order, each step on the previous result, and
+    # that only the final file is handed back.
+    assert brief.plan_note == PLAN_NOTE_CHAIN_BRIEF
+    assert "In order" in PLAN_NOTE_CHAIN_BRIEF
+    assert "each on the previous result" in PLAN_NOTE_CHAIN_BRIEF
+    assert "Only the final file is handed back." in PLAN_NOTE_CHAIN_BRIEF
+    assert len(PLAN_NOTE_CHAIN_BRIEF) < len(PLAN_NOTE_CHAIN)
+    for later in range(1, 3):
+        assert len(brief.steps[later].prompt) < len(calm.steps[later].prompt)
+
+
+def test_a_brief_single_step_plan_has_no_note_and_the_calm_prompt() -> None:
+    calm = build_plan((_step(1),), confirmation_id="c_x", expires_at=NOW)
+    brief = build_plan((_step(1),), confirmation_id="c_x", expires_at=NOW, brief=True)
+
+    assert brief == calm
+    assert plan_note(1, brief=True) is None
+    assert plan_note(2, brief=True) == PLAN_NOTE_CHAIN_BRIEF
+
+
+def test_every_brief_prompt_claims_nothing_and_a_fallback_step_is_brief_too() -> None:
+    assert step_prompt("spreadsheet.sort", 2, "a.xlsx", brief=True) == (
+        "Then run spreadsheet.sort on step 1's result."
+    )
+    texts = [PLAN_NOTE_CHAIN_BRIEF]
+    for capability in (DEDUPE, EMPTY, "spreadsheet.sort"):
+        texts += [
+            step_prompt(capability, position, "report.xlsx", brief=True) for position in (1, 2, 3)
+        ]
+
+    for text in texts:
+        lowered = text.lower()
+        assert "save" not in lowered and "new file" not in lowered, text
+        for claim in ("removed", "done", "ready", "unchanged", "original", "won't", "sorry"):
+            assert claim not in lowered, (claim, text)
+
+
+def test_the_provider_publishes_the_brief_card_only_when_hands_says_so(
+    pool: ThreadPoolExecutor,
+) -> None:
+    published: dict[bool, PendingPlan] = {}
+    for brief in (False, True):
+        host = _Host()
+        provider = _provider(host)
+        provider.expect_plan((_step(1, brief=brief), _step(2, EMPTY, brief=brief)))
+        _ask(pool, provider, _task(1))
+        plan = _published(host)
+        provider.answer(plan.confirmation_id, REJECT)
+        published[brief] = plan
+
+    assert published[False].plan_note == PLAN_NOTE_CHAIN
+    assert published[False].steps[1].prompt == "Then remove empty rows from the result of step 1."
+    assert published[True].plan_note == PLAN_NOTE_CHAIN_BRIEF
+    assert published[True].steps[1].prompt == "Then remove empty rows from step 1's result."
 
 
 def test_a_plan_is_never_built_without_a_step() -> None:
