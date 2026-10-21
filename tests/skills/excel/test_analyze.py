@@ -442,8 +442,9 @@ def test_near_duplicate_analyzer_flags_real_duplicates_but_not_name_collisions()
     # mistaken for a duplicate — the specific failure mode this whole
     # design exists to avoid using the phone column to prevent.
     for finding in findings:
-        quoted_names = re.findall(r"'([^']*)'", finding)
-        assert len(quoted_names) == 2
+        # The column's header comes first, then the two names, all quoted as the file's text.
+        header, *quoted_names = re.findall(r'"([^"]*)"', finding)
+        assert header == "name" and len(quoted_names) == 2
         assert quoted_names[0] != quoted_names[1], (
             f"finding paired identical name text (a collision pair, not a real "
             f"duplicate): {finding!r}"
@@ -466,3 +467,70 @@ def test_a_read_failure_carries_no_exception_text(
 
     assert result.status is SkillStatus.FAILURE
     assert result.errors == ["could not read the workbook"]
+
+
+# -- review round 3 (R3-5): the near-duplicate check is bounded by what the file declares --------
+
+
+def _name_phone(names: list[str], phones: list[str]) -> pd.DataFrame:
+    return pd.DataFrame({"name": names, "phone": phones})
+
+
+def test_the_near_duplicate_check_hands_splink_at_most_100_characters_of_a_field(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """200 rows of 30,000-character names took 2.7 GiB: Splink holds both strings of every pair."""
+    import splink
+
+    seen: dict[str, int] = {}
+
+    class Recording:
+        def __init__(self, data: pd.DataFrame, settings: object, **kwargs: object) -> None:
+            seen["name"] = int(data["name_field"].str.len().max())
+            seen["key"] = int(data["key_field"].str.len().max())
+            raise RuntimeError("stop here")
+
+    monkeypatch.setattr(splink, "Linker", Recording)
+    frame = _name_phone(
+        [f"{'n' * 30_000}{i}" for i in range(20)], ["p" * 5000 + str(i) for i in range(20)]
+    )
+
+    assert NearDuplicateAnalyzer()(frame) == ()
+    assert seen == {"name": 100, "key": 100}
+
+
+def test_the_near_duplicate_check_is_skipped_when_its_blocking_rules_would_pair_too_many_rows(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """10,000 rows with names sharing three letters are 50 million pairs: killed at 6 GiB."""
+    import splink
+
+    class Boom:
+        def __init__(self, *args: object, **kwargs: object) -> None:
+            pytest.fail("Splink was started on a table whose pairs are over the limit")
+
+    monkeypatch.setattr(splink, "Linker", Boom)
+    rows = 800  # 319,600 pairs by the shared first three letters, over 250,000
+    frame = _name_phone([f"abc{i}" for i in range(rows)], [str(i) for i in range(rows)])
+
+    assert NearDuplicateAnalyzer()(frame) == ()
+
+
+def test_the_near_duplicate_check_still_runs_below_the_pair_limit(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    import splink
+
+    started: list[bool] = []
+
+    class Recording:
+        def __init__(self, *args: object, **kwargs: object) -> None:
+            started.append(True)
+            raise RuntimeError("stop here")
+
+    monkeypatch.setattr(splink, "Linker", Recording)
+    rows = 700  # 244,650 pairs
+    frame = _name_phone([f"abc{i}" for i in range(rows)], [str(i) for i in range(rows)])
+    NearDuplicateAnalyzer()(frame)
+
+    assert started == [True]

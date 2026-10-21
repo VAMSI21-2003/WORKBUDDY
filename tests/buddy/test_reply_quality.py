@@ -322,7 +322,7 @@ def test_an_unrecognised_request_lists_what_buddy_can_do(
     # The analysis ran and its findings are the file's: 2 repeated rows, 1 missing per column.
     frame = pd.read_excel(turn.original)
     assert f"{int(frame.duplicated().sum())} rows repeat an earlier row exactly" in turn.reply
-    assert f"name: {int(frame['name'].isna().sum())} missing value (16.7%)" in turn.reply
+    assert f'column "name": {int(frame["name"].isna().sum())} missing value (16.7%)' in turn.reply
 
 
 def test_the_capability_lines_name_every_action_buddy_has() -> None:
@@ -551,7 +551,8 @@ def test_dedupe_then_report_delivers_the_report_on_the_final_file(
     final = _file_facts(turn.state.execution_result.outputs[0])  # type: ignore[union-attr]
     assert final["duplicates"] == 0 and final["rows"] == 4
     # The report is the findings on the final file, labelled; it is not "can't do".
-    assert REPORT_LEAD_COPY + f"name: {final['missing_name']} missing value (25.0%)" in turn.reply
+    missing = f'column "name": {final["missing_name"]} missing value (25.0%)'
+    assert REPORT_LEAD_COPY + missing in turn.reply
     assert "can't do" not in turn.reply and "I also noticed" not in turn.reply
     assert turn.reply.startswith(("Done —", "Here's where", "Okay, here's"))
     assert "(s)" not in turn.reply
@@ -572,7 +573,7 @@ def test_a_report_only_request_reports_on_the_original_and_changes_nothing(
     assert turn.reply.startswith(
         REPORT_LEAD_ORIGINAL + f"{facts['duplicates']} rows repeat an earlier row exactly"
     )
-    assert f"name: {facts['missing_name']} missing value (16.7%)" in turn.reply
+    assert f'column "name": {facts["missing_name"]} missing value (16.7%)' in turn.reply
     assert "can't do" not in turn.reply and NOT_UNDERSTOOD_SENTENCE not in turn.reply
     assert turn.reply.endswith(NO_CHANGES_SENTENCE)
     _assert_nothing_claimed(turn)

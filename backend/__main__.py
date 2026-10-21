@@ -66,7 +66,9 @@ def main() -> None:
             file=sys.stderr,
         )
         raise SystemExit(2) from None
-    uvicorn.run(app, host=host, port=args.port, workers=1, log_level="info")
+    # ``server_header=False``: the product's name in a ``Server:`` header tells a scanner what to
+    # look up and a person nothing (ASVS 14.3.3).
+    uvicorn.run(app, host=host, port=args.port, workers=1, log_level="info", server_header=False)
 
 
 if __name__ == "__main__":

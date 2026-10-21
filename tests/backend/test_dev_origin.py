@@ -109,6 +109,7 @@ def test_the_server_passes_its_port_to_the_settings(
     def fake_run(app: Any, **kwargs: Any) -> None:
         served["settings"] = app.state.settings
         served["port"] = kwargs["port"]
+        served["server_header"] = kwargs.get("server_header")
 
     monkeypatch.setattr(entry.uvicorn, "run", fake_run)
     monkeypatch.setattr(sys, "argv", ["backend", "--port", "8123"])
@@ -118,6 +119,7 @@ def test_the_server_passes_its_port_to_the_settings(
     entry.main()
 
     assert served["port"] == 8123
+    assert served["server_header"] is False  # no "Server: uvicorn" on any response
     assert served["settings"].accepted_origins == ("http://127.0.0.1:8123", "http://localhost:8123")
 
 

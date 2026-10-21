@@ -24,14 +24,22 @@ from buddy.models import (
 )
 from buddy.state import BuddyState
 from buddy.text import count_noun
+from skills.excel.shown_text import shown
 from skills.excel.workbook import (
     WorkbookRefused,
+    check_workbook_limits,
     formula_cell_counts,
     plain_table_problem,
     sheet_names,
 )
 
 logger = logging.getLogger(__name__)
+
+# What a reply says when the Inspector could not read a file again. Fixed sentences: the detail
+# (the exception and the path) goes to the log, never to a finding, because findings reach replies.
+COULD_NOT_READ_OUTPUT = "could not independently read the file it produced"
+COULD_NOT_READ_INPUT = "could not independently read the file it started from"
+COULD_NOT_READ_ANALYSED = "could not independently read the file that was analysed"
 
 
 @dataclass(frozen=True)
@@ -138,13 +146,13 @@ class SpreadsheetDedupeVerifier:
 
         output_path = execution_result.outputs[0]
         try:
-            written = pd.read_excel(output_path)  # fresh, independent read of the artifact
-        except Exception as exc:  # noqa: BLE001 — surfaced as a finding, not raised
+            written = _read_cells(output_path)  # fresh, independent read of the artifact
+        except Exception:  # noqa: BLE001 — surfaced as a finding, not raised
             logger.exception("SpreadsheetDedupeVerifier: failed to read %r", output_path)
             return VerificationResult(
                 passed=False,
                 confidence=1.0,
-                findings=(f"could not independently read {output_path!r}: {exc}",),
+                findings=(COULD_NOT_READ_OUTPUT,),
             )
 
         duplicate_count = _duplicate_rows(written)  # recomputed from scratch
@@ -216,13 +224,13 @@ class SpreadsheetEmptyRowsVerifier:
 
         output_path = execution_result.outputs[0]
         try:
-            written = pd.read_excel(output_path)  # fresh, independent read of the artifact
-        except Exception as exc:  # noqa: BLE001 — surfaced as a finding, not raised
+            written = _read_cells(output_path)  # fresh, independent read of the artifact
+        except Exception:  # noqa: BLE001 — surfaced as a finding, not raised
             logger.exception("SpreadsheetEmptyRowsVerifier: failed to read %r", output_path)
             return VerificationResult(
                 passed=False,
                 confidence=1.0,
-                findings=(f"could not independently read {output_path!r}: {exc}",),
+                findings=(COULD_NOT_READ_OUTPUT,),
             )
 
         empty_row_count = _empty_rows(written)  # recomputed from scratch
@@ -258,6 +266,19 @@ class SpreadsheetEmptyRowsVerifier:
             findings=tuple(findings),
             measurements=(check.measurement(EMPTY_ROWS_TARGET, len(written), empty_row_count),),
         )
+
+
+def _read_cells(path: str) -> pd.DataFrame:
+    """A workbook's first sheet as its cells hold it: no text cell converted to a number.
+
+    ``dtype=object`` keeps a text cell text and a number a number. pandas' default would turn a
+    column of text that looks like numbers into numbers (``"007"`` into ``7``, a long account
+    number into a float that has lost digits), so a check built on it could not tell a skill that
+    did exactly that from one that kept the cells. (A boolean is still read as 0 or 1: backlog,
+    "TRUE/FALSE in a column of numbers".)
+    """
+    check_workbook_limits(path)
+    return pd.read_excel(path, dtype=object)
 
 
 # How each measured target is counted in a file, as read fresh. The step
@@ -383,10 +404,10 @@ def _check_against_input(
     if not input_path:
         return _InputCheck()
     try:
-        original = pd.read_excel(input_path)  # fresh, independent read of the step's input
-    except Exception as exc:  # noqa: BLE001 — surfaced as a finding, not raised
+        original = _read_cells(input_path)  # fresh, independent read of the step's input
+    except Exception:  # noqa: BLE001 — surfaced as a finding, not raised
         logger.exception("Inspector: failed to read step input %r", input_path)
-        return _InputCheck(problem=f"could not independently read its input {input_path!r}: {exc}")
+        return _InputCheck(problem=COULD_NOT_READ_INPUT)
 
     input_rows = len(original)
     removed = removed_count(original)
@@ -422,6 +443,8 @@ def _check_against_input(
     )
 
 
+# The longest text any of the formats below can match ("September 30, 2026" is 18 characters).
+_LONGEST_DATE_CHARS = 32
 _DATE_FORMATS = (
     "%Y-%m-%d",
     "%m/%d/%Y",
@@ -445,6 +468,8 @@ def _matched_date_format(value: str) -> str | None:
         The matching format string, or ``None`` if none of the known
         formats parse ``value``.
     """
+    if len(value) > _LONGEST_DATE_CHARS:  # no listed format is this long; strptime would crawl
+        return None
     for date_format in _DATE_FORMATS:
         try:
             datetime.strptime(value, date_format)
@@ -507,7 +532,7 @@ def _independent_missing_value_findings(df: pd.DataFrame) -> tuple[str, ...]:
             continue
         percentage = 100 * missing / len(df) if len(df) else 0.0
         findings.append(
-            f"{column}: {count_noun(missing, 'missing value')} ({percentage:.1f}%)"
+            f"column {shown(column)}: {count_noun(missing, 'missing value')} ({percentage:.1f}%)"
         )
     return tuple(findings)
 
@@ -532,7 +557,7 @@ def _independent_outlier_findings(df: pd.DataFrame) -> tuple[str, ...]:
             continue
         examples = ", ".join(f"{value:g}" for value in outliers.head(3).tolist())
         findings.append(
-            f"{column}: {count_noun(len(outliers), 'unusually high/low value')} "
+            f"column {shown(column)}: {count_noun(len(outliers), 'unusually high/low value')} "
             f"(e.g. {examples})"
         )
     return tuple(findings)
@@ -569,7 +594,7 @@ def _independent_date_format_findings(df: pd.DataFrame) -> tuple[str, ...]:
                 f"{count_noun(unparseable, 'value')} that "
                 f"{'doesn' if unparseable == 1 else 'don'}'t match a recognized date format"
             )
-        findings.append(f"{column}: " + "; ".join(parts))
+        findings.append(f"column {shown(column)}: " + "; ".join(parts))
     return tuple(findings)
 
 
@@ -596,9 +621,10 @@ def _independent_grouped_key_conflict_findings(df: pd.DataFrame) -> tuple[str, .
                 continue
             example_key = conflicts.index[0]
             findings.append(
-                f"{count_noun(len(conflicts), 'value')} of {key_column!r} "
-                f"{'is' if len(conflicts) == 1 else 'are'} linked to more than one "
-                f"{other_column!r} (e.g. {key_column}={example_key!r})"
+                f"{count_noun(len(conflicts), 'value')} of column {shown(key_column)} "
+                f"{'is' if len(conflicts) == 1 else 'are'} linked to more than one value in "
+                f"column {shown(other_column)} "
+                f"(e.g. {shown(key_column)} = {shown(example_key)})"
             )
     return tuple(findings)
 
@@ -660,19 +686,21 @@ class SpreadsheetAnalysisVerifier:
             )
 
         try:
+            check_workbook_limits(analyzed_file)
             df = pd.read_excel(analyzed_file)  # fresh, independent read of the ORIGINAL
-        except Exception as exc:  # noqa: BLE001 — surfaced as a finding, not raised
+            cells = _read_cells(analyzed_file)  # the same cells, none converted
+        except Exception:  # noqa: BLE001 — surfaced as a finding, not raised
             logger.exception("SpreadsheetAnalysisVerifier: failed to read %r", analyzed_file)
             return VerificationResult(
                 passed=False,
                 confidence=1.0,
-                findings=(f"could not independently read {analyzed_file!r}: {exc}",),
+                findings=(COULD_NOT_READ_ANALYSED,),
             )
 
         findings: list[str] = []
         for category, category_findings in (
-            ("duplicate_rows", _independent_duplicate_row_findings(df)),
-            ("loose_duplicate_rows", _independent_loose_duplicate_row_findings(df)),
+            ("duplicate_rows", _independent_duplicate_row_findings(cells)),
+            ("loose_duplicate_rows", _independent_loose_duplicate_row_findings(cells)),
             ("missing_values", _independent_missing_value_findings(df)),
             ("outliers", _independent_outlier_findings(df)),
             ("date_format", _independent_date_format_findings(df)),
@@ -1012,10 +1040,7 @@ def _sheet_list_problem(step: StepResult) -> str | None:
         return "couldn't independently read the workbook's sheet names"
     if before == after:
         return None
-    return (
-        f"the output's sheets ({', '.join(after) or 'none'}) don't match its input's "
-        f"({', '.join(before)}), so a sheet was lost or renamed"
-    )
+    return "the output's sheets don't match its input's, so a sheet was lost or renamed"
 
 
 def _plain_table_finding(step: StepResult) -> str | None:
@@ -1103,7 +1128,7 @@ class ResidualMeasurer:
             return result
         delivered = execution_result.outputs[0]
         try:
-            written = pd.read_excel(delivered)  # fresh, independent read of the delivered file
+            written = _read_cells(delivered)  # fresh, independent read of the delivered file
         except Exception:  # noqa: BLE001 — no residuals, and nothing is claimed
             logger.exception("ResidualMeasurer: failed to read %r", delivered)
             return result

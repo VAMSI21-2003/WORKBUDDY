@@ -63,6 +63,25 @@ jobs:
       - name: Ruff against ruff-baseline.txt
         run: python scripts/check_ruff_baseline.py
 
+  # A known vulnerability in any pinned package, runtime or development, fails the run. The few
+  # accepted ones are in pip-audit-ignores.toml, each with a reason and a date it expires on.
+  # This job reads the advisory databases, so it can fail on a day nothing in the repository
+  # changed: that is a new advisory, not a flaky test.
+  audit:
+    name: pip-audit (both lock files)
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+      # The tool is not in the lock files: it audits them, and the image never needs it.
+      - name: Install pip-audit
+        run: python -m pip install pip-audit==2.10.1
+      - name: Audit requirements-runtime.lock and requirements-dev.lock
+        run: python scripts/run_pip_audit.py
+
   image:
     name: docker build
     runs-on: ubuntu-24.04

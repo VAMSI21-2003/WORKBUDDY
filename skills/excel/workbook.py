@@ -19,9 +19,31 @@ cross-checks them with openpyxl. A library's list alone isn't trusted,
 because openpyxl silently drops a declared sheet whose XML part is missing.
 Every message in a ``WorkbookRefused`` is fixed text: it reaches the user's
 reply, so it never carries an exception's text or a name read from the file.
+
+A hostile workbook is refused before its table is built: ``check_workbook_limits`` reads the zip
+directory (parts, declared unzipped size), refuses any DOCTYPE or entity declaration, and then runs
+the workbook through the readers the skills, the verifiers and the analysis use, in a child process
+with a memory cap and a time limit (``_scan_in_child``). A 2 MiB ``.xlsx`` can unpack to gigabytes
+of XML, a few cells far out in a sheet make a reader pad the grid between them, and openpyxl parses
+a dozen kinds of part whole on every load, so no list of parts or elements is complete. What the
+child could read inside its limits bounds what the server's own later reads need, because they are
+the same reads. A file that needs more, or whose check crashes or times out, is refused.
+
+Every place the server reads a workbook, and where the child covers it: the upload route reads
+only the zip directory (``backend/uploads.py``); ``sheet_names`` and ``_sheet_problem`` (planner,
+skills, Inspector) and ``formula_cell_counts`` (Inspector) are called in the child, the layout
+check by its row-by-row stream over the load the walk already made; ``pd.read_excel`` in the
+cleaning skills (``dtype=object``), in the Inspector (``dtype=object`` and the default) and in the
+analysis (both at once) are the two reads the child holds at once. The files the skills write are
+read again by the Inspector, and are checked the same way.
 """
 
+import json
 import logging
+import os
+import subprocess
+import sys
+import threading
 import zipfile
 from dataclasses import dataclass
 from pathlib import Path
@@ -51,6 +73,31 @@ _WORKBOOK_CONTENT_TYPES = (
 # An upper bound on the XML parts read: a real workbook.xml is a few KB.
 _MAX_PART_BYTES = 16 * 1024 * 1024
 
+# What a workbook may be before it is refused as too large to open safely. Real tables are far
+# below these (the measured 5 MB file, 61,277 rows by 14 columns, is 858,000 cells and about 60 MB
+# unpacked); the upload route refuses a declared size above ``MAX_UNZIPPED_BYTES`` too.
+MIB = 1024 * 1024
+MAX_UNZIPPED_BYTES = 64 * MIB
+MAX_PARTS = 1000
+MAX_ROWS = 200_000
+MAX_COLUMNS = 1_000
+MAX_CELLS = 250_000
+# Excel's own limit for the text in one cell, and a cap on all the text the cells hold.
+MAX_CELL_CHARS = 32_767
+# The text the cells hold, counted as CPython stores it (1, 2 or 4 bytes a character by the widest
+# character in the cell), not in characters: 10 million emoji took 1.9 GiB of a turn.
+MAX_TEXT_BYTES = 4_000_000
+
+# The check of what a workbook needs to be opened runs in a child process (``_scan_in_child``)
+# under these limits. Unmeasured in the production image until ``scripts/measure_workbook_check.py``
+# has been run there: the app container has 1 GiB, and the server plus one child must fit in it.
+SCAN_MEMORY_BYTES = 512 * MIB  # address space of the child
+SCAN_SECONDS = 30
+# How long a check waits for the one running check before saying the server is busy: as long as
+# that check can take (its time limit, plus the instant checks in the server before the child
+# starts) and a margin, so an ordinary overlap of two users is not "busy".
+SCAN_WAIT_SECONDS = SCAN_SECONDS + 15
+
 # How much of a sheet's XML is fed to the merged-cell scan at a time.
 _SCAN_CHUNK_BYTES = 1 << 20
 
@@ -60,6 +107,46 @@ _SHEETS_UNREADABLE = "the workbook looks damaged: it lists sheets that can't be 
 _PASSWORD = "the workbook is password-protected, so it can't be opened"
 _LEGACY_XLS = (
     "older .xls workbooks (Excel 97–2003) aren't supported yet; saving it as .xlsx will work"
+)
+# Too large to open safely. Fixed text with the limit in it, never a figure read from the file.
+TOO_MANY_PARTS = f"the workbook has more than {MAX_PARTS:,} internal parts, which is too many"
+TOO_BIG_UNPACKED = (
+    f"the workbook unpacks to more than {MAX_UNZIPPED_BYTES // MIB} MB, "
+    "which is more than I can open safely"
+)
+TOO_MANY_ROWS = (
+    f"the workbook has more than {MAX_ROWS:,} rows (all its sheets counted together), "
+    "which is more than I can open safely"
+)
+TOO_MANY_COLUMNS = (
+    f"the sheet has more than {MAX_COLUMNS:,} columns, which is more than I can open safely"
+)
+TOO_MANY_CELLS = (
+    f"the workbook spans more than {MAX_CELLS:,} cells (each sheet's rows times its columns, "
+    "added up), which is more than I can open safely"
+)
+
+TOO_LONG_CELL = (
+    f"a cell holds more than {MAX_CELL_CHARS:,} characters, which is more than I can open safely"
+)
+TOO_MUCH_TEXT = (
+    f"the cells hold more than {MAX_TEXT_BYTES // 1_000_000} million bytes of text once opened "
+    "(emoji and other wide characters count for up to four), which is more than I can open safely"
+)
+# The child process ran out of memory or time, or ended without an answer. All fixed text: nothing
+# the file or the child said reaches it.
+TOO_COSTLY = "the workbook needs more memory or time to open than I allow, so I won't open it"
+CHECK_STOPPED = (
+    "the check of the workbook was stopped before it finished, so I can't tell that it is safe "
+    "to open and I won't open it"
+)
+CHECK_NOT_RUN = "I couldn't run the check of the workbook, so I won't open it"
+CHECK_BUSY = (
+    "the server is busy checking another workbook, so I couldn't check this one; "
+    "please try again in a moment"
+)
+_NOT_ALLOWED = (
+    "the workbook holds XML declarations that an Excel file doesn't use, so I won't open it"
 )
 
 
@@ -188,6 +275,7 @@ def sheet_names(input_path: str) -> list[str]:
             is a legacy ``.xls``, or looks damaged. The message is fixed text.
     """
     try:
+        check_workbook_limits(input_path)
         with open(input_path, "rb") as handle:
             magic = handle.read(8)
             handle.seek(0)
@@ -195,13 +283,350 @@ def sheet_names(input_path: str) -> list[str]:
                 return _zip_sheet_names(handle)
             if magic == _OLE2_MAGIC:
                 raise WorkbookRefused(_PASSWORD if _has_stream(handle) else _LEGACY_XLS)
-    except WorkbookRefused:
+    except (WorkbookRefused, MemoryError):
         raise
     except Exception as exc:  # noqa: BLE001 — unreadable or corrupt, reported as a refusal
         logger.exception("could not read the sheet names of %r", input_path)
         raise WorkbookRefused(_UNREADABLE) from exc
     logger.info("%r isn't an Excel workbook", input_path)
     raise WorkbookRefused(_UNREADABLE)
+
+
+# The verdict for a file already scanned, keyed on what identifies its bytes on disk, so the
+# planner, the skill and the Inspector's reads of the same file scan it once. Bounded. Only what
+# the check computed from the file is kept: a pass, or a limit the file passes. A busy server's
+# "try again", a timeout, a memory error and a crash say nothing certain about the file and are
+# never kept (``_NOT_KEPT``).
+_scanned: dict[tuple[str, int, int, int], str | None] = {}
+_SCANNED_MAX = 64
+_scanned_lock = threading.Lock()
+# One child at a time: the server plus one child must fit in the container.
+_scan_slot = threading.Semaphore(1)
+# Verdicts that are about the check's run and not what the file holds (it ran out of memory or
+# time, or its child crashed): never kept, so the next check of the same file runs again.
+_NOT_KEPT = (TOO_COSTLY, CHECK_STOPPED)
+# Set in the child process, whose own reads must not start another child.
+_in_scan_child = False
+
+
+def check_workbook_limits(input_path: str) -> None:
+    """Refuse a workbook that is too large to open safely, before its table is built.
+
+    Only zip content (``.xlsx``) is looked at; anything else is left to the callers' own
+    refusals. Checks, each cheaper than the next: the number of parts; the declared unzipped size
+    of all parts (``zipfile`` never hands over more of a part than its directory declares, so
+    that total bounds what is read); no DOCTYPE or entity declaration in any part; then the
+    readers the skills use, run in a child process with a memory cap and a time limit
+    (``_scan_in_child``), so that what is counted and what is needed is what the table would be
+    built from, whatever the XML says about itself. A file that can't be read is left to the
+    callers' own refusals: the table's reader can't read it either. A file whose check ran out of
+    memory or time, or crashed, is refused.
+
+    Args:
+        input_path: The workbook to check. It is only ever read.
+
+    Raises:
+        WorkbookRefused: A limit was passed, or the check could not be run. The message is
+            fixed text.
+    """
+    if _in_scan_child:
+        return
+    try:
+        stat = Path(input_path).stat()
+    except OSError:
+        return  # the caller's own read says what is wrong with the path
+    key = (input_path, stat.st_size, stat.st_mtime_ns, stat.st_ino)
+    with _scanned_lock:
+        known = key in _scanned
+        verdict = _scanned.get(key)
+    if not known:
+        if not _scan_slot.acquire(timeout=SCAN_WAIT_SECONDS):
+            raise WorkbookRefused(CHECK_BUSY)
+        try:
+            with _scanned_lock:
+                known = key in _scanned
+                verdict = _scanned.get(key)
+            if not known:  # another thread may have checked this very file while this one waited
+                verdict = _scan(input_path)
+                if verdict not in _NOT_KEPT:
+                    with _scanned_lock:
+                        if len(_scanned) >= _SCANNED_MAX:
+                            _scanned.clear()
+                        _scanned[key] = verdict
+        finally:
+            _scan_slot.release()
+    if verdict is not None:
+        raise WorkbookRefused(verdict)
+
+
+def _scan(input_path: str) -> str | None:
+    """The refusal text for a workbook over a limit, or ``None``."""
+    try:
+        with open(input_path, "rb") as handle:
+            if not handle.read(len(_ZIP_MAGIC)).startswith(_ZIP_MAGIC):
+                return None
+        with zipfile.ZipFile(input_path) as archive:
+            entries = archive.infolist()
+            if len(entries) > MAX_PARTS:
+                return TOO_MANY_PARTS
+            if sum(entry.file_size for entry in entries) > MAX_UNZIPPED_BYTES:
+                return TOO_BIG_UNPACKED
+            # The one part every reader opens first, refused by its declared size as it always
+            # was (``_read_part``), before a child is started for it.
+            for entry in entries:
+                if entry.filename.lower() == "[content_types].xml":
+                    if entry.file_size > _MAX_PART_BYTES:
+                        return _UNREADABLE
+            # Every part, whatever its name: the workbook's own relationships say which ones a
+            # reader opens. A part that isn't XML stops the parser at its first bytes.
+            for entry in entries:
+                if _declares_entities(archive, entry):
+                    return _NOT_ALLOWED
+    except Exception:  # noqa: BLE001 — damaged or unreadable: the callers' own reads refuse it
+        logger.info("%r couldn't be scanned for size limits", input_path)
+        return None
+    return _scan_in_child(input_path)
+
+
+def _declares_entities(archive: zipfile.ZipFile, entry: zipfile.ZipInfo) -> bool:
+    """Whether the part is XML that declares a DOCTYPE or an entity (read by the parser itself).
+
+    A part that isn't well-formed XML says nothing here: the callers' own reads refuse it.
+    """
+    parser = expat.ParserCreate()
+    found = False
+
+    def declared(*_: object) -> None:
+        nonlocal found
+        found = True
+        raise _LimitPassed
+
+    parser.StartDoctypeDeclHandler = declared
+    parser.EntityDeclHandler = declared
+    try:
+        with archive.open(entry) as part:
+            while chunk := part.read(_SCAN_CHUNK_BYTES):
+                parser.Parse(chunk, False)
+            parser.Parse(b"", True)
+    except _LimitPassed:
+        pass
+    except Exception:  # noqa: BLE001 — not XML, or damaged: not this check's business
+        return False
+    return found
+
+
+# What the child can answer, by position: the parent maps the number back to fixed text, so
+# nothing the child prints (and nothing from the file) is ever shown.
+_CHILD_REFUSALS = (
+    TOO_MANY_ROWS,
+    TOO_MANY_COLUMNS,
+    TOO_MANY_CELLS,
+    TOO_LONG_CELL,
+    TOO_MUCH_TEXT,
+    TOO_COSTLY,
+)
+
+# The child imports the project from the repository root, with its own limits set first. It sets
+# its OOM score to the highest, so that if the container runs out of memory the child is the one
+# the kernel kills, not the server.
+_CHILD_PREAMBLE = (
+    "import sys\n"
+    "try:\n"
+    "    import resource\n"
+    "except ImportError:  # no memory cap on a platform without it (Windows): the time limit holds\n"
+    "    resource = None\n"
+    "cap = int(sys.argv[2])\n"
+    "if resource is not None:\n"
+    "    resource.setrlimit(resource.RLIMIT_AS, (cap, cap))\n"
+    "try:\n"
+    "    open('/proc/self/oom_score_adj', 'w').write('1000')\n"
+    "except OSError:\n"
+    "    pass\n"
+)
+_CHILD_CODE = _CHILD_PREAMBLE + (
+    "sys.path.insert(0, sys.argv[3])\n"
+    "from skills.excel.workbook import _scan_in_this_process\n"
+    "sys.stdout.write(_scan_in_this_process(sys.argv[1], sys.argv[4]))\n"
+)
+# The limits the parent hands the child, by name: the child checks against the same numbers.
+_LIMIT_NAMES = ("MAX_ROWS", "MAX_COLUMNS", "MAX_CELLS", "MAX_CELL_CHARS", "MAX_TEXT_BYTES")
+_PROJECT_ROOT = str(Path(__file__).resolve().parents[2])
+# The only variables of the server's environment the child is given (and every ``LC_*``).
+# ``SYSTEMROOT`` is there because Python does not start on Windows without it.
+_CHILD_ENVIRONMENT = ("PATH", "LANG", "LANGUAGE", "SYSTEMROOT")
+
+
+def _xml_reader_mode() -> str:
+    """The ``OPENPYXL_LXML`` setting that makes a fresh process parse as this one does."""
+    from openpyxl.xml import LXML
+
+    return "True" if LXML else "False"
+
+
+def _scan_in_child(input_path: str) -> str | None:
+    """Run the readers on the workbook in a child process; the refusal text, or ``None``.
+
+    The child runs ``_scan_in_this_process`` with an address-space cap (``SCAN_MEMORY_BYTES``) and
+    is stopped after ``SCAN_SECONDS``. Out of memory, out of time, a crash, or an answer the
+    parent doesn't know are all refusals: the file is never let through because its check failed.
+    """
+    # Not the server's environment (it holds the API keys): the program path, the locale, and the
+    # thread variables, one BLAS thread because each reserves address space the cap would count.
+    environment = {
+        name: value
+        for name, value in os.environ.items()
+        if name in _CHILD_ENVIRONMENT or name.startswith("LC_")
+    }
+    environment.update(OPENBLAS_NUM_THREADS="1", OMP_NUM_THREADS="1", MKL_NUM_THREADS="1")
+    # The child must read with the same XML parsers as this process, or what it measures is not
+    # what the server's own reads will cost (lxml is far lighter than the standard library's).
+    environment["OPENPYXL_LXML"] = _xml_reader_mode()
+    try:
+        done = subprocess.run(  # noqa: S603 — fixed argv, the path is an argument, not code
+            [
+                sys.executable,
+                "-I",
+                "-c",
+                _CHILD_CODE,
+                input_path,
+                str(SCAN_MEMORY_BYTES),
+                _PROJECT_ROOT,
+                json.dumps({name: globals()[name] for name in _LIMIT_NAMES}),
+            ],
+            capture_output=True,
+            text=True,
+            timeout=SCAN_SECONDS,
+            env=environment,
+            check=False,
+        )
+    except subprocess.TimeoutExpired:
+        logger.info("%r: the check ran past %d s", input_path, SCAN_SECONDS)
+        return TOO_COSTLY
+    except Exception as exc:  # noqa: BLE001 — the child could not be started: nothing was checked
+        logger.exception("could not start the check of %r", input_path)
+        # Refused, but not kept as the file's verdict: this says nothing about the file.
+        raise WorkbookRefused(CHECK_NOT_RUN) from exc
+    answer = done.stdout.strip()
+    if done.returncode != 0:
+        logger.info("%r: the check ended with status %d", input_path, done.returncode)
+        return CHECK_STOPPED
+    if answer == "PASS":
+        return None
+    prefix, _, index = answer.partition(":")
+    if prefix == "REFUSE" and index.isdigit() and int(index) < len(_CHILD_REFUSALS):
+        return _CHILD_REFUSALS[int(index)]
+    return CHECK_STOPPED
+
+
+def _scan_in_this_process(input_path: str, limits: str = "{}") -> str:
+    """The child's job: ``"PASS"`` or ``"REFUSE:<n>"`` (``n`` indexes ``_CHILD_REFUSALS``).
+
+    ``limits`` is the JSON the parent passes: the values of ``_LIMIT_NAMES`` to check against.
+
+    Counts what the table's reader would build (``_reader_verdict``), then reads the workbook
+    the ways the skills, the verifiers and the analysis do (``_read_as_the_skills_do``), so what
+    is held in memory here is what the server's own reads will hold. Only an out-of-memory error
+    is an answer of its own; a file the readers can't read is left to the callers' refusals.
+    """
+    global _in_scan_child
+    _in_scan_child = True
+    for name, value in json.loads(limits).items():
+        if name in _LIMIT_NAMES and isinstance(value, int):
+            globals()[name] = value
+    try:
+        verdict = _reader_verdict(input_path)
+        if verdict is None:
+            _read_as_the_skills_do(input_path)
+    except MemoryError:
+        verdict = TOO_COSTLY
+    if verdict is None:
+        return "PASS"
+    return f"REFUSE:{_CHILD_REFUSALS.index(verdict)}"
+
+
+def _read_as_the_skills_do(input_path: str) -> None:
+    """Build the tables the analysis builds, and the sheet listing the planner reads.
+
+    The analysis holds a default read and a ``dtype=object`` read of the first sheet at once
+    (``SpreadsheetAnalysisSkill``, the largest the app makes); the cleaning skills and the
+    Inspector make the second alone; the planner and the Inspector list the sheets; the Inspector
+    counts the original's formulas (``formula_cell_counts``, a load that parses formulas). The
+    layout check streams cells one row at a time over the same load as the walk and adds time,
+    not memory, so it is not repeated here. A file these cannot read is not this check's
+    business, so every error but running out of memory is left to the callers.
+    """
+    import pandas as pd
+
+    try:
+        sheet_names(input_path)
+        frames = (pd.read_excel(input_path), pd.read_excel(input_path, dtype=object))
+        del frames
+        # The Inspector's count of the original's formulas: the only load with ``data_only=False``,
+        # the one mode in which openpyxl parses formulas and keeps every shared-formula master in
+        # memory for the whole sheet. It costs real time and memory, so it is held to the limits.
+        formula_cell_counts(input_path)
+    except MemoryError:
+        raise
+    except Exception:  # noqa: BLE001 — unreadable: the callers' own reads refuse it, as they do
+        logger.info("%r couldn't be read by the check", input_path)
+
+
+class _LimitPassed(Exception):
+    """Raised inside a scan to stop at the first limit passed."""
+
+
+def _reader_verdict(input_path: str) -> str | None:
+    """Walk the workbook the way the table is read, counting what that read would build.
+
+    pandas builds its table from openpyxl's read-only rows, so this uses the same reader on the
+    same file and counts what it yields, instead of guessing at the XML: the rows it pads out to
+    (one cell at row 20,000 is 19,999 rows), the widest row, and the text in the cells. It holds one
+    row at a time and stops at the first limit passed. A workbook the reader can't read is left
+    to the callers' own refusals, because pandas can't read it either.
+    """
+    try:
+        with open(input_path, "rb") as handle:
+            book = openpyxl.load_workbook(
+                handle, read_only=True, data_only=True, keep_links=False
+            )
+            try:
+                grids = chars = all_rows = 0
+                for sheet in book.worksheets:
+                    sheet.reset_dimensions()  # as pandas does: a wrong <dimension> hides nothing
+                    rows = widest = 0
+                    for row in sheet.iter_rows(values_only=True):
+                        rows += 1
+                        all_rows += 1
+                        widest = max(widest, len(row))
+                        # All sheets together: one part can be declared as thousands of sheets,
+                        # and the reader pads every one of them out to its last row.
+                        if all_rows > MAX_ROWS:
+                            return TOO_MANY_ROWS
+                        if widest > MAX_COLUMNS:
+                            return TOO_MANY_COLUMNS
+                        if grids + rows * widest > MAX_CELLS:
+                            return TOO_MANY_CELLS
+                        for value in row:
+                            if isinstance(value, str):
+                                if len(value) > MAX_CELL_CHARS:
+                                    return TOO_LONG_CELL
+                                chars += len(value) * _bytes_a_character(value)
+                                if chars > MAX_TEXT_BYTES:
+                                    return TOO_MUCH_TEXT
+                    grids += rows * widest
+            finally:
+                book.close()
+    except MemoryError:
+        raise  # not "can't be read": the file needs more than the check was given
+    except Exception:  # noqa: BLE001 — the same reader would fail in pandas, with a refusal
+        logger.info("%r couldn't be walked for size limits", input_path)
+    return None
+
+
+def _bytes_a_character(text: str) -> int:
+    """How many bytes CPython stores for each character of ``text``: 1, 2 or 4."""
+    widest = max(text, default="")
+    return 4 if widest > "\uffff" else 2 if widest > "\xff" else 1
 
 
 def _zip_sheet_names(handle) -> list[str]:  # noqa: ANN001 — a binary file object
@@ -213,7 +638,7 @@ def _zip_sheet_names(handle) -> list[str]:  # noqa: ANN001 — a binary file obj
     handle.seek(0)
     # A file handle, not the path: openpyxl rejects an .xls name even when the
     # content is a workbook it can read.
-    book = openpyxl.load_workbook(handle, read_only=True)
+    book = openpyxl.load_workbook(handle, read_only=True, keep_links=False)
     try:
         loaded = list(book.sheetnames)
     finally:
@@ -274,7 +699,9 @@ def _sheet_problem(input_path: str, sheet_name: str) -> str | None:
     """The refusal text for a sheet that isn't a plain table, or ``None``."""
     try:
         with open(input_path, "rb") as handle:
-            book = openpyxl.load_workbook(handle, read_only=True, data_only=True)
+            book = openpyxl.load_workbook(
+                handle, read_only=True, data_only=True, keep_links=False
+            )
             try:
                 sheet = book[sheet_name]
                 # A wrong <dimension> would hide cells that pandas (which ignores it) reads.
@@ -282,6 +709,8 @@ def _sheet_problem(input_path: str, sheet_name: str) -> str | None:
                 reason = _MERGED_CELLS if _has_merged_cells(sheet) else _layout_problem(sheet)
             finally:
                 book.close()
+    except MemoryError:
+        raise
     except Exception as exc:  # noqa: BLE001 — unreadable or corrupt, reported as a refusal
         logger.exception("could not check the layout of %r", input_path)
         raise WorkbookRefused(_UNREADABLE) from exc
@@ -389,8 +818,12 @@ def formula_cell_counts(input_path: str) -> FormulaCounts:
     formulas = without_value = 0
     try:
         with open(input_path, "rb") as shown_handle, open(input_path, "rb") as saved_handle:
-            shown_book = openpyxl.load_workbook(shown_handle, read_only=True, data_only=False)
-            saved_book = openpyxl.load_workbook(saved_handle, read_only=True, data_only=True)
+            shown_book = openpyxl.load_workbook(
+                shown_handle, read_only=True, data_only=False, keep_links=False
+            )
+            saved_book = openpyxl.load_workbook(
+                saved_handle, read_only=True, data_only=True, keep_links=False
+            )
             try:
                 for name in names:
                     shown_sheet, saved_sheet = shown_book[name], saved_book[name]
@@ -407,6 +840,8 @@ def formula_cell_counts(input_path: str) -> FormulaCounts:
             finally:
                 shown_book.close()
                 saved_book.close()
+    except MemoryError:
+        raise
     except Exception as exc:  # noqa: BLE001 — unreadable or corrupt, reported as a refusal
         logger.exception("could not count the formulas of %r", input_path)
         raise WorkbookRefused(_UNREADABLE) from exc

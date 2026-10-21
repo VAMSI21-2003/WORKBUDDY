@@ -103,7 +103,9 @@ class ExcelRemoveEmptyRowsSkill(Skill):
             logger.info("%s: refused %r: %s", type(self).__name__, input_path, exc)
             return SkillResult(status=SkillStatus.FAILURE, errors=[str(exc)])
         try:
-            original = pd.read_excel(input_path, sheet_name=sheet_name)  # READ-ONLY open
+            original = pd.read_excel(  # READ-ONLY open
+                input_path, sheet_name=sheet_name, dtype=object
+            )
         except Exception:  # noqa: BLE001 — surfaced as a SkillResult, not raised
             logger.exception("ExcelRemoveEmptyRowsSkill: failed to read %r", input_path)
             return SkillResult(status=SkillStatus.FAILURE, errors=["could not read the workbook"])

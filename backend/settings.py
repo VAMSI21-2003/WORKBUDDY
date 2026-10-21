@@ -184,7 +184,9 @@ class Settings:
     max_upload_bytes: int = DEFAULT_MAX_UPLOAD_BYTES
     max_message_chars: int = 4000
     max_zip_entries: int = 1000
-    max_zip_uncompressed_bytes: int = 200 * MIB
+    # Kept equal to skills.excel.workbook.MAX_UNZIPPED_BYTES (a test pins it), so an upload the
+    # skills would refuse for its size is refused here, with a message, before it is stored.
+    max_zip_uncompressed_bytes: int = 64 * MIB
     turn_deadline_s: float = 180.0
     confirmation_timeout_s: float = 120.0
     max_concurrent_turns: int = 2

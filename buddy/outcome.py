@@ -180,6 +180,10 @@ DONE_UNREQUESTED = "done_unrequested"
 NOT_PLANNED = "not_planned"  # Brain's reading has it; no step for its capability ran
 NOT_READ_AS_REQUEST = "not_read_as_request"  # only the mention detector has it; no step ran
 NO_SKILL = "no_skill"  # Brain listed it as "unsupported": no capability exists
+# Brain listed it as "unsupported" with words that overlap the phrase of an action that ran, so
+# whether the user asked for something more is not known: a double-listed paraphrase of the done
+# action, or a slip. Neither "Done" nor "Partly done" is true of both readings.
+NO_SKILL_UNSURE = "no_skill_unsure"
 # The report was asked for (Brain's reading) and the analysis can't give it. True by how each is
 # derived from the verdicts: the re-check of the final file failed; the analysis of the original
 # failed; or no analysis verdict exists.
@@ -310,14 +314,17 @@ class OutcomeReport:
         - ``"Partly done"`` when at least one action Brain's reading has is
           ``DONE`` and at least one is ``NOT_DONE``. An action only the
           mention detector found never produces it (D2), and never counts as
-          done for it: it only keeps "Done" away.
+          done for it: it only keeps "Done" away. Nor does an ``unsupported``
+          entry that overlaps a done action's phrase (``NO_SKILL_UNSURE``):
+          the work it overlaps was done, and whether more was asked is not known.
         - Otherwise no lead word.
         """
         if self.request_complete:
             return LEAD_DONE
         requested_done = any(a.status == DONE and a.source in BRAIN_SOURCES for a in self.actions)
         brain_not_done = any(
-            a.status == NOT_DONE and a.source in BRAIN_SOURCES for a in self.actions
+            a.status == NOT_DONE and a.source in BRAIN_SOURCES and a.reason != NO_SKILL_UNSURE
+            for a in self.actions
         )
         if requested_done and brain_not_done:
             return LEAD_PARTLY_DONE
@@ -425,9 +432,10 @@ def build_outcome_report(
             continue
         if entry.action == UNSUPPORTED:
             outcome = _no_skill_outcome(entry, ledger, passed_capabilities)
-            if outcome is None or outcome.user_phrase.casefold() in said_no_skill:
+            key = f"{outcome.reason}:{outcome.user_phrase.casefold()}" if outcome else ""
+            if outcome is None or key in said_no_skill:
                 continue
-            said_no_skill.add(outcome.user_phrase.casefold())
+            said_no_skill.add(key)
             not_done.append(outcome)
             continue
         capability = ACTIONS_BY_NAME[entry.action].capability
@@ -564,22 +572,31 @@ def _no_skill_outcome(
       words in ``_FILLER_WORDS`` are removed, or if a negation/keep word is
       present next to an action that ran (the request may be the opposite of
       what was done), or if a named action didn't pass and has no ledger
-      entry of its own (nothing else will say it wasn't done), unless a
-      negation word is present;
+      entry of its own (nothing else will say it wasn't done), whether or not
+      a negation word is present ("don't keep the empty rows" is a request to
+      remove them, "don't remove the empty rows" is not, and no word list can
+      tell them apart);
     - otherwise the entry is dropped: the action has its own sentence (or
       none, when it ran and was said).
 
-    Residual risks (both need a gross misread by Brain; closing them needs the
-    ledger-recall measurement, backlog item 1, design 6.8, not more words):
+    The words Brain quoted for an action that passed cover an "unsupported"
+    entry's words only if the quoted phrase itself names that action (its
+    mention pattern matches it). Brain's phrase "delete the file" filed under
+    duplicate removal doesn't, so the entry speaks, in the generic sentence:
+    the reply says that part wasn't done.
 
-    - A done action's phrase with no joiner that contains an unsupported verb
-      (Brain gives "delete the file" as the dedupe phrase) is still dropped.
-    - A double negation in a paraphrase ("don't keep the empty rows") counts
-      as a negation.
+    A whole-message ``unsupported`` flag on a request the skills fully carried
+    out can't be told from the same flag on "remove duplicates and delete the
+    file" by any word list (backlog, MEDIUM-u). When its words overlap a done
+    action's phrase that doesn't name the action, the outcome is
+    ``NO_SKILL_UNSURE``: a fixed sentence that is true whichever it was, and no
+    lead word ("Done" would be false for the second, "Partly done" for the
+    first). Owner's decision on R1-2 (option b).
     """
     phrase = entry.source_phrase
     lowered = phrase.casefold().replace("\u2019", "'")
-    names_action = named_passed = named_silent = False
+    whole = lowered
+    names_action = named_passed = named_silent = unabsorbed = False
     for action in ACTIONS_BY_NAME.values():
         if action.name not in _ACTION_WITH_VERB:
             continue
@@ -597,20 +614,34 @@ def _no_skill_outcome(
         if other_action is None or other_action.capability not in passed_capabilities:
             continue
         said = other.source_phrase.casefold().replace("\u2019", "'").strip()
-        if not said or said not in lowered:
+        if not said or said not in whole:
             continue
-        names_action = True
-        if not _TWO_REQUESTS.search(said):
-            named_passed, lowered = True, lowered.replace(said, " ")
+        # Brain's phrase for a done action covers the same words in an "unsupported" entry only
+        # if that phrase names the action it was given to. A phrase that doesn't ("delete the
+        # file", filed under duplicate removal) was put there by a misreading, and the words it
+        # holds are not shown to have been done. The entry then speaks, in the generic sentence
+        # (a quote might include the words of the action that did run).
+        if other_action.mention is None or not other_action.mention.search(said):
+            names_action = unabsorbed = True
+            continue
+        if _TWO_REQUESTS.search(said):
+            # Brain's phrase for the done action spans two requests, and this entry holds all of
+            # it: a whole-message flag. It can't be told from a double-listing, so it is unsure.
+            names_action = unabsorbed = True
+        elif said in lowered:
+            names_action = named_passed = True
+            lowered = lowered.replace(said, " ")
     if not names_action:
         quoted = _quoted_phrase(phrase) if entry.phrase_found else ""
         return ActionOutcome("", NOT_DONE, reason=NO_SKILL, source=entry.source, user_phrase=quoted)
     words = re.findall(r"[\w']+", lowered)
     negated = any(w in _NEGATION_WORDS for w in words)
+    if unabsorbed:
+        return ActionOutcome("", NOT_DONE, reason=NO_SKILL_UNSURE, source=entry.source)
     if (
         any(w not in _FILLER_WORDS for w in words)
         or (negated and named_passed)
-        or (named_silent and not negated)
+        or named_silent
     ):
         return ActionOutcome("", NOT_DONE, reason=NO_SKILL, source=entry.source)
     return None
@@ -837,12 +868,20 @@ def _unrequested_sentence(action: ActionOutcome, *, also: bool) -> str:
     return f"{subject} {_removed_clause(measurement, wording.row_noun)}, {_NOT_IN_READING}."
 
 
+NO_SKILL_UNSURE_SENTENCE = (
+    "Some of your wording overlaps what I did. If you asked for anything beyond that, "
+    "I haven't done it, so check the copy is what you wanted."
+)
+
+
 def _not_done_sentence(action: ActionOutcome, *, nothing_done: bool = False) -> str:
     """The sentence for a ``NOT_DONE`` action, from its reason code.
 
     Each one says what Buddy didn't run, never that rows weren't removed:
     another step may have removed some (dedupe removes repeated blank rows).
     """
+    if action.reason == NO_SKILL_UNSURE:
+        return NO_SKILL_UNSURE_SENTENCE
     if action.reason == NO_SKILL:
         if action.user_phrase:
             what = "that" if nothing_done else "this part"

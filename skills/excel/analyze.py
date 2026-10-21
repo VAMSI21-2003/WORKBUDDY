@@ -18,6 +18,8 @@ from typing import Protocol
 import pandas as pd
 
 from skills.base import PermissionTier, Skill, SkillResult, SkillStatus, SkillTask
+from skills.excel.shown_text import shown
+from skills.excel.workbook import WorkbookRefused, check_workbook_limits
 
 logger = logging.getLogger(__name__)
 
@@ -33,10 +35,15 @@ _DATE_FORMATS = (
     "%b %d, %Y",
     "%b %d %Y",
 )
+# The longest text any of the formats above can match ("September 30, 2026" is 18 characters).
+_LONGEST_DATE_CHARS = 32
 _NAME_COLUMN_PATTERN = re.compile(r"name", re.IGNORECASE)
 _DISCRIMINATING_COLUMN_PATTERN = re.compile(r"phone|email|tel", re.IGNORECASE)
 _KEY_COLUMN_PATTERN = _DISCRIMINATING_COLUMN_PATTERN
 _NEAR_DUPLICATE_ROW_LIMIT = 10_000
+# The column names Splink is given in place of the file's own headers.
+_NAME_FIELD = "name_field"
+_KEY_FIELD = "key_field"
 _NO_ANALYTICS_ENV = "YDATA_PROFILING_NO_ANALYTICS"
 
 
@@ -81,9 +88,19 @@ class MissingValueAndDistributionAnalyzer:
 
         report = ProfileReport(df, minimal=True, progress_bar=False)
         description = report.get_description()
-        return tuple(
-            str(alert) for alert in description.alerts if alert.alert_type is AlertType.MISSING
-        )
+        findings = []
+        for alert in description.alerts:
+            if alert.alert_type is not AlertType.MISSING:
+                continue
+            # Not ``str(alert)``: that puts the header in the sentence as it is. The header goes in
+            # as quoted file text, and the count is the frame's own.
+            missing = int(df[alert.column_name].isna().sum())
+            percentage = 100 * missing / len(df) if len(df) else 0.0
+            noun = "missing value" if missing == 1 else "missing values"
+            findings.append(
+                f"column {shown(alert.column_name)}: {missing} {noun} ({percentage:.1f}%)"
+            )
+        return tuple(findings)
 
 
 class ExactDuplicateRowAnalyzer:
@@ -155,7 +172,7 @@ class IQROutlierAnalyzer:
                 continue
             examples = ", ".join(f"{value:g}" for value in outliers.head(3).tolist())
             findings.append(
-                f"{column}: {len(outliers)} unusually high/low "
+                f"column {shown(column)}: {len(outliers)} unusually high/low "
                 f"{'value' if len(outliers) == 1 else 'values'} (e.g. {examples})"
             )
         return tuple(findings)
@@ -163,6 +180,8 @@ class IQROutlierAnalyzer:
 
 def _matched_date_format(value: str) -> str | None:
     """Return the first of ``_DATE_FORMATS`` that parses ``value`` exactly."""
+    if len(value) > _LONGEST_DATE_CHARS:  # no listed format is this long; strptime would crawl
+        return None
     for date_format in _DATE_FORMATS:
         try:
             datetime.strptime(value, date_format)
@@ -209,7 +228,7 @@ class DateFormatConsistencyAnalyzer:
                     f"{unparseable} {'value that doesn' if unparseable == 1 else 'values that don'}"
                     "'t match a recognized date format"
                 )
-            findings.append(f"{column}: " + "; ".join(parts))
+            findings.append(f"column {shown(column)}: " + "; ".join(parts))
         return tuple(findings)
 
 
@@ -236,10 +255,23 @@ class GroupedKeyConflictAnalyzer:
                 example_key = conflicts.index[0]
                 findings.append(
                     f"{len(conflicts)} {'value' if len(conflicts) == 1 else 'values'} of "
-                    f"{key_column!r} {'is' if len(conflicts) == 1 else 'are'} linked to more "
-                    f"than one {other_column!r} (e.g. {key_column}={example_key!r})"
+                    f"column {shown(key_column)} {'is' if len(conflicts) == 1 else 'are'} linked "
+                    f"to more than one value in column {shown(other_column)} "
+                    f"(e.g. {shown(key_column)} = {shown(example_key)})"
                 )
         return tuple(findings)
+
+
+# What the near-duplicate check compares of a field, and the most pairs it lets its blocking rules
+# make. Both bound memory by what the file declares, not by what it holds: 200 rows of 30,000
+# characters, or 10,000 rows sharing a first three letters, would otherwise take gigabytes.
+_NEAR_DUPLICATE_FIELD_CHARS = 100
+_NEAR_DUPLICATE_PAIR_LIMIT = 250_000
+
+
+def _field(column: pd.Series) -> object:
+    """The start of each value as text, short enough to compare cheaply."""
+    return column.astype(str).str.slice(0, _NEAR_DUPLICATE_FIELD_CHARS).to_numpy()
 
 
 class NearDuplicateAnalyzer:
@@ -269,27 +301,42 @@ class NearDuplicateAnalyzer:
         import splink.comparison_library as cl
         from splink import DuckDBAPI, Linker, SettingsCreator, block_on
 
-        working = df[[name_column, discriminating_column]].copy()
-        working.insert(0, "unique_id", range(len(working)))
-        working[name_column] = working[name_column].astype(str)
-        working[discriminating_column] = working[discriminating_column].astype(str)
+        # The two headers come from the user's file and Splink builds SQL from column names, so
+        # they never get that far: the frame holds fixed names, and the header is only ever
+        # shown, quoted, in the finding.
+        working = pd.DataFrame(
+            {
+                "unique_id": range(len(df)),
+                _NAME_FIELD: _field(df[name_column]),
+                _KEY_FIELD: _field(df[discriminating_column]),
+            }
+        )
+        # Splink materialises every pair its two blocking rules make, with both full strings:
+        # count them first (cheap) and skip the check above a limit, as for too many rows.
+        pairs = sum(
+            int(n) * (int(n) - 1) // 2
+            for column in (working[_NAME_FIELD].str.slice(0, 3), working[_KEY_FIELD])
+            for n in column.value_counts()
+        )
+        if pairs > _NEAR_DUPLICATE_PAIR_LIMIT:
+            return ()
 
         settings = SettingsCreator(
             link_type="dedupe_only",
-            comparisons=[cl.NameComparison(name_column), cl.ExactMatch(discriminating_column)],
+            comparisons=[cl.NameComparison(_NAME_FIELD), cl.ExactMatch(_KEY_FIELD)],
             blocking_rules_to_generate_predictions=[
-                block_on(f"substr({name_column}, 1, 3)"),
-                block_on(discriminating_column),
+                block_on(f"substr({_NAME_FIELD}, 1, 3)"),
+                block_on(_KEY_FIELD),
             ],
         )
         try:
             linker = Linker(working, settings, db_api=DuckDBAPI(), set_up_basic_logging=False)
             linker.training.estimate_u_using_random_sampling(max_pairs=1e5)
             linker.training.estimate_parameters_using_expectation_maximisation(
-                block_on(f"substr({name_column}, 1, 3)")
+                block_on(f"substr({_NAME_FIELD}, 1, 3)")
             )
             linker.training.estimate_parameters_using_expectation_maximisation(
-                block_on(discriminating_column)
+                block_on(_KEY_FIELD)
             )
             predictions = linker.inference.predict().as_pandas_dataframe()
         except Exception:  # noqa: BLE001 — degrade gracefully, never crash the whole analysis
@@ -297,7 +344,7 @@ class NearDuplicateAnalyzer:
             return ()
 
         findings: list[str] = []
-        name_left, name_right = f"{name_column}_l", f"{name_column}_r"
+        name_left, name_right = f"{_NAME_FIELD}_l", f"{_NAME_FIELD}_r"
         # Threshold set from real observed behavior (scripts/spike_tools_test.py),
         # not a textbook round number: with unsupervised EM training on a
         # realistically small upload, genuine spelling-variant duplicates
@@ -308,12 +355,16 @@ class NearDuplicateAnalyzer:
         likely = predictions[predictions["match_probability"] >= 0.15]
         for _, row in likely.iterrows():
             findings.append(
-                f"rows with {name_column} {row[name_left]!r} and {row[name_right]!r} look "
-                f"like they might be the same (match probability "
+                f"rows with {shown(name_column)} {shown(row[name_left])} and "
+                f"{shown(row[name_right])} look like they might be the same (match probability "
                 f"{row['match_probability']:.2f})"
             )
         return tuple(findings)
 
+
+# The checks that read the cells as they are (no text-to-number conversion), because they count
+# what the cleaning skills count.
+_CELL_CHECKS = frozenset({"duplicate_rows", "loose_duplicate_rows"})
 
 _ANALYZERS: tuple[tuple[str, Analyzer], ...] = (
     ("missing_and_distribution", MissingValueAndDistributionAnalyzer()),
@@ -412,7 +463,15 @@ class SpreadsheetAnalysisSkill(Skill):
 
         input_path = task.input_references[0]
         try:
+            check_workbook_limits(input_path)
+        except WorkbookRefused as refused:  # its text is fixed, so it can be shown
+            logger.info("SpreadsheetAnalysisSkill: refused %r: %s", input_path, refused)
+            return SkillResult(status=SkillStatus.FAILURE, errors=[str(refused)])
+        try:
             df = pd.read_excel(input_path)  # READ-ONLY open of the upload
+            # The cells as they are, for the duplicate checks: the cleaning skills compare rows
+            # without converting a text cell to a number, so "exact duplicate" means that here too.
+            cells = pd.read_excel(input_path, dtype=object)  # READ-ONLY open of the upload
         except Exception:  # noqa: BLE001 — surfaced as a SkillResult, not raised
             logger.exception("SpreadsheetAnalysisSkill: failed to read %r", input_path)
             return SkillResult(status=SkillStatus.FAILURE, errors=["could not read the workbook"])
@@ -421,7 +480,7 @@ class SpreadsheetAnalysisSkill(Skill):
         total_finding_count = 0
         for check_name, analyzer in _ANALYZERS:
             try:
-                findings = analyzer(df)
+                findings = analyzer(cells if check_name in _CELL_CHECKS else df)
             except Exception:  # noqa: BLE001 — one analyzer's failure isn't the whole task's
                 logger.exception("SpreadsheetAnalysisSkill: %s analyzer failed", check_name)
                 findings = ()

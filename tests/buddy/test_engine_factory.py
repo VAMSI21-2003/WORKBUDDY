@@ -18,6 +18,7 @@ import pytest
 
 from buddy.engine_factory import build_engine
 from buddy.llm import LLMMessage
+from buddy.outcome import NO_SKILL_UNSURE_SENTENCE
 from buddy.state import BuddyState
 from buddy.text import count_noun as _n
 from buddy.voice import (
@@ -1118,6 +1119,12 @@ def test_full_slice_personality_voice_never_describes_a_three_step_chain_stopped
 # -- Final review F1: an action request Brain can't classify ---------------------------
 
 
+class _TooManyRequests(Exception):
+    """What a provider's SDK raises for HTTP 429: the only kind of error worth a second try."""
+
+    status_code = 429
+
+
 class _BrainFailsLLMProvider(_QueuedLLMProvider):
     """Raises on the first two calls (Brain's attempt and its one retry), then answers from the
     queue."""
@@ -1127,7 +1134,7 @@ class _BrainFailsLLMProvider(_QueuedLLMProvider):
     ) -> str:
         if len(self.calls) < 2:
             self.calls.append((system, messages))
-            raise RuntimeError("429 Too Many Requests")
+            raise _TooManyRequests("429 Too Many Requests")
         return super().complete(system=system, messages=messages, max_tokens=max_tokens)
 
 
@@ -1180,6 +1187,7 @@ def test_full_slice_personality_voice_never_phrases_an_unclassified_action_reque
     avoid the word list) reaches the user. Think asked for clarification, so the
     reply is its fixed question and no analysis was spent."""
     monkeypatch.chdir(tmp_path)
+    monkeypatch.setattr("buddy.brain._sleep", lambda seconds: None)  # the pause before a retry
     (tmp_path / "uploads").mkdir()
     input_path = Path("uploads") / "report.xlsx"
     _write_fixture_with_duplicates_and_an_empty_row(tmp_path / input_path)
@@ -2749,7 +2757,12 @@ def test_p1_p2_p3_a_flagged_part_is_never_dropped_behind_a_done_lead(
 
     assert _counts(delivered) == counts, case
     assert "Done —" not in reply, reply
-    assert _P_CANT_DO_GENERIC in reply, reply
+    # s22 overlaps the done action's phrase: the reply is true whether the flag was a slip or not
+    # (R1-2, owner's option b), so it neither says "Partly done" nor "can't do yet".
+    expected = NO_SKILL_UNSURE_SENTENCE if case == "s22" else _P_CANT_DO_GENERIC
+    assert expected in reply, reply
+    if case == "s22":
+        assert "Partly done" not in reply and "can't do" not in reply, reply
 
 
 @pytest.mark.parametrize("session_id", _SEEDS)

@@ -302,13 +302,18 @@ class Hands:
                     state.session_id,
                     exc,
                 )
-                errors.append(str(exc))
+                # The dispatcher's message names the task id (the session's key), so it is logged
+                # above and never stored where a reply can reach it.
+                no_skill = (
+                    f"{request.capability} couldn't be run because no available skill can do it"
+                )
+                errors.append(no_skill)
                 step_results.append(
                     StepResult(
                         capability=request.capability,
                         skill="",
                         status=SkillStatus.FAILURE.value,
-                        summary=str(exc),
+                        summary=no_skill,
                         input_reference=input_reference,
                         failure_reason="couldn't be run because no available skill can do it",
                     )
@@ -627,7 +632,8 @@ class Hands:
             try:
                 skill = self._dispatcher.dispatch(task, input_type=request.capability).skill
             except DispatchError as exc:
-                warnings.append(f"could not re-check the final file with {request.capability}: {exc}")
+                logger.info("Hands: no skill for the re-check %r: %s", request.capability, exc)
+                warnings.append(f"could not re-check the final file with {request.capability}")
                 continue
             task.permission = skill.permission_tier
             if task.permission is not PermissionTier.READ:

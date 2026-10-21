@@ -72,6 +72,17 @@ def test_restart_memory_logs_and_data_volume(compose: dict[str, dict[str, object
     assert compose["volumes"]["workbuddy-data"]["name"] == "workbuddy-data"  # type: ignore[index]
 
 
+def test_the_image_installs_the_lock_with_pip_retries_and_a_timeout() -> None:
+    """A download that hiccups must not fail a build; the lock's hashes still decide."""
+    dockerfile = (ROOT / "Dockerfile").read_text(encoding="utf-8")
+    pattern = r"^\s*&& pip install (?P<flags>[^\\\n]*)requirements-runtime\.lock"
+    install = re.search(pattern, dockerfile, re.M)
+    assert install is not None, "the lock install line moved"
+    flags = install.group("flags")
+    assert "--retries 10" in flags and "--timeout 60" in flags
+    assert "--require-hashes" in flags and "--no-deps" in flags
+
+
 def test_caddy_waits_for_a_healthy_app(compose: dict[str, dict[str, object]]) -> None:
     caddy = compose["services"]["caddy"]  # type: ignore[index]
     assert caddy["depends_on"]["app"]["condition"] == "service_healthy"  # type: ignore[index]
