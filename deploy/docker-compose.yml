@@ -29,7 +29,10 @@ services:
       # Sessions, uploads and delivered files. A named volume keeps them across releases and
       # carries the image's ownership (user 10001) with it.
       - workbuddy-data:/data
-    mem_limit: 1g
+    # 2 GB, not 1: the server idles at about 580 MB after a large turn (memory it takes isn't
+    # given back), two turns may run at once (WORKBUDDY_MAX_CONCURRENT_TURNS), and the workbook
+    # check's child may take up to 512 MB more. Fits a 4 GB VM with Caddy's 256 MB and the OS.
+    mem_limit: 2g
     logging: &log-rotation
       driver: json-file
       options:
