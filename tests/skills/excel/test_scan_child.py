@@ -23,6 +23,7 @@ import pytest
 from skills.excel import workbook
 from skills.excel.workbook import (
     CHECK_BUSY,
+    CHECK_NOT_RUN,
     CHECK_STOPPED,
     SCAN_MEMORY_BYTES,
     SCAN_SECONDS,
@@ -45,7 +46,7 @@ pytestmark = pytest.mark.real_scan_child
 @pytest.fixture(autouse=True)
 def production_parsers(monkeypatch: pytest.MonkeyPatch) -> None:
     """No lxml, as in the image, and no verdict left over from another test."""
-    monkeypatch.setenv("OPENPYXL_LXML", "False")
+    monkeypatch.setattr(workbook, "_xml_reader_mode", lambda: "False")
     workbook._scanned.clear()
 
 
@@ -67,7 +68,13 @@ def _workbook_part(extra: str) -> str:
 
 def test_the_limits_are_the_ones_the_owner_set_to_start_with() -> None:
     assert SCAN_MEMORY_BYTES == 512 * 1024 * 1024
-    assert SCAN_SECONDS == 60
+    assert SCAN_SECONDS == 30
+    assert workbook.MAX_CELLS == 250_000
+
+
+def test_a_check_waits_for_the_one_running_check_as_long_as_it_can_take_plus_a_margin() -> None:
+    """R5-2: an ordinary overlap of two users must not be "busy"."""
+    assert workbook.SCAN_WAIT_SECONDS >= SCAN_SECONDS + 10
 
 
 def test_a_workbook_part_under_another_name_is_refused_by_what_it_needs(
@@ -261,7 +268,7 @@ def test_a_child_that_cannot_be_started_is_refused_and_not_kept_as_the_files_ver
 
     with monkeypatch.context() as broken:
         broken.setattr(subprocess, "run", cannot_start)
-        assert _refusal(path) == CHECK_STOPPED
+        assert _refusal(path) == CHECK_NOT_RUN
     check_workbook_limits(str(path))  # the file itself was never judged
 
 
@@ -362,3 +369,230 @@ def test_only_one_check_runs_at_a_time_and_a_file_is_checked_once(
 
     assert peak == 1
     assert calls == 2  # one for each file: the waiting threads used the first one's verdict
+
+
+# -- review round 5 ----------------------------------------------------------------------------
+
+
+def _formula_sheet(rows: int, refs: int, *, masters: bool) -> bytes:
+    """Column A holds shared formulas of ``refs`` references; column B an id, so rows differ.
+
+    ``masters=False``: one master in A2 and a 40-byte dependent on every other row (S1's shape,
+    which costs time on every pass that parses formulas). ``masters=True``: every row is its own
+    master, a tokenized copy of which openpyxl keeps for the whole sheet (S4's shape, memory).
+    """
+    formula = "+".join(f"B{i}" for i in range(1, refs + 1))
+    head = (
+        '<row r="1"><c r="A1" t="inlineStr"><is><t>total</t></is></c>'
+        '<c r="B1" t="inlineStr"><is><t>id</t></is></c></row>'
+    )
+    body = [head]
+    for row in range(2, rows + 2):
+        if masters:
+            cell = f'<f t="shared" ref="A{row}:A{row}" si="{row}">{formula}</f>'
+        elif row == 2:
+            cell = f'<f t="shared" ref="A2:A{rows + 1}" si="0">{formula}</f>'
+        else:
+            cell = '<f t="shared" si="0"/>'
+        body.append(
+            f'<row r="{row}"><c r="A{row}">{cell}<v>1</v></c><c r="B{row}"><v>{row}</v></c></row>'
+        )
+    return _sheet_of("".join(body))
+
+
+def test_shared_formula_masters_that_the_inspectors_formula_count_would_keep_are_refused(
+    tmp_path: Path,
+) -> None:
+    """R5-1 (S4): 2,000 masters of 4,000 references took 1.8 GiB of the server in the formula
+    count, a load the child's other reads skip (they don't parse formulas)."""
+    path = _book(tmp_path / "masters.xlsx", _formula_sheet(2_000, 4_000, masters=True))
+    assert path.stat().st_size < 1_000_000
+
+    assert _refusal(path) == TOO_COSTLY
+
+
+def test_a_shared_formula_over_many_rows_that_takes_minutes_to_count_is_refused_in_the_time_limit(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """R5-1 (S1): one formula of a length Excel allows over 50,000 rows passed the check in 8 s
+    and took the formula count 286 s. The time limit is lowered so the test is quick; the walk
+    and the reads alone take under it."""
+    monkeypatch.setattr(workbook, "SCAN_SECONDS", 15)
+    path = _book(tmp_path / "formula.xlsx", _formula_sheet(50_000, 1_500, masters=False))
+
+    assert _refusal(path) == TOO_COSTLY
+
+
+def test_a_short_shared_formula_over_many_rows_is_an_ordinary_workbook(tmp_path: Path) -> None:
+    check_workbook_limits(
+        str(_book(tmp_path / "short.xlsx", _formula_sheet(20_000, 2, masters=False)))
+    )
+
+
+def test_the_child_counts_the_formulas_the_inspector_counts(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    called: list[str] = []
+    real = workbook.formula_cell_counts
+    monkeypatch.setattr(
+        workbook, "formula_cell_counts", lambda path: called.append(path) or real(path)
+    )
+    path = _ordinary(tmp_path / "ordinary.xlsx")
+
+    assert workbook._scan_in_this_process(str(path)) == "PASS"
+    assert called == [str(path)]
+    workbook._in_scan_child = False
+
+
+def test_running_out_of_memory_in_the_childs_table_reads_refuses_the_file(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """R5-3: pandas is where a big table runs out; the read's catch-all must not take it for a
+    file that can't be read."""
+
+    def starved(*args: object, **kwargs: object) -> None:
+        raise MemoryError
+
+    monkeypatch.setattr(pd, "read_excel", starved)
+    path = _ordinary(tmp_path / "ordinary.xlsx")
+    costly = workbook._CHILD_REFUSALS.index(TOO_COSTLY)
+
+    assert workbook._scan_in_this_process(str(path)) == f"REFUSE:{costly}"
+    workbook._in_scan_child = False
+
+
+def test_a_memory_error_in_the_formula_count_refuses_the_file(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    def starved(path: str) -> None:
+        raise MemoryError
+
+    monkeypatch.setattr(workbook, "formula_cell_counts", starved)
+    costly = workbook._CHILD_REFUSALS.index(TOO_COSTLY)
+
+    assert (
+        workbook._scan_in_this_process(str(_ordinary(tmp_path / "o.xlsx"))) == f"REFUSE:{costly}"
+    )
+    workbook._in_scan_child = False
+
+
+# -- what a verdict keeps (R5-4) ---------------------------------------------------------------
+
+
+def _count_children(monkeypatch: pytest.MonkeyPatch) -> list[int]:
+    runs: list[int] = []
+    real = subprocess.run
+
+    def counting(*args: object, **kwargs: object) -> subprocess.CompletedProcess[str]:
+        runs.append(1)
+        return real(*args, **kwargs)  # type: ignore[call-overload, no-any-return]
+
+    monkeypatch.setattr(subprocess, "run", counting)
+    return runs
+
+
+def test_a_pass_and_a_limit_the_file_passes_are_kept_so_the_file_is_checked_once(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    runs = _count_children(monkeypatch)
+    ordinary = _ordinary(tmp_path / "ordinary.xlsx")
+    rows = _book(tmp_path / "rows.xlsx", _sheet_of("<row><c><v>1</v></c></row>" * 60))
+    for _ in range(2):
+        check_workbook_limits(str(ordinary))
+    monkeypatch.setattr(workbook, "MAX_ROWS", 55)  # the ordinary file has 51 rows
+
+    for _ in range(2):
+        assert _refusal(rows) == workbook.TOO_MANY_ROWS
+
+    assert len(runs) == 2  # one child for each file
+
+
+@pytest.mark.parametrize(
+    ("child", "expected"),
+    [
+        ("import os; os.abort()", CHECK_STOPPED),  # a crash
+        (f"print('REFUSE:{workbook._CHILD_REFUSALS.index(TOO_COSTLY)}')", TOO_COSTLY),  # memory
+    ],
+    ids=["crash", "memory-error-answer"],
+)
+def test_a_crash_or_a_memory_error_is_not_kept_as_the_files_verdict(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, child: str, expected: str
+) -> None:
+    path = _ordinary(tmp_path / "ok.xlsx")
+    with monkeypatch.context() as broken:
+        broken.setattr(workbook, "_CHILD_CODE", child)
+        assert _refusal(path) == expected
+        assert _refusal(path) == expected
+    check_workbook_limits(str(path))  # an idle server checks it again, and it passes
+
+
+def test_a_timeout_is_not_kept_as_the_files_verdict(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    path = _ordinary(tmp_path / "ok.xlsx")
+    with monkeypatch.context() as slow:
+        slow.setattr(workbook, "SCAN_SECONDS", 0.05)
+        assert _refusal(path) == TOO_COSTLY
+    check_workbook_limits(str(path))
+
+
+# -- what the child is given (R5-5) ------------------------------------------------------------
+
+
+def test_the_child_gets_the_path_the_locale_and_the_thread_variables_and_nothing_else(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.setenv("GROQ_API_KEY", "gsk_NOT-A-REAL-KEY")
+    monkeypatch.setenv("WORKBUDDY_OPERATOR_TOKEN", "NOT-A-REAL-TOKEN")
+    monkeypatch.setenv("LC_ALL", "C.UTF-8")
+    monkeypatch.setenv("LANG", "C.UTF-8")
+    monkeypatch.setenv("OPENPYXL_LXML", "True")  # the server's own setting is not passed on
+    seen: list[dict[str, str]] = []
+    real = subprocess.run
+
+    def recording(*args: object, **kwargs: object) -> subprocess.CompletedProcess[str]:
+        seen.append(dict(kwargs["env"]))  # type: ignore[arg-type, call-overload]
+        return real(*args, **kwargs)  # type: ignore[call-overload, no-any-return]
+
+    monkeypatch.setattr(subprocess, "run", recording)
+    check_workbook_limits(str(_ordinary(tmp_path / "ok.xlsx")))
+
+    (env,) = seen
+    allowed = {
+        "PATH", "LANG", "LANGUAGE", "SYSTEMROOT", "OPENPYXL_LXML",
+        "OPENBLAS_NUM_THREADS", "OMP_NUM_THREADS", "MKL_NUM_THREADS",
+    }  # fmt: skip
+    assert all(name in allowed or name.startswith("LC_") for name in env), sorted(env)
+    assert env["LC_ALL"] == "C.UTF-8" and "PATH" in env
+    assert all(env[name] == "1" for name in ("OPENBLAS_NUM_THREADS", "OMP_NUM_THREADS"))
+    assert "NOT-A-REAL" not in " ".join(env.values())
+
+
+def test_a_child_that_cannot_be_started_says_the_check_could_not_be_run() -> None:
+    assert "I couldn't run the check of the workbook" in CHECK_NOT_RUN
+    assert CHECK_NOT_RUN != CHECK_STOPPED
+
+
+@pytest.mark.parametrize("lxml_in_use", [True, False])
+def test_the_child_parses_with_the_same_xml_parsers_as_the_server(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, lxml_in_use: bool
+) -> None:
+    """What the child measures is only what the server's reads will cost if both use the same
+    parsers: lxml is far lighter than the standard library's. The setting is derived from what the
+    server is using, not copied from its environment."""
+    import openpyxl.xml
+
+    monkeypatch.undo()  # the autouse fixture's stand-in for the mode is not what is tested
+    monkeypatch.setattr(openpyxl.xml, "LXML", lxml_in_use)
+    seen: list[str] = []
+    real = subprocess.run
+
+    def recording(*args: object, **kwargs: object) -> subprocess.CompletedProcess[str]:
+        seen.append(kwargs["env"]["OPENPYXL_LXML"])  # type: ignore[index, call-overload]
+        return real(*args, **kwargs)  # type: ignore[call-overload, no-any-return]
+
+    monkeypatch.setattr(subprocess, "run", recording)
+    workbook._scanned.clear()
+    check_workbook_limits(str(_ordinary(tmp_path / "ok.xlsx")))
+
+    assert seen == ["True" if lxml_in_use else "False"]

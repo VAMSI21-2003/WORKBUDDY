@@ -952,3 +952,11 @@ def test_n2_unsupported_entries_alone_never_make_a_step_unrequested() -> None:
     assert report.lead_word is None
     assert "didn't read that" not in render_outcome(report, FILE_STYLE_GENERATED)
 
+
+
+def test_the_overlap_sentence_is_the_owners_and_true_for_a_request_for_more() -> None:
+    """R4-4: plainly true for "...and delete the file" too; pinned word for word."""
+    assert NO_SKILL_UNSURE_SENTENCE == (
+        "Some of your wording overlaps what I did. If you asked for anything beyond that, "
+        "I haven't done it, so check the copy is what you wanted."
+    )

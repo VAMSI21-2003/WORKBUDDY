@@ -2,7 +2,7 @@
 
 The check (``skills.excel.workbook.check_workbook_limits``) runs the readers the skills use on an
 upload in a child process, under ``SCAN_MEMORY_BYTES`` and ``SCAN_SECONDS``. Those two numbers
-(512 MiB and 60 s) were chosen, not measured: this script is how they get measured, in the
+(512 MiB and 30 s) were chosen, not measured: this script is how they get measured, in the
 production image, on the production host. Until it has been run there they are unmeasured.
 
 Run it on the VM, inside the image, under the same memory limit as the app
@@ -56,20 +56,21 @@ from pathlib import Path
 HERE = Path(__file__).resolve().parent
 HARNESS = HERE / "review_harness" / "fix-security-pass"
 
-# Files that should pass, with what they are; every other file should be refused. M5 passes because
-# openpyxl is told to ignore external links; M1e is 50,000 empty sheets, left to the single-sheet
-# rule; the M6 files are for the near-duplicate check, which has its own bounds.
+# Files that should pass, with what they are; every other file should be refused. The check's
+# limits are 250,000 cells and 30 s: ``M9c`` is the ordinary file at the cell cap; ``M9`` (a million
+# cells) is refused by the cell count, and the formula files S1 to S5 by the time or memory they
+# take to read (round 5). M5 passes because openpyxl is told to ignore external links.
 SHOULD_PASS = {
     "P0_ordinary_control": "50 rows",
     "M0_ordinary_control": "50 rows",
-    "M9_dense_1m_cells": "1,000,000 numeric cells, at the cell cap",
+    "M9c_dense_250k_cells": "249,990 numeric cells, at the cell cap",
+    "S0_shared_formula_short": "20,000 rows of a short shared formula, as a real sheet has",
     "P11_proto_cap_ascii": "text at the weighted cap, ASCII",
     "P11b_proto_cap_emoji": "text at the weighted cap, emoji",
     "P9_huge_unused_string": "one 60-million-character string no cell uses",
     "M5_ext_link_2_3m_cells": "an external link caching 2.3 million cells, never read",
     "M6_short_names_10000": "10,000 rows of short names",
     "M6_names_2000x1000": "2,000 rows of 1,000-character names",
-    "M1e_empty_sheets_50000": "50,000 empty sheets",
 }
 
 
@@ -85,10 +86,19 @@ def _cases() -> dict[str, object]:
     sys.path.insert(0, str(HARNESS))
     import probe_m_round3 as m
     import probe_p_round4 as p
+    import probe_s_round5 as r5
 
     cases = {name: make for name, make in p.CASES.items()}
     for name, make in m.CASES.items():
         cases[name] = make
+    cases["M9c_dense_250k_cells"] = lambda path: m.m9_dense_at_cap(path, rows=24_999, cols=10)
+    for name, spec in r5.CASES.items():
+        masters = bool(spec.get("masters"))
+        arguments = {key: value for key, value in spec.items() if key != "masters"}
+        build = r5.many_masters_sheet if masters else r5.shared_formula_sheet
+        cases[name] = lambda path, build=build, arguments=arguments: m.package(
+            path, build(**arguments)
+        )
     return cases
 
 

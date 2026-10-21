@@ -194,7 +194,7 @@ def test_the_limits_are_the_documented_ones() -> None:
         1000,
         200_000,
         1000,
-        1_000_000,
+        250_000,
     )
     assert (MAX_CELL_CHARS, MAX_TEXT_BYTES) == (32_767, 4_000_000)
 

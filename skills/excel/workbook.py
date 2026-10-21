@@ -28,6 +28,14 @@ of XML, a few cells far out in a sheet make a reader pad the grid between them, 
 a dozen kinds of part whole on every load, so no list of parts or elements is complete. What the
 child could read inside its limits bounds what the server's own later reads need, because they are
 the same reads. A file that needs more, or whose check crashes or times out, is refused.
+
+Every place the server reads a workbook, and where the child covers it: the upload route reads
+only the zip directory (``backend/uploads.py``); ``sheet_names`` and ``_sheet_problem`` (planner,
+skills, Inspector) and ``formula_cell_counts`` (Inspector) are called in the child, the layout
+check by its row-by-row stream over the load the walk already made; ``pd.read_excel`` in the
+cleaning skills (``dtype=object``), in the Inspector (``dtype=object`` and the default) and in the
+analysis (both at once) are the two reads the child holds at once. The files the skills write are
+read again by the Inspector, and are checked the same way.
 """
 
 import json
@@ -73,7 +81,7 @@ MAX_UNZIPPED_BYTES = 64 * MIB
 MAX_PARTS = 1000
 MAX_ROWS = 200_000
 MAX_COLUMNS = 1_000
-MAX_CELLS = 1_000_000
+MAX_CELLS = 250_000
 # Excel's own limit for the text in one cell, and a cap on all the text the cells hold.
 MAX_CELL_CHARS = 32_767
 # The text the cells hold, counted as CPython stores it (1, 2 or 4 bytes a character by the widest
@@ -84,9 +92,11 @@ MAX_TEXT_BYTES = 4_000_000
 # under these limits. Unmeasured in the production image until ``scripts/measure_workbook_check.py``
 # has been run there: the app container has 1 GiB, and the server plus one child must fit in it.
 SCAN_MEMORY_BYTES = 512 * MIB  # address space of the child
-SCAN_SECONDS = 60
-# How long a check waits for the one running check before saying the server is busy.
-SCAN_WAIT_SECONDS = 10
+SCAN_SECONDS = 30
+# How long a check waits for the one running check before saying the server is busy: as long as
+# that check can take (its time limit, plus the instant checks in the server before the child
+# starts) and a margin, so an ordinary overlap of two users is not "busy".
+SCAN_WAIT_SECONDS = SCAN_SECONDS + 15
 
 # How much of a sheet's XML is fed to the merged-cell scan at a time.
 _SCAN_CHUNK_BYTES = 1 << 20
@@ -130,6 +140,7 @@ CHECK_STOPPED = (
     "the check of the workbook was stopped before it finished, so I can't tell that it is safe "
     "to open and I won't open it"
 )
+CHECK_NOT_RUN = "I couldn't run the check of the workbook, so I won't open it"
 CHECK_BUSY = (
     "the server is busy checking another workbook, so I couldn't check this one; "
     "please try again in a moment"
@@ -282,13 +293,18 @@ def sheet_names(input_path: str) -> list[str]:
 
 
 # The verdict for a file already scanned, keyed on what identifies its bytes on disk, so the
-# planner, the skill and the Inspector's reads of the same file scan it once. Bounded. A busy
-# server's "try again" is not a verdict about the file and is never kept.
+# planner, the skill and the Inspector's reads of the same file scan it once. Bounded. Only what
+# the check computed from the file is kept: a pass, or a limit the file passes. A busy server's
+# "try again", a timeout, a memory error and a crash say nothing certain about the file and are
+# never kept (``_NOT_KEPT``).
 _scanned: dict[tuple[str, int, int, int], str | None] = {}
 _SCANNED_MAX = 64
 _scanned_lock = threading.Lock()
 # One child at a time: the server plus one child must fit in the container.
 _scan_slot = threading.Semaphore(1)
+# Verdicts that are about the check's run and not what the file holds (it ran out of memory or
+# time, or its child crashed): never kept, so the next check of the same file runs again.
+_NOT_KEPT = (TOO_COSTLY, CHECK_STOPPED)
 # Set in the child process, whose own reads must not start another child.
 _in_scan_child = False
 
@@ -332,10 +348,11 @@ def check_workbook_limits(input_path: str) -> None:
                 verdict = _scanned.get(key)
             if not known:  # another thread may have checked this very file while this one waited
                 verdict = _scan(input_path)
-                with _scanned_lock:
-                    if len(_scanned) >= _SCANNED_MAX:
-                        _scanned.clear()
-                    _scanned[key] = verdict
+                if verdict not in _NOT_KEPT:
+                    with _scanned_lock:
+                        if len(_scanned) >= _SCANNED_MAX:
+                            _scanned.clear()
+                        _scanned[key] = verdict
         finally:
             _scan_slot.release()
     if verdict is not None:
@@ -434,6 +451,16 @@ _CHILD_CODE = _CHILD_PREAMBLE + (
 # The limits the parent hands the child, by name: the child checks against the same numbers.
 _LIMIT_NAMES = ("MAX_ROWS", "MAX_COLUMNS", "MAX_CELLS", "MAX_CELL_CHARS", "MAX_TEXT_BYTES")
 _PROJECT_ROOT = str(Path(__file__).resolve().parents[2])
+# The only variables of the server's environment the child is given (and every ``LC_*``).
+# ``SYSTEMROOT`` is there because Python does not start on Windows without it.
+_CHILD_ENVIRONMENT = ("PATH", "LANG", "LANGUAGE", "SYSTEMROOT")
+
+
+def _xml_reader_mode() -> str:
+    """The ``OPENPYXL_LXML`` setting that makes a fresh process parse as this one does."""
+    from openpyxl.xml import LXML
+
+    return "True" if LXML else "False"
 
 
 def _scan_in_child(input_path: str) -> str | None:
@@ -443,9 +470,17 @@ def _scan_in_child(input_path: str) -> str | None:
     is stopped after ``SCAN_SECONDS``. Out of memory, out of time, a crash, or an answer the
     parent doesn't know are all refusals: the file is never let through because its check failed.
     """
-    environment = dict(os.environ)
-    # One BLAS thread: each reserves address space the cap would count.
+    # Not the server's environment (it holds the API keys): the program path, the locale, and the
+    # thread variables, one BLAS thread because each reserves address space the cap would count.
+    environment = {
+        name: value
+        for name, value in os.environ.items()
+        if name in _CHILD_ENVIRONMENT or name.startswith("LC_")
+    }
     environment.update(OPENBLAS_NUM_THREADS="1", OMP_NUM_THREADS="1", MKL_NUM_THREADS="1")
+    # The child must read with the same XML parsers as this process, or what it measures is not
+    # what the server's own reads will cost (lxml is far lighter than the standard library's).
+    environment["OPENPYXL_LXML"] = _xml_reader_mode()
     try:
         done = subprocess.run(  # noqa: S603 — fixed argv, the path is an argument, not code
             [
@@ -470,7 +505,7 @@ def _scan_in_child(input_path: str) -> str | None:
     except Exception as exc:  # noqa: BLE001 — the child could not be started: nothing was checked
         logger.exception("could not start the check of %r", input_path)
         # Refused, but not kept as the file's verdict: this says nothing about the file.
-        raise WorkbookRefused(CHECK_STOPPED) from exc
+        raise WorkbookRefused(CHECK_NOT_RUN) from exc
     answer = done.stdout.strip()
     if done.returncode != 0:
         logger.info("%r: the check ended with status %d", input_path, done.returncode)
@@ -514,10 +549,11 @@ def _read_as_the_skills_do(input_path: str) -> None:
 
     The analysis holds a default read and a ``dtype=object`` read of the first sheet at once
     (``SpreadsheetAnalysisSkill``, the largest the app makes); the cleaning skills and the
-    Inspector make the second alone; the planner and the Inspector list the sheets. The layout
-    check and the formula count only stream cells one row at a time over the same load, so they
-    add time, not memory, and are not repeated here. A file these cannot read is not this
-    check's business, so every error but running out of memory is left to the callers.
+    Inspector make the second alone; the planner and the Inspector list the sheets; the Inspector
+    counts the original's formulas (``formula_cell_counts``, a load that parses formulas). The
+    layout check streams cells one row at a time over the same load as the walk and adds time,
+    not memory, so it is not repeated here. A file these cannot read is not this check's
+    business, so every error but running out of memory is left to the callers.
     """
     import pandas as pd
 
@@ -525,6 +561,10 @@ def _read_as_the_skills_do(input_path: str) -> None:
         sheet_names(input_path)
         frames = (pd.read_excel(input_path), pd.read_excel(input_path, dtype=object))
         del frames
+        # The Inspector's count of the original's formulas: the only load with ``data_only=False``,
+        # the one mode in which openpyxl parses formulas and keeps every shared-formula master in
+        # memory for the whole sheet. It costs real time and memory, so it is held to the limits.
+        formula_cell_counts(input_path)
     except MemoryError:
         raise
     except Exception:  # noqa: BLE001 — unreadable: the callers' own reads refuse it, as they do
