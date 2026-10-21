@@ -84,3 +84,16 @@ Round 5 (head `2ac4f8a`), same conventions. probe_s writes `out/m_S*.xlsx`, whic
         # (_s_child.py is written by probe_s_round5.py)
 
 Runs outside pytest use the real child: `tests/conftest.py` stubs it only inside the test suite.
+
+Round 6 (head `8705ad4`), same conventions. Output goes to `out/r6/`. The u/w probes use files earlier rounds wrote
+(`out/m_*.xlsx`: run probe_m_round3, probe_p_round4 and probe_s_round5 first); probe_v builds ordinary tables only:
+
+    OPENPYXL_LXML=False python scripts/review_harness/fix-security-pass/probe_u_round6.py S1_shared_formula_excel_len_50k [...] [--speakers ...] [--kinds dedupe,report] --no-facts
+        # probe_n_turns.py plus a count of the checking children in the turn, with each one's time and verdict
+    OPENPYXL_LXML=False python scripts/review_harness/fix-security-pass/probe_v_round6.py [--only V1,V2]
+        # ordinary tables near the new limits (250,000 cells; numbers, unshared formulas, short text): check verdict and time
+    OPENPYXL_LXML=False python scripts/review_harness/fix-security-pass/probe_w_round6.py P9_huge_unused_string V2_half_formulas_at_cap [...]
+        # each read the server makes, alone in its own process: time and peak RSS, next to the child's own run
+    OPENPYXL_LXML=False python scripts/review_harness/fix-security-pass/probe_x_round6.py [--a S1_shared_formula_excel_len_50k] [--a-checks 2] [--gap 0.5]
+        # two users in one process: A's file is refused as too costly (checked twice, as a turn does), B checks an ordinary file
+    python scripts/review_harness/fix-security-pass/mutations_r6.py [NAME ...]        # 15 mutations of the round 5 fixes, + 1 re-run

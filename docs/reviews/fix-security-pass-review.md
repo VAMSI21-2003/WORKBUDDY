@@ -529,3 +529,115 @@ R5-2, R5-3, R5-4 and R5-5.
 - S2, S3 and S5 as whole turns, and S1 on base. `formula_cell_counts` alone was measured on head for S0, S1, S2, S4 and S5. S3 (100,000 dependents) wasn't run.
 - A real Excel-written file with many shared-formula masters. S1 and S5 use formulas of a length Excel allows, built by hand.
 - The prototype's whole suite: only the 467 related tests above.
+
+## Review round 6 (commit 8705ad4)
+
+**Verdict: MERGE.** No HIGH, and no MEDIUM that an ordinary request can reach. R5-1 is closed, and so are R5-2 to R5-5 apart from one starvation case (R6-1). Every place the server parses an uploaded or delivered workbook is either inside the child or measured to be below the child's own run (table below). Five LOW items are deferred. Rules 1 and 2 held in every run.
+
+Scope: the diff `12039a6..8705ad4` (`fix-security-pass-fixes5.md`), the findings round 5 left open, and regression. Probes are in `scripts/review_harness/fix-security-pass/` (README, "Round 6"), and their output is in `out/r6/`. Every run uses `OPENPYXL_LXML=False`, as in the image, and the real child outside pytest. The machine was loaded by parallel runs, so times are ±2×.
+
+| # | What | Result |
+|---|---|---|
+| 1 | `python -m pytest -q` on head | 3,705 passed, 5 skipped, 0 failed (1,009 s) |
+| 2 | `ruff check buddy tests`, head vs base, by file and rule | Nothing new (17 vs 18; head has one fewer `E501` in `buddy/hands.py`). `ruff check skills/excel/workbook.py` gives 1 error at both 12039a6 and head. |
+| 3 | `harness.py` (532), `rereview3.py` (1,078), `probe_a_pipeline.py` (57, 3 speakers), head vs round 5's head | All 1,667 identical in reply, delivery and final facts. 0 errors, 0 Voice-model calls, 0 originals changed. The 6 `claim-words` flags are the hostile header, quoted, as in every round. |
+| 4 | `probe_t_round5.py` (11 cases × 3 speakers): the check answers busy, crash, timeout or can't start | 33 of 33 originals unchanged. Only the T0 controls deliver. T5 now says "I couldn't run the check of the workbook, so I won't open it" (R5-5). The other replies are as in round 5. |
+| 5 | `probe_u_round6.py`: whole turns on round 5's formula files and the controls, counting the checking children | S1 is refused at 30.0 s, S4 and S5 at about 10 s ("needs more memory or time"), and M9 (1,000,000 cells) by the cell count in 4 s. Each turn on a refused file runs 2 children, because nothing is kept (R6-1). S0, P0 and M0 are delivered or reported in all 3 speakers. Every number matches my own read: S0 has 20,000 rows, 0 repeats and 20,000 formulas; M0 has 50 rows, 10 repeats, so 40 left; P0 has 3 rows, 1 repeat. |
+| 6 | `probe_v_round6.py`: ordinary tables near the new cap | 24,999 × 10 numbers pass in 12.9 s. The same with 5 columns of unshared formulas passes in 14.7 s. 25,001 rows are refused by the cell count. 250,000 short text cells are refused by the 4 MB text cap (R6-5). Whole dedupe turns on the two at-cap files took 135 s and 99 s, and both were delivered correctly (V2: "124995 formula cells", which is 24,999 × 5). |
+| 7 | `probe_w_round6.py`: each server read alone vs the child's whole run, on 8 files that pass | The table below. |
+| 8 | `probe_x_round6.py`: two users, one too-costly file | R6-1. |
+| 9 | Head's new tests against round 5's code (`2ac4f8a`, with `CHECK_NOT_RUN` and `_xml_reader_mode` shimmed in) | 14 fail there, as they should. The 9 that pass pin behaviour round 5 already had (the R4-4 sentence, `MemoryError` in the table reads, the short-formula control). |
+| 10 | `mutations_r6.py`: 15 one-place mutations of the fixes, plus 2 re-runs | 16 of 17 killed: the formula count in the child (off, and without the tables), kept verdicts (everything kept, timeout kept, crash kept), the environment (whole, no `LC_*`), the XML-parser mode (unset, fixed), the "couldn't run" sentence, the wait, both limits, round 5's `memerr-read-as-skills` (re-anchored) and `r4-4-old-sentence`. `limit-not-kept` survives (R6-4). |
+| 11 | Original's SHA-256 before and after, every turn above | Unchanged in every one. |
+
+### Every place the server process reads an uploaded or delivered workbook
+
+This list comes from my own search of `backend/`, `buddy/`, `core/` and `skills/` for `load_workbook`, `read_excel`, `ExcelFile`, `ZipFile`, `openpyxl`, `iter_rows`, `_get_source`, `open(`, `read_bytes` and the callers of each. `core/` and `buddy/eyes.py` read none.
+
+**Bytes only, no parsing (not the child's business).**
+- `backend/uploads.py:114-127` streams the upload to disk and hashes it, capped at `max_upload_bytes`.
+- `backend/uploads.py:168-172` (`check_workbook`) reads the zip magic and the central directory (`infolist`) and decompresses nothing.
+- `backend/delivery.py:104` (`check_turn_file`) and `:132` (`uploads_unchanged`), `backend/routes.py:429` (download) and `backend/turns.py:437-451` read whole files to hash, send or copy them. The copy of a delivered file at `turns.py:450` is a new path, so it gets its own check: the cache key at `workbook.py:338` includes the path.
+
+**Parsing in the server, before the child, by design.**
+- `workbook.py:365-384` (`_scan`) reads the directory and the declared sizes, and `:391-415` (`_declares_entities`) streams every part through expat in 1 MiB chunks. Bounded by 1,000 parts and 64 MiB declared. Nothing is built.
+- `workbook.py:285, 687-695` (`_has_stream`, OLE2 only) reads in 1 MiB chunks of a file of at most 2 MiB.
+
+**Parsing reads, each after `check_workbook_limits` on the same path** (`sheet_names` → `:278`; `_read_cells` → `inspector.py:280`; `analyze.py:466`; `inspector.py:689`).
+
+| Read (file:line) | Called from | In the child? | My evidence |
+|---|---|---|---|
+| `_zip_sheet_names` `workbook.py:634-649` (ElementTree of the content types and workbook part ≤ 16 MiB each, `:654,663`, plus a load at `:641`) | `sheet_names` ← `planner.py:268`, `inspector.py:1005/1035`, `workbook.py:196, 250, 817` | Yes, `:561` and again inside the formula count `:817` | Code. `no-sheet-listing-in-child` was killed in round 5. |
+| `formula_cell_counts` `workbook.py:821-842` (two loads at once, one with `data_only=False`) | `inspector.py:1196` (original only) | Yes, `:567` (new) | S1, S4 and S5 refused; `formula-count-off` killed. Caveat: R6-2. |
+| `pd.read_excel(dtype=object)` | `dedupe.py:105`, `remove_empty_rows.py:106` (the only sheet), `inspector.py:281` via `_read_cells` ← `:149, 227, 407, 691, 1131` | Yes, `:562` (first sheet; a cleaning skill reads only a single-sheet file whose declared and loaded names match) | Code. Row 7: 95–195 MiB, at most the child's peak. |
+| `pd.read_excel()` default and `dtype=object` held at once | `analyze.py:471,474`; `inspector.py:690,691` | Yes, `:562` holds both | Code. Row 7. Caveat: R6-2. |
+| `_sheet_problem` `workbook.py:698-719` (a load identical to the walk's, `_layout_problem` `:727` per row, `_has_merged_cells` `:762` expat over the sheet part) | `plain_table_sheet_name` ← `dedupe.py:100`, `remove_empty_rows.py:101`; `plain_table_problem` ← `planner.py:274` (only for one sheet), `inspector.py:1064` (after a step that needed one sheet) | **No.** The docstring says it is (R6-3). | Bounded by measurement, not by being the same read: alone it takes more than the walk on every file, and less than the child's whole run (table below). |
+| The walk `_reader_verdict` `workbook.py:578-623` | – | Child only | – |
+
+Not a workbook read, but outside the child: ydata-profiling (`analyze.py:89`) and Splink (`:301`) on the frames, as the ASVS row says.
+
+Each read alone, in its own uncapped process (`probe_w_round6.py`; peak RSS with a 79 MiB baseline, and seconds):
+
+| File | Child, whole run | Walk | `_sheet_problem` | Formula count | Default + object read |
+|---|---|---|---|---|---|
+| P9 (one 60 M-character unused string) | 424 MiB, 1.6 s | 195, 0.2 | **252**, 0.5 | 309, 0.7 | 253, 0.5 |
+| S0 (20,000 short shared formulas) | 89, 2.8 | 83, 0.5 | 87, 0.7 | 85, 1.4 | 89, 1.3 |
+| V1 (249,990 numbers) | 103, 11.8 | 84, 1.7 | 91, **3.0** | 85, 4.7 | 104, 4.5 |
+| V2 (half unshared formulas, at the cap) | 98, 13.1 | 84, 2.4 | 91, 3.7 | 86, 5.4 | 98, 4.8 |
+| M5, P11, P11b, M6 (2,000 × 1,000 characters) | 80–105, ≤ 0.7 | ≤ 84 | ≤ 89 | ≤ 94 | ≤ 89 |
+
+Every server read is at or below the child's whole run, in memory and in time. A turn makes many of these reads in sequence, so its time is several times the child's: S0's dedupe turn took 32 s against a 3.9 s check, and V1's took 135 s against 12.5 s (R6-5, and R3-8 before it).
+
+### R6-1 (LOW, [Certain]; the rest of R5-2): a second user waiting behind a too-costly file is told the server is busy
+
+**Where.** `workbook.py:343` (`_scan_slot.acquire(timeout=SCAN_WAIT_SECONDS)`), with `_NOT_KEPT` at `:307`.
+
+**Scenario.** One turn on a file that is refused as too costly checks it twice in a row: once in the planner (`cleaning_refusal`, from `_resolve_analysis_target`) and once in the skill, 30 s each, with almost no gap between them (`probe_u`: S1, `30.0s:refuse 30.0s:refuse`). `threading.Semaphore` isn't first-come-first-served, so the refusing thread takes the slot back before the waiter wakes. In `probe_x_round6.py`, user B checked an ordinary file 1 s after A started. B got "the server is busy checking another workbook … please try again in a moment" after 45.0 s. With a 0.5 s gap between A's checks, B passed after 29.7 s.
+
+**Reply.** True ("busy, try again"). If B is at the Inspector stage, the reply opens with round 5's "before I could change anything", which is in the backlog.
+
+**Reachability.** It needs a file refused for time or memory, which takes a crafted file or a large one on a slow VM, and a second user at the same moment. This is the cost the backlog already records for the owner's R5-4 decision.
+
+**Fix.** Keep `TOO_COSTLY` for the same key for a short time (for example 120 s), so a turn's second check doesn't run again, or make the slot a first-come-first-served ticket lock.
+
+### R6-2 (LOW, [Possible]): one `try` around the child's four reads, so the first that fails skips the rest
+
+**Where.** `workbook.py:560-571` (`_read_as_the_skills_do`).
+
+**Scenario.** If `sheet_names` refuses, or the default `pd.read_excel` raises (anything but `MemoryError`), the `dtype=object` read and `formula_cell_counts` are skipped, and the child answers PASS. In the server, `formula_cell_counts` (`inspector.py:1196`) runs only after `sheet_names` succeeds (the same code on the same file) and after the cleaning skill's and the Inspector's `dtype=object` reads succeed. It does not need the default read to succeed. So a file whose default read fails while its `dtype=object` read succeeds would get the formula count outside the child's limits. The analysis reads (`analyze.py:471`, `inspector.py:690`) are not gated by `sheet_names`, so when only that refuses in the child, they are bounded by the walk's identical load rather than by a read in the child. I tried big integers, out-of-range dates and out-of-range durations: both reads behaved the same on all of them. I didn't search further, so reachability is not shown.
+
+**Fix.** Give each of the four reads its own `try`, each re-raising `MemoryError`. That is about 6 lines. Cheap enough to do before merge, if the owner wants.
+
+### R6-3 (LOW, [Certain]): the docstring says `_sheet_problem` runs in the child
+
+`workbook.py:32-35` says `_sheet_problem` is "called in the child". The fixes doc and `_read_as_the_skills_do`'s docstring say it streams "over the same load" as the walk. It doesn't run in the child. It is a separate load in the server, and it measures heavier than the walk (P9: 252 vs 195 MiB; V1: 3.0 vs 1.7 s), though below the child's whole run. **Fix:** call `_sheet_problem(input_path, names[0])` in the child after `sheet_names`, or correct the docstring and the ASVS row.
+
+### R6-4 (LOW): `limit-not-kept` survives
+
+Only a row-limit verdict is tested as kept. Adding `TOO_MANY_CELLS` to `_NOT_KEPT` passes every test.
+
+### R6-5 (LOW, for the owner): what the new limits mean for ordinary files
+
+An ordinary 250,000-cell table passes the check in 13–15 s, a little under half the limit. A whole dedupe turn on it took 99–135 s here, against the 180 s turn deadline, with the machine loaded. 250,000 short text cells (about 18 characters each) are refused by the 4 MB text cap, so for text tables the cell cap is lower in practice. Both need confirming in the image with `scripts/measure_workbook_check.py`. Its case builders run here (I built S0, S4 and M9c), but the whole script was not run.
+
+### Earlier findings
+
+| Finding | Status (my evidence) |
+|---|---|
+| R5-1 | Closed. S1, S4 and S5 are refused, S0 passes (row 5), and `formula-count-off` is killed. The ASVS sentence about the formula count is corrected. Caveat: R6-2. |
+| R5-2 | Closed for an ordinary overlap: the wait is 45 s, and `wait-ten` is killed. Behind a too-costly file: R6-1. |
+| R5-3 | Closed. `memerr-read-as-skills` (re-anchored) and `r4-4-old-sentence` are killed. |
+| R5-4 | Done as the owner decided. `kept-everything`, `timeout-kept` and `crash-kept` are killed. Consequence: R6-1. |
+| R5-5 | Closed. The child's environment holds only the listed names (`env-whole` and `env-no-lc` killed). T5 says "I couldn't run the check" (row 4). The XML-parser mode is derived (`lxml-mode-*` killed). |
+| R4-5, R4-6, R3-8, R1-5 | Unchanged, deferred or the owner's call. R3-8 is now R6-5's 99–135 s. |
+
+### Deferred (added to `docs/backlog.md`)
+
+R6-1 to R6-5.
+
+### Not run
+
+- Live runs with Groq. The change is under `skills/`, and only the "couldn't run the check" sentence changes what the pipeline says. No model call is involved.
+- Docker, the production image and a real 1 GiB cgroup, and `scripts/measure_workbook_check.py` in full. The figures are process peak RSS on a loaded 4-core sandbox.
+- The new probes (u, v, w, x) on base. Base has no child, and the shared harnesses compare head with round 5's head, which earlier rounds compared with base.
+- A wider search for a file that reaches R6-2. I tried only the few ordinary cell shapes named there.
