@@ -59,9 +59,9 @@ and no new fixture.
 - `tests/buddy/test_user_state.py` (new): Brain's vocabulary (every value, 10 kinds of other
   value, absent, spelling slips, a failed reading, the prompt carries the conversation and the
   state comes from the reply and not from "URGENT" in the message, `MentionCrossCheck` keeps it);
-  `effective_mode`; and **14 scenarios x 3 speakers x calm, urgent, frustrated** through the real
+  `effective_mode`; and **13 scenarios x 3 speakers x calm, urgent, frustrated** through the real
   `build_engine`: delivered, delivered on a clean file ("nothing to remove"), chain, dedupe then
-  report, partly done, greeting with and without a file, three clarifying questions, no file,
+  report, partly done, greeting with and without a file, two clarifying questions (which action, general), no file,
   unsupported, refused file, Brain failed. For each, an urgent or frustrated reply equals the
   calm *focus* reply exactly (template: the calm reply), and holds the calm reply's numbers and
   file names in the same order; for a delivered turn the calm reply minus its opener and closer
