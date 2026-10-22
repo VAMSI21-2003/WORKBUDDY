@@ -13,7 +13,7 @@ poll        30     3/s         a poll of a turn, with a valid credential
 turns       10     10/hour     ``POST .../turns``, in addition to ``general``
 uploads     5      20/hour     ``POST .../files``, in addition to ``general``
 access      10     20/hour     ``POST /api/v1/access``, in addition to ``general``
-healthz     10     1/s         ``GET /healthz``
+healthz     10     1/s         ``GET`` and ``HEAD /healthz``
 page        30     1/s         ``GET /`` and ``/static/*`` (the frontend's)
 ==========  =====  ==========  ============================================
 

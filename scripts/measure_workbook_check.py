@@ -8,11 +8,14 @@ production image, on the production host. Until it has been run there they are u
 Run it on the VM, inside the image, under the same memory limit as the app
 (``deploy/docker-compose.yml`` gives it ``mem_limit: 1g``). The image holds only ``backend``,
 ``buddy``, ``core`` and ``skills``, so
-bind-mount this repository's ``scripts`` folder::
+bind-mount this repository's ``scripts`` folder, **writable**: importing the review harness
+(``scripts/review_harness/fix-security-pass/``) creates an ``out/`` folder beside it, and the
+image runs as the unprivileged user ``app``, which can't write to a folder it doesn't own.
+``--user`` makes the container's user the folder's owner::
 
     docker build -t workbuddy .
-    docker run --rm --memory 1g --memory-swap 1g \\
-        -v "$PWD/scripts:/app/scripts:ro" --entrypoint python workbuddy \\
+    docker run --rm --memory 1g --memory-swap 1g --user "$(id -u):$(id -g)" \\
+        -v "$PWD/scripts:/app/scripts" --entrypoint python workbuddy \\
         scripts/measure_workbook_check.py
 
 ``--memory-swap 1g`` matters: with ``--memory`` alone Docker lets the container use as much swap

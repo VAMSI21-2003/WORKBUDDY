@@ -29,6 +29,7 @@ import hashlib
 from collections.abc import Callable
 from dataclasses import dataclass
 
+from buddy.models import wants_brief
 from buddy.outcome import (  # noqa: F401  (the report sentences are re-exported)
     DONE,
     LEAD_PARTLY_DONE,
@@ -38,6 +39,9 @@ from buddy.outcome import (  # noqa: F401  (the report sentences are re-exported
     OutcomeReport,
 )
 from buddy.think import CLARIFY_OTHER, CLARIFY_WHICH_ACTION, CLARIFY_WHICH_FILE
+
+# The one personality mode that is brief: no opener, no humor, at most a two-word closer.
+BRIEF_MODE = "focus"
 
 OPENER = "opener"
 CLOSER = "closer"
@@ -188,6 +192,20 @@ def eligible_phrases(report: OutcomeReport, mode: str, slot: str) -> tuple[Phras
             key=lambda p: p.id,
         )
     )
+
+
+def effective_mode(mode: str | None, user_state: str) -> str | None:
+    """The mode a reply is worded in: ``BRIEF_MODE`` for an urgent or frustrated person.
+
+    Tone only. The user's chosen ``mode`` still decides everything when they are calm, and a
+    caller with no mode (``TemplateSpeaker``) keeps its plain wording. Every fact, count and
+    disclosure in a reply is the same in every mode, so this can change only the opener, the
+    closer, the greeting and the question. Nothing here reads a message: ``user_state`` is Brain's
+    closed-vocabulary field.
+    """
+    if mode is not None and wants_brief(user_state):
+        return BRIEF_MODE
+    return mode
 
 
 def select_phrases(report: OutcomeReport, mode: str, seed: str) -> tuple[Phrase, Phrase]:

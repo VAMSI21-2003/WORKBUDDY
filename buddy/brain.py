@@ -24,6 +24,8 @@ from buddy.models import (
     FILE_LATEST,
     LEDGER_FROM_BRAIN,
     LEDGER_FROM_MENTION,
+    USER_STATE_CALM,
+    USER_STATES,
     RequestedAction,
     Understanding,
 )
@@ -282,7 +284,8 @@ Respond with a single JSON object and nothing else, matching this shape:
      "source_phrase": "<the exact words from the user's message that ask for it>"}
   ],
   "file_to_use": "latest" | "original",
-  "answers_pending": true | false
+  "answers_pending": true | false,
+  "user_state": "calm" | "urgent" | "frustrated"
 }
 
 "requested_actions" lists every action the message asks you to carry out, in
@@ -313,6 +316,12 @@ rows too" adds to the work already done: answer "latest". Answer "original" only
 asks to start over or to work from their original file, the one they uploaded, instead of from
 the copy ("start over", "use my original file", "go back to the file I uploaded"). Never answer
 "original" for any other reason, and answer "latest" when you are unsure.
+
+"user_state" says how the person seems to be, judged from their message and the recent
+conversation. Answer "urgent" when they are under time pressure (a deadline, a rush, "I need this
+now"). Answer "frustrated" when they are visibly annoyed or upset, for instance because an earlier
+attempt didn't work or they are repeating themselves. Answer "calm" otherwise, and whenever you
+are unsure: most messages are calm. It never changes what you answer in any other field.
 """
 
 
@@ -510,6 +519,7 @@ def _parse(
                 ),
                 file_to_use=_parse_file_to_use(data.get("file_to_use")),
                 answers_pending=answers_pending,
+                user_state=_parse_user_state(data.get("user_state")),
             ),
             "",
         )
@@ -529,6 +539,20 @@ def _parse_file_to_use(raw: object) -> str:
     if raw is not None:
         logger.warning("ClaudeInterpreter: file_to_use outside the vocabulary: %r", raw)
     return FILE_LATEST
+
+
+def _parse_user_state(raw: object) -> str:
+    """Brain's ``user_state`` if it is in the closed vocabulary, else ``USER_STATE_CALM``.
+
+    Spelling slips (casing, stray whitespace) are not a different answer. Anything else (missing,
+    another word, another type) is calm: the reply keeps its usual wording, and the state only
+    ever changes tone. Only Brain's own value can make a reply brief.
+    """
+    if isinstance(raw, str) and raw.strip().casefold() in USER_STATES:
+        return raw.strip().casefold()
+    if raw is not None:
+        logger.warning("ClaudeInterpreter: user_state outside the vocabulary: %r", raw)
+    return USER_STATE_CALM
 
 
 def _parse_requested_actions(raw: object, user_message: str) -> tuple[RequestedAction, ...]:

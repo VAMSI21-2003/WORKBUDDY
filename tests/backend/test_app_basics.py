@@ -32,6 +32,20 @@ def test_healthz_reports_an_unconfigured_llm(settings: Settings) -> None:
     assert response.json() == {"ok": True, "llm_configured": False}
 
 
+@pytest.mark.parametrize("llm_configured", [True, False])
+def test_healthz_accepts_head_with_the_status_of_get_and_no_body(
+    settings: Settings, llm_configured: bool
+) -> None:
+    client = _client(settings, llm_configured=llm_configured)
+
+    head = client.head("/healthz")
+
+    assert head.status_code == client.get("/healthz").status_code == 200
+    assert head.content == b""
+    assert head.headers["X-Content-Type-Options"] == "nosniff"
+    assert head.headers["Cache-Control"] == "no-store"
+
+
 @pytest.mark.parametrize("path", ["/healthz", "/nope", "/api/v1/nothing-here"])
 def test_every_response_carries_nosniff_and_no_store(settings: Settings, path: str) -> None:
     response = _client(settings).get(path)
