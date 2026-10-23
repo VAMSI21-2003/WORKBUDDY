@@ -45,10 +45,12 @@ from buddy.facts import (
     REPORT_WORDS,
     TURN_CHAT,
     TURN_DELIVERED,
-    VALUES_ONLY_WORDS as VALUES_ONLY_PATTERN,
     FactSheet,
     Quantity,
     number_word_value,
+)
+from buddy.facts import (
+    VALUES_ONLY_WORDS as VALUES_ONLY_PATTERN,
 )
 
 # The most messages a reply may have, and the most characters in one.
