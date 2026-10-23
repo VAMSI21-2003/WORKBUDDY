@@ -22,6 +22,11 @@ services:
       WORKBUDDY_OPERATOR_TOKEN: "${WORKBUDDY_OPERATOR_TOKEN:?set WORKBUDDY_OPERATOR_TOKEN in .env}"
       # Empty: any verified Google email may sign in.
       WORKBUDDY_ALLOWED_EMAILS: "${WORKBUDDY_ALLOWED_EMAILS:-}"
+      # The reply writer's key (Gemini). Optional: empty, Groq (GROQ_API_KEY) writes the replies
+      # too. With both, each model stands in for the other when it can't answer.
+      GEMINI_API_KEY: "${GEMINI_API_KEY:-}"
+      # The Gemini model; empty is gemini-2.5-flash.
+      GEMINI_MODEL: "${GEMINI_MODEL:-}"
     # No "ports": the app can't be reached from outside this machine, only through Caddy.
     expose:
       - "8000"

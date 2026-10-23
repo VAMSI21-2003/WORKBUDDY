@@ -42,6 +42,8 @@ Every variable the server reads. "Set" means the host must set it; the rest have
 | `WORKBUDDY_GOOGLE_CLIENT_SECRET` | Its secret. Required in production. Keep it in the host's secret store. It's never logged, echoed or returned. |
 | `WORKBUDDY_PUBLIC_ORIGIN` | The exact origin people open, `https://demo.example`: lower case, no path, no trailing slash. Required in production, and must be `https://`. The Origin check on every state-changing request compares against it exactly, so a mismatch makes the gate answer `403 forbidden_origin`. The address Google sends people back to is this plus `/auth/google/callback`, built from this setting alone (never from a request header), and that exact address is the one registered with Google. |
 | `GROQ_API_KEY` | The LLM key (preferred). `ANTHROPIC_API_KEY` is used if there's no Groq key. With neither, the server starts, `/healthz` says `llm_configured: false` and every turn fails with the fallback reply. A secret: host secret store only. |
+| `GEMINI_API_KEY` | Optional. The reply writer's key (Gemini). With it, Gemini writes the replies and Groq reads the requests, each standing in for the other on a `429`, a timeout or a `5xx`. Without it, Groq does both. A secret: host secret store only. |
+| `GEMINI_MODEL` | Optional. The Gemini model that writes the replies; default `gemini-2.5-flash`. |
 
 ### Sign-in and scripts (optional)
 
@@ -307,6 +309,7 @@ Type the values after the `=` signs, on the same line. **No spaces at either end
 - `WORKBUDDY_GOOGLE_CLIENT_SECRET=`: the Client secret from 6a.
 - `WORKBUDDY_OPERATOR_TOKEN=`: a long random token for scripts and `smoke.sh`. `openssl rand -hex 24` (run it in a second window) makes a good one.
 - `GROQ_API_KEY=`: your key.
+- `GEMINI_API_KEY=`: optional, the reply writer's key (Gemini). Leave it empty and Groq writes the replies too.
 - Optional: remove the `#` from `WORKBUDDY_ALLOWED_EMAILS=` and list the Google emails that may sign in, separated by commas. Leave it commented and any verified Google email may sign in.
 
 Save with **Ctrl+O**, **Enter**, and leave with **Ctrl+X**. (Lines starting with `#` are optional settings; leave them.)

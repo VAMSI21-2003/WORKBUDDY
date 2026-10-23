@@ -53,16 +53,21 @@
 </section>
 {% endmacro %}
 
-{#- One turn. Its reply slot holds the reply and nothing else; the download area is one subtree,
-    drawn from the turn's own delivered files, and its presence is the only thing that differs. -#}
-{% macro turn_item(t) %}
-<li id="turn-{{ t.turn_id }}" class="turn" data-session-id="{{ t.session_id }}" data-turn-id="{{ t.turn_id }}" data-seq="{{ t.seq }}" data-version="{{ t.version }}" data-status="{{ t.status }}">
+{#- One turn. Each of the reply's messages is a bubble of its own, and its reply slot holds that
+    message and nothing else; the download area is one subtree, drawn from the turn's own delivered
+    files, under the last message, and its presence is the only thing that differs. A turn that has
+    just finished (``fresh``) shows its later messages one after another, after a short typing
+    pause (styles.css); a page that loads a finished turn shows them all at once. -#}
+{% macro turn_item(t, fresh=false) %}
+<li id="turn-{{ t.turn_id }}" class="turn{% if fresh %} fresh{% endif %}" data-session-id="{{ t.session_id }}" data-turn-id="{{ t.turn_id }}" data-seq="{{ t.seq }}" data-version="{{ t.version }}" data-status="{{ t.status }}">
   <div class="bubble bubble-user"><span class="who">{{ copy.who_user() }}</span><p class="text" data-slot="message">{{ t.message }}</p></div>
   {% if t.status == "finished" %}
-  <div class="bubble bubble-buddy">
-    <span class="who">{{ copy.who_buddy() }}</span>
-    <div class="text reply" data-slot="reply">{{ t.reply }}</div>
-    {% if t.downloads %}
+  {% for m in t.messages %}
+  {% if not loop.first %}<p class="typing typing-{{ loop.index }}" aria-hidden="true"><span></span><span></span><span></span></p>{% endif %}
+  <div class="bubble bubble-buddy message-{{ loop.index }}{% if not loop.first %} later{% endif %}">
+    {% if loop.first %}<span class="who">{{ copy.who_buddy() }}</span>{% endif %}
+    <div class="text reply" data-slot="reply" data-message="{{ loop.index }}">{{ m }}</div>
+    {% if loop.last and t.downloads %}
     <ul class="downloads" data-slot="downloads">
       {% for d in t.downloads %}
       <li><a class="download" href="{{ d.url }}" download>{{ copy.download_label(d.name, d.size) }}</a></li>
@@ -70,6 +75,7 @@
     </ul>
     {% endif %}
   </div>
+  {% endfor %}
   {% elif t.plan %}
   {{ plan_card(t) }}
   {{ poll_element(t) }}

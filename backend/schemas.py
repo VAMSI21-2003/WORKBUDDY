@@ -196,6 +196,7 @@ class RunningTurnSummary(_TurnCommon):
     outcome: None = None
     finished_at: None = None
     reply: None = None
+    messages: None = None
     reply_source: None = None
 
 
@@ -205,6 +206,7 @@ class AwaitingConfirmationTurnSummary(_TurnCommon):
     outcome: None = None
     finished_at: None = None
     reply: None = None
+    messages: None = None
     reply_source: None = None
 
 
@@ -213,7 +215,13 @@ class FinishedTurnSummary(_TurnCommon):
     pending_confirmation: None = None
     outcome: Outcome
     finished_at: datetime
-    reply: str
+    reply: str = Field(description="The reply: its messages, one per line.")
+    messages: list[str] = Field(
+        description=(
+            "The reply as the separate chat messages it is shown as, in order (1 to 3). A turn "
+            "saved before replies had messages has its reply as its one message."
+        )
+    )
     reply_source: ReplySource
 
 

@@ -95,6 +95,7 @@ def test_env_example_holds_names_and_no_values() -> None:
         "WORKBUDDY_GOOGLE_CLIENT_SECRET",
         "WORKBUDDY_OPERATOR_TOKEN",
         "GROQ_API_KEY",
+        "GEMINI_API_KEY",
     }
     seen: set[str] = set()
     for line in (DEPLOY / ".env.example").read_text(encoding="utf-8").splitlines():

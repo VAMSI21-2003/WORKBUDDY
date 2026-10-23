@@ -22,6 +22,7 @@ from buddy.llm import LLMMessage
 from buddy.models import StepResult
 from buddy.state import BuddyState
 from buddy.voice import PersonalityVoice, TemplateSpeaker
+from buddy.writer import NaturalVoice
 from core.engine import CognitiveCycle, Engine
 from tests.buddy.test_engine_factory import _chain_replies, _single_intent_replies
 
@@ -89,9 +90,11 @@ class PipelineFactory:
 
     Args:
         provider: The fake LLM.
-        speaker: ``"template"`` (``TemplateSpeaker``) or ``"friend"``/``"focus"``
-            (``PersonalityVoice``; the mode comes from the session).
+        speaker: ``"template"`` (``TemplateSpeaker``), ``"friend"``/``"focus"``
+            (``PersonalityVoice``; the mode comes from the session), or ``"natural"``
+            (``NaturalVoice``, the app's own, on ``writer``).
         wrap: Optional ``(cycle) -> cycle`` to replace stages, e.g. with a raiser.
+        writer: The fake writer model for ``"natural"``.
     """
 
     provider: QueuedProvider = field(default_factory=QueuedProvider)
@@ -99,12 +102,16 @@ class PipelineFactory:
     wrap: Callable[[CognitiveCycle], CognitiveCycle] | None = None
     runs: list[RunRecord] = field(default_factory=list)
     confirmation_providers: list[ConfirmationProvider] = field(default_factory=list)
+    writer: Any = None
 
     def __call__(self, confirmation_provider: ConfirmationProvider) -> Any:
         self.confirmation_providers.append(confirmation_provider)
-        speaker = TemplateSpeaker() if self.speaker == "template" else PersonalityVoice(
-            self.provider
-        )
+        if self.speaker == "template":
+            speaker: Any = TemplateSpeaker()
+        elif self.speaker == "natural":
+            speaker = NaturalVoice(self.writer)
+        else:
+            speaker = PersonalityVoice(self.provider)
         engine = build_engine(
             llm_provider=self.provider,
             speaker=speaker,

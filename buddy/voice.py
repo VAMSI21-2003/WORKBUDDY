@@ -9,6 +9,7 @@ from pathlib import Path
 from typing import Protocol
 
 from buddy.actions import INTENT_CAPABILITIES, asks_for_report, is_conversation
+from buddy.context import ConversationTurn
 from buddy.inspector import FINAL_OUTPUT_CAPABILITY, NO_ANALYSIS_FINDINGS, SKIPPED_FINDING
 from buddy.llm import LLMProvider
 from buddy.models import (
@@ -25,6 +26,7 @@ from buddy.outcome import (
     FILE_STYLE_GENERATED,
     FILE_STYLE_PLAIN,
     REPORT_NOT_RUN_SENTENCE,
+    OutcomeReport,
     _describe_capability,
     _is_action_step,
     _step_passed,
@@ -480,6 +482,8 @@ class SpeakingRequest:
             caller that doesn't say never makes the reply claim there is none.
         file_refusal: The row-cleaning skills' own refusal text for this turn's
             file, when the Planner found one (``BuddyState.file_refusal``).
+        recent_conversation: The session's recent conversation, oldest first (this turn's
+            message last). Only the reply writer reads it (``buddy.writer``), as quoted text.
         report_requested: Brain's reading of the message includes a report on the file
             (``buddy.actions.asks_for_report``). Nothing in the message decides it. The reply
             then gives the report or says why it can't (``buddy.outcome``).
@@ -500,6 +504,7 @@ class SpeakingRequest:
     file_refusal: str | None = None
     report_requested: bool = False
     resumed: bool = False
+    recent_conversation: tuple[ConversationTurn, ...] = ()
 
 
 # Leads the analysis findings on a delivered turn, after the outcome.
@@ -509,26 +514,14 @@ ANALYSIS_QUESTION = "Want me to tackle any of these?"
 _OTHER_ISSUES_NOTE = "none of the other issues I check for were found"
 
 
-def _verified_delivery_reply(
-    request: SpeakingRequest, *, file_style: str, mode: str | None = None
-) -> str:
-    """The reply for a turn that delivered a verified file, rendered by code.
+def delivery_parts(
+    request: SpeakingRequest,
+) -> tuple[OutcomeReport, tuple[str, ...], list[str]]:
+    """The facts of a verified delivery: the outcome report, the open analysis findings and the
+    analysis notes (the all-clear), exactly as the rendered reply states them.
 
-    In order (design decision D3): the opener, the outcome block, the
-    analysis findings, the closer. The outcome block comes from
-    ``buddy.outcome`` (execution and verifier data, checked against the
-    requested-actions ledger on ``request.understanding``); the opener and
-    closer from ``buddy.voice_catalog``, chosen by code, and only when a
-    ``mode`` is given. No model writes any of it.
-
-    Args:
-        request: The turn; ``_verified_delivery(request)`` must be true.
-        file_style: How the outcome block names the file.
-        mode: The personality mode for the catalog phrases, or ``None`` for
-            none (``TemplateSpeaker``).
-
-    Returns:
-        The reply text.
+    Shared by ``_verified_delivery_reply`` and the writer's fact sheet (``buddy.facts``), so the
+    two can never disagree about what a delivered turn did.
     """
     execution_result = request.execution_result
     verification_result = request.verification_result
@@ -570,6 +563,33 @@ def _verified_delivery_reply(
             _OTHER_ISSUES_NOTE if note == NO_ANALYSIS_FINDINGS else note
             for note in analysis_notes
         ]
+    return report, open_findings, analysis_notes
+
+
+def _verified_delivery_reply(
+    request: SpeakingRequest, *, file_style: str, mode: str | None = None
+) -> str:
+    """The reply for a turn that delivered a verified file, rendered by code.
+
+    In order (design decision D3): the opener, the outcome block, the
+    analysis findings, the closer. The outcome block comes from
+    ``buddy.outcome`` (execution and verifier data, checked against the
+    requested-actions ledger on ``request.understanding``); the opener and
+    closer from ``buddy.voice_catalog``, chosen by code, and only when a
+    ``mode`` is given. No model writes any of it.
+
+    Args:
+        request: The turn; ``_verified_delivery(request)`` must be true.
+        file_style: How the outcome block names the file.
+        mode: The personality mode for the catalog phrases, or ``None`` for
+            none (``TemplateSpeaker``).
+
+    Returns:
+        The reply text.
+    """
+    verification_result = request.verification_result
+    assert verification_result is not None
+    report, open_findings, analysis_notes = delivery_parts(request)
     opener = closer = ""
     if mode is not None:
         opener_phrase, closer_phrase = select_phrases(
@@ -660,8 +680,8 @@ class Speaker(Protocol):
     given.
     """
 
-    def __call__(self, request: SpeakingRequest) -> str:
-        """Compose a reply for ``request`` and return the reply text."""
+    def __call__(self, request: SpeakingRequest) -> str | Sequence[str]:
+        """Compose a reply for ``request``: one text, or the separate messages it is sent as."""
         ...
 
 
@@ -1195,17 +1215,23 @@ class Voice:
             file_refusal=state.file_refusal,
             report_requested=asks_for_report(state.understanding or Understanding()),
             resumed=state.resumed_request,
+            recent_conversation=tuple(state.context.recent_conversation()),
         )
 
     @staticmethod
-    def _apply(state: BuddyState, reply: str) -> None:
+    def _apply(state: BuddyState, reply: str | Sequence[str]) -> None:
         """Record the speaker's output onto ``state``.
+
+        A single text is one message. Separate messages are kept as they are in
+        ``state.reply_messages``, and ``state.reply`` holds them one per line.
 
         Args:
             state: The state to update.
-            reply: The reply text to record.
+            reply: The reply text, or its messages.
         """
-        state.reply = reply
+        messages = (reply,) if isinstance(reply, str) else tuple(reply)
+        state.reply_messages = messages
+        state.reply = "\n".join(messages)
 
 
 def is_verified_delivery(state: BuddyState) -> bool:

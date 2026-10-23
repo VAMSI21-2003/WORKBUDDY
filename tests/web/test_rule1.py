@@ -66,6 +66,7 @@ def finished(
         outcome=outcome,
         finished_at=NOW,
         reply=reply,
+        messages=extra.pop("messages", [reply]),
         reply_source=reply_source,
         **extra,
     )  # type: ignore[arg-type]

@@ -1,8 +1,9 @@
 """Manual verification script for the "remove duplicate rows" slice.
 
-Runs the real, end-to-end pipeline — including a real call to an LLM
-provider (Groq if ``GROQ_API_KEY`` is set, else Anthropic via
-``ClaudeProvider``) — against a real temporary .xlsx file with known
+Runs the real, end-to-end pipeline — including real calls to the LLM
+providers the app uses (``buddy.llm.build_providers_from_env``: Groq reads
+the request, Gemini writes the reply when ``GEMINI_API_KEY`` is set, else
+Groq) — against a real temporary .xlsx file with known
 duplicate rows, and prints every stage's output for a human to eyeball.
 
 This is throwaway verification tooling, NOT part of the automated test
@@ -47,10 +48,11 @@ sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
 from buddy.actions import requested_ledger  # noqa: E402
 from buddy.engine_factory import build_engine  # noqa: E402
-from buddy.llm import ClaudeProvider, GroqProvider, LLMProvider  # noqa: E402
+from buddy.llm import LLMProvider, build_providers_from_env  # noqa: E402
 from buddy.outcome import build_outcome_report  # noqa: E402
 from buddy.state import BuddyState  # noqa: E402
-from buddy.voice import PersonalityVoice, Voice, _verified_delivery  # noqa: E402
+from buddy.voice import Voice, _verified_delivery  # noqa: E402
+from buddy.writer import NaturalVoice  # noqa: E402
 from core.engine import Engine  # noqa: E402
 
 REPO_ROOT = Path(__file__).resolve().parent.parent
@@ -258,29 +260,27 @@ def _print_header(title: str) -> None:
     print(f"--- {title} ---")
 
 
-def _build_provider() -> LLMProvider:
-    """Build whichever real ``LLMProvider`` this environment supports.
-
-    Prefers Groq (``GROQ_API_KEY``) over Anthropic (``ANTHROPIC_API_KEY``)
-    when both are set, since Groq is free. Raises
-    ``buddy.llm.LLMConfigurationError`` (via the provider's own
-    constructor) if neither key is set — the same honest failure this
-    script already relied on, just from whichever provider is chosen.
-    """
-    if os.environ.get("GROQ_API_KEY"):
-        print("Using GroqProvider (GROQ_API_KEY is set).")
-        return GroqProvider()
-    print("Using ClaudeProvider (ANTHROPIC_API_KEY).")
-    return ClaudeProvider()
+def _build_providers() -> tuple[LLMProvider, LLMProvider]:
+    """The providers the app uses: ``(reasoning, writer)``. Exits when no key is set."""
+    providers = build_providers_from_env()
+    if providers.reasoning is None or providers.writer is None:
+        raise SystemExit(
+            "set GROQ_API_KEY (and GEMINI_API_KEY for the writer), or ANTHROPIC_API_KEY"
+        )
+    print(
+        "Using: Groq" if os.environ.get("GROQ_API_KEY") else "Using: no Groq key",
+        "| writer: Gemini first" if os.environ.get("GEMINI_API_KEY") else "| writer: no Gemini key",
+    )
+    return providers.reasoning, providers.writer
 
 
 class _CountingProvider:
-    """Wraps the real provider and records which system prompt each call used,
+    """Wraps a real provider and records which system prompt each call used,
     so the output shows exactly which stages called the model."""
 
-    def __init__(self, inner: LLMProvider) -> None:
+    def __init__(self, inner: LLMProvider, calls: list[str] | None = None) -> None:
         self._inner = inner
-        self.calls: list[str] = []
+        self.calls: list[str] = calls if calls is not None else []
 
     def complete(self, *, system: str, messages, max_tokens: int = 1024) -> str:  # type: ignore[no-untyped-def]
         self.calls.append(system.strip().splitlines()[0][:70])
@@ -345,13 +345,13 @@ def main() -> None:
     state.context.set_mode(args.mode)
     print(f"Voice mode: {args.mode}")
 
-    # A single real provider, shared by Brain/Think (via llm_provider) and
-    # Voice (via PersonalityVoice) — Groq if GROQ_API_KEY is set, else
-    # Anthropic. PersonalityVoice replaces build_engine()'s default
-    # TemplateSpeaker so --mode actually has a visible effect on the reply;
-    # TemplateSpeaker ignores mode entirely.
-    provider = _CountingProvider(_build_provider())
-    engine = build_engine(llm_provider=provider, speaker=PersonalityVoice(provider))
+    # The app's providers: Brain/Think/the planner on the reasoning one, the reply writer
+    # (NaturalVoice, checked by buddy.claims) on the writer one. Both record into one list.
+    reasoning, writer = _build_providers()
+    provider = _CountingProvider(reasoning)
+    engine = build_engine(
+        llm_provider=provider, speaker=NaturalVoice(_CountingProvider(writer, provider.calls))
+    )
 
     if args.second_message is None:
         _run_turn(engine, provider, state, args.message, args.mode, input_path, None)
@@ -412,9 +412,13 @@ def _run_turn(
     started = time.time()
     before = _sha256(input_path)
     state.user_message = message
+    # As the API does: the message is in the conversation the writer reads.
+    state.context.record_user_message(message)
     print(f"Message:    {message!r}")
     print("Running the full cognitive cycle (this makes a real LLM API call)...")
     engine.run(state)
+    if state.reply:
+        state.context.record_buddy_reply(state.reply)
 
     _print_header("Failure (Engine)")
     print(state.failure if state.failure is not None else "none: every stage ran")
@@ -505,8 +509,9 @@ def _run_turn(
     else:
         print("not a verified delivery: TemplateSpeaker's factual reply, no report")
 
-    _print_header(f"Reply (Voice stage, {mode} mode)")
-    print(state.reply)
+    _print_header(f"Reply (Voice stage, {mode} mode): {len(state.reply_messages)} message(s)")
+    for index, text in enumerate(state.reply_messages, 1):
+        print(f"  [{index}] {text}")
 
     _print_header("LLM calls this turn (first line of each system prompt)")
     for index, call in enumerate(provider.calls, 1):

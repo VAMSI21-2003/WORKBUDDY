@@ -1,0 +1,56 @@
+{
+  "cookie_token": "6XvLjXdk_Z5WdE478YgK9a8Ag7A8liHIwx-1PtiSH7k",
+  "data_dir_when_written": "/data",
+  "email": "alice@example.test",
+  "format_version": 1,
+  "mode": "friend",
+  "owner": "google:sub-alice",
+  "session_id": "s_dfrl4v2EFq5qoKo165wOXQ",
+  "signed_in_at": 1800000000.0,
+  "turns": [
+    {
+      "confirmation": {
+        "decision": "approve",
+        "decision_source": "user"
+      },
+      "delivered_files": [
+        {
+          "file_id": "d_t0001_1",
+          "name": "report_deduplicated.xlsx",
+          "sha256": "524959570c1abfb3bf6059494231cb11aff0a5f840ed12a65dfb2de5acc63472",
+          "size": 5441
+        }
+      ],
+      "message": "remove duplicate rows",
+      "messages": [
+        "Removed 2 exact duplicate rows.",
+        "I worked on `report.xlsx`, your original upload.",
+        "The copy has the values only; formatting, column widths and other sheet settings aren't carried over."
+      ],
+      "outcome": "delivered",
+      "reply": "Removed 2 exact duplicate rows.\nI worked on `report.xlsx`, your original upload.\nThe copy has the values only; formatting, column widths and other sheet settings aren't carried over.",
+      "turn_id": "t0001"
+    },
+    {
+      "confirmation": {
+        "decision": "reject",
+        "decision_source": "user"
+      },
+      "delivered_files": [],
+      "message": "remove empty rows",
+      "messages": [
+        "Before anything else, here's what I noticed: column \"name\": 1 missing value (25.0%); column \"amount\": 1 missing value (25.0%). Want me to tackle any of these? The remove empty rows step: wasn't confirmed, so it didn't run. I stopped at the remove empty rows step and no file was handed back; your original file is unchanged."
+      ],
+      "outcome": "not_delivered",
+      "reply": "Before anything else, here's what I noticed: column \"name\": 1 missing value (25.0%); column \"amount\": 1 missing value (25.0%). Want me to tackle any of these? The remove empty rows step: wasn't confirmed, so it didn't run. I stopped at the remove empty rows step and no file was handed back; your original file is unchanged.",
+      "turn_id": "t0002"
+    }
+  ],
+  "upload": {
+    "file_id": "f_7k0wu6KxpINEW86z",
+    "name": "report.xlsx",
+    "sha256": "ca2526a951cd5c52bba34209904f56bb0228cbc648f2422fc471ff05f0c5bcc1",
+    "size": 5018
+  },
+  "written_by_commit": "dc948d3e286b7452abe8c4ff71f2cb18558c5dd3"
+}

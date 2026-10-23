@@ -119,7 +119,9 @@ class BuddyState:
         verification_result: The structured result produced by the Verify
             stage, if it has run yet.
         reply: The message Buddy will send back to the user, produced
-            during the Speak stage.
+            during the Speak stage: its messages, one per line.
+        reply_messages: The same reply as the separate chat messages it is shown as (1 to 3
+            from the writer; one for every fixed reply). Empty until Voice has run.
         failure: Set by the Engine when a stage raised this turn. Voice
             then gives a fixed failure reply, and nothing from the turn
             counts as a verified delivery, whatever ``execution_result``
@@ -172,6 +174,7 @@ class BuddyState:
     outputs: list[dict[str, Any]] = field(default_factory=list)
     verification_result: VerificationResult | None = None
     reply: str | None = None
+    reply_messages: tuple[str, ...] = ()
     failure: StageFailure | None = None
     turn_output_dir: str | None = None
     file_choice: FileChoice | None = None
@@ -269,6 +272,7 @@ class BuddyState:
         self.outputs = []
         self.verification_result = None
         self.reply = None
+        self.reply_messages = ()
         self.failure = None
         self.turn_output_dir = None
         self.file_choice = None

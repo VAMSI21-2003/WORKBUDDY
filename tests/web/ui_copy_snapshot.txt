@@ -53,10 +53,10 @@ _copy.html text: Your next request will use {name}, your upload.
 _copy.html text: about {seconds} s left
 _parts.html attr:value: approve
 _parts.html attr:value: reject
+_parts.html text: {m}
 _parts.html text: {p.note}
 _parts.html text: {step}
 _parts.html text: {t.message}
-_parts.html text: {t.reply}
 _parts.html text: {u.name}
 _parts.html text: {u.size}
 app.js string:  
