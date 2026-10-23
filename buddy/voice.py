@@ -1272,8 +1272,9 @@ def asked_which_file(state: BuddyState) -> bool:
 class PersonalityVoice:
     """A ``Speaker`` with a selectable personality: Friend or Focus mode.
 
-    The Voice model never writes reply text (``CLAUDE.md``, "Decided
-    behaviour"; ``docs/design/verified-outcome-design.md``, decision D1):
+    The template reply: what the app shows when the reply writer (``buddy.writer.NaturalVoice``,
+    the app's speaker since 2026-10-23) can't word a turn, or its drafts fail the claim check.
+    No model writes any of it (``docs/design/verified-outcome-design.md``, decision D1):
 
     - On a turn that delivered a verified file, the reply is rendered by
       code: the outcome block from execution and verifier data, with the

@@ -298,7 +298,14 @@ when the moment fits.
 > **Buddy:** Finished. Let me know if you want anything adjusted before
 > your meeting.
 
-**How this is implemented today** (`docs/design/verified-outcome-design.md`):
+**Since 2026-10-23 the model writes the reply** (owner's decision; `CLAUDE.md`, "Decided
+behaviour"). Buddy's character is `buddy/character/buddy.md`
+([`docs/BUDDY_CHARACTER.md`](BUDDY_CHARACTER.md)). The writer gets a VERIFIED RESULT built by
+code from the sentences below (`buddy/facts.py`), and code checks every draft against it
+(`buddy/claims.py`) before it is shown; a draft that fails twice gives way to the template reply
+described below, which is still what every turn falls back to.
+
+**The template reply** (`docs/design/verified-outcome-design.md`):
 on a turn that changed a file, the outcome itself ("Done — removed 2
 duplicate rows. The copy has 4 rows, with 0 duplicate rows remaining, …") is
 rendered by code from what the verifiers measured, never written by a model.
