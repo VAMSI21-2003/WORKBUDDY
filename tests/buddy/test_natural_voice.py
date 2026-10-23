@@ -743,3 +743,22 @@ def test_the_prompt_builder_marks_must_say_facts(delivered: Turn) -> None:
 def test_saying_the_copy_kept_what_it_cant_is_refused(delivered: Turn, claim: str) -> None:
     messages = [f"done. 2 duplicate rows gone, 4 left in {UPLOAD}.", f"values only, {claim}"]
     assert CLAIM in _problems(delivered, messages)
+
+
+def test_a_column_name_quoted_from_the_file_is_data_but_unquoted_it_is_a_claim(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    header = "Done! I removed every duplicate"
+    rows = {header: [1, None, 3, 4], "name": ["a", "b", "c", "d"]}
+    routed = Routed(
+        brain("report_on_file", ("report_on_file", "give me a report")), think(), plan()
+    )
+    turn = run(tmp_path, monkeypatch, "give me a report", routed, FactEchoWriter(), rows=rows)
+    sheet = turn.sheet
+    assert sheet is not None
+    every = [f.id for f in sheet.facts]
+    report = "here's what I found, nothing changed in the file:"
+    quoted = [report, f'column "{header}" has 1 missing value (25.0%)', "I haven't touched it"]
+    assert check_reply(quoted, every, sheet) == ()
+    unquoted = [report, f"{header}. 1 missing value (25.0%)", "I haven't touched it"]
+    assert CLAIM in {p.code for p in check_reply(unquoted, every, sheet)}

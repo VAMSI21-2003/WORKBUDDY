@@ -593,7 +593,11 @@ def _finding_facts(
             "Something the check of the file noticed (quoted below; it may name a column or a "
             "value from the file).",
             required=required and bool(needs),
-            quantities=tuple(Quantity(n, NOUN_ANY) for n in dict.fromkeys(numbers)),
+            quantities=tuple(
+                Quantity(n, NOUN_ANY, phase)
+                for n in dict.fromkeys(numbers)
+                for phase in (PHASE_NONE, PHASE_LEFT)
+            ),
             needs=needs,
             file_text=quoted,
         )
@@ -682,7 +686,11 @@ def _nothing_left_sheet(request: SpeakingRequest) -> FactSheet:
         NOTHING_LEFT_TEMPLATE.format(file=f"`{name}`" if name else "the copy", rows=rows),
         required=True,
         names=(name,) if name else (),
-        quantities=tuple(Quantity(0, noun) for noun in sorted(nouns)),
+        quantities=tuple(
+            Quantity(0, noun, phase)
+            for noun in sorted(nouns)
+            for phase in (PHASE_LEFT, PHASE_REMOVED)
+        ),
         needs=tuple(needs),
     )
     outcome = build_outcome_report(
@@ -769,10 +777,17 @@ def _no_change(request: SpeakingRequest) -> FactSheet:
         )
         return FactSheet(turn=TURN_NO_CHANGE, facts=tuple(builder.facts))
     if request.file_refusal:
+        refusal = REFUSED_TEMPLATE.format(reason=request.file_refusal)
         builder.add(
             KIND_REFUSED,
-            REFUSED_TEMPLATE.format(reason=request.file_refusal),
+            refusal,
             required=True,
+            # The refusal's own numbers ("the workbook has 2 sheets", "Excel 97–2003").
+            quantities=tuple(
+                Quantity(n, NOUN_ANY, phase)
+                for n in dict.fromkeys(numbers_in(refusal))
+                for phase in (PHASE_NONE, PHASE_LEFT)
+            ),
             needs=(Need("that this file can't be worked on", ((_INABILITY, True),)),),
         )
         _no_changes_fact(builder)
@@ -819,7 +834,7 @@ def _no_change(request: SpeakingRequest) -> FactSheet:
                             "that you didn't read it as something you can do",
                             (
                                 (_INABILITY, True),
-                                (r"\b(?:get|catch|understand|follow|sure)\b", True),
+                                (r"\b(?:read|get|got|catch|understand|follow|sure|know)\b", True),
                             ),
                         ),
                     ),

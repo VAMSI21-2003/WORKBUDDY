@@ -205,12 +205,37 @@ class _Segment:
     sentence: int
 
 
-def _prepare(text: str, names: Sequence[str]) -> str:
-    """The reply with file names replaced, quotes straightened and decimals protected."""
+_QUOTED_RE = re.compile(r"[\"“«]([^\"“”«»\n]{1,200})[\"”»]")
+# "what I did" refers to the work stated elsewhere; it claims nothing by itself.
+_WHAT_WAS_DONE_RE = re.compile(
+    r"\bwhat\s+(?:i|we)\s+(?:did|have\s+done|'ve\s+done|just\s+did)\b|\bwhat\s+was\s+done\b",
+    _FLAGS,
+)
+
+
+def _prepare(text: str, names: Sequence[str], file_texts: Sequence[str] = ()) -> str:
+    """The reply with file names replaced, quotes straightened and decimals protected.
+
+    Text quoted from the user's file (a column name in quotes, as a fact's file text has it) is
+    data the reply shows, not something it says: it is set aside too, so a column named "Done!"
+    is not read as a claim. Unquoted, the same words are read as the reply's own.
+    """
+    if file_texts:
+
+        def unquote(match: re.Match[str]) -> str:
+            inner = match.group(1).rstrip("…").strip()
+            if inner and any(inner in source for source in file_texts):
+                return " ⟦QUOTE⟧ "
+            return match.group(0)
+
+        text = _QUOTED_RE.sub(unquote, text)
     text = text.replace("’", "'").replace("‘", "'")
+    text = _WHAT_WAS_DONE_RE.sub(" ⟦WHATDONE⟧ ", text)
     for name in sorted({n for n in names if n}, key=len, reverse=True):
         text = text.replace(name, " ⟦FILE⟧ ")
     text = re.sub(r"(\d)\.(\d)", r"\1·\2", text)
+    # "merged cells" is what a file has, not something done to it.
+    text = re.sub(r"\bmerged(?=\s+cells?\b)", "merge-type", text, flags=_FLAGS)
     text = re.sub(r"\be\.g\.", "eg", text, flags=_FLAGS)
     text = re.sub(r"\bi\.e\.", "ie", text, flags=_FLAGS)
     return text
@@ -454,7 +479,8 @@ def check_reply(
     text = "\n".join(messages)
     if _INTERNAL_RE.search(text):
         problems.append(Problem(INTERNAL, "The messages show a fact id or an internal label."))
-    prepared = _prepare(text, sheet.names)
+    file_texts = [fact.file_text for fact in sheet.facts if fact.file_text]
+    prepared = _prepare(text, sheet.names, file_texts)
     if _FILE_LIKE.search(prepared):
         problems.append(
             Problem(FILE_NAME, "A file name isn't one the result gives, exactly as written.")

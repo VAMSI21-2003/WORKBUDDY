@@ -124,3 +124,28 @@ def test_the_app_works_with_only_the_groq_key_and_groq_then_writes_too(
     assert turn["outcome"] == "delivered"
     assert len(turn["messages"]) == 3
     assert any(system.startswith("You are Buddy") for system in systems)  # Groq wrote it
+
+
+def test_follow_ups_on_the_copy_are_written_and_checked_too(settings: Settings) -> None:
+    """The second turn works on the copy and names it; the third finds nothing left to remove.
+    Both drafts (the facts' own sentences) pass the check: no template reply."""
+    replies = (
+        single("remove_duplicate_rows")
+        + single("remove_empty_rows")
+        + single("remove_duplicate_rows")
+    )
+    writer = FactEchoWriter()
+    factory = PipelineFactory(QueuedProvider(replies), speaker="natural", writer=writer)
+    client = TestClient(create_app(settings, factory))
+    session_id = new_session(client, "friend")
+    assert upload(client, session_id, xlsx_bytes()).status_code == 201
+    turns = []
+    for message in ("remove duplicate rows", "remove empty rows", "remove duplicate rows"):
+        started = start_turn(client, session_id, message)
+        turns.append(wait_finished(client, session_id, started.json()["turn_id"]))
+
+    assert [t["outcome"] for t in turns] == ["delivered", "delivered", "not_delivered"]
+    assert "the latest copy I handed back" in turns[1]["messages"][1]
+    assert "already has no exact duplicate rows" in turns[2]["messages"][0]
+    assert len(turns[2]["messages"]) == 2  # written, not the one-message template reply
+    assert len(writer.calls) == 3
