@@ -45,6 +45,7 @@ from buddy.facts import (
     REPORT_WORDS,
     TURN_CHAT,
     TURN_DELIVERED,
+    VALUES_ONLY_WORDS as VALUES_ONLY_PATTERN,
     FactSheet,
     Quantity,
     number_word_value,
@@ -386,12 +387,18 @@ def _phase_word(tokens: list[str], position: int) -> str:
     return PHASE_NONE
 
 
+_SKIP_BEFORE_NUMBER = frozenset("of the all just only exactly about another".split())
+
+
 def _phase(tokens: list[str], index: int, noun_end: int) -> str:
-    """Removed or left: from the three words before the number, else the one after its noun."""
+    """Removed or left: from the word right before the number ("removed 2", "still has 2",
+    "got rid of 2"), else from the word right after its noun ("2 duplicates gone", "9 left")."""
     for position in range(index - 1, max(index - 4, -1), -1):
         phase = _phase_word(tokens, position)
         if phase:
             return phase
+        if tokens[position].casefold() not in _SKIP_BEFORE_NUMBER:
+            break
     return _phase_word(tokens, noun_end + 1)
 
 
@@ -558,7 +565,44 @@ def _check_claims(segments: list[_Segment], sheet: FactSheet) -> list[Problem]:
                 )
             )
     problems += _check_file_used(segments, sheet)
+    problems += _check_kept(segments)
     return _unique(problems)
+
+
+# What a values-only copy doesn't keep, and words that say it was kept.
+_NOT_KEPT_RE = re.compile(
+    r"\b(?:format\w*|formulas?|column widths?|widths?|styles?|colou?rs?|fonts?|layout|borders?"
+    r"|sheet settings|charts?|macros?)\b",
+    _FLAGS,
+)
+_KEPT_RE = re.compile(
+    r"\b(?:kept|keeps?|keeping|preserved?|preserves|intact|carried|carries|carry|still\s+there"
+    r"|stays?|stayed|same|untouched|unchanged|retained|retains?|survived?)\b",
+    _FLAGS,
+)
+
+
+def _check_kept(segments: list[_Segment]) -> list[Problem]:
+    """The copy keeps values only: nothing may say its formatting or formulas were kept."""
+    for segment in segments:
+        if segment.negated or segment.question:
+            continue
+        text = segment.text
+        if _NOT_KEPT_RE.search(text) and _KEPT_RE.search(text):
+            if re.search(VALUES_ONLY_PATTERN, text, _FLAGS) and not re.search(
+                r"\b(?:format\w*|formulas?|widths?|styles?)\b[^.]*\b(?:kept|preserved?|intact"
+                r"|carried|still\s+there|retained)\b",
+                text,
+                _FLAGS,
+            ):
+                continue  # "the copy keeps values only, not the formatting"
+            return [
+                Problem(
+                    CLAIM,
+                    "A message says formatting or formulas were kept; the copy keeps values only.",
+                )
+            ]
+    return []
 
 
 def _check_file_used(segments: list[_Segment], sheet: FactSheet) -> list[Problem]:
