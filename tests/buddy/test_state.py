@@ -160,6 +160,7 @@ def _fully_populated_state() -> BuddyState:
         measurements=(measurement,),
     )
     state.reply = "a reply"
+    state.reply_messages = ("first message", "second message")
     state.failure = StageFailure(stage="inspector", error_type="RuntimeError")
     state.turn_output_dir = "/data/outputs/session-1/t0001"
     state.file_choice = FileChoice(original="/data/uploads/a.xlsx", copy="/data/outputs/b.xlsx")
