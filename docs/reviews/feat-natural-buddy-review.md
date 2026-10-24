@@ -173,3 +173,82 @@ These are the same mechanism as round 1's H1–H5: a checker that reads free tex
 - Live runs (Groq or Gemini): not in a reviewer's brief. How often a real model writes the drafts above is unmeasured.
 - 9 of the 11 mutation survivors against the whole suite (about 14 minutes each); only `not_done_mentions_off` and `leftover_off` were run.
 - The page in a browser; the release scripts and `smoke.sh` on a VM.
+
+# Review round 3 (commit 358a88a)
+
+**Verdict: DON'T MERGE.** The slots work: no fact, count or file name in a shown reply is the model's, and every round-1/2 draft is refused. But the closed social vocabulary still lets the model's own words make claims about the work: 19 of 23 false or misleading slot drafts are shown, on all three speakers (R3-H1, R3-H2). This is round 3 ending DON'T MERGE, so `docs/process/review-loop.md` ("Checkpoint at round 3") applies: don't start round 4; report to the owner (see "For the owner").
+
+Scope: `e645c84..358a88a` (new `buddy/social.py`; `claims.py`, `facts.py`, `writer.py` rewritten; `question_about_file` in `actions.py`, `brain.py`, `think.py`, `planner.py`, `voice.py`, `voice_catalog.py`; `CLAUDE.md`; tests), round 2's open findings, and regression against base `dc948d3`. Probes: `scripts/review_harness/feat-natural-buddy/` (README there, "Round 3"). `nb.py` was updated only to read the new `Fact` shape and prompt format.
+
+## What I ran
+
+| Run | Result |
+|---|---|
+| `python -m pytest -q` | 4082 passed, 5 skipped (856 s) |
+| `ruff check buddy tests` vs base | 17 errors on both, same files and rules: nothing new |
+| New/changed tests on `e645c84` | `test_natural_voice.py`, `test_claims_round1.py` fail at collection; `test_natural_replies.py` 4 of 6 fail |
+| `p1_ordinary.py` (20 scenarios x 3 speakers): careful writer / writer down / base | careful writer shown on 57/57 turns that call it; removed counts match openpyxl on all 39 delivered turns; writer down = base's friend/focus reply on all 40 friend/focus turns (the 17 diffs are template-harness only, as in rounds 1–2). Original unchanged on all 198 turns |
+| `p2_drafts.py`, `p6_round2.py` (rounds 1–2: 65 false drafts) x 3 speakers | every file-turn false draft refused (N1, N2, N4, N5 closed). Shown: only p6's chat-turn drafts J2, J4–J7 ("yep!", "yep, took them out 👍", "c'est fait ✅"…) when Brain reads the question as `conversation` (the residual the fixes file says the owner accepted) |
+| `p9_round3.py`: 30 slot drafts (23 false/misleading on file turns, 3 true, 4 chat) x 3 speakers | **19 of 23 false file-turn drafts shown, each on all 3 speakers.** 1 of 3 true drafts refused (R3-L2). Chat: 3 of 4 shown (E1 "yep!", E2 "ya totally 👍", E4 "they all went away 😎"). Original unchanged on all 90 turns |
+| `p10_api_questions.py`: `question_about_file` through the HTTP API (reads the latest copy), friend + focus | careful writer: correct copy-vs-original lead, true findings, nothing delivered (Q1–Q5). **Social-word answers shown on both modes: Q6 "ya totally!", Q7 "i did!", Q8 "bilkul bhai!", Q9 "true, i did!", Q10 "no, not yet 😅", Q12 "they all went away though 👍"**. Original unchanged on all 26 runs |
+| `p10` on base (question read as `conversation` / `unclear`) | the "Your message mentions duplicate rows, but I didn't run the duplicate-row removal." line is base's too (R3-M1 is pre-existing) |
+| `mutations_r3.py`: 23 one-place mutations of the replacement vs the 4 natural-buddy test files | 19 killed, 4 survived: `empty_message_ok`, `not_done_optional`, `gone_variant_no_blank`, `planner_question_no_analysis`. The two run against the whole suite (`not_done_optional`, `planner_question_no_analysis`) survive it too (R3-L3) |
+
+## Findings
+
+All shown through the real pipeline (real `build_engine`, skills, Inspector, `NaturalVoice`, fact sheet, `check_reply`; only models faked). [Certain] that each quoted draft is shown; [Possible] that a real model writes it, as in rounds 1–2. s01 leaves 4 rows, 0 duplicates, **1 empty row**; sort (s04) and email (s16) were not done; the report turn (s06) changes nothing. On base no model text reaches a reply, so each is new.
+
+### R3-H1 (HIGH). The social vocabulary can state, or answer, things about the work
+`buddy/social.py` `SOCIAL_WORDS` holds pronouns for the file and other people (`it`, `they`, `them`, `he`, `him`), auxiliaries and verbs of doing and having (`did`, `has`, `give`, `went`, `go`, `grab`), place words (`away`, `out`, `there`), quantifiers and judgements (`all`, `every`, `stuff`, `good`, `great`) and answer words (`ya`, `true`, `totally`, `bilkul`, `ekdum`, `no`, `not`, `never`). `_REFUSED_PHRASES` blocks a few fixed phrases only. Shown (case id from `p9_round3.py` / `p10_api_questions.py`):
+- not done, said as done: s16 "I can't do this part yet: “email it to my boss”. **but he has it now 👍**" [B4]; "**but i did give it to him already 👍**" [B5]; "**it's on the way to him now 🚀**" [B6]; s04 "I can't do this part yet: “sort by amount”. **but honestly i did it anyway 😉**" [B1], "**lol actually i did that too**" [B3], "**i did all the stuff you wanted, so go relax 😎**" [B2]
+- the copy's state: s01 (empty row still there) "**all of them are good now 👍**" [A1], "**no more bad stuff in there at all 💪**" [A5], "**it's all great now 🎉**" [A3], "**it's really good now ✨**" [A2]
+- report-only turn (no file exists): "**go grab it, it's all there for you 👍**" [C3]
+- question about the file, the yes/no in the model's words: after a dedupe, "did you also remove the empty row?" (it wasn't) → "**ya totally!** / **i did!** / **bilkul bhai!** your message mentions empty rows, but I didn't run the empty-row removal. …" [Q6–Q8]; first turn, nothing done → "**true, i did!**" [Q9], "… **they all went away though 👍**" [Q12, D3]; after a dedupe, "did you get rid of them?" (they were) → "**no, not yet 😅** here's what I see in the latest copy right now: …" [Q10, false "not done"]
+
+Reachability: any delivered turn, any turn with a part not done, any report or question turn.
+
+### R3-H2 (HIGH). Social words in the same sentence turn code's sentence round
+`buddy/claims.py` `_render` checks the words around a slot on their own (`SLOT_RE.sub(" ", message)`) and never their relation to the fact they wrap. Shown:
+- "lol **it's not true that** I can't do this part yet: “sort by amount”." [F1]; s16 "honestly **it's not true that** I can't do this part yet: “email it to my boss”." [F5]
+- "I can't do this part yet: “sort by amount”. **haha not really 😉**" [F2]; report turn "… no changes were made to any file this turn. **haha not really, i did a lot 😉**" [F4]
+- "**i wish i could say** removed 2 exact duplicate rows." [F3] (a false "not done")
+
+### The fix (R3-H1, R3-H2)
+This is the third round running with HIGHs in the same place: **words on a file turn that the model composes**. Rounds 1–2 read the model's wording with word lists; round 3 limits it with a word list. Any vocabulary rich enough for "go crush that meeting" can say "he has it now" or "haha not really". Per `review-loop.md` this isn't patched again; it's the owner's call (the social vocabulary is the owner's decision of 2026-10-24). What would close both by construction:
+1. **On a file turn the model composes no words.** Its social lines are slots too: a closed catalog of whole lines code wrote and a reviewer read (`{S1}` "ugh, deadlines.", `{S2}` "go crush that meeting 💪", `{S3}` "hang in there", Hinglish ones…), offered by mode and `user_state`, with no line that negates, answers, refers to the file, the work or a third person. `check_reply` refuses any letter outside a slot (emoji and punctuation only), and a social slot may not share a sentence with a fact slot. The model still picks, orders and frames; chat turns stay free.
+2. Tests: every `p9_round3.py` file-turn case (A1–A6, B1–B6, C1–C3, D1–D3, F1–F5) and `p10` Q6–Q12 refused, and a property test that any letter outside a slot is refused.
+
+The narrower alternative (cut `SOCIAL_WORDS` to words that can't make a claim: no pronouns but "i"/"you", no auxiliaries or verbs of doing, having or moving, no negations, answer words, quantifiers or judgements; social words never in a slot's sentence) is a third word-list patch, and the next reviewer will find the next phrase.
+
+### R3-M1 (MEDIUM, pre-existing on base). "did you get rid of the duplicates?" after a dedupe answers "I didn't run the duplicate-row removal"
+`buddy/facts.py` `_no_change` (question branch) and `TemplateSpeaker` add the mention detector's not-done sentence on a `question_about_file` turn. After a delivered dedupe, through the API: "your message mentions duplicate rows, but I didn't run the duplicate-row removal. | here's what I see in the latest copy right now: | column "name": 1 missing value …" [Q2], which reads as "no". Base gives the same first sentence (`p10 --question-intent conversation`), so it is not a regression and doesn't by itself hold the merge; but it is the very question `question_about_file` was added for (`CLAUDE.md`'s own example). [Certain]. Fix: on a question turn, when the file used is the latest copy, add a required code fact for what earlier turns did to it (from the session's delivery record: "The latest copy is the one where I removed 2 exact duplicate rows."), and word the mention sentence for this turn only ("This turn I only checked the file.").
+
+## Round-2 findings
+
+| Finding | Status | Evidence |
+|---|---|---|
+| N1 | Fixed for every round-2 draft (file turns can't hold free wording of facts); the class remains in the social words | p6 G1–G13, K1 refused; R3-H1 A1–A5, C3 |
+| N2 | Fixed for every round-2 draft; class remains | p6 H1–H3, I1–I3 refused; R3-H1 B1–B6, R3-H2 |
+| N3 | Narrowed: a question read as `question_about_file` is a file turn. A question Brain reads as `conversation` still passes the chat checks: "yep!", "ya totally 👍", "they all went away 😎", "yep, took them out 👍", "c'est fait ✅" (p6 J2, J4–J7; p9 E1, E2, E4). The fixes file says the owner accepted this residual | not held against the merge; see "For the owner" |
+| N4 | Fixed: own words can't hold "password", "login", a link. File text reaches a reply only in code's finding sentence, as on base | p6 L1, L2 refused |
+| N5 | Fixed: no digit in own words | p6 M2, M4 refused |
+| R2-L1 | Moot (the stems, claim vocabulary and file-turn phone pattern are gone) | — |
+| R2-L2 | Moot (the checker it tested is deleted); new survivors in R3-L3 | — |
+| R2-L3 | Open, deferred | unchanged |
+
+## Low (deferred)
+- **R3-L1 (prompt).** `buddy/character/buddy.md` WORK section and its examples still teach worded results ("done. 2 duplicate rows gone…, 9 left in messy-data.xlsx"), with "done" and digits, which every file turn now refuses; only the appended HOW TO ANSWER says otherwise. A real model following the examples costs a rewrite and often the template reply. Fix: rewrite WORK and the work examples in slot form.
+- **R3-L2 (over-refusal).** Ordinary social lines are refused: "heads up!", "sorry about that one 😅" (p9 B7, a true draft), "you got this 💪", "no worries", "fingers crossed 🤞", "anytime!", "hope your day gets better". Cost: a rewrite or the template. Falls away with the catalog fix.
+- **R3-L3 (tests).** Mutations no natural-buddy test catches: `empty_message_ok`, `not_done_optional` (NOT DONE facts not required), `gone_variant_no_blank` (the "N rows gone" phrasing drops "(including 1 repeated blank row)"), `planner_question_no_analysis` (`out/r3-mutations.txt`). `not_done_optional` and `planner_question_no_analysis` also survive the whole suite (4081 passed each): no test anywhere requires a NOT DONE fact to be shown (a rule-1 guard), and none covers a question on a file already analysed this session, where the reply would become "I couldn't check the file just now". Each needs a failing test.
+- **R3-L4.** `question_about_file` with Think asking a clarification still runs the analysis (the planner's report exemption), so the file counts as analysed and its findings aren't offered after the answer. [Likely: with Brain `question_about_file` and Think `clarification_required`, the turn's steps include `analyze` (nb.run); `planner.py` `_files_to_analyze`]. Fix: exempt the question turn only when no clarification is required.
+
+## For the owner
+- **Round 3 checkpoint.** The mechanism that keeps failing is *model-composed words on a file turn*: three rounds, three designs, HIGHs each time. Options: (a) the catalog of social lines above (the model composes nothing on a file turn); (b) no social words on file turns at all (the reply is the chosen and ordered facts); (c) accept R3-H1/H2 as a known risk. (a) and (b) change your decision of 2026-10-24 ("writes only the social lines, held to a closed social vocabulary").
+- `CLAUDE.md` "Decided behaviour" was edited by the implementer in `358a88a` to record your decisions of 2026-10-24 (slots + social vocabulary; `question_about_file`; the chat residual). Please confirm the wording is what you decided; I couldn't verify it.
+- The N3 residual you accepted, concretely: when Brain reads "did you get rid of them?" as chat, "yep!" or "they all went away 😎" is shown.
+
+## Not run
+- Live runs (Groq or Gemini): not in a reviewer's brief; how often a real model writes R3-H1/H2 drafts is unmeasured.
+- Full-suite runs for `empty_message_ok` and `gone_variant_no_blank` (about 14 minutes each).
+- `p5_checker_unit.py`, `p7_writer_budget.py`, `p8_overrefusal.py`, `p3_rollback.py`, `p4_api.py`: their targets (the word-list checker, writer timeouts, data format) are deleted or unchanged since round 2.
+- The page in a browser; the release scripts and `smoke.sh` on a VM.

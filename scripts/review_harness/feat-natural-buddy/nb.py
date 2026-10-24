@@ -69,7 +69,8 @@ def echo(prompt, attempt, conv):
 def fact_ids(prompt):
     import re
 
-    return re.findall(r"^- \[(F\d+)\]", prompt, re.M)
+    # round 1-2 prompt: "- [F1] ..."; round 3: "- F1 (MUST SHOW, ...):"
+    return re.findall(r"^- \[(F\d+)\]", prompt, re.M) or re.findall(r"^- (F\d+) \(", prompt, re.M)
 
 
 class Router(rq.Fake):
@@ -155,7 +156,8 @@ def run(spec: dict, speaker: str, writer=echo, session="session-1") -> dict:
                 writer_calls=len(p.writer_calls), fallback=used["fallback"],
                 writer_shown=bool(p.writer_calls) and not used["fallback"],
                 sheet_turn=(sheet.turn if sheet else None),
-                sheet_facts=[(f.id, f.kind, f.required, f.text, f.file_text) for f in sheet.facts] if sheet else None,
+                sheet_facts=[(f.id, f.kind, f.required, f.text, getattr(f, "file_text", getattr(f, "from_file", None)),
+                              list(getattr(f, "variants", ()))) for f in sheet.facts] if sheet else None,
                 delivered=delivered,
                 steps=[(s.capability.split(".")[-1], s.status) for s in (er.steps if er else ())],
                 failure=(st.failure.stage if st.failure else None),

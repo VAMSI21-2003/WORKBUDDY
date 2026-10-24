@@ -34,3 +34,15 @@ delivered file's facts read with openpyxl, and `orig_unchanged` (SHA-256 before/
     python mutations_r2.py --full NAME ...       # the whole suite, for survivors
 
 Rerun `p2_drafts.py` and `p5_checker_unit.py` too: they hold round 1's cases.
+
+## Round 3 (head `358a88a`: slots + social vocabulary + `question_about_file`)
+
+`nb.py` now reads both Fact shapes (rounds 1-2 `file_text`, round 3 `from_file`/`variants`) and both prompt formats.
+
+    python p9_round3.py --out out/r3-p9.json [--speakers friend] [CASE ...]  # 30 slot drafts + social words x 3 speakers; FALSE drafts SHOWN
+    python p10_api_questions.py --out out/r3-p10.json [CASE ...]             # question_about_file through the HTTP API (reads the latest copy)
+    python p10_api_questions.py --tree /some/dir/base --question-intent conversation   # base: the same questions read as chat / unclear
+    python mutations_r3.py [NAME ...]          # 23 mutations of the replacement vs the 4 natural-buddy test files
+    python mutations_r3.py --full NAME ...     # the whole suite, for survivors
+
+Rerun `p1_ordinary.py` (echo / raise / base), `cmp1.py`, `check_numbers.py`, `p2_drafts.py` and `p6_round2.py` too: earlier rounds' drafts are free text, so on a file turn they must all be refused now.
