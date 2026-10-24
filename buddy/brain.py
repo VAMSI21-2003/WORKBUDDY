@@ -12,6 +12,7 @@ from buddy.actions import (
     ACTION_VOCABULARY,
     CONVERSATION,
     FILE_VOCABULARY,
+    QUESTION_ABOUT_FILE,
     REPORT_ON_FILE,
     UNSUPPORTED,
     brain_ledger,
@@ -249,6 +250,7 @@ INTENT_VOCABULARY = frozenset(
         REPORT_ON_FILE,
         "multi_step_request",
         CONVERSATION,
+        QUESTION_ABOUT_FILE,
         "unclear",
     }
 )
@@ -262,8 +264,11 @@ Classify the user's request into exactly one of the following intents:
   what is in it or what is wrong with it. Nothing is changed.
 - "multi_step_request": the request clearly names more than one distinct action, but is not
   itself ambiguous.
-- "conversation": the user is only greeting you, thanking you, or asking what you can do, and
-  asks for no action on a file.
+- "question_about_file": the user asks about their file or about work you did on it (whether
+  something was done, what is in it, how many rows are left, whether it still has duplicates),
+  and asks for no new action. "did you get rid of them?" and "is the file clean now?" are this.
+- "conversation": the user is only chatting (about anything at all: their day, work, life), greeting
+  you, thanking you, or asking what you can do, and says nothing about their file or work on it.
 - "unclear": the request does not clearly match a known intent, or is too ambiguous to act on.
 
 You are never shown the contents of any uploaded file — only its name — so
@@ -272,7 +277,7 @@ never assume anything about what data a file contains.
 Respond with a single JSON object and nothing else, matching this shape:
 {
   "intent": "remove_duplicate_rows" | "remove_empty_rows" | "report_on_file"
-            | "multi_step_request" | "conversation" | "unclear",
+            | "multi_step_request" | "question_about_file" | "conversation" | "unclear",
   "confidence": <number between 0.0 and 1.0>,
   "referenced_files": [<file names the request refers to, if any>],
   "referenced_work_items": [<task or work item identifiers referred to, if any>],

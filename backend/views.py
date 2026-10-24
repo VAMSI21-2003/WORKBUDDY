@@ -191,6 +191,7 @@ def _turn_fields(
         "outcome": turn.outcome,
         "finished_at": turn.finished_at,
         "reply": turn.reply,
+        "messages": list(turn.reply_messages),
         "reply_source": turn.reply_source,
         "delivered_files": [
             delivered_file(session_id, d, names.get(d.file_id, d.name))

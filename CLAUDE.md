@@ -25,7 +25,7 @@ Any change that could affect either rule counts as rule-touching (see below).
 ## Secrets
 
 - **Never print, log or commit any part of an API key**, not even a prefix or length check.
-- Read keys from the environment: `GROQ_API_KEY` (preferred, free) or `ANTHROPIC_API_KEY`. On the user's Windows machine the Groq key is stored at user scope and is loaded into a command's environment without echoing it, for example in PowerShell:
+- Read keys from the environment: `GROQ_API_KEY` (Brain, Think, the planner; free), `GEMINI_API_KEY` (the reply writer; optional, Groq writes without it) or `ANTHROPIC_API_KEY`. On the user's Windows machine the Groq key is stored at user scope and is loaded into a command's environment without echoing it, for example in PowerShell:
   `$env:GROQ_API_KEY = [Environment]::GetEnvironmentVariable('GROQ_API_KEY','User')`.
   In cloud sessions, `GROQ_API_KEY` is a placeholder and the proxy attaches the real key for `api.groq.com`, so don't try to read the key.
 - `.env` files are git-ignored. Tests use obvious placeholder keys only.
@@ -34,12 +34,13 @@ Any change that could affect either rule counts as rule-touching (see below).
 
 - **Tests:** `python -m pytest -q`. The full suite takes about 150 seconds, so use a command timeout of at least 5 minutes. All LLM calls in tests are faked; no key is needed.
 - **Lint:** `ruff check buddy tests` (line length 100). There are known lint errors already in the tree. Don't add new ones.
-- **Live run:** `python scripts/run_dedupe_manually.py --mode focus --message "<request>"` with `GROQ_API_KEY` set. It runs the real pipeline (`build_engine` with `PersonalityVoice`) on a fresh fixture (`scratch/uploads/manual_report.xlsx`: 6 rows, 2 exact duplicates, 1 empty row), then prints every stage, the reply, an independent check of the delivered file, and the original's hash before and after. `scratch/` and `workspace/outputs/` are git-ignored.
+- **Live run:** `python scripts/run_dedupe_manually.py --mode focus --message "<request>"` with `GROQ_API_KEY` set (and `GEMINI_API_KEY` for the writer, if you have it). It runs the real pipeline (`build_engine` with `NaturalVoice`, the providers the app uses) on a fresh fixture (`scratch/uploads/manual_report.xlsx`: 6 rows, 2 exact duplicates, 1 empty row), then prints every stage, the reply, an independent check of the delivered file, and the original's hash before and after. `scratch/` and `workspace/outputs/` are git-ignored.
 - **Setup:** `pip install -r requirements.txt`. `.xls` reading needs `xlrd`, which isn't installed.
 
 ## Where things live
 
-- **Pipeline:** `buddy/`. A turn runs Eyes → Brain (intent) → Think (reasoning) → Planner → Delegate → Hands (runs skills, chains steps) → Inspector (independent verification) → Voice (the reply). The real wiring is in `buddy/engine_factory.py`.
+- **Pipeline:** `buddy/`. A turn runs Eyes → Brain (intent) → Think (reasoning) → Planner → Delegate → Hands (runs skills, chains steps) → Inspector (independent verification) → Voice (the reply: `buddy/facts.py` writes the facts, `buddy/writer.py` asks the model to choose them and write the social words, `buddy/claims.py` renders and checks it, `buddy/social.py` holds the vocabulary). The real wiring is in `buddy/engine_factory.py` and `backend/main.py`.
+- **Buddy's character:** `buddy/character/buddy.md` (the writer's system prompt; `docs/BUDDY_CHARACTER.md` points to it).
 - **Engine and dispatcher:** `core/`.
 - **Skills:** `skills/` (`skills/excel/`: `dedupe.py`, `remove_empty_rows.py`, `analyze.py`).
 - **Architecture and product docs:** `docs/WORKBUDDY_ARCHITECTURE.md`, `docs/BUDDY_SKILLS.md`, `docs/BUDDY_PERSONALITY.md`.
@@ -49,7 +50,9 @@ Any change that could affect either rule counts as rule-touching (see below).
 
 ## Decided behaviour (don't undo without the user)
 
-- **The Voice model never writes reply text. On a delivered, verified turn, the reply is rendered by code from execution and verifier data, with opener and closer lines chosen by code from a reviewed phrase catalog.**
+- **The model writes Buddy's replies; code writes every fact in them.** (Owner's decisions of 2026-10-23, reversing "the Voice model never writes reply text", and of 2026-10-24, after review round 2 of `feat/natural-buddy`.) The writer model (Gemini 2.5 Flash; Groq when Gemini can't answer or has no key) gets Buddy's character (`buddy/character/buddy.md`), the conversation and the turn's facts (`buddy/facts.py`): sentences code wrote from the Inspector's results, each in a few phrasings. On any turn about a file, the model shows the facts only by their slots (`{F1b}`), in the order and phrasing it chooses, and writes only social words around them, held to a closed vocabulary (`buddy/social.py`: no numbers, no file, row, copy, report or work words, no "yep" or "done"). `buddy/claims.py` renders the slots and refuses a draft that leaves out a required fact or says more than social words. A refused draft is rewritten once with the reasons; if that fails too, the template reply is shown. A turn the fact sheet doesn't cover (a chain that stopped, a check that failed, a stage that raised) keeps the template reply. Rule 1 holds absolutely: no sentence the model wrote states a fact.
+- **Buddy chats about anything.** On a turn Brain reads as `conversation`, the writer answers freely, in character (no slots, no social vocabulary), and the chat checks in `buddy/claims.py` refuse a reply that names a file, counts rows or says something was done; the character's distress guidance applies.
+- **A question about the file is Brain's closed action `question_about_file`** ("did you get rid of them?", "is the file clean now?"). No step changes a file; the analysis of the file the turn reads runs, and the reply is what that check finds, as facts. Owner's decision of 2026-10-24.
 - **Brain intents are a closed vocabulary.** Anything else becomes `unclear`.
 - **Multi-step requests run as a chain,** in the order the user stated. The order is enforced from `source_phrase` positions, using an allowlist of forward connectors. When the order can't be confirmed, the reply says which order ran.
   - The chain stops on any failure, including failed verification, and then nothing is handed back.

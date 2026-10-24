@@ -165,6 +165,8 @@ def test_the_saved_turns_read_back_as_they_were_written(
         assert turn["status"] == "finished"
         assert turn["outcome"] == expected["outcome"]
         assert turn["reply"] == expected["reply"]
+        # A turn saved before replies had messages reads back with its reply as its one message.
+        assert turn["messages"] == expected.get("messages", [expected["reply"]])
         assert turn["detail"]["confirmation"] == expected["confirmation"]
         keys = ("file_id", "name", "size", "sha256")
         # What is saved is unchanged: a delivered file's stored name is its name on disk, with

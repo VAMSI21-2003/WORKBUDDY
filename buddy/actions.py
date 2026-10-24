@@ -251,6 +251,17 @@ def requested_ledger(understanding: Understanding) -> tuple[RequestedAction, ...
 # question about what Buddy can do. Closed vocabulary, like every other intent.
 CONVERSATION = "conversation"
 
+# The intent Brain gives a question about the user's file or the work already done on it ("did
+# you get rid of the duplicates?", "how many rows are left?") that asks for no new action. Closed
+# vocabulary, like every other intent: the reply is the check of the file the turn reads, never a
+# chat answer (owner's decision of 2026-10-24, after review round 2 of feat/natural-buddy).
+QUESTION_ABOUT_FILE = "question_about_file"
+
+
+def asks_about_file(understanding: Understanding) -> bool:
+    """Whether Brain read the message as a question about the file or the work done on it."""
+    return understanding.intent == QUESTION_ABOUT_FILE
+
 
 def asks_for_report(understanding: Understanding) -> bool:
     """Whether Brain's reading of the request includes a report on the file.

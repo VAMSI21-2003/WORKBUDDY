@@ -30,6 +30,7 @@ from tests.backend.helpers import (
     xlsx_bytes,
 )
 from tests.backend.signin_helpers import ALICE, browser, make_idp, signed_in, token_of
+from tests.buddy.writer_fakes import FactEchoWriter
 
 FIXTURES = Path(__file__).parent / "fixtures"
 UPLOAD_NAME = "report.xlsx"
@@ -48,9 +49,12 @@ def sha256_of(path: Path) -> str:
 def write_scenario(data_dir: Path) -> dict[str, Any]:
     """Run the scenario on ``data_dir``; return what the API said, for a manifest."""
     settings = production_settings(data_dir, data_dir=data_dir, rate_limits=RELAXED_LIMITS)
+    # The app's own speaker: the delivered turn's reply is written in several messages (the
+    # fake writer echoes the facts), so the record holds them (``messages``, format 5).
     factory = PipelineFactory(
         QueuedProvider(single("remove_duplicate_rows") + single("remove_empty_rows")),
-        speaker="friend",
+        speaker="natural",
+        writer=FactEchoWriter(),
     )
     idp = make_idp()
     app = create_app(
@@ -89,6 +93,7 @@ def write_scenario(data_dir: Path) -> dict[str, Any]:
                 "message": t["message"],
                 "outcome": t["outcome"],
                 "reply": t["reply"],
+                "messages": t["messages"],
                 "delivered_files": [
                     {k: f[k] for k in ("file_id", "name", "size", "sha256")}
                     for f in t["delivered_files"]

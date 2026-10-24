@@ -28,6 +28,10 @@
             "title": "Message",
             "type": "string"
           },
+          "messages": {
+            "title": "Messages",
+            "type": "null"
+          },
           "mode": {
             "enum": [
               "friend",
@@ -99,6 +103,10 @@
           "message": {
             "title": "Message",
             "type": "string"
+          },
+          "messages": {
+            "title": "Messages",
+            "type": "null"
           },
           "mode": {
             "enum": [
@@ -415,6 +423,14 @@
             "title": "Message",
             "type": "string"
           },
+          "messages": {
+            "description": "The reply as the separate chat messages it is shown as, in order (1 to 3). A turn saved before replies had messages has its reply as its one message.",
+            "items": {
+              "type": "string"
+            },
+            "title": "Messages",
+            "type": "array"
+          },
           "mode": {
             "enum": [
               "friend",
@@ -438,6 +454,7 @@
             "type": "null"
           },
           "reply": {
+            "description": "The reply: its messages, one per line.",
             "title": "Reply",
             "type": "string"
           },
@@ -479,6 +496,7 @@
           "outcome",
           "finished_at",
           "reply",
+          "messages",
           "reply_source"
         ],
         "title": "FinishedTurn",
@@ -502,6 +520,14 @@
             "title": "Message",
             "type": "string"
           },
+          "messages": {
+            "description": "The reply as the separate chat messages it is shown as, in order (1 to 3). A turn saved before replies had messages has its reply as its one message.",
+            "items": {
+              "type": "string"
+            },
+            "title": "Messages",
+            "type": "array"
+          },
           "mode": {
             "enum": [
               "friend",
@@ -525,6 +551,7 @@
             "type": "null"
           },
           "reply": {
+            "description": "The reply: its messages, one per line.",
             "title": "Reply",
             "type": "string"
           },
@@ -566,6 +593,7 @@
           "outcome",
           "finished_at",
           "reply",
+          "messages",
           "reply_source"
         ],
         "title": "FinishedTurnSummary",
@@ -732,6 +760,10 @@
             "title": "Message",
             "type": "string"
           },
+          "messages": {
+            "title": "Messages",
+            "type": "null"
+          },
           "mode": {
             "enum": [
               "friend",
@@ -803,6 +835,10 @@
           "message": {
             "title": "Message",
             "type": "string"
+          },
+          "messages": {
+            "title": "Messages",
+            "type": "null"
           },
           "mode": {
             "enum": [

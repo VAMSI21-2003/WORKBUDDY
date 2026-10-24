@@ -172,6 +172,10 @@ class TurnRecord:
     outcome: str | None = None
     finished_at: datetime | None = None
     reply: str | None = None
+    # The reply as the separate chat messages it is shown as, when there is more than one
+    # (``reply`` is them one per line). Empty for a one-message reply, and for every turn saved
+    # before replies had messages: the reply is then its one message.
+    messages: tuple[str, ...] = ()
     reply_source: str | None = None
     delivered_files: tuple[DeliveredFile, ...] = ()
     detail: dict[str, Any] | None = None
@@ -185,6 +189,13 @@ class TurnRecord:
     @property
     def finished(self) -> bool:
         return self.status == FINISHED
+
+    @property
+    def reply_messages(self) -> tuple[str, ...]:
+        """The reply's chat messages: ``messages``, else the reply as one; ``()`` unfinished."""
+        if self.messages:
+            return self.messages
+        return (self.reply,) if self.reply else ()
 
 
 @dataclass

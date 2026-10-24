@@ -81,7 +81,9 @@ _TURN_KEYS = {
     "status", "outcome", "finished_at", "reply", "reply_source", "delivered_files",
     "detail",
 }
-_TURN_OPTIONAL_KEYS = {"confirmation", "file_used"}
+_TURN_OPTIONAL_KEYS = {"confirmation", "file_used", "messages"}
+# The most messages one reply may have (``buddy.claims.MAX_MESSAGES``).
+MAX_REPLY_MESSAGES = 3
 # A session record's keys. Every server before the conversation repair wrote it without
 # "pending_request"; a record with or without it restores.
 _SESSION_KEYS = {
@@ -279,6 +281,11 @@ class SessionStore:
                 "file_id": used.file_id,
                 "start_over": used.start_over,
             }
+        if turn.finished and len(turn.messages) > 1:
+            # A reply sent as several chat messages. Left out for one message (every reply before
+            # the reply writer was one), so such a record is the same as an older server's, and
+            # that server can still open it.
+            data["messages"] = list(turn.messages)
         path = record.meta_dir(self._settings) / "turns" / f"{turn.turn_id}.json"
         atomic_write_json(path, data)
 
@@ -424,6 +431,7 @@ class SessionStore:
             _check(data["delivered_files"] == [], "turn: files on a running turn")
             _check(confirmation is None, "turn: confirmation on a running turn")
             _check(file_used is None, "turn: file_used on a running turn")
+            _check("messages" not in data, "turn: messages on a running turn")
             return turn
         turn.confirmation = _confirmation(confirmation)
         turn.file_used = file_used
@@ -433,6 +441,7 @@ class SessionStore:
         _check(data["detail"] is None or _valid_detail(data["detail"]), "turn: detail")
         turn.outcome = data["outcome"]
         turn.reply = data["reply"]
+        turn.messages = _messages(data.get("messages"), data["reply"])
         turn.reply_source = data["reply_source"]
         turn.finished_at = _aware(data["finished_at"], "turn: finished_at")
         turn.detail = data["detail"]
@@ -525,6 +534,21 @@ def _confirmation(data: Any) -> ConfirmationOutcome | None:
     _check(data["decision"] in DECISIONS, "turn: confirmation: decision")
     _check(data["decision_source"] in DECISION_SOURCES, "turn: confirmation: decision_source")
     return ConfirmationOutcome(decision=data["decision"], source=data["decision_source"])
+
+
+def _messages(raw: Any, reply: str) -> tuple[str, ...]:
+    """A finished turn's ``messages``: absent (one message, or a record from before replies had
+    messages), or 2 to ``MAX_REPLY_MESSAGES`` non-empty texts that are the reply, one per line."""
+    if raw is None:
+        return ()
+    _check(
+        isinstance(raw, list)
+        and 2 <= len(raw) <= MAX_REPLY_MESSAGES
+        and all(isinstance(m, str) and m.strip() and "\n" not in m for m in raw)
+        and "\n".join(raw) == reply,
+        "turn: messages",
+    )
+    return tuple(raw)
 
 
 def _file_used(data: Any) -> FileUsedRecord | None:

@@ -484,6 +484,102 @@ fieldset:disabled {
   }
 }
 
+/* -- A reply in several messages ---------------------------------------------------------- */
+/* Each message is a bubble of its own. On a turn that has just finished (.fresh), each later
+   message appears after a short typing pause (three dots), one after another. A page that loads
+   a finished turn, and anyone who asks for less motion, sees them all at once. */
+
+.typing {
+  display: none;
+}
+
+.turn.fresh .typing {
+  display: flex;
+  align-self: flex-start;
+  gap: 0.3rem;
+  margin: 0;
+  padding: 0.65rem 0.9rem;
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  background: var(--surface);
+  overflow: hidden;
+  animation: wb-typing 0.9s linear both;
+}
+
+.typing span {
+  width: 0.4rem;
+  height: 0.4rem;
+  border-radius: 50%;
+  background: var(--muted);
+}
+
+.turn.fresh .bubble-buddy.later {
+  overflow: hidden;
+  animation: wb-appear 0.3s ease-out both;
+}
+
+.turn.fresh .typing-2 {
+  animation-delay: 0.3s;
+}
+
+.turn.fresh .message-2 {
+  animation-delay: 1.2s;
+}
+
+.turn.fresh .typing-3 {
+  animation-delay: 1.5s;
+}
+
+.turn.fresh .message-3 {
+  animation-delay: 2.4s;
+}
+
+@keyframes wb-typing {
+  0%,
+  100% {
+    opacity: 0;
+    max-height: 0;
+    padding-block: 0;
+    border-width: 0;
+  }
+  1%,
+  99% {
+    opacity: 1;
+    max-height: 3rem;
+    padding-block: 0.65rem;
+    border-width: 1px;
+  }
+}
+
+@keyframes wb-appear {
+  0% {
+    opacity: 0;
+    max-height: 0;
+    padding-block: 0;
+    border-width: 0;
+  }
+  99% {
+    opacity: 1;
+    max-height: 40rem;
+    padding-block: 0.7rem;
+    border-width: 1px;
+  }
+  100% {
+    opacity: 1;
+    max-height: none;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .turn.fresh .typing {
+    display: none;
+  }
+
+  .turn.fresh .bubble-buddy.later {
+    animation: none;
+  }
+}
+
 /* -- Plan card ----------------------------------------------------------------------------- */
 
 .plan {

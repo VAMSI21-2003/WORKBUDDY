@@ -101,6 +101,8 @@ class TurnView:
     message: str
     status: str
     reply: str | None
+    # The reply's chat messages, in order: one bubble each (``None`` until the turn finishes).
+    messages: tuple[str, ...] | None
     downloads: tuple[DownloadView, ...] | None
     plan: PlanView | None
     poll_delay_s: int
@@ -212,6 +214,7 @@ def turn_view(
             message=turn.message,
             status=FINISHED,
             reply=turn.reply,
+            messages=tuple(turn.messages) or (turn.reply,),
             downloads=download_views(turn, session_id),
             plan=None,
             poll_delay_s=0,
@@ -225,6 +228,7 @@ def turn_view(
         message=turn.message,
         status=AWAITING if pending is not None else RUNNING,
         reply=None,
+        messages=None,
         downloads=None,
         plan=(
             plan_view(pending, now, answer_may_be_lost=answer_may_be_lost)

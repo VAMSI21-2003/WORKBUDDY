@@ -2,8 +2,8 @@
 
 Production calls ``create_app()`` with no arguments: settings come from the
 environment and the engine factory builds the real pipeline
-(``build_engine`` with ``PersonalityVoice``) on an LLM provider made once at
-startup. Tests pass their own settings (a temporary data root) and an engine
+(``build_engine`` with ``NaturalVoice``, the checked reply writer) on the LLM providers made
+once at startup. Tests pass their own settings (a temporary data root) and an engine
 factory backed by a fake provider, and still run the real pipeline.
 """
 
@@ -11,7 +11,6 @@ from __future__ import annotations
 
 import json
 import logging
-import os
 import time
 from collections.abc import AsyncIterator, Callable
 from contextlib import asynccontextmanager
@@ -39,8 +38,8 @@ from backend.turns import EngineFactory, TurnRunner
 from backend.web import mount_web
 from buddy.engine_factory import build_engine
 from buddy.hands import ConfirmationProvider
-from buddy.llm import ClaudeProvider, GroqProvider, LLMConfigurationError, LLMProvider
-from buddy.voice import PersonalityVoice
+from buddy.llm import LLMProvider, build_providers_from_env
+from buddy.writer import NaturalVoice
 from core.engine import Engine
 
 logger = logging.getLogger(__name__)
@@ -53,32 +52,33 @@ class LLMNotConfiguredError(RuntimeError):
 
 
 def build_llm_provider_from_env() -> LLMProvider | None:
-    """The LLM provider, from ``GROQ_API_KEY`` (preferred) or ``ANTHROPIC_API_KEY``.
+    """The provider Brain, Think and the planner use (``build_providers_from_env().reasoning``).
 
-    The key is read only by the provider's own constructor and is never
-    logged, echoed or returned. ``None`` when neither is set: the server
-    still starts, ``/healthz`` says ``llm_configured: false``, and a turn
+    Groq (``GROQ_API_KEY``) first, Gemini (``GEMINI_API_KEY``) when Groq can't answer; either
+    alone when only its key is set; ``ANTHROPIC_API_KEY`` when neither is. Keys are read only by
+    the providers' own constructors and are never logged, echoed or returned. ``None`` when no
+    key is set: the server still starts, ``/healthz`` says ``llm_configured: false``, and a turn
     fails with the fallback reply.
     """
-    try:
-        if os.environ.get("GROQ_API_KEY"):
-            return GroqProvider()
-        if os.environ.get("ANTHROPIC_API_KEY"):
-            return ClaudeProvider()
-    except LLMConfigurationError:
-        logger.warning("An LLM key is set but the provider couldn't be configured")
-    return None
+    return build_providers_from_env().reasoning
 
 
-def production_engine_factory(provider: LLMProvider | None) -> EngineFactory:
-    """The real pipeline, with the per-turn confirmation provider (design Section 3.5)."""
+def production_engine_factory(
+    provider: LLMProvider | None, writer: LLMProvider | None = None
+) -> EngineFactory:
+    """The real pipeline, with the per-turn confirmation provider (design Section 3.5).
+
+    Args:
+        provider: Brain, Think and the planner.
+        writer: The reply writer (``buddy.writer.NaturalVoice``); ``provider`` when not given.
+    """
 
     def factory(confirmation_provider: ConfirmationProvider) -> Engine:
         if provider is None:
             raise LLMNotConfiguredError("no LLM provider is configured")
         return build_engine(
             llm_provider=provider,
-            speaker=PersonalityVoice(provider),
+            speaker=NaturalVoice(writer if writer is not None else provider),
             confirmation_provider=confirmation_provider,
         )
 
@@ -122,9 +122,9 @@ def create_app(
     """
     settings = settings if settings is not None else Settings.from_env()
     if engine_factory is None:
-        provider = build_llm_provider_from_env()
-        engine_factory = production_engine_factory(provider)
-        configured = provider is not None
+        providers = build_providers_from_env()
+        engine_factory = production_engine_factory(providers.reasoning, providers.writer)
+        configured = providers.reasoning is not None
     else:
         configured = True
     if llm_configured is not None:

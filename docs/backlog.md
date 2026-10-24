@@ -491,3 +491,19 @@ Each item has its own acceptance criterion: fixed with a test, or explicitly clo
 - **urgency-tone R1-5 (Low, API):** `HEAD /healthz` answers `content-length: 0` and no `content-type`, where `GET` gives 33 and `application/json`. A checker comparing headers would see a difference; status and bucket match. Return the same headers (`Response(status_code=200, headers={"content-length": "33"})` or a `JSONResponse` with the body dropped).
 - **urgency-tone R1-6 (Low, docs):** `scripts/measure_workbook_check.py`'s new `docker run` (writable `scripts` mount, `--user "$(id -u):$(id -g)"`) was not run (no container runtime in review). The owner's first run on the VM is its test.
 
+
+## From the `feat/natural-buddy` review, round 1 (Low)
+- **natural-buddy R1-L1 (Low, tests):** one-place mutations of the claim checker and the writer survive the branch's new tests (`noun_ignored`, `chat_off`, `internal_off`, `unknown_fact_off`, `shape_off`, `negated_need_any_sentence`, `quote_setaside_all`, `user_number_echo_any`, `file_text_uncapped`, `file_name_not_required`, `writer_is_reasoning`; list and full-suite result in `docs/reviews/feat-natural-buddy-review.md`). Add a failing test for each, starting with `user_number_echo_any` and `quote_setaside_all`. Rerun with `scripts/review_harness/feat-natural-buddy/mutations.py`.
+- **natural-buddy R1-L2 (Low, prompt):** `buddy/character/buddy.md` teaches "so the duplicates stay gone", which the checker refuses on that turn, so the example costs a rewrite. Drop the clause from the example.
+- **natural-buddy R1-L3 (Low, process):** no live runs were done for a change to what the pipeline says. Groq writes when there's no Gemini key, so up to three Groq live runs are possible in a session (`docs/process/review-loop.md`, "Live runs").
+
+## From the `feat/natural-buddy` review, round 2 (Low)
+- **natural-buddy R2-L1 (Low, over-refusal):** true drafts are refused and get the template reply: 4-letter NOT DONE stems ("amou") refuse "the amount column has 1 missing value" on a "sort by amount" turn; "yo" isn't in the claim vocabulary; a file or column name in another script refuses every draft (`_foreign_script` reads names too); an ISO date matches the phone pattern in `_CONTACT_RE`. Moot if the checker is replaced as the round-2 review asks.
+- **natural-buddy R2-L2 (Low, tests):** mutations of the round-1 fixes that no new test catches (list in `docs/reviews/feat-natural-buddy-review.md`, round 2). Rerun with `scripts/review_harness/feat-natural-buddy/mutations_r2.py`.
+- **natural-buddy R2-L3 (Low, deadline):** the writer doesn't know the turn's time left (worst case about 39 s after the work). Pass the time left into `NaturalVoice` and give the template reply below a floor.
+
+## From the `feat/natural-buddy` review, round 3 (Low)
+- **natural-buddy R3-L1 (Low, prompt):** `buddy/character/buddy.md` WORK section and its work examples teach worded results with "done" and digits, which every file turn now refuses (cost: a rewrite, often the template reply). Rewrite them in slot form.
+- **natural-buddy R3-L2 (Low, over-refusal):** ordinary social lines are refused ("heads up!", "sorry about that one", "you got this", "no worries", "fingers crossed", "anytime!"). Falls away if the social words become a catalog of whole lines.
+- **natural-buddy R3-L3 (Low, tests):** mutations no natural-buddy test catches: `empty_message_ok`, `not_done_optional`, `gone_variant_no_blank`, `planner_question_no_analysis` (`scripts/review_harness/feat-natural-buddy/mutations_r3.py`). Add a failing test for each, starting with `not_done_optional` (survives the whole suite, as does `planner_question_no_analysis`).
+- **natural-buddy R3-L4 (Low):** a `question_about_file` turn on which Think asks a clarification still runs the analysis, so the file counts as analysed before the answer. Exempt the question turn from the planner's clarification rule only when no clarification is required.

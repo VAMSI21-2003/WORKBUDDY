@@ -107,6 +107,9 @@ class Finalization:
     commit: bool = False
     # The file the turn worked on (``None`` unless it ran to its end: delivered or not).
     file_used: FileUsedRecord | None = None
+    # The reply's separate messages when there is more than one (``reply`` holds them one per
+    # line); empty for a one-message reply, which every fallback is.
+    messages: tuple[str, ...] = ()
 
 
 @dataclass(frozen=True)
@@ -176,17 +179,36 @@ def decide(
     if not isinstance(reply, str) or not reply.strip():
         logger.error("Turn %s: the pipeline finished without a reply", turn_id)
         return Finalization(FAILED, FALLBACK_PIPELINE_ERROR, PIPELINE_FALLBACK)
+    messages = _messages_of(state)
     if state.failure is not None:
-        return Finalization(FAILED, reply, PIPELINE, detail=turn_detail(state), commit=True)
+        return Finalization(
+            FAILED, reply, PIPELINE, detail=turn_detail(state), commit=True, messages=messages
+        )
     files = delivered_files(state, turn_dir=turn_dir, turn_id=turn_id, now=now)
     if files:
-        return Finalization(DELIVERED, reply, PIPELINE, files, turn_detail(state), commit=True)
+        return Finalization(
+            DELIVERED, reply, PIPELINE, files, turn_detail(state), commit=True, messages=messages
+        )
     if is_verified_delivery(state):
         # The reply says a file was handed back, but the API can't hand it
         # over; the reply would be false, so it is replaced, not sent.
         logger.error("Turn %s: a verified delivery failed the delivery check", turn_id)
         return Finalization(FAILED, FALLBACK_PIPELINE_ERROR, PIPELINE_FALLBACK)
-    return Finalization(NOT_DELIVERED, reply, PIPELINE, detail=turn_detail(state), commit=True)
+    return Finalization(
+        NOT_DELIVERED, reply, PIPELINE, detail=turn_detail(state), commit=True, messages=messages
+    )
+
+
+def _messages_of(state: BuddyState) -> tuple[str, ...]:
+    """The reply's messages when there are several and they are the reply; else ``()``.
+
+    Voice keeps them one per line in ``state.reply``. Anything else (one message, or a reply set
+    some other way) is the reply as one message.
+    """
+    messages = tuple(state.reply_messages)
+    if len(messages) > 1 and "\n".join(messages) == state.reply:
+        return messages
+    return ()
 
 
 def turn_detail(state: BuddyState) -> dict[str, Any]:
@@ -688,6 +710,7 @@ class TurnRunner:
                 logger.exception("Turn %s: the session couldn't record it", turn.turn_id)
             turn.outcome = result.outcome
             turn.reply = result.reply
+            turn.messages = result.messages
             turn.reply_source = result.reply_source
             turn.delivered_files = result.delivered
             turn.detail = result.detail
@@ -751,6 +774,7 @@ class TurnRunner:
             status=FINISHED,
             outcome=result.outcome,
             reply=result.reply,
+            messages=result.messages,
             reply_source=result.reply_source,
             delivered_files=result.delivered,
             detail=result.detail,

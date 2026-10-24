@@ -382,6 +382,10 @@ REPORT_NOT_PRODUCED_SENTENCE = (
 REPORT_LEAD_COPY = "Report on the copy: "
 REPORT_LEAD_ORIGINAL = "Report on your original file: "
 REPORT_LEAD_USED = "Report on the file I worked on: "
+# A question about the file (Brain's ``question_about_file``): the check of the file, as it is now.
+FILE_STATE_LEAD_ORIGINAL = "Here's what I see in your original file right now: "
+FILE_STATE_LEAD_COPY = "Here's what I see in the latest copy right now: "
+FILE_NOT_CHECKED_SENTENCE = "I couldn't check the file just now, so I can't say what's in it."
 
 
 def pick_text(options: tuple[str, ...], seed: str, slot: str) -> str:
