@@ -32,6 +32,7 @@ from buddy.claims import (
 from buddy.engine_factory import build_engine
 from buddy.facts import TURN_CHAT, TURN_DELIVERED, TURN_NO_CHANGE, FactSheet, build_fact_sheet
 from buddy.llm import (
+    WRITER_TIMEOUT_S,
     FallbackProvider,
     GeminiProvider,
     GroqProvider,
@@ -602,7 +603,19 @@ def test_with_only_the_groq_key_groq_does_both(monkeypatch: pytest.MonkeyPatch) 
     _keys(monkeypatch, GROQ_API_KEY="gsk_placeholderTESTONLY")
     providers = build_providers_from_env()
     assert isinstance(providers.reasoning, GroqProvider)
-    assert providers.writer is providers.reasoning
+    assert isinstance(providers.writer, GroqProvider)
+
+
+def test_the_writers_providers_are_quick_and_dont_retry(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Review round 1, M1: a slow writer must not use up a turn whose work was verified."""
+    _keys(monkeypatch, GROQ_API_KEY="gsk_placeholderTESTONLY", GEMINI_API_KEY="gem-placeholder")
+    providers = build_providers_from_env()
+    gemini, groq = providers.writer._primary, providers.writer._secondary  # type: ignore[union-attr]
+    assert isinstance(gemini, GeminiProvider) and isinstance(groq, GroqProvider)
+    assert gemini._timeout == WRITER_TIMEOUT_S
+    assert groq._client.max_retries == 0 and groq._client.timeout == WRITER_TIMEOUT_S
+    reasoning = providers.reasoning._primary  # type: ignore[union-attr]
+    assert reasoning._client.max_retries > 0  # Brain and Think keep the SDK's retries
 
 
 def test_with_no_key_there_is_no_provider(monkeypatch: pytest.MonkeyPatch) -> None:
@@ -726,7 +739,7 @@ def test_the_owners_examples_pass(tmp_path: Path, monkeypatch: pytest.MonkeyPatc
         "heads up, the copy keeps values only. go crush that meeting",
     ]
     assert check_reply(messages, every, sheet, user_message=turn.state.user_message) == ()
-    echo = ["done. 2 duplicates gone in 5 mins flat", f"{UPLOAD}, values only copy"]
+    echo = ["done. 2 duplicates gone. 5 mins, you got this", f"{UPLOAD}, values only copy"]
     assert check_reply(echo, every, sheet, user_message=turn.state.user_message) == ()
 
 

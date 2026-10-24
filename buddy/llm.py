@@ -210,6 +210,7 @@ class GroqProvider:
         api_key: str | None = None,
         model: str = DEFAULT_GROQ_MODEL,
         timeout: float = DEFAULT_REQUEST_TIMEOUT_S,
+        max_retries: int | None = None,
     ) -> None:
         """Initialize the provider.
 
@@ -220,6 +221,8 @@ class GroqProvider:
                 environment variable.
             model: The Groq model to call.
             timeout: Seconds one request may take before it's abandoned.
+            max_retries: How often the SDK retries a failed request itself; ``None`` keeps the
+                SDK's default. The reply writer passes 0: it has its own fallback and budget.
 
         Raises:
             LLMConfigurationError: If no API key is available from either
@@ -228,7 +231,8 @@ class GroqProvider:
         resolved_key = api_key if api_key is not None else os.environ.get("GROQ_API_KEY")
         if not resolved_key:
             raise LLMConfigurationError("GROQ_API_KEY is not set and no api_key was provided.")
-        self._client = groq.Groq(api_key=resolved_key, timeout=timeout)
+        retries = {} if max_retries is None else {"max_retries": max_retries}
+        self._client = groq.Groq(api_key=resolved_key, timeout=timeout, **retries)
         self._model = model
 
     def complete(
@@ -471,22 +475,32 @@ def _chain(
     return first if first is not None else second
 
 
+# Seconds one writer request may take, per provider, with no SDK retries: the reply comes at the
+# end of a turn that may already have used most of its deadline (a large file can take 2 minutes),
+# and the template reply is always there when the writer is slow.
+WRITER_TIMEOUT_S = 12.0
+
+
 def build_providers_from_env() -> Providers:
     """The providers, from the keys in the environment. Keys are read only by the constructors.
 
     ``GROQ_API_KEY`` and ``GEMINI_API_KEY``: Groq reasons and Gemini writes, each falling back to
-    the other. With only one of them, that one does both. With neither, ``ANTHROPIC_API_KEY`` does
-    both (the older setup). With none, both are ``None``.
+    the other. The writer's providers are their own instances, with ``WRITER_TIMEOUT_S`` and no
+    SDK retries, so a slow model costs the turn at most about two such waits per draft. With only
+    one of them, that one does both. With neither, ``ANTHROPIC_API_KEY`` does both (the older
+    setup). With none, both are ``None``.
     """
-    groq = gemini = None
+    groq = gemini = groq_writer = gemini_writer = None
     try:
         if os.environ.get("GROQ_API_KEY"):
             groq = GroqProvider()
+            groq_writer = GroqProvider(timeout=WRITER_TIMEOUT_S, max_retries=0)
     except LLMConfigurationError:
         logger.warning("GROQ_API_KEY is set but the Groq provider couldn't be configured")
     try:
         if os.environ.get("GEMINI_API_KEY"):
             gemini = GeminiProvider()
+            gemini_writer = GeminiProvider(timeout=WRITER_TIMEOUT_S)
     except LLMConfigurationError:
         logger.warning("GEMINI_API_KEY is set but the Gemini provider couldn't be configured")
     if groq is None and gemini is None:
@@ -499,5 +513,5 @@ def build_providers_from_env() -> Providers:
         return Providers(reasoning=None, writer=None)
     return Providers(
         reasoning=_chain(groq, gemini, ("Groq", "Gemini")),
-        writer=_chain(gemini, groq, ("Gemini", "Groq")),
+        writer=_chain(gemini_writer, groq_writer, ("Gemini", "Groq")),
     )

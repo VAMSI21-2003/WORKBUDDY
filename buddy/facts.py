@@ -23,6 +23,7 @@ from dataclasses import dataclass
 from pathlib import Path
 
 from buddy.actions import ACTIONS_BY_CAPABILITY, is_conversation
+from buddy.inspector import NO_ANALYSIS_FINDINGS
 from buddy.models import DUPLICATE_ROWS_TARGET, EMPTY_ROWS_TARGET, FILE_KIND_COPY
 from buddy.outcome import (
     DONE,
@@ -33,6 +34,7 @@ from buddy.outcome import (
     NOT_DONE,
     REPORT_NOT_RUN_SENTENCE,
     VALUES_ONLY_SENTENCE,
+    ActionOutcome,
     OutcomeReport,
     _action_sentence,
     _final_state_sentence,
@@ -49,6 +51,7 @@ from buddy.voice import (
     NO_CHANGES_SENTENCE,
     RECHECK_FAILED_SENTENCE,
     SpeakingRequest,
+    _analysis_describes_final_file,
     _analysis_findings,
     _file_used_sentence,
     _initial_analysis_failed,
@@ -86,7 +89,8 @@ NOUN_DUPLICATE = "duplicate"
 NOUN_EMPTY = "empty"
 NOUN_ROWS = "rows"
 NOUN_FORMULA = "formula"
-NOUN_ANY = "any"  # a fact's number that may be named with any noun (an analysis finding's)
+NOUN_ANY = "any"  # a fact's number with no counted noun: matches a reply's number with none
+NOUN_ISSUES = "issues"  # problems, issues, errors: "no problems left" needs an all-clear check
 NOUN_OTHER = "other"  # a reply's number with none of the nouns above next to it
 
 # Whether a number is what was removed or what is left (``Quantity.phase``).
@@ -127,7 +131,7 @@ _NUMBER_WORDS = (
 ).split()
 
 # The words the checker looks for, per object. Kept here with the facts that need them.
-DUPLICATE_WORDS = r"\b(?:duplicat\w*|dupes?|dups?|dedup\w*|repeat(?:ed|s)?|doubles?)\b"
+DUPLICATE_WORDS = r"\b(?:dupli[ck]\w*|dupes?|dups?|dedup\w*|repeat(?:ed|s)?|doubles?)\b"
 EMPTY_WORDS = r"\b(?:empty|blank)\w*"
 REPORT_WORDS = r"\b(?:report\w*|summar\w*|overview|analys\w*|rundown)\b"
 _INABILITY = r"\b(?:can'?t|cannot|can not|unable|not able|isn'?t something|not something|don'?t)\b"
@@ -161,8 +165,10 @@ class Quantity:
 class Need:
     """What the reply must contain for a required fact to count as said.
 
-    Satisfied when any one alternative matches: ``(pattern, negated)``, where ``negated`` means
-    the match must be in a clause that says "not" (``buddy.claims``).
+    Satisfied when any one alternative matches: ``(pattern, how)``. ``how`` is ``False`` for a
+    match anywhere, ``True`` (``SAID_NOT``) for a match in a sentence that says "not", and
+    ``SAID_UNABLE`` for a match within three words of a firm "not" in the same clause ("I can't
+    sort", "sorting isn't something I can do"; a bare "no" doesn't count). See ``buddy.claims``.
 
     Attributes:
         label: What is missing, in plain words, for the rewrite request and the log.
@@ -171,8 +177,15 @@ class Need:
     """
 
     label: str
-    alternatives: tuple[tuple[str, bool], ...]
+    alternatives: tuple[tuple[str, bool | str], ...]
     case_sensitive: bool = False
+
+
+SAID_NOT = True
+SAID_UNABLE = "unable"
+# Stands for the user's own words for a part that wasn't done, quoted in the reply: the claim
+# checker replaces the quote with it (``buddy.claims``).
+ASKED_TOKEN = "⟦ASKED⟧"
 
 
 @dataclass(frozen=True)
@@ -189,6 +202,13 @@ class Fact:
         needs: What the checker looks for when it is required.
         file_text: Text from the user's file that goes with it (an analysis finding), shown to
             the model only quoted and capped at ``MAX_FILE_TEXT``; ``""`` for none.
+        not_done_words: For a part of the request no skill can do: patterns for its words. Any
+            clause that mentions them must say it wasn't done (``buddy.claims``).
+        asked: The user's own words for that part, which the reply may quote.
+        describes: Its words describe the file or the steps ("the workbook is
+            password-protected", "the steps ran in this order"), so a reply may use them even in a
+            clause the checker would otherwise read as a claim. Only for facts whose text says
+            nothing was done by Buddy beyond what other facts state.
     """
 
     id: str
@@ -199,6 +219,9 @@ class Fact:
     names: tuple[str, ...] = ()
     needs: tuple[Need, ...] = ()
     file_text: str = ""
+    not_done_words: tuple[str, ...] = ()
+    asked: str = ""
+    describes: bool = False
 
 
 @dataclass(frozen=True)
@@ -215,6 +238,10 @@ class FactSheet:
         names: Every file name the reply may use.
         worked_on_copy: The turn worked on a copy handed back earlier (``FileUsed``); ``None``
             when no file was worked on.
+        has_file: The session has a file (a chat turn with one is where a "done" would be
+            believed).
+        all_clear: The check of the file the reply is about found nothing, and nothing asked
+            for is left in it: only then may the reply call the file clean or problem-free.
     """
 
     turn: str
@@ -224,11 +251,13 @@ class FactSheet:
     clear: frozenset[str] = frozenset()
     names: tuple[str, ...] = ()
     worked_on_copy: bool | None = None
+    has_file: bool = True
+    all_clear: bool = False
 
     @property
     def file_work_ran(self) -> bool:
-        """Whether this turn delivered anything a reply could describe as done."""
-        return bool(self.done)
+        """Whether a step changed a file this turn (a report alone changes none)."""
+        return bool(self.done - {OBJECT_REPORT})
 
     def by_id(self) -> dict[str, Fact]:
         return {fact.id: fact for fact in self.facts}
@@ -258,6 +287,42 @@ _NUMBER_IN_TEXT = re.compile(r"(?<![\w.])\d+(?:\.\d+)?")
 def numbers_in(text: str) -> tuple[float, ...]:
     """Every number written in digits in ``text``."""
     return tuple(float(match.group(0)) for match in _NUMBER_IN_TEXT.finditer(text))
+
+
+_COUNTED = (
+    (NOUN_DUPLICATE, re.compile(r"^(?:dupli[ck][\w-]*|dupes?|dups?|repeat(?:ed|s)?)$", re.I)),
+    (NOUN_EMPTY, re.compile(r"^(?:fully-)?(?:empty|blank)[\w-]*$", re.I)),
+    (NOUN_FORMULA, re.compile(r"^formula\w*$", re.I)),
+    (NOUN_ROWS, re.compile(r"^(?:rows?|lines?|entries|entry|records?)$", re.I)),
+)
+_SKIP_BEFORE_COUNTED = frozenset("exact exactly fully more other identical extra".split())
+
+
+def counted_quantities(text: str, phases: tuple[str, ...] = (PHASE_NONE,)) -> tuple[Quantity, ...]:
+    """The numbers in a sentence the code wrote, each with the noun its own words give it.
+
+    "2 rows repeat an earlier row exactly" backs a count of 2 rows, never of 2 duplicate rows;
+    "1 missing value" backs a 1 with no counted noun (``NOUN_ANY``), which only a reply's number
+    with no counted noun may use.
+    """
+    words = re.findall(r"[\w.%-]+", text)
+    quantities: list[Quantity] = []
+    for index, word in enumerate(words):
+        if not _NUMBER_IN_TEXT.fullmatch(word.rstrip("%")):
+            continue
+        noun = NOUN_ANY
+        for following in words[index + 1 : index + 4]:
+            found = next((n for n, regex in _COUNTED if regex.match(following)), None)
+            if found is not None:
+                noun = found
+                break
+            if following.casefold() not in _SKIP_BEFORE_COUNTED:
+                break
+        for phase in phases:
+            quantity = Quantity(float(word.rstrip("%")), noun, phase)
+            if quantity not in quantities:
+                quantities.append(quantity)
+    return tuple(quantities)
 
 
 def _noun_for_target(target: str) -> str:
@@ -349,12 +414,7 @@ def _delivered(request: SpeakingRequest) -> FactSheet:
     if formulas:
         facts = report.original_facts
         assert facts is not None
-        quantities = [
-            Quantity(value, noun)
-            for value in (facts.formula_cells, facts.formula_cells_without_value)
-            if value
-            for noun in (NOUN_FORMULA, NOUN_ANY)
-        ]
+        quantities = list(counted_quantities(" ".join(formulas), (PHASE_NONE, PHASE_LEFT)))
         builder.add(
             KIND_DISCLOSURE,
             " ".join(formulas),
@@ -367,6 +427,7 @@ def _delivered(request: SpeakingRequest) -> FactSheet:
             KIND_DISCLOSURE,
             report.order_used,
             required=True,
+            describes=True,
             needs=(Need("the order the steps ran in", ((r"\border\b", False),)),),
         )
     if request.resumed:
@@ -397,7 +458,16 @@ def _delivered(request: SpeakingRequest) -> FactSheet:
         clear=frozenset(clear),
         names=tuple(builder.names),
         worked_on_copy=worked_on_copy,
+        all_clear=_analysis_describes_final_file(request.verification_result)
+        and not _recheck_failed(request.verification_result)
+        and _nothing_found(open_findings, notes)
+        and not any(m.remaining for m in report.residuals),
     )
+
+
+def _nothing_found(open_findings: tuple[str, ...], notes: list[str] | tuple[str, ...]) -> bool:
+    """The check found nothing: no finding, and its own all-clear note."""
+    return not open_findings and NO_ANALYSIS_FINDINGS in notes
 
 
 def _action_facts(
@@ -433,6 +503,7 @@ def _action_facts(
         if removed == 0:
             # Nothing to remove: the file is measured to have none, but nothing was removed.
             clear.add(noun)
+            quantities.append(Quantity(0, noun, PHASE_LEFT))
         else:
             done.add(noun)
             clear.add(noun)
@@ -459,12 +530,7 @@ def _action_facts(
     for action in report.actions:
         if action.status != NOT_DONE:
             continue
-        builder.add(
-            KIND_NOT_DONE,
-            _not_done_sentence(action),
-            required=True,
-            needs=(_not_done_need(action.capability, action.reason, action.user_phrase),),
-        )
+        _not_done_fact(builder, action)
     if (
         any(
             a.status == NOT_DONE and a.capability not in ACTIONS_BY_CAPABILITY
@@ -475,26 +541,42 @@ def _action_facts(
         builder.add(KIND_STATE, f"I read your request as: {' and '.join(report.brain_reading)}.")
 
 
+def _not_done_fact(builder: _Builder, action: ActionOutcome, *, nothing_done: bool = False) -> None:
+    """A part of the request that wasn't done: the reply must say so, and mustn't say otherwise."""
+    stems = _phrase_stems(action.user_phrase) if action.reason == NO_SKILL else ()
+    builder.add(
+        KIND_NOT_DONE,
+        _not_done_sentence(action, nothing_done=nothing_done),
+        required=True,
+        needs=(_not_done_need(action.capability, action.reason, action.user_phrase),),
+        not_done_words=tuple(rf"\b{re.escape(stem)}" for stem in stems),
+        asked=action.user_phrase if stems else "",
+    )
+
+
 def _not_done_need(capability: str, reason: str | None, user_phrase: str = "") -> Need:
-    """What a reply must say for something that wasn't done: that it wasn't, in a "not" clause."""
+    """What a reply must say for something that wasn't done: that it wasn't, firmly ("I can't
+    sort", "I didn't run the duplicate-row removal"), or the user's quoted words in a sentence
+    that says "not"."""
     if reason == NO_SKILL_UNSURE:
         return Need(
             "that anything beyond what was done wasn't done",
-            ((r"\b(?:beyond|else|more|extra|other|rest|anything)\b", True),),
+            ((r"\b(?:beyond|else|more|extra|other|rest|anything)\b", SAID_NOT),),
         )
     if reason == NO_SKILL:
         stems = _phrase_stems(user_phrase)
         if stems:
             return Need(
-                "that this part wasn't done: " + ", ".join(stems),
-                tuple((rf"\b{re.escape(stem)}", True) for stem in stems),
+                "that this part wasn't done, saying plainly that you can't: " + ", ".join(stems),
+                tuple((rf"\b{re.escape(stem)}", SAID_UNABLE) for stem in stems)
+                + ((re.escape(ASKED_TOKEN), SAID_NOT),),
             )
-        return Need("that part of the request can't be done yet", ((_INABILITY, True),))
+        return Need("that part of the request can't be done yet", ((_INABILITY, SAID_NOT),))
     wording = ACTIONS_BY_CAPABILITY.get(capability)
     noun = _noun_for_target(wording.target) if wording is not None else ""
     if wording is None or not wording.changes_file:
-        return Need("that the report wasn't produced", ((REPORT_WORDS, True),))
-    return Need(f"that the {wording.step} didn't run", ((_words_for(noun), True),))
+        return Need("that the report wasn't produced", ((REPORT_WORDS, SAID_UNABLE),))
+    return Need(f"that the {wording.step} didn't run", ((_words_for(noun), SAID_UNABLE),))
 
 
 def _state_facts(builder: _Builder, report: OutcomeReport, clear: set[str]) -> None:
@@ -593,11 +675,7 @@ def _finding_facts(
             "Something the check of the file noticed (quoted below; it may name a column or a "
             "value from the file).",
             required=required and bool(needs),
-            quantities=tuple(
-                Quantity(n, NOUN_ANY, phase)
-                for n in dict.fromkeys(numbers)
-                for phase in (PHASE_NONE, PHASE_LEFT)
-            ),
+            quantities=counted_quantities(quoted),
             needs=needs,
             file_text=quoted,
         )
@@ -698,12 +776,7 @@ def _nothing_left_sheet(request: SpeakingRequest) -> FactSheet:
     )
     for action in outcome.actions:
         if action.status == NOT_DONE and action.capability != "spreadsheet.analyze":
-            builder.add(
-                KIND_NOT_DONE,
-                _not_done_sentence(action),
-                required=True,
-                needs=(_not_done_need(action.capability, action.reason, action.user_phrase),),
-            )
+            _not_done_fact(builder, action)
     done: set[str] = set()
     if outcome.report_asked:
         findings = _analysis_findings(request)
@@ -721,7 +794,7 @@ def _nothing_left_sheet(request: SpeakingRequest) -> FactSheet:
                 KIND_NOT_DONE,
                 report_unavailable_sentence(outcome) or REPORT_NOT_RUN_SENTENCE,
                 required=True,
-                needs=(Need("that the report wasn't produced", ((REPORT_WORDS, True),)),),
+                needs=(Need("that the report wasn't produced", ((REPORT_WORDS, SAID_UNABLE),)),),
             )
     if request.resumed:
         _resumed_fact(builder)
@@ -733,6 +806,7 @@ def _nothing_left_sheet(request: SpeakingRequest) -> FactSheet:
         clear=frozenset(nouns),
         names=tuple(builder.names),
         worked_on_copy=True,
+        all_clear=_found_nothing_in(request),
     )
 
 
@@ -745,7 +819,7 @@ def _chat(request: SpeakingRequest) -> FactSheet:
     builder.add(KIND_CAN_DO, CAPABILITIES[style])
     if not request.has_file:
         builder.add(KIND_NO_FILE, "No spreadsheet has been uploaded in this chat yet.")
-    return FactSheet(turn=TURN_CHAT, facts=tuple(builder.facts))
+    return FactSheet(turn=TURN_CHAT, facts=tuple(builder.facts), has_file=request.has_file)
 
 
 # -- Nothing ran, and it wasn't a chat ----------------------------------------------------
@@ -782,12 +856,9 @@ def _no_change(request: SpeakingRequest) -> FactSheet:
             KIND_REFUSED,
             refusal,
             required=True,
+            describes=True,
             # The refusal's own numbers ("the workbook has 2 sheets", "Excel 97–2003").
-            quantities=tuple(
-                Quantity(n, NOUN_ANY, phase)
-                for n in dict.fromkeys(numbers_in(refusal))
-                for phase in (PHASE_NONE, PHASE_LEFT)
-            ),
+            quantities=counted_quantities(refusal, (PHASE_NONE, PHASE_LEFT)),
             needs=(Need("that this file can't be worked on", ((_INABILITY, True),)),),
         )
         _no_changes_fact(builder)
@@ -817,12 +888,7 @@ def _no_change(request: SpeakingRequest) -> FactSheet:
             if action.status != NOT_DONE or action.capability == "spreadsheet.analyze":
                 continue
             stated += 1
-            builder.add(
-                KIND_NOT_DONE,
-                _not_done_sentence(action, nothing_done=True),
-                required=True,
-                needs=(_not_done_need(action.capability, action.reason, action.user_phrase),),
-            )
+            _not_done_fact(builder, action, nothing_done=True)
         if stated or not outcome.report_asked:
             if not stated:
                 builder.add(
@@ -860,7 +926,7 @@ def _no_change(request: SpeakingRequest) -> FactSheet:
                 KIND_NOT_DONE,
                 report_unavailable_sentence(outcome) or REPORT_NOT_RUN_SENTENCE,
                 required=True,
-                needs=(Need("that the report wasn't produced", ((REPORT_WORDS, True),)),),
+                needs=(Need("that the report wasn't produced", ((REPORT_WORDS, SAID_UNABLE),)),),
             )
     elif findings is not None and (findings[0] or findings[1]):
         _finding_facts(builder, findings[0], findings[1], required=False)
@@ -869,8 +935,18 @@ def _no_change(request: SpeakingRequest) -> FactSheet:
     if not asked:
         _no_changes_fact(builder)
     return FactSheet(
-        turn=TURN_NO_CHANGE, facts=tuple(builder.facts), done=frozenset(done), names=names
+        turn=TURN_NO_CHANGE,
+        facts=tuple(builder.facts),
+        done=frozenset(done),
+        names=names,
+        all_clear=_found_nothing_in(request),
     )
+
+
+def _found_nothing_in(request: SpeakingRequest) -> bool:
+    """The check of the file the turn read (nothing changed it) passed and found nothing."""
+    findings = _analysis_findings(request)
+    return findings is not None and _nothing_found(findings[0], findings[1])
 
 
 def _understanding_failed_fact(builder: _Builder) -> None:
