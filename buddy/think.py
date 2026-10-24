@@ -338,7 +338,8 @@ rest don't run:
   changes nothing; it only reports. Buddy runs it automatically before other
   work, so never plan for it or ask about it. A request for a report, summary
   or overview of the file is answered with its findings; it needs no question
-  either.
+  either. So is a question about the file or about work already done on it
+  (intent "question_about_file"): never ask for clarification about it.
 
 Set "clarification_required" to true only when the user's answer would
 change what one of these capabilities actually does. If the user asks for

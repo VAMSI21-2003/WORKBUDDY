@@ -10,6 +10,7 @@ from typing import Protocol
 
 from buddy.actions import (
     INTENT_CAPABILITIES,
+    asks_about_file,
     asks_for_report,
     is_conversation,
     report_phrases,
@@ -603,7 +604,9 @@ class Planner:
         if not target_file.lower().endswith(_SUPPORTED_ANALYSIS_EXTENSIONS):
             return (), None
         understanding = state.understanding or Understanding()
-        report_asked = asks_for_report(understanding)
+        # A report, or a question about the file: the reply is the check of the file the turn
+        # reads, so it runs even on a file checked earlier this session.
+        report_asked = asks_for_report(understanding) or asks_about_file(understanding)
         if target_file in state.context.analyzed_files and not report_asked:
             return (), None
         if not report_asked and (

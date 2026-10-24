@@ -41,7 +41,7 @@ def test_a_written_reply_is_its_messages_and_the_reply_is_them_one_per_line(
     assert turn["outcome"] == "delivered"
     assert len(turn["messages"]) == 3
     assert turn["reply"] == "\n".join(turn["messages"])
-    assert turn["messages"][0] == "Removed 2 exact duplicate rows."
+    assert turn["messages"][0] == "removed 2 exact duplicate rows."  # they write in lowercase
     summary = client.get(f"/api/v1/sessions/{session_id}").json()["turns"][0]
     assert summary["messages"] == turn["messages"]
 
@@ -149,3 +149,25 @@ def test_follow_ups_on_the_copy_are_written_and_checked_too(settings: Settings) 
     assert "already has no exact duplicate rows" in turns[2]["messages"][0]
     assert len(turns[2]["messages"]) == 2  # written, not the one-message template reply
     assert len(writer.calls) == 3
+
+
+def test_a_question_after_the_work_is_answered_from_the_check_of_the_latest_copy(
+    settings: Settings,
+) -> None:
+    """ "did you get rid of them?" after a dedupe: Brain's question_about_file. Nothing is changed
+    or handed back; the reply is what the check of the latest copy finds, by code's sentences."""
+    replies = single("remove_duplicate_rows") + single("question_about_file")
+    factory = PipelineFactory(QueuedProvider(replies), speaker="natural", writer=FactEchoWriter())
+    client = TestClient(create_app(settings, factory))
+    session_id = new_session(client, "friend")
+    assert upload(client, session_id, xlsx_bytes()).status_code == 201
+    turns = []
+    for message in ("remove duplicate rows", "did you get rid of them?"):
+        started = start_turn(client, session_id, message)
+        turns.append(wait_finished(client, session_id, started.json()["turn_id"]))
+
+    assert [t["outcome"] for t in turns] == ["delivered", "not_delivered"]
+    answer = " ".join(turns[1]["messages"]).casefold()
+    assert "latest copy" in answer and "repeat an earlier row" not in answer
+    assert "no changes were made" in answer
+    assert turns[1]["delivered_files"] == []

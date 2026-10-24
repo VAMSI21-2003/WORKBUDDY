@@ -1,9 +1,9 @@
 """Fake reply writers for tests: the writer's model, without a network.
 
-``FactEchoWriter`` answers like a careful model: it reads the VERIFIED RESULT in the prompt and
-sends back the code's own sentences for the facts it must say, in up to three messages, citing
-every fact it lists. It is how the API and page tests get a real multi-message reply through the
-real checker. ``ScriptedWriter`` returns set answers in order, for the checker's own tests.
+``FactEchoWriter`` answers like a careful model: it reads the facts in the prompt and shows every
+one it must, by its slot, in up to three messages. It is how the API and page tests get a real
+multi-message reply through the real checker. ``ScriptedWriter`` returns set answers in order,
+and ``PromptWriter`` answers from the prompt, for the checker's own tests.
 """
 
 from __future__ import annotations
@@ -15,49 +15,33 @@ from typing import Any
 
 from buddy.llm import LLMMessage
 
-_FACT_LINE = re.compile(r"^- \[(F\d+)\] (MUST SAY, )?([^:]+): (.*)$")
-_FILE_TEXT_LINE = re.compile(r'^- \[(F\d+)\] (".*")$')
+_FACT_LINE = re.compile(r"^- (F\d+) \((MUST SHOW, )?([^)]*)\):$")
+_SLOT_LINE = re.compile(r"^    \{(F\d+[a-z])\} (.*)$")
 
 
-def file_text_in(prompt: str) -> dict[str, str]:
-    """The quoted FILE TEXT of a writer prompt, by fact id."""
-    found = {}
-    in_section = False
-    for line in prompt.splitlines():
-        if line.startswith("FILE TEXT"):
-            in_section = True
-            continue
-        if in_section:
-            match = _FILE_TEXT_LINE.match(line)
-            if not match:
-                break
-            found[match.group(1)] = json.loads(match.group(2))
-    return found
-
-
-def facts_in(prompt: str) -> list[tuple[str, bool, str, str]]:
-    """``(id, required, kind, text)`` for every fact line of a writer prompt."""
-    found = []
+def facts_in(prompt: str) -> list[tuple[str, bool, str, list[str]]]:
+    """``(id, required, kind, slots)`` for every fact of a writer prompt, in prompt order."""
+    found: list[tuple[str, bool, str, list[str]]] = []
     for line in prompt.splitlines():
         match = _FACT_LINE.match(line)
         if match:
-            found.append((match.group(1), bool(match.group(2)), match.group(3), match.group(4)))
+            found.append((match.group(1), bool(match.group(2)), match.group(3), []))
+            continue
+        slot = _SLOT_LINE.match(line)
+        if slot and found:
+            found[-1][3].append(slot.group(1))
     return found
 
 
 def echo_answer(prompt: str, *, chat_text: str = "hey! good to see you") -> str:
-    """The answer a careful writer gives: the required facts' own sentences, all cited."""
+    """The answer a careful writer gives: every required fact in its first phrasing, in order."""
     facts = facts_in(prompt)
-    quoted = file_text_in(prompt)
-    required = [
-        (fid, quoted[fid] if fid in quoted else text) for fid, must, _kind, text in facts if must
-    ]
-    if not required:
-        return json.dumps({"messages": [chat_text], "facts_used": []})
-    texts = [text for _, text in required]
-    if len(texts) > 3:
-        texts = [texts[0], texts[1], " ".join(texts[2:])]
-    return json.dumps({"messages": texts, "facts_used": [fid for fid, _ in required]})
+    if not facts:
+        return json.dumps({"messages": [chat_text]})
+    slots = [f"{{{fact[3][0]}}}" for fact in facts if fact[1]]
+    if len(slots) > 3:
+        slots = [slots[0], slots[1], " ".join(slots[2:])]
+    return json.dumps({"messages": slots or [chat_text]})
 
 
 class FactEchoWriter:
@@ -92,3 +76,23 @@ class ScriptedWriter:
         if isinstance(answer, BaseException):
             raise answer
         return answer if isinstance(answer, str) else json.dumps(answer)
+
+
+def required_slots(prompt: str) -> list[str]:
+    """The first-phrasing slot of every fact the prompt marks MUST SHOW, as ``{F1a}``."""
+    return [f"{{{fact[3][0]}}}" for fact in facts_in(prompt) if fact[1]]
+
+
+class PromptWriter:
+    """A writer model that answers each call with ``answer(prompt, attempt)``. Records calls."""
+
+    def __init__(self, answer: Any) -> None:
+        self._answer = answer
+        self.calls: list[tuple[str, tuple[LLMMessage, ...]]] = []
+
+    def complete(
+        self, *, system: str, messages: tuple[LLMMessage, ...], max_tokens: int = 1024
+    ) -> str:
+        self.calls.append((system, messages))
+        result = self._answer(messages[0].content, len(self.calls))
+        return result if isinstance(result, str) else json.dumps(result)

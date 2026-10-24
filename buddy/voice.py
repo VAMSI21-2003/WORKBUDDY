@@ -8,7 +8,7 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Protocol
 
-from buddy.actions import INTENT_CAPABILITIES, asks_for_report, is_conversation
+from buddy.actions import INTENT_CAPABILITIES, asks_about_file, asks_for_report, is_conversation
 from buddy.context import ConversationTurn
 from buddy.inspector import FINAL_OUTPUT_CAPABILITY, NO_ANALYSIS_FINDINGS, SKIPPED_FINDING
 from buddy.llm import LLMProvider
@@ -40,6 +40,9 @@ from buddy.state import BuddyState, StageFailure
 from buddy.think import CLARIFY_FAILED, CLARIFY_WHICH_FILE, Reasoning
 from buddy.voice_catalog import (
     CAPABILITIES,
+    FILE_NOT_CHECKED_SENTENCE,
+    FILE_STATE_LEAD_COPY,
+    FILE_STATE_LEAD_ORIGINAL,
     NO_FILE_SENTENCE,
     NOT_UNDERSTOOD_SENTENCE,
     NOTHING_LEFT_TEMPLATE,
@@ -867,7 +870,21 @@ class TemplateSpeaker:
         )
         parts: list[str] = []
         asked = False
-        if reasoning is not None and reasoning.clarification_required:
+        answered = False
+        if asks_about_file(understanding) and not (
+            reasoning is not None and reasoning.clarification_required
+        ):
+            # A question about the file: what the check of it finds now, never a guess.
+            parts.extend(not_done_sentences(outcome, nothing_done=True, include_report=False))
+            findings = _analysis_findings(request)
+            if findings is not None and (findings[0] or findings[1]):
+                on_copy = request.file_used is not None and request.file_used.kind == FILE_KIND_COPY
+                lead = FILE_STATE_LEAD_COPY if on_copy else FILE_STATE_LEAD_ORIGINAL
+                parts.append(_report_text(findings[0], findings[1], lead))
+            else:
+                parts.append(FILE_NOT_CHECKED_SENTENCE)
+            answered = True
+        elif reasoning is not None and reasoning.clarification_required:
             if reasoning.clarification_reason == CLARIFY_FAILED:
                 parts.append(UNDERSTANDING_FAILED_SENTENCE)
             else:
@@ -882,7 +899,9 @@ class TemplateSpeaker:
                 if not stated:
                     parts.append(NOT_UNDERSTOOD_SENTENCE)
                 parts.append(CAPABILITIES[style])
-        if outcome.report_asked:
+        if answered:
+            pass
+        elif outcome.report_asked:
             # Brain's reading asked for a report: the findings of the analysis of the original,
             # labelled as the report, or why there isn't one. Never silent, never a "can't do".
             findings = _analysis_findings(request)
@@ -906,7 +925,11 @@ class TemplateSpeaker:
                 parts.append(f"{NO_CHANGES_FINDINGS_LEAD}{texts}.")
                 if open_findings:
                     parts.append(ANALYSIS_QUESTION)
-        if _initial_analysis_failed(request.verification_result) and not outcome.report_asked:
+        if (
+            _initial_analysis_failed(request.verification_result)
+            and not outcome.report_asked
+            and not answered
+        ):
             parts.append(_initial_analysis_failed_sentence(request))
         if not asked:
             parts.append(NO_CHANGES_SENTENCE)
