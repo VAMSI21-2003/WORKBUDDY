@@ -23,3 +23,14 @@ No key, no network. Run from this folder; raw output goes to `out/` (git-ignored
 `nb.const(answer, ...)` (one answer per attempt; a callable gets the prompt). Each record has the
 messages, `writer_shown` (the draft was shown) vs `fallback` (template), the sheet's turn kind, the
 delivered file's facts read with openpyxl, and `orig_unchanged` (SHA-256 before/after).
+
+## Round 2 (head `e645c84`)
+
+    python p6_round2.py --out out/r2-p6.json [--speakers friend] [CASE ...]  # 36 new drafts x 3 speakers; FALSE drafts SHOWN
+    python why.py s01-dedupe "msg one || msg two" ...                         # the checker's problems for a draft on a scenario's real sheet
+    python p7_writer_budget.py       # real build_providers_from_env vs a local hanging server: how long the writer holds a turn
+    python p8_overrefusal.py         # true drafts the round-1 fixes refuse
+    python mutations_r2.py [NAME ...]            # 30 mutations of the round-1 fixes vs the 4 new test files
+    python mutations_r2.py --full NAME ...       # the whole suite, for survivors
+
+Rerun `p2_drafts.py` and `p5_checker_unit.py` too: they hold round 1's cases.
